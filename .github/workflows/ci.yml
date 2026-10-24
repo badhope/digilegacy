@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # 依赖链要求 ^22.22.2 || ^24.15.0 || >=26；22 线在 Actions 上会解析到最新 22.x，
           # 本地实测 24.14.0 反而不满足，故固定 22 线（LTS + 满足 engines）。
@@ -70,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22.22.2'
           cache: npm
@@ -163,7 +163,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22.22.2'
 
@@ -185,7 +185,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22.22.2'
           cache: npm
