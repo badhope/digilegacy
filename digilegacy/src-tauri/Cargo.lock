@@ -830,7 +830,7 @@ name = "digilegacy"
 version = "0.2.0"
 dependencies = [
  "aes-gcm",
- "base64 0.22.1",
+ "base64 0.23.1",
  "chrono",
  "once_cell",
  "pbkdf2",
