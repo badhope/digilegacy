@@ -888,7 +888,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
  "tauri-plugin-notification",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "uuid",
  "zeroize",
 ]
