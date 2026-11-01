@@ -11,12 +11,49 @@
             {{ t('dashboard.subtitle').split('\n')[0] }}<br>
             {{ t('dashboard.subtitle').split('\n')[1] }}
           </p>
+          <div class="hero-status" role="status">{{ handoverStatus }}</div>
           <div style="margin-top: 16px; display: flex; gap: 12px;">
             <router-link to="/discover" class="btn btn-lg btn-white">{{ t('dashboard.startDiscover') }}</router-link>
             <router-link to="/report" class="btn btn-lg btn-ghost">{{ t('dashboard.viewReport') }}</router-link>
           </div>
         </div>
         <div class="dash-hero-icon" aria-hidden="true"><GlobeOutline /></div>
+      </div>
+    </div>
+
+    <!-- 下一步：定位是「工具包」，首页先回答「现在该做什么」，百分比放在后面 -->
+    <div class="card mb-24 next-step-card" v-if="(stats?.issues?.length ?? 0) === 0 && (stats?.total_assets ?? 0) > 0">
+      <div class="card-title mb-8">{{ t('dashboard.nextStepTitle') }}</div>
+      <p class="text-muted" style="font-size: 13px;">{{ t('dashboard.nextStepReady') }}</p>
+      <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <router-link to="/report" class="btn btn-primary btn-sm">{{ t('dashboard.nextStepReport') }}</router-link>
+        <router-link to="/heir" class="btn btn-secondary btn-sm">{{ t('dashboard.nextStepHeir') }}</router-link>
+      </div>
+    </div>
+    <!-- 待办卡片：百分比只说明「还差多少」，这里说明「差在哪、点哪里」 -->
+    <div class="card mb-32" v-if="(stats?.issues?.length ?? 0) > 0">
+      <div class="card-header">
+        <div>
+          <div class="card-title">{{ t('dashboard.issuesTitle') }}</div>
+          <div class="card-subtitle">{{ t('dashboard.issuesSubtitle') }}</div>
+        </div>
+        <span class="tag tag-warning">{{ stats?.issues?.length ?? 0 }}{{ t('dashboard.issueSuffix') }}</span>
+      </div>
+      <div class="issue-grid">
+        <button
+          v-for="issue in stats?.issues ?? []"
+          :key="issue.key"
+          type="button"
+          class="issue-card"
+          :class="'issue-' + issue.severity"
+          @click="$router.push(issue.target)"
+        >
+          <span class="issue-icon" aria-hidden="true">{{ issueIcon(issue.severity) }}</span>
+          <span class="issue-body">
+            <span class="issue-text">{{ issueText(issue) }}</span>
+            <span class="issue-go">{{ t('dashboard.issueGo') }} →</span>
+          </span>
+        </button>
       </div>
     </div>
 
@@ -99,33 +136,6 @@
       </p>
     </div>
 
-    <!-- 待办卡片：百分比只说明「还差多少」，这里说明「差在哪、点哪里」 -->
-    <div class="card mb-32" v-if="(stats?.issues?.length ?? 0) > 0">
-      <div class="card-header">
-        <div>
-          <div class="card-title">{{ t('dashboard.issuesTitle') }}</div>
-          <div class="card-subtitle">{{ t('dashboard.issuesSubtitle') }}</div>
-        </div>
-        <span class="tag tag-warning">{{ stats?.issues?.length ?? 0 }}{{ t('dashboard.issueSuffix') }}</span>
-      </div>
-      <div class="issue-grid">
-        <button
-          v-for="issue in stats?.issues ?? []"
-          :key="issue.key"
-          type="button"
-          class="issue-card"
-          :class="'issue-' + issue.severity"
-          @click="$router.push(issue.target)"
-        >
-          <span class="issue-icon" aria-hidden="true">{{ issueIcon(issue.severity) }}</span>
-          <span class="issue-body">
-            <span class="issue-text">{{ issueText(issue) }}</span>
-            <span class="issue-go">{{ t('dashboard.issueGo') }} →</span>
-          </span>
-        </button>
-      </div>
-    </div>
-
     <!-- 资产构成：图表比三段文字更快回答「我到底有多少、偏哪一类」 -->
     <div class="card mb-32">
       <div class="card-header">
@@ -141,19 +151,31 @@
       />
     </div>
 
-    <!-- 三类资产 -->
-    <div class="grid grid-3 mb-32">
-      <div class="card">
-        <div class="card-header"><div class="card-title">{{ t('dashboard.property') }}</div><span class="tag tag-property">{{ stats?.property_count ?? 0 }}{{ t('dashboard.itemSuffix') }}</span></div>
-        <p class="text-muted" style="font-size: 13px;">{{ t('dashboard.propertyDesc') }}</p>
+    <!-- 家人视角：持有者要看到的不是后台报表，而是「家人拿到后会看到什么」 -->
+    <div class="card mb-32 handover-preview">
+      <div class="card-header">
+        <div>
+          <div class="card-title">{{ t('dashboard.handoverTitle') }}</div>
+          <div class="card-subtitle">{{ t('dashboard.handoverSub') }}</div>
+        </div>
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">{{ t('dashboard.personality') }}</div><span class="tag tag-personality">{{ stats?.personality_count ?? 0 }}{{ t('dashboard.itemSuffix') }}</span></div>
-        <p class="text-muted" style="font-size: 13px;">{{ t('dashboard.personalityDesc') }}</p>
+      <div class="handover-grid">
+        <div class="handover-item">
+          <strong>{{ stats?.total_assets ?? 0 }}</strong>
+          <span>{{ t('dashboard.handoverAssets') }}</span>
+        </div>
+        <div class="handover-item">
+          <strong>{{ stats?.heir_assigned_count ?? 0 }}</strong>
+          <span>{{ t('dashboard.handoverHeirs') }}</span>
+        </div>
+        <div class="handover-item">
+          <strong>{{ stats?.trigger_ready ? t('dashboard.handoverReady') : t('dashboard.handoverNotReady') }}</strong>
+          <span>{{ t('dashboard.handoverTrigger') }}</span>
+        </div>
       </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">{{ t('dashboard.mixed') }}</div><span class="tag tag-mixed">{{ stats?.mixed_count ?? 0 }}{{ t('dashboard.itemSuffix') }}</span></div>
-        <p class="text-muted" style="font-size: 13px;">{{ t('dashboard.mixedDesc') }}</p>
+      <div style="margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <router-link to="/report" class="btn btn-primary btn-sm">{{ t('dashboard.handoverOpenReport') }}</router-link>
+        <router-link to="/heir" class="btn btn-secondary btn-sm">{{ t('dashboard.handoverOpenGuide') }}</router-link>
       </div>
     </div>
 
@@ -215,6 +237,15 @@ function isDone(count: number | undefined): boolean {
   return total > 0 && (count ?? 0) >= total;
 }
 
+/** 一句话说明当前处于哪一步：空库引导、存在待办、已可交付。 */
+const handoverStatus = computed(() => {
+  const total = stats.value?.total_assets ?? 0;
+  if (total === 0) return t('dashboard.statusEmpty');
+  const issues = stats.value?.issues?.length ?? 0;
+  if (issues > 0) return t('dashboard.statusTodo', { count: issues });
+  return t('dashboard.statusDone');
+});
+
 /** 待办严重度图标：拦路（家人无法执行）、质量缺陷、优化建议。 */
 function issueIcon(severity: string): string {
   if (severity === 'blocker') return '✕';
@@ -242,6 +273,32 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.hero-status {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 13px;
+  font-weight: 500;
+}
+.handover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.handover-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  background: var(--gray-50);
+  border-radius: 10px;
+}
+.handover-item strong { font-size: 20px; color: var(--gray-900); }
+.handover-item span { font-size: 13px; color: var(--gray-600); }
+
 .hero-card {
   /* 浅端压深至 #b45c4a：白字正文（14px）对比度 4.59:1，满足 WCAG AA */
   background: linear-gradient(135deg, #8a4534 0%, #b45c4a 100%);

@@ -53,7 +53,7 @@ fn enable_encryption(password: &str) {
     let salt = crypto::generate_salt();
     let key = crypto::derive_key_bytes(password, &salt);
     let verifier = vault::make_verifier(&key).unwrap();
-    crate::db::set_security_config_db(&b64.encode(salt), &verifier).unwrap();
+    crate::db::set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
     vault::set_key(key);
 }
 
@@ -228,7 +228,7 @@ fn backup_roundtrip_matrix_60_scenarios() {
 
         let json = crate::db::export_backup_json_db().unwrap();
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
-        c.ok(v["version"] == 4, || {
+        c.ok(v["version"] == 5, || {
             format!("备份版本应为 4，实际 {}", v["version"])
         });
         c.ok(
@@ -698,8 +698,8 @@ fn credential_vault_40_scenarios() {
                     )
                     .unwrap();
                 drop(guard);
-                c.ok(raw != secret && raw.starts_with(vault::ENC_PREFIX), || {
-                    "凭据必须以 enc:v1: 密文落库".to_string()
+                c.ok(raw != secret && vault::is_encrypted(&raw), || {
+                    "凭据必须以 enc: 密文落库".to_string()
                 });
             }
 

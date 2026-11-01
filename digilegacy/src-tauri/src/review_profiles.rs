@@ -297,6 +297,7 @@ pub fn all_profiles() -> Vec<ReviewProfile> {
         legal_profile(),
         family_note_profile(),
         asset_profile(),
+        crate::review_heir::heir_comprehension_profile(),
     ]
 }
 
@@ -313,6 +314,14 @@ pub fn items_for(id: &str) -> Option<Vec<ReviewItem>> {
         LEGAL_REVIEW => Some(legal_items()),
         FAMILY_NOTE_REVIEW => Some(family_note_items()),
         ASSET_REVIEW => Some(asset_items()),
+        crate::review_heir::HEIR_COMPREHENSION_REVIEW => {
+            // 该场景审的是「系统生成的交付物」，需要实时报告；
+            // 拿不到报告（锁定态）时返回空集，界面显示「无可审条目」。
+            match crate::db::get_inheritance_report_db() {
+                Ok(report) => Some(crate::review_heir::heir_comprehension_items(&report)),
+                Err(_) => Some(Vec::new()),
+            }
+        }
         _ => None,
     }
 }
@@ -331,6 +340,11 @@ pub fn payload_fields_for(id: &str) -> Vec<String> {
             "资产类别".to_string(),
             "处置方式".to_string(),
             "平台能力标记".to_string(),
+        ],
+        crate::review_heir::HEIR_COMPREHENSION_REVIEW => vec![
+            "执行包正文（平台/处置/继承人/材料/流程）".to_string(),
+            "继承人分配说明".to_string(),
+            "给家人的开头说明".to_string(),
         ],
         POLICY_REVIEW => vec![
             "平台名称".to_string(),
@@ -379,7 +393,7 @@ mod tests {
         assert!(profile_by_id(POLICY_REVIEW).is_some());
     }
 
-    /// 四个场景都已注册，且**同一套管线**服务它们——加场景没有改管线。
+    /// 五个场景都已注册，且**同一套管线**服务它们——加场景没有改管线。
     #[test]
     fn all_scenes_registered_through_one_pipeline() {
         let profiles = all_profiles();
@@ -389,6 +403,7 @@ mod tests {
             LEGAL_REVIEW,
             FAMILY_NOTE_REVIEW,
             ASSET_REVIEW,
+            crate::review_heir::HEIR_COMPREHENSION_REVIEW,
         ] {
             assert!(ids.contains(&want), "场景 {} 未注册", want);
             assert!(items_for(want).is_some(), "场景 {} 没有条目构造器", want);

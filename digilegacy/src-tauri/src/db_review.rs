@@ -89,6 +89,7 @@ fn human_str(v: &HumanVerdict) -> &'static str {
 pub fn append_review_record_db(record: &ReviewRecord) -> Result<(), String> {
     let guard = get_conn()?;
     let conn = guard.as_ref().unwrap();
+    crate::db::ensure_vault_writable_pub(conn)?;
     conn.execute(
         "INSERT INTO review_records (profile_id, item_key, fingerprint, ai_verdict, ai_note, human_verdict, human_note, decided_by, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
@@ -119,6 +120,7 @@ pub fn list_review_records_db(
 ) -> Result<Vec<ReviewRecord>, String> {
     let guard = get_conn()?;
     let conn = guard.as_ref().unwrap();
+    crate::db::ensure_vault_readable_pub(conn)?;
     let mut stmt = conn
         .prepare(
             "SELECT profile_id, item_key, fingerprint, ai_verdict, ai_note, human_verdict, human_note, decided_by, created_at

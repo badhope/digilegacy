@@ -80,3 +80,8 @@ digilegacy/.tmp/
 
 # 挑战杯参赛材料（参赛用途，与开源项目本身分开，不入库）
 挑战杯参赛材料/
+# Playwright 本地浏览器缓存（第二轮 E2E 用系统 Edge 通道，官方下载仅作后备）
+digilegacy/.pw-browsers/
+# tauri 构建产物
+digilegacy/src-tauri/target/
+.aqg/

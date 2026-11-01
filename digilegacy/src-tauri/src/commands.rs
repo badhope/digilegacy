@@ -80,6 +80,9 @@ pub fn get_all_platforms_extended() -> Result<ApiResponse<Vec<PlatformExtended>>
 
 #[command]
 pub fn import_platform_patch(content: String) -> Result<ApiResponse<String>, String> {
+    if let Err(e) = db::ensure_vault_writable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     // 与备份导入同一量级的上限：政策补丁是纯文本 JSON
     if content.len() > 8 * 1024 * 1024 {
         return Ok(ApiResponse::fail("政策补丁过大（上限 8MB）"));
@@ -122,6 +125,9 @@ pub fn platform_patch_status() -> Result<ApiResponse<i64>, String> {
 
 #[command]
 pub fn clear_platform_patch() -> Result<ApiResponse<usize>, String> {
+    if let Err(e) = db::ensure_vault_writable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     db::clear_platform_overrides_db().map(ApiResponse::ok)
 }
 
@@ -600,6 +606,9 @@ pub fn list_review_profiles() -> Result<ApiResponse<Vec<crate::review::ReviewPro
 pub fn list_review_items(
     profile_id: String,
 ) -> Result<ApiResponse<Vec<crate::db::ItemState>>, String> {
+    if let Err(e) = db::ensure_vault_readable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     let Some(items) = crate::review_profiles::items_for(&profile_id) else {
         return Ok(ApiResponse::fail("未知的审核场景"));
     };
@@ -613,6 +622,9 @@ pub fn list_review_items(
 /// 界面用来回答「这个场景还差多少」——没有摘要时用户只能一条条数。
 #[command]
 pub fn review_progress(profile_id: String) -> Result<ApiResponse<serde_json::Value>, String> {
+    if let Err(e) = db::ensure_vault_readable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     let Some(items) = crate::review_profiles::items_for(&profile_id) else {
         return Ok(ApiResponse::fail("未知的审核场景"));
     };
@@ -641,6 +653,9 @@ pub fn run_ai_review(
     profile_id: String,
     limit: Option<usize>,
 ) -> Result<ApiResponse<Vec<crate::db::ItemState>>, String> {
+    if let Err(e) = db::ensure_vault_readable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     let Some(profile) = crate::review_profiles::profile_by_id(&profile_id) else {
         return Ok(ApiResponse::fail("未知的审核场景"));
     };
@@ -758,6 +773,9 @@ pub fn submit_human_review(
     verdict: String,
     note: Option<String>,
 ) -> Result<ApiResponse<()>, String> {
+    if let Err(e) = db::ensure_vault_writable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     let Some(_profile) = crate::review_profiles::profile_by_id(&profile_id) else {
         return Ok(ApiResponse::fail("未知的审核场景"));
     };
@@ -826,6 +844,9 @@ pub fn review_history(
     profile_id: String,
     item_key: String,
 ) -> Result<ApiResponse<Vec<crate::review::ReviewRecord>>, String> {
+    if let Err(e) = db::ensure_vault_readable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     crate::db::list_review_records_db(&profile_id, &item_key).map(ApiResponse::ok)
 }
 
@@ -911,6 +932,7 @@ pub fn ask_assistant(
         None => return Ok(ApiResponse::fail("尚未填写 API Key")),
     };
     let report = db::get_inheritance_report_db()?;
+    let question_trimmed = question.trim().to_string();
     match crate::ai_assist::ask(
         &report,
         &question,
@@ -919,10 +941,108 @@ pub fn ask_assistant(
         &cfg.model,
         crate::report::ReportLocale::parse(locale.as_deref().unwrap_or("zh-CN")),
     ) {
-        Ok(answer) => Ok(ApiResponse::ok_with_msg(
-            answer,
-            "助手已回答（未写入任何数据）",
-        )),
+        Ok(answer) => {
+            // 问答本地留痕：界面可回看与清除。留痕失败不阻断回答本身。
+            if let Err(e) = db::append_ai_chat_db(&question_trimmed, &answer, &cfg.model) {
+                eprintln!("保存问答历史失败: {}", e);
+            }
+            Ok(ApiResponse::ok_with_msg(
+                answer,
+                "助手已回答（仅本地留痕，未写入任何资产数据）",
+            ))
+        }
+        Err(e) => Ok(ApiResponse::fail(&e)),
+    }
+}
+
+/// 流式提问：回答经 Tauri channel 逐字推送到前端。
+///
+/// 与 ask_assistant 相同的安全约束（白名单 payload、占位符拦截、Key 不回传）；
+/// 流结束后把完整问答落一条本地历史。
+#[command]
+pub fn ask_assistant_streaming(
+    question: String,
+    locale: Option<String>,
+    on_delta: tauri::ipc::Channel<String>,
+) -> Result<ApiResponse<String>, String> {
+    let cfg = db::get_assistant_config_db()?;
+    if !cfg.enabled {
+        return Ok(ApiResponse::fail(
+            "助手未启用。本应用不内置任何 AI 服务；如你有 OpenAI 兼容端点，可在「我的档案 → AI 助手」填写地址与 Key",
+        ));
+    }
+    if cfg.endpoint.trim().is_empty() || cfg.model.trim().is_empty() {
+        return Ok(ApiResponse::fail("助手配置不完整（缺端点或模型名）"));
+    }
+    let key = match db::get_assistant_key_plain()? {
+        Some(k) => k,
+        None => return Ok(ApiResponse::fail("尚未填写 API Key")),
+    };
+    let report = db::get_inheritance_report_db()?;
+    let question_trimmed = question.trim().to_string();
+    if question_trimmed.is_empty() {
+        return Ok(ApiResponse::fail("问题不能为空"));
+    }
+    if question_trimmed.chars().count() > 2_000 {
+        return Ok(ApiResponse::fail("问题过长（上限 2000 字符）"));
+    }
+    if crate::report::contains_placeholder(&report) {
+        return Ok(ApiResponse::fail(
+            "当前数据处于加密锁定状态，请先解锁后再使用助手",
+        ));
+    }
+    let payload = crate::ai_assist::preview_payload(&report, &question_trimmed);
+    let user_content = serde_json::to_string_pretty(&payload).unwrap_or_default();
+    let system = crate::ai_assist::system_prompt_pub(crate::report::ReportLocale::parse(
+        locale.as_deref().unwrap_or("zh-CN"),
+    ));
+
+    let mut full = String::new();
+    let result = crate::ai_assist::call_chat_api_streaming(
+        &cfg.endpoint,
+        &key,
+        &cfg.model,
+        system,
+        &user_content,
+        &mut |delta| {
+            full.push_str(delta);
+            // channel 关闭/背压不致命：收完流并落历史
+            let _ = on_delta.send(delta.to_string());
+        },
+    );
+    match result {
+        Ok(()) => {
+            if full.trim().is_empty() {
+                Ok(ApiResponse::fail("模型未返回内容"))
+            } else {
+                if let Err(e) = db::append_ai_chat_db(&question_trimmed, full.trim(), &cfg.model) {
+                    eprintln!("保存问答历史失败: {}", e);
+                }
+                Ok(ApiResponse::ok_with_msg(full.trim().to_string(), "已完成"))
+            }
+        }
+        Err(e) => {
+            // 已输出的部分交还前端展示，不整段丢弃
+            if !full.is_empty() {
+                let _ = on_delta.send(format!("\n\n[中断] {}", e));
+            }
+            Ok(ApiResponse::fail(&e))
+        }
+    }
+}
+
+#[command]
+pub fn list_ai_chat(limit: Option<usize>) -> Result<ApiResponse<Vec<serde_json::Value>>, String> {
+    match db::list_ai_chat_db(limit.unwrap_or(50)) {
+        Ok(rows) => Ok(ApiResponse::ok(rows)),
+        Err(e) => Ok(ApiResponse::fail(&e)),
+    }
+}
+
+#[command]
+pub fn clear_ai_chat() -> Result<ApiResponse<()>, String> {
+    match db::clear_ai_chat_db() {
+        Ok(()) => Ok(ApiResponse::ok_with_msg((), "问答历史已清空")),
         Err(e) => Ok(ApiResponse::fail(&e)),
     }
 }
@@ -931,7 +1051,10 @@ pub fn ask_assistant(
 
 #[command]
 pub fn update_check_in() -> Result<ApiResponse<String>, String> {
-    db::record_check_in_db()?;
+    if let Err(e) = db::ensure_vault_writable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
+    db::record_check_in_internal_db()?;
     let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     Ok(ApiResponse::ok_with_msg(now, "检查完成，状态良好"))
 }
@@ -952,11 +1075,17 @@ pub fn get_dms_status() -> Result<ApiResponse<crate::notify::DmsStatus>, String>
 pub fn get_dms_history(
     app_handle: AppHandle,
 ) -> Result<ApiResponse<Vec<crate::notify::DmsNotification>>, String> {
+    if let Err(e) = db::ensure_vault_readable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     crate::notify::outbox_history(&app_handle, 50).map(ApiResponse::ok)
 }
 
 #[command]
 pub fn set_dead_mans_switch(enabled: bool, interval_days: i64) -> Result<ApiResponse<()>, String> {
+    if let Err(e) = db::ensure_vault_writable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     // 合法区间与前端下拉一致：1 天（测试/特殊场景）到 365 天。
     // 0 或负数会让「到期日」落在过去，第一天就触发三级通知；极端大值等于永不提醒。
     if !(1..=365).contains(&interval_days) {
@@ -1013,16 +1142,21 @@ pub fn set_master_password(
         return Ok(ApiResponse::fail("已设置主密码，暂不支持修改"));
     }
 
-    // v2 盐（自描述前缀）：新装一律 60 万次迭代
-    let salt = crate::crypto::generate_salt_v2();
-    let (salt_bytes, iterations) = crate::crypto::resolve_salt(&salt)?;
-    let key = crate::crypto::derive_key_bytes_v(&password, &salt_bytes, iterations);
+    // v3 盐（Argon2id，参数随盐串自描述）：新装一律 Argon2id。
+    // 保留 PBKDF2 v1/v2 读取路径，旧库升级后仍能解锁。
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt(&password, &salt)?;
     password.zeroize(); // 派生完成后立即擦除明文密码
-    let verifier = crate::vault::make_verifier(&key)?;
-    let (recovery_code, recovery_seal) = crate::recovery::create_recovery_seal(&key)?;
-    db::set_security_config_db(&salt, &verifier)?;
+
+    // 两层密钥：随机 DEK 才是数据密钥，KEK 只负责包裹它。
+    // 改密码从此只需重包裹 DEK（O(1)），且已发出的继承人份额不会失效。
+    let dek = crate::vault::generate_data_key();
+    let wrapped = crate::vault::wrap_data_key(&dek, &kek)?;
+    let verifier = crate::vault::make_verifier(&dek)?;
+    let (recovery_code, recovery_seal) = crate::recovery::create_recovery_seal(&dek)?;
+    db::set_security_config_with_dek_db(&salt, &verifier, &wrapped)?;
     db::set_recovery_seal_db(&recovery_seal)?;
-    crate::vault::set_key(key);
+    crate::vault::set_key(dek);
 
     let encrypted_rows = db::encrypt_existing_data_db()?;
 
@@ -1048,9 +1182,19 @@ pub fn unlock(mut password: String) -> Result<ApiResponse<SecurityStatus>, Strin
         password.zeroize();
         return Ok(ApiResponse::fail("尚未设置主密码"));
     };
-    let (salt_bytes, iterations) = crate::crypto::resolve_salt(&salt_b64)?;
-    let key = crate::crypto::derive_key_bytes_v(&password, &salt_bytes, iterations);
+    let kek = crate::crypto::derive_from_salt(&password, &salt_b64)?;
     password.zeroize(); // 派生完成后立即擦除明文密码
+
+    // 数据密钥的来源：新库从 wrapped_dek 解出；legacy 库密码派生密钥即数据密钥。
+    let wrapped = db::get_wrapped_dek_db()?;
+    let key = if wrapped.is_empty() {
+        kek.clone()
+    } else {
+        match crate::vault::unwrap_data_key(&wrapped, &kek) {
+            Ok(k) => k,
+            Err(_) => return Ok(ApiResponse::fail("主密码错误")),
+        }
+    };
 
     if crate::vault::verify_key(&verifier, &key) {
         crate::vault::set_key(key);
@@ -1134,6 +1278,15 @@ pub fn change_master_password(
 #[command]
 pub fn export_backup(app_handle: AppHandle) -> Result<ApiResponse<String>, String> {
     let json = db::export_backup_json_db()?;
+    let encrypted = serde_json::from_str::<serde_json::Value>(&json)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("tables")
+                .and_then(|tables| tables.get("security_config"))
+                .map(serde_json::Value::is_object)
+        })
+        .unwrap_or(false);
     let app_dir = app_handle
         .path()
         .app_data_dir()
@@ -1141,54 +1294,76 @@ pub fn export_backup(app_handle: AppHandle) -> Result<ApiResponse<String>, Strin
     let dir = app_dir.join("备份");
     std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {}", e))?;
     let name = format!(
-        "归零加密备份_{}.json",
+        "归零{}备份_{}.json",
+        if encrypted { "加密" } else { "明文" },
         chrono::Local::now().format("%Y%m%d_%H%M%S")
     );
     let path = dir.join(name);
     crate::fsutil::write_private(&path, json.as_bytes())
         .map_err(|e| format!("写入备份失败: {}", e))?;
+    let message = if encrypted {
+        "备份已导出（含密文与安全配置，可与其他设备互导）"
+    } else {
+        "明文备份已导出（尚未启用主密码，不提供加密保护）"
+    };
     Ok(ApiResponse::ok_with_msg(
         path.to_string_lossy().to_string(),
-        "备份已导出（含密文与安全配置，可与其他设备互导）",
+        message,
     ))
 }
 
 /// 导入备份的核心策略（纯函数，便于脱离 Tauri 运行时回归）。
 ///
-/// `snapshot_dir` 为 `Some` 时先写一份导入前快照；命令层传应用数据目录，
-/// 测试传 `None`。快照失败不阻断导入——但会出现在返回消息里，不做静默。
+/// `replace` 模式必须先写一份导入前快照；命令层传应用数据目录，测试可传入故障路径。
+/// `merge` 模式只追加备份数据，不依赖快照，保留其非破坏语义。
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn import_backup_response(
     content: &str,
     mode: &str,
     snapshot_dir: Option<&std::path::Path>,
+) -> Result<ApiResponse<String>, String> {
+    import_backup_response_with_password(content, mode, snapshot_dir, None)
+}
+
+pub(crate) fn import_backup_response_with_password(
+    content: &str,
+    mode: &str,
+    snapshot_dir: Option<&std::path::Path>,
+    source_password: Option<&str>,
 ) -> Result<ApiResponse<String>, String> {
     if let Err(e) = validate_backup_content(content) {
         return Ok(ApiResponse::fail(&e));
     }
     let import_mode = db::ImportMode::parse(mode);
 
-    let snapshot = match snapshot_dir {
-        Some(dir) => match db::export_backup_json_db() {
-            Ok(json) => crate::backup::write_pre_import_snapshot(dir, &json)
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_default(),
-            Err(_) => String::new(),
-        },
-        None => String::new(),
+    let snapshot = if import_mode == db::ImportMode::Replace {
+        let Some(dir) = snapshot_dir else {
+            return Ok(ApiResponse::fail(
+                "覆盖导入前快照失败：无法获取应用数据目录",
+            ));
+        };
+        let json = match db::export_backup_json_db() {
+            Ok(json) => json,
+            Err(e) => return Ok(ApiResponse::fail(&format!("覆盖导入前快照导出失败：{}", e))),
+        };
+        match crate::backup::write_pre_import_snapshot(dir, &json) {
+            Ok(path) => Some(path.to_string_lossy().to_string()),
+            Err(e) => return Ok(ApiResponse::fail(&format!("覆盖导入前快照写入失败：{}", e))),
+        }
+    } else {
+        None
     };
 
-    match db::import_backup_json_db_with_mode(content, import_mode) {
+    match db::import_backup_json_db_with_mode_and_password(content, import_mode, source_password) {
         Ok(n) => {
             let mode_label = if import_mode == db::ImportMode::Replace {
                 "覆盖"
             } else {
                 "合并"
             };
-            let snapshot_note = if snapshot.is_empty() {
-                String::new()
-            } else {
-                format!("；导入前快照：{}", snapshot)
-            };
+            let snapshot_note = snapshot
+                .map(|path| format!("；导入前快照：{}", path))
+                .unwrap_or_default();
             Ok(ApiResponse::ok_with_msg(
                 format!(
                     "已按{}模式导入 {} 条资产，请用该备份对应的主密码重新解锁{}",
@@ -1210,10 +1385,21 @@ pub(crate) fn import_backup_response(
 pub fn import_backup(
     content: String,
     mode: Option<String>,
+    source_password: Option<String>,
     app_handle: AppHandle,
 ) -> Result<ApiResponse<String>, String> {
     let dir = app_handle.path().app_data_dir().ok();
-    import_backup_response(&content, mode.as_deref().unwrap_or("merge"), dir.as_deref())
+    let mut password = source_password;
+    let result = import_backup_response_with_password(
+        &content,
+        mode.as_deref().unwrap_or("merge"),
+        dir.as_deref(),
+        password.as_deref(),
+    );
+    if let Some(password) = password.as_mut() {
+        password.zeroize();
+    }
+    result
 }
 
 #[command]
@@ -1284,24 +1470,23 @@ pub fn complete_recovery(
         return Ok(ApiResponse::fail("解锁状态异常"));
     };
 
-    // v2 盐与迭代数；恢复封印必须封住"新数据密钥"（数据即将被重加密到 key_new）
-    let salt_new = crate::crypto::generate_salt_v2();
-    let (salt_new_bytes, iterations) = crate::crypto::resolve_salt(&salt_new)?;
-    let key_new = crate::crypto::derive_key_bytes_v(&new_password, &salt_new_bytes, iterations);
+    // 恢复重设沿用恢复码解出的同一把数据密钥：只换 KEK 与恢复封印，不碰任何字段。
+    let salt_new = crate::crypto::generate_salt_v3();
+    let kek_new = crate::crypto::derive_from_salt(&new_password, &salt_new)?;
     new_password.zeroize();
     confirm_password.zeroize();
-    let verifier_new = crate::vault::make_verifier(&key_new)?;
-    let (recovery_code_new, recovery_seal_new) = crate::recovery::create_recovery_seal(&key_new)?;
+    let verifier_new = crate::vault::make_verifier(&master_key)?;
+    let (recovery_code_new, recovery_seal_new) =
+        crate::recovery::create_recovery_seal(&master_key)?;
 
     db::reset_security_config_db(
         &salt_new,
         &verifier_new,
         &recovery_seal_new,
         &master_key,
-        &key_new,
+        &kek_new,
     )?;
-    // 重加密完成后会话密钥切换为新密钥，保证当前解锁态下数据立即可读
-    crate::vault::set_key(key_new);
+    crate::vault::set_key(master_key);
 
     Ok(ApiResponse::ok_with_msg(
         recovery_code_new,
@@ -1405,6 +1590,9 @@ pub fn set_heartbeat_config(
     token: String,
     endpoint: String,
 ) -> Result<ApiResponse<()>, String> {
+    if let Err(e) = db::ensure_vault_writable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
     let (_, current_token, _) = db::get_heartbeat_config_db()?;
     let next_token = if token.trim().is_empty() {
         current_token
@@ -1543,6 +1731,246 @@ pub fn open_external(url: String) -> Result<ApiResponse<()>, String> {
     Ok(ApiResponse::ok_with_msg((), "已在浏览器打开"))
 }
 
+// ========== 继承人恢复包（Shamir 3-of-5） ==========
+
+/// 生成继承人恢复包：份额写入打印友好的 HTML，元数据（不含份额）落库。
+#[command]
+pub fn generate_heir_recovery_kit(
+    app_handle: AppHandle,
+    threshold: u8,
+    total: u8,
+    passphrase: Option<String>,
+) -> Result<ApiResponse<crate::heir_recovery::KitResult>, String> {
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("获取目录失败: {}", e))?;
+    let dir = app_dir.join("继承人恢复包");
+    let mut pass = passphrase;
+    let result = crate::heir_recovery::generate_kit(threshold, total, pass.as_deref(), &dir);
+    if let Some(p) = pass.as_mut() {
+        p.zeroize();
+    }
+    match result {
+        Ok((kit, _html)) => Ok(ApiResponse::ok_with_msg(
+            kit,
+            "恢复包已生成，请分发给不同保管人",
+        )),
+        Err(e) => Ok(ApiResponse::fail(&e)),
+    }
+}
+
+#[command]
+pub fn heir_recovery_status() -> Result<ApiResponse<serde_json::Value>, String> {
+    crate::heir_recovery::status()
+        .map(|v| ApiResponse::ok(v.unwrap_or(serde_json::json!({"exists": false, "stale": false}))))
+}
+
+/// 恢复演练：只读校验（不重建、不落盘、不改变解锁状态）。
+#[command]
+pub fn run_recovery_drill(
+    shares: Vec<String>,
+    passphrase: Option<String>,
+) -> Result<ApiResponse<crate::heir_recovery::DrillResult>, String> {
+    if shares.len() > crate::heir_recovery::MAX_SHARES as usize {
+        return Ok(ApiResponse::fail("份额数量超出上限"));
+    }
+    if shares.iter().any(|s| s.len() > 4096) {
+        return Ok(ApiResponse::fail("份额长度超出上限"));
+    }
+    let mut pass = passphrase;
+    let result = crate::heir_recovery::run_drill_with_passphrase(&shares, pass.as_deref());
+    if let Some(value) = pass.as_mut() {
+        value.zeroize();
+    }
+    result.map(ApiResponse::ok)
+}
+
+#[command]
+pub fn clear_heir_recovery() -> Result<ApiResponse<()>, String> {
+    if let Err(e) = db::ensure_vault_writable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
+    crate::heir_recovery::clear_meta().map(|_| ApiResponse::ok_with_msg((), "恢复包元数据已清除"))
+}
+
+/// 用份额解锁（失能场景下由家人在新机器上执行）。
+#[command]
+pub fn unlock_with_recovery_shares(
+    shares: Vec<String>,
+    passphrase: Option<String>,
+) -> Result<ApiResponse<SecurityStatus>, String> {
+    if shares.is_empty() {
+        return Ok(ApiResponse::fail("请至少提供一份份额"));
+    }
+    if shares.iter().any(|s| s.len() > 4096)
+        || shares.len() > crate::heir_recovery::MAX_SHARES as usize
+    {
+        return Ok(ApiResponse::fail("份额数量或长度超出上限"));
+    }
+    let mut pass = passphrase;
+    let result = crate::heir_recovery::recover_from_shares(&shares, pass.as_deref());
+    if let Some(p) = pass.as_mut() {
+        p.zeroize();
+    }
+    match result {
+        Ok(msg) => Ok(ApiResponse::ok_with_msg(
+            SecurityStatus {
+                has_master_password: true,
+                unlocked: true,
+            },
+            &msg,
+        )),
+        Err(e) => Ok(ApiResponse::fail(&e)),
+    }
+}
+
+// ========== KDBX 长期归档导出 ==========
+
+/// 导出 KDBX 4 归档：家人用 KeePassXC 即可打开，脱离本应用仍可读。
+#[command]
+pub fn export_kdbx_archive(
+    app_handle: AppHandle,
+    archive_password: String,
+) -> Result<ApiResponse<String>, String> {
+    use crate::report::ReportLocale;
+    // ReportLocale::parse 自带回退（未知值 → Zh），无需再包一层
+    let locale =
+        ReportLocale::parse(&std::env::var("DIGILEGACY_LOCALE").unwrap_or_else(|_| "zh-CN".into()));
+    db::ensure_vault_readable_db()?;
+    let report = db::get_inheritance_report_db()?;
+    let hints = db::get_custody_hints_db().unwrap_or_default();
+    let mut pass = archive_password;
+    let result = crate::kdbx_export::export_kdbx(
+        &report,
+        locale,
+        &hints.backup_location,
+        &hints.recovery_code_location,
+        pass.trim(),
+    );
+    pass.zeroize();
+    match result {
+        Ok(bytes) => {
+            let app_dir = app_handle
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("获取目录失败: {}", e))?;
+            let dir = app_dir.join("KDBX归档");
+            std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {}", e))?;
+            let path = dir.join(format!(
+                "归零继承归档_{}.kdbx",
+                chrono::Local::now().format("%Y%m%d_%H%M%S")
+            ));
+            crate::fsutil::write_private(&path, &bytes)
+                .map_err(|e| format!("写入归档失败: {}", e))?;
+            Ok(ApiResponse::ok_with_msg(
+                path.to_string_lossy().to_string(),
+                "KDBX 归档已导出（可用 KeePassXC 打开）",
+            ))
+        }
+        Err(e) => Ok(ApiResponse::fail(&e)),
+    }
+}
+
+// ========== 内置 Agent（受限本地工具循环） ==========
+
+fn agent_config_and_key() -> Result<(crate::ai_assist::AssistantConfig, String), String> {
+    let cfg = db::get_assistant_config_db()?;
+    if !cfg.enabled {
+        return Err("助手未启用。请先在「我的档案 → AI 助手」配置用户自有端点".to_string());
+    }
+    if cfg.endpoint.trim().is_empty() || cfg.model.trim().is_empty() || !cfg.has_key {
+        return Err("助手配置不完整（缺端点、模型名或 API Key）".to_string());
+    }
+    let key = db::get_assistant_key_plain()?.ok_or("尚未填写 API Key")?;
+    Ok((cfg, key))
+}
+
+fn run_agent_inner(
+    task: String,
+    on_event: Option<tauri::ipc::Channel<crate::agent::AgentEvent>>,
+) -> Result<crate::agent::AgentOutcome, String> {
+    if task.trim().is_empty() {
+        return Err("任务描述不能为空".to_string());
+    }
+    if task.chars().count() > 2_000 {
+        return Err("任务描述过长（上限 2000 字符）".to_string());
+    }
+    let (cfg, key) = agent_config_and_key()?;
+    let report = db::get_inheritance_report_db()?;
+    if crate::report::contains_placeholder(&report) {
+        return Err("当前数据处于加密锁定状态，请先解锁后再使用 Agent".to_string());
+    }
+    match on_event {
+        Some(channel) => crate::agent::run_task_with_events(
+            &task,
+            &cfg.endpoint,
+            &key,
+            &cfg.model,
+            move |event| {
+                let _ = channel.send(event);
+            },
+        ),
+        None => crate::agent::run_task(&task, &cfg.endpoint, &key, &cfg.model),
+    }
+}
+
+#[command]
+pub async fn run_agent_task(
+    task: String,
+) -> Result<ApiResponse<crate::agent::AgentOutcome>, String> {
+    let result = tauri::async_runtime::spawn_blocking(move || run_agent_inner(task, None))
+        .await
+        .map_err(|e| format!("Agent 工作线程异常: {}", e))?;
+    result
+        .map(ApiResponse::ok)
+        .or_else(|e| Ok(ApiResponse::fail(&e)))
+}
+
+/// 运行受限本地 Agent。事件经 Channel 推给前端，最终结果仍以 ApiResponse 返回。
+#[command]
+pub async fn run_agent_task_streaming(
+    task: String,
+    on_event: tauri::ipc::Channel<crate::agent::AgentEvent>,
+) -> Result<ApiResponse<crate::agent::AgentOutcome>, String> {
+    let result =
+        tauri::async_runtime::spawn_blocking(move || run_agent_inner(task, Some(on_event)))
+            .await
+            .map_err(|e| format!("Agent 工作线程异常: {}", e))?;
+    result
+        .map(ApiResponse::ok)
+        .or_else(|e| Ok(ApiResponse::fail(&e)))
+}
+
+// ========== IMAP 入站签到（回邮件 = 我还安好） ==========
+
+#[command]
+pub fn get_imap_config() -> Result<ApiResponse<crate::imap_checkin::ImapConfig>, String> {
+    crate::imap_checkin::get_config().map(ApiResponse::ok)
+}
+
+#[command]
+pub fn set_imap_config(
+    config: crate::imap_checkin::ImapConfig,
+    password: Option<String>,
+) -> Result<ApiResponse<()>, String> {
+    if let Err(e) = db::ensure_vault_writable_db() {
+        return Ok(ApiResponse::fail(&e));
+    }
+    let mut pass = password;
+    let result = crate::imap_checkin::set_config(&config, pass.as_deref());
+    if let Some(p) = pass.as_mut() {
+        p.zeroize();
+    }
+    result.map(|_| ApiResponse::ok_with_msg((), "IMAP 签到配置已保存"))
+}
+
+/// 手动触发一次收件箱轮询（后台循环每 30 分钟也会跑）。
+#[command]
+pub fn poll_imap_checkin() -> Result<ApiResponse<crate::imap_checkin::ImapCheckResult>, String> {
+    Ok(ApiResponse::ok(crate::imap_checkin::poll_once()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1627,7 +2055,7 @@ mod tests {
             use base64::{engine::general_purpose::STANDARD as b64, Engine as _};
             b64.encode(salt)
         };
-        db::set_security_config_db(&salt_b64, &verifier).unwrap();
+        db::set_security_config_with_dek_db(&salt_b64, &verifier, "").unwrap();
         crate::vault::set_key(key);
         db::encrypt_existing_data_db().unwrap();
 
@@ -1692,6 +2120,125 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    #[test]
+    fn replace_import_aborts_when_pre_snapshot_export_fails() {
+        let _g = crate::vault::test_lock();
+        crate::vault::clear_key();
+        let path = std::env::temp_dir().join(format!(
+            "digilegacy_cmd_imp_snapshot_export_{}.db",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        db::init_database_at(path.clone()).unwrap();
+
+        let req = crate::models::AssetRequest {
+            platform_id: 1,
+            account_identifier: "keep-me".to_string(),
+            account_description: String::new(),
+            category: "property".to_string(),
+            estimated_value: Some(9.0),
+            disposal_method: "inherit".to_string(),
+            heir_name: Some("王五".to_string()),
+            heir_contact: None,
+            notes: String::new(),
+        };
+        db::add_asset_db(&req).unwrap();
+        {
+            let guard = db::get_conn().unwrap();
+            let conn = guard.as_ref().unwrap();
+            conn.execute("DROP TABLE review_records", []).unwrap();
+        }
+        assert!(
+            db::export_backup_json_db().is_err(),
+            "测试必须先证明导出快照会失败"
+        );
+
+        let backup = serde_json::json!({
+            "app": "digilegacy",
+            "version": 1,
+            "tables": {
+                "digital_assets": [],
+                "user_profile": [],
+                "check_in_log": [],
+                "dms_config": null,
+                "security_config": null
+            }
+        })
+        .to_string();
+        let snapshot_dir = std::env::temp_dir().join(format!(
+            "digilegacy_cmd_imp_snapshot_export_dir_{}",
+            std::process::id()
+        ));
+        let res = import_backup_response(&backup, "replace", Some(&snapshot_dir)).unwrap();
+        assert!(!res.success, "导出快照失败时覆盖导入必须失败");
+        assert!(res.message.contains("快照"), "失败原因必须指出快照失败");
+
+        let assets = db::get_all_assets_db().unwrap();
+        assert_eq!(assets.len(), 1, "导出快照失败不得清空既有数据");
+        assert_eq!(assets[0].account_identifier, "keep-me");
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_dir_all(&snapshot_dir);
+    }
+
+    #[test]
+    fn replace_import_aborts_when_pre_snapshot_write_fails() {
+        let _g = crate::vault::test_lock();
+        crate::vault::clear_key();
+        let path = std::env::temp_dir().join(format!(
+            "digilegacy_cmd_imp_snapshot_write_{}.db",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        db::init_database_at(path.clone()).unwrap();
+
+        let req = crate::models::AssetRequest {
+            platform_id: 1,
+            account_identifier: "keep-me".to_string(),
+            account_description: String::new(),
+            category: "property".to_string(),
+            estimated_value: Some(9.0),
+            disposal_method: "inherit".to_string(),
+            heir_name: Some("王五".to_string()),
+            heir_contact: None,
+            notes: String::new(),
+        };
+        db::add_asset_db(&req).unwrap();
+
+        let snapshot_path = std::env::temp_dir().join(format!(
+            "digilegacy_cmd_imp_snapshot_file_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&snapshot_path);
+        std::fs::write(&snapshot_path, b"not-a-directory").unwrap();
+
+        let backup = serde_json::json!({
+            "app": "digilegacy",
+            "version": 1,
+            "tables": {
+                "digital_assets": [],
+                "user_profile": [],
+                "check_in_log": [],
+                "dms_config": null,
+                "security_config": null
+            }
+        })
+        .to_string();
+        let res = import_backup_response(&backup, "replace", Some(&snapshot_path)).unwrap();
+        assert!(!res.success, "写入快照失败时覆盖导入必须失败");
+        assert!(
+            res.message.contains("快照") && res.message.contains("写入"),
+            "失败原因必须指出快照写入失败"
+        );
+
+        let assets = db::get_all_assets_db().unwrap();
+        assert_eq!(assets.len(), 1, "写入快照失败不得清空既有数据");
+        assert_eq!(assets[0].account_identifier, "keep-me");
+
+        let _ = std::fs::remove_file(&snapshot_path);
+        let _ = std::fs::remove_file(&path);
+    }
+
     /// 平台补丁导入：超过 8MB 上限必须在解析前拒绝（防内存/CPU 放大）。
     #[test]
     fn import_platform_patch_rejects_oversized() {
@@ -1710,6 +2257,58 @@ mod tests {
             res.message
         );
 
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn locked_public_recovery_and_patch_commands_fail_closed() {
+        let _g = crate::vault::test_lock();
+        crate::vault::clear_key();
+        let path = std::env::temp_dir().join(format!(
+            "digilegacy_cmd_locked_public_mutations_{}.db",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        db::init_database_at(path.clone()).unwrap();
+
+        let salt = crate::crypto::generate_salt();
+        let key = crate::crypto::derive_key_bytes("locked-command-test", &salt);
+        let verifier = crate::vault::make_verifier(&key).unwrap();
+        let salt_b64 = {
+            use base64::{engine::general_purpose::STANDARD as b64, Engine as _};
+            b64.encode(salt)
+        };
+        db::set_security_config_with_dek_db(&salt_b64, &verifier, "").unwrap();
+        crate::vault::clear_key();
+
+        let patch = serde_json::json!({
+            "app": "digilegacy",
+            "platforms": [{
+                "id": 9001,
+                "name": "Locked patch",
+                "category": "property"
+            }]
+        })
+        .to_string();
+        let imported = import_platform_patch(patch).unwrap();
+        assert!(!imported.success, "锁定态导入政策补丁必须失败");
+        assert!(imported.message.contains("锁定状态") || imported.message.contains("解锁"));
+        assert_eq!(db::count_platform_overrides_db().unwrap(), 0);
+
+        let cleared_patch = clear_platform_patch().unwrap();
+        assert!(!cleared_patch.success, "锁定态清除政策补丁必须失败");
+        assert!(
+            cleared_patch.message.contains("锁定状态") || cleared_patch.message.contains("解锁")
+        );
+
+        let cleared_recovery = clear_heir_recovery().unwrap();
+        assert!(!cleared_recovery.success, "锁定态清除恢复包必须失败");
+        assert!(
+            cleared_recovery.message.contains("锁定状态")
+                || cleared_recovery.message.contains("解锁")
+        );
+
+        crate::vault::clear_key();
         let _ = std::fs::remove_file(&path);
     }
 
@@ -1740,6 +2339,13 @@ mod tests {
         }
 
         // 合法 → 保存成功，且读取一致
+        let salt = crate::crypto::generate_salt_v3();
+        let kek = crate::crypto::derive_from_salt("heartbeat-test-password", &salt).unwrap();
+        let dek = crate::vault::generate_data_key();
+        let wrapped = crate::vault::wrap_data_key(&dek, &kek).unwrap();
+        let verifier = crate::vault::make_verifier(&dek).unwrap();
+        db::set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+        crate::vault::set_key(dek);
         let r = set_heartbeat_config(
             true,
             "tok-1".to_string(),
@@ -1874,9 +2480,10 @@ mod tests {
 
         let salt = crate::crypto::generate_salt();
         let key = crate::crypto::derive_key_bytes("right-pw", &salt);
-        db::set_security_config_db(
+        db::set_security_config_with_dek_db(
             &b64.encode(salt),
             &crate::vault::make_verifier(&key).unwrap(),
+            "",
         )
         .unwrap();
 
@@ -1960,12 +2567,12 @@ mod tests {
         let salt = crate::crypto::generate_salt();
         let key = crate::crypto::derive_key_bytes("unlock-master-1", &salt);
         let verifier = crate::vault::make_verifier(&key).unwrap();
-        db::set_security_config_db(&b64.encode(salt), &verifier).unwrap();
+        db::set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
         crate::vault::clear_key();
 
         // 错误密码
         let r = unlock("wrong-password".to_string()).unwrap();
-        assert!(!r.success);
+        assert!(!r.success, "旧实现 message 应非空");
         assert_eq!(r.message, "主密码错误");
         assert!(!crate::vault::is_unlocked(), "错误密码不得留下密钥");
 
@@ -2001,7 +2608,7 @@ mod tests {
             let salt = crate::crypto::generate_salt();
             let key = crate::crypto::derive_key_bytes("rec-master-1", &salt);
             let verifier = crate::vault::make_verifier(&key).unwrap();
-            db::set_security_config_db(&b64.encode(salt), &verifier).unwrap();
+            db::set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
         }
         let master = [5u8; 32];
         let (code, seal) = crate::recovery::create_recovery_seal(&master).unwrap();
@@ -2464,5 +3071,74 @@ mod tests {
         let _ = std::fs::remove_file(
             std::env::temp_dir().join(format!("digilegacy_cmd_std_{}.db", std::process::id())),
         );
+    }
+
+    #[test]
+    fn locked_vault_refuses_sensitive_history_and_public_dms_writes() {
+        let _g = crate::vault::test_lock();
+        crate::vault::clear_key();
+        let path = std::env::temp_dir().join(format!(
+            "digilegacy_cmd_locked_history_{}.db",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        db::init_database_at(path.clone()).unwrap();
+
+        let salt = crate::crypto::generate_salt_v3();
+        let kek = crate::crypto::derive_from_salt("locked-history-pw", &salt).unwrap();
+        let dek = crate::vault::generate_data_key();
+        let wrapped = crate::vault::wrap_data_key(&dek, &kek).unwrap();
+        let verifier = crate::vault::make_verifier(&dek).unwrap();
+        db::set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+        crate::vault::clear_key();
+
+        let review_list =
+            list_review_items(crate::review_profiles::POLICY_REVIEW.to_string()).unwrap();
+        assert!(!review_list.success, "锁定态不得读取审核条目");
+        let review_history = review_history(
+            crate::review_profiles::POLICY_REVIEW.to_string(),
+            "1".to_string(),
+        )
+        .unwrap();
+        assert!(!review_history.success, "锁定态不得读取审核历史");
+        let ai_history = list_ai_chat(Some(10)).unwrap();
+        assert!(!ai_history.success, "锁定态不得读取 AI 历史");
+        let ai_clear = clear_ai_chat().unwrap();
+        assert!(!ai_clear.success, "锁定态不得清除 AI 历史");
+
+        assert!(db::append_review_record_db(&crate::review::ReviewRecord {
+            profile_id: "p".to_string(),
+            item_key: "k".to_string(),
+            fingerprint: "f".to_string(),
+            ai_verdict: crate::review::AiVerdict::Skipped,
+            ai_note: "n".to_string(),
+            human_verdict: None,
+            human_note: String::new(),
+            decided_by: "test".to_string(),
+            created_at: String::new(),
+        })
+        .is_err());
+        assert!(db::append_ai_chat_db("q", "a", "m").is_err());
+
+        let check_in = update_check_in().unwrap();
+        assert!(!check_in.success, "锁定态公共签到必须拒绝");
+        let dms = set_dead_mans_switch(true, 30).unwrap();
+        assert!(!dms.success, "锁定态公共 DMS 设置必须拒绝");
+        assert!(db::set_heartbeat_config_db(true, "token", "https://example.com").is_err());
+        assert!(crate::imap_checkin::set_config(
+            &crate::imap_checkin::ImapConfig {
+                enabled: true,
+                host: "imap.example.com".to_string(),
+                port: 993,
+                username: "user@example.com".to_string(),
+                has_password: false,
+                allowed_senders: "user@example.com".to_string(),
+                lookback_days: 14,
+            },
+            Some("password"),
+        )
+        .is_err());
+
+        let _ = std::fs::remove_file(&path);
     }
 }

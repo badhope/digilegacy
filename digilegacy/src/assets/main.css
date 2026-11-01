@@ -79,6 +79,10 @@
 html, body {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  /* 家人里包含中老年读者：正文 15px / 1.7 行高是「能读」的下限，
+     而不是后台系统常见的 13px / 1.4。标题仍按层级递减。 */
+  font-size: 15px;
+  line-height: 1.7;
   background: var(--gray-50);
   color: var(--gray-800);
   -webkit-font-smoothing: antialiased;
@@ -120,8 +124,21 @@ html, body {
 
 .sidebar-nav {
   flex: 1;
-  padding: 12px 0;
+  padding: 8px 0 16px;
   overflow-y: auto;
+}
+
+/* 分组导航：每组一个不抢眼的标签，避免 9 个平级项看起来像后台管理菜单 */
+.nav-group { margin-bottom: 4px; }
+
+.nav-group-label {
+  padding: 12px 24px 6px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--sidebar-muted);
+  font-weight: 600;
+  user-select: none;
 }
 
 .nav-item {
@@ -237,13 +254,15 @@ html, body {
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--gray-900);
+  line-height: 1.45;
 }
 
 .card-subtitle {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.65;
   color: var(--gray-600);
   margin-top: 4px;
 }

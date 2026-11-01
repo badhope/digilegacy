@@ -1,8 +1,8 @@
 //! DMS 通知链路：到期检测 → 分级 → 本地发件箱 → (可选) SMTP 投递
 //!
 //! 离线优先设计：无网络 / 无 SMTP 凭据时写入本地发件箱，不阻塞主流程。
-//! 邮件投递复用系统 curl（成熟的 SMTP 实现，自带 STARTTLS 升级与 AUTH），
-//! 不再自行实现 SMTP 协议。配置方式（环境变量，全部可选）：
+//! 邮件投递使用 lettre（Rust 原生 SMTP 客户端，含 STARTTLS 与 AUTH），
+//! 不依赖系统 curl 是否存在。配置方式（界面优先，环境变量兜底）：
 //!   DMS_SMTP_HOST / DMS_SMTP_PORT / SMTP_FROM      服务器与发件人
 //!   DMS_SMTP_USER / DMS_SMTP_PASS                  SMTP 登录凭据（建议启用）
 //!   DMS_SMTP_ALLOW_INSECURE=1                      允许无 STARTTLS 的明文中继（默认拒绝）
@@ -299,163 +299,69 @@ pub fn resolve_smtp_settings() -> Option<SmtpSettings> {
     })
 }
 
-/// 环境变量版投递入口，仅供既有回归测试使用。
-/// 生产路径统一走 `try_smtp_with`（配置来自界面或环境变量，由 `resolve_smtp_settings` 归一化）。
-#[cfg(test)]
-fn try_smtp(
-    host: &str,
-    port: u16,
-    from: &str,
-    to: &str,
-    subject: &str,
-    body: &str,
-) -> Result<(), String> {
-    let insecure = std::env::var("DMS_SMTP_ALLOW_INSECURE")
-        .map(|v| v == "1")
-        .unwrap_or(false);
-    let user = std::env::var("DMS_SMTP_USER")
-        .ok()
-        .filter(|v| !v.is_empty());
-    let pass = std::env::var("DMS_SMTP_PASS")
-        .ok()
-        .filter(|v| !v.is_empty());
-    try_smtp_with(
-        &SmtpSettings {
-            host: host.to_string(),
-            port,
-            from: from.to_string(),
-            user,
-            pass,
-            allow_insecure: insecure,
-        },
-        to,
-        subject,
-        body,
-    )
-}
-
+/// 通过 lettre 投递（进程内 SMTP 实现，不依赖系统 curl）。
+///
+/// 与旧 curl 路径的行为对齐：
+/// - 默认强制 TLS（STARTTLS 或 SMTPS），仅当用户显式勾选 allow_insecure 才允许明文；
+/// - 头部由 lettre 做编码与注入防护（比手写 CRLF 拼接更严格）；
+/// - 错误信息保留「主机/端口/阶段」，但绝不回显密码。
 fn try_smtp_with(
     settings: &SmtpSettings,
     to: &str,
     subject: &str,
     body: &str,
 ) -> Result<(), String> {
-    use std::io::Write;
-    use std::process::{Command, Stdio};
+    use lettre::transport::smtp::authentication::Credentials;
+    use lettre::{Message, SmtpTransport, Transport};
 
     let host = settings.host.trim();
     let from = settings.from.trim();
-    let url = format!("smtp://{}:{}", host, settings.port);
-    let mut cmd = Command::new("curl");
-    cmd.args([
-        "-s",
-        "-S",
-        "-m",
-        "20",
-        "--url",
-        &url,
-        "--mail-from",
-        from,
-        "--mail-rcpt",
-        to,
-        "--upload-file",
-        "-",
-    ]);
-    // 默认要求 STARTTLS（curl --ssl-reqd：服务器不提供即中止，拒绝明文投递）
-    if !settings.allow_insecure {
-        cmd.arg("--ssl-reqd");
+    if host.is_empty() || from.is_empty() {
+        return Err("SMTP 主机或发件人为空".to_string());
     }
-    // 凭据经临时 netrc 文件传入：密码不出现在命令行参数里（同机进程可枚举 argv）
-    let netrc_path = build_smtp_netrc_from(
-        host,
-        settings.user.as_deref().unwrap_or(""),
-        settings.pass.as_deref().unwrap_or(""),
-    );
-    if let Ok(Some(path)) = &netrc_path {
-        cmd.arg("--netrc")
-            .arg("--netrc-optional")
-            .arg("--netrc-file")
-            .arg(path);
+    if !is_valid_email(from) {
+        return Err("发件人邮箱格式不正确".to_string());
     }
-    cmd.stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
+    if !is_valid_email(to) {
+        return Err("收件人邮箱格式不正确".to_string());
+    }
 
-    let spawn_result = cmd.spawn();
-    let mut child = match spawn_result {
-        Ok(c) => c,
-        Err(e) => {
-            if let Ok(Some(p)) = &netrc_path {
-                let _ = std::fs::remove_file(p);
-            }
-            return Err(format!("启动 curl 失败: {}", e));
-        }
+    let from_mbox = from
+        .parse::<lettre::message::Mailbox>()
+        .map_err(|e| format!("发件人地址解析失败: {}", e))?;
+    let to_mbox = to
+        .trim()
+        .parse::<lettre::message::Mailbox>()
+        .map_err(|e| format!("收件人地址解析失败: {}", e))?;
+    let email = Message::builder()
+        .from(from_mbox)
+        .to(to_mbox)
+        .subject(sanitize_header(subject))
+        .body(body.to_string())
+        .map_err(|e| format!("组装邮件失败: {}", e))?;
+
+    let mut builder = if settings.port == 465 {
+        SmtpTransport::relay(host).map_err(|e| format!("初始化 SMTP 失败: {}", e))?
+    } else if settings.allow_insecure {
+        SmtpTransport::builder_dangerous(host)
+    } else {
+        SmtpTransport::starttls_relay(host).map_err(|e| format!("初始化 STARTTLS 失败: {}", e))?
     };
-    let write_result = (|| -> Result<(), String> {
-        let mut stdin = child.stdin.take().ok_or("无法打开 curl 标准输入")?;
-        stdin
-            .write_all(smtp_message(from, to, subject, body).as_bytes())
-            .map_err(|e| format!("写入邮件内容失败: {}", e))?;
-        Ok(())
-    })();
-    if let Err(e) = write_result {
-        let _ = child.kill();
-        if let Ok(Some(p)) = &netrc_path {
-            let _ = std::fs::remove_file(p);
+    builder = builder
+        .port(settings.port)
+        .timeout(Some(std::time::Duration::from_secs(20)));
+
+    if let (Some(user), Some(pass)) = (settings.user.as_deref(), settings.pass.as_deref()) {
+        if !user.trim().is_empty() && !pass.is_empty() {
+            builder = builder.credentials(Credentials::new(user.to_string(), pass.to_string()));
         }
-        return Err(e);
-    } // drop stdin → curl 收到 EOF 后自行追加终止符并结束 DATA
-
-    let output = match child.wait_with_output() {
-        Ok(o) => o,
-        Err(e) => {
-            if let Ok(Some(p)) = &netrc_path {
-                let _ = std::fs::remove_file(p);
-            }
-            return Err(format!("等待 curl 退出失败: {}", e));
-        }
-    };
-    if let Ok(Some(p)) = &netrc_path {
-        let _ = std::fs::remove_file(p); // 凭据文件用完即删
     }
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "邮件投递失败 (curl exit {}): {}",
-            output.status.code().unwrap_or(-1),
-            err.trim()
-        ));
-    }
-    Ok(())
-}
 
-/// 组装 netrc 单行凭据（供 curl --netrc-file 使用；netrc 无引号语法，凭据含空白时不适配，
-/// 此时投递失败并降级到本地发件箱，属可接受降级）
-fn netrc_entry(host: &str, user: &str, pass: &str) -> String {
-    format!("machine {} login {} password {}\n", host, user, pass)
-}
-
-/// 若提供了非空凭据则生成临时 netrc 文件；调用方负责在 curl 结束后删除
-fn build_smtp_netrc_from(
-    host: &str,
-    user: &str,
-    pass: &str,
-) -> Result<Option<std::path::PathBuf>, String> {
-    if user.is_empty() || pass.is_empty() {
-        return Ok(None);
-    }
-    let path = std::env::temp_dir().join(format!(
-        "dms_netrc_{}_{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
-    ));
-    // 该文件含明文 SMTP 密码：必须以仅本人可读的权限创建。
-    crate::fsutil::write_private(&path, netrc_entry(host, user, pass).as_bytes())
-        .map_err(|e| format!("写入 SMTP 凭据文件失败: {}", e))?;
-    Ok(Some(path))
+    let mailer = builder.build();
+    mailer
+        .send(&email)
+        .map(|_| ())
+        .map_err(|e| format!("邮件投递失败: {}", e))
 }
 
 /// 邮件头净化：剥离 CR/LF，阻断 SMTP 头注入（头部拆分可注入 Bcc 等恶意头）
@@ -466,24 +372,12 @@ fn sanitize_header(value: &str) -> String {
         .collect()
 }
 
-/// DATA 正文 dot-stuffing：以 . 开头的行前额外补一个点，避免提前终止 DATA；
-/// 同时统一行尾为 CRLF（RFC 5321 要求）
-fn dot_stuff_body(body: &str) -> String {
-    body.split('\n')
-        .map(|line| {
-            let line = line.strip_suffix('\r').unwrap_or(line);
-            if line.starts_with('.') {
-                format!(".{}", line)
-            } else {
-                line.to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join("\r\n")
-}
-
 /// 收件人合法性：仅允许常规 ASCII 邮箱形态。非法值（如未填邮箱时的手机号回退）
 /// 不允许进入 SMTP 会话，调用方直接写入本地发件箱
+pub(crate) fn is_valid_email_pub(addr: &str) -> bool {
+    is_valid_email(addr)
+}
+
 fn is_valid_email(addr: &str) -> bool {
     let s = addr.trim();
     if s.is_empty() || s.len() > 254 || s.matches('@').count() != 1 {
@@ -509,18 +403,6 @@ fn is_valid_email(addr: &str) -> bool {
         return false;
     }
     true
-}
-
-/// 组装邮件报文（不含 DATA 终止符；curl 读取 stdin 结束后自动补 ".\r\n"）。
-/// 头部统一净化、正文统一 dot-stuffing：发件人/收件人/主题均视为不可信输入
-fn smtp_message(from: &str, to: &str, subject: &str, body: &str) -> String {
-    format!(
-        "From: {}\r\nTo: {}\r\nSubject: {}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{}",
-        sanitize_header(from),
-        sanitize_header(to),
-        sanitize_header(subject),
-        dot_stuff_body(body)
-    )
 }
 
 /// 发送一封测试邮件：验证「用户填的 SMTP 真的能送达」。
@@ -794,48 +676,6 @@ mod tests {
         assert_eq!(days_since_last_check_in(""), None);
     }
 
-    #[test]
-    fn smtp_message_contains_headers_and_body_without_terminator() {
-        let msg = smtp_message("a@x.com", "b@y.com", "主题", "正文");
-        assert!(msg.starts_with("From: a@x.com\r\nTo: b@y.com\r\nSubject: 主题\r\n"));
-        assert!(
-            msg.ends_with("正文"),
-            "报文不得包含 DATA 终止符，由 curl 负责追加"
-        );
-        assert!(!msg.contains("\r\n.\r\n"));
-    }
-
-    /// 头注入防护：主题里夹带 CR/LF 不得拆出新的邮件头
-    #[test]
-    fn header_injection_is_neutralized_in_smtp_message() {
-        let msg = smtp_message("a@x.com", "b@y.com", "s1\r\nBcc: evil@x.com", "正文");
-        assert!(
-            !msg.contains("\r\nBcc:"),
-            "主题中的换行必须被剥离，不得拆出新头"
-        );
-        assert!(
-            !msg.contains("\r\nSubject: s1\r\n"),
-            "不得出现被拆分的重复 Subject 行"
-        );
-        // 头部行数固定：From/To/Subject/Content-Type + 空行分隔 + 单行正文
-        assert_eq!(msg.matches("\r\n").count(), 5, "报文行数不得因注入而增加");
-    }
-
-    /// dot-stuffing：正文以点开头的行必须补点，避免提前终止 DATA
-    #[test]
-    fn body_lines_starting_with_dot_are_stuffed() {
-        let msg = smtp_message("a@x.com", "b@y.com", "s", "第一行\r\n.危险行\r\n结束");
-        assert!(
-            msg.contains("\r\n..危险行\r\n"),
-            "以点开头的行必须 dot-stuffing"
-        );
-        assert!(!msg.contains("\r\n.\r\n"), "不得出现提前的 DATA 终止符");
-
-        // 混合 \n 行尾也必须被处理（正文来自 format! 拼接，常见 \n）
-        let msg2 = smtp_message("a@x.com", "b@y.com", "s", "A\n.B\nC");
-        assert!(msg2.contains("A\r\n..B\r\nC"));
-    }
-
     /// 收件人校验：合法邮箱放行，手机号/注入形态/残缺地址一律拒绝
     #[test]
     fn smtp_recipient_validator() {
@@ -856,50 +696,49 @@ mod tests {
         assert!(!is_valid_email(".a@x.com"), "本地部以点开头必须拒绝");
     }
 
-    /// netrc 凭据文件格式：curl 按 machine 匹配 host 后取 login/password
-    #[test]
-    fn netrc_entry_format() {
-        assert_eq!(
-            netrc_entry("smtp.x.com", "u1", "p2"),
-            "machine smtp.x.com login u1 password p2\n"
-        );
-    }
-
-    /// 安全默认：服务器不提供 STARTTLS 时必须拒绝投递（--ssl-reqd 生效）。
-    /// 起一个不广告 STARTTLS 的最小 SMTP mock，断言 try_smtp 返回 Err。
+    /// 安全默认：未显式允许明文时，服务器不提供 STARTTLS 必须拒绝投递。
+    ///
+    /// 这是 TLS 降级攻击的防线：如果实现「连不上就退明文」，
+    /// 主动降级的中间人就能收到明文邮件。这里起一个不广告 STARTTLS 的
+    /// 最小 SMTP mock，断言投递失败。
     #[test]
     fn try_smtp_refuses_without_starttls() {
         use std::io::{Read, Write};
         use std::net::TcpListener;
 
-        // 测试环境不得放行明文中继
-        std::env::remove_var("DMS_SMTP_ALLOW_INSECURE");
-
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind 本地端口失败");
         let port = listener.local_addr().unwrap().port();
         let handle = std::thread::spawn(move || {
             if let Ok((mut stream, _)) = listener.accept() {
-                let mut buf = [0u8; 2048];
-                let _ = stream.read(&mut buf); // 收到 EHLO 前的问候读取
-                let _ = stream.write_all(b"220 mock ESMTP\r\n");
+                let _ = stream.write_all(
+                    b"220 mock ESMTP
+
+",
+                );
                 let _ = stream.flush();
                 let mut buf = [0u8; 2048];
                 let _ = stream.read(&mut buf); // EHLO
-                                               // 不广告 STARTTLS
-                let _ = stream.write_all(b"250-mock\r\n250 SIZE 10485760\r\n");
+                let _ = stream.write_all(
+                    b"250-mock
+
+250 SIZE 10485760
+
+",
+                );
                 let _ = stream.flush();
-                // curl 因 --ssl-reqd 中止连接；无需更多应答
+                // 不广告 STARTTLS：客户端必须中止
             }
         });
 
-        let result = try_smtp(
-            "127.0.0.1",
+        let settings = SmtpSettings {
+            host: "127.0.0.1".to_string(),
             port,
-            "from@test.local",
-            "to@test.local",
-            "s",
-            "b",
-        );
+            from: "from@test.local".to_string(),
+            user: None,
+            pass: None,
+            allow_insecure: false,
+        };
+        let result = try_smtp_with(&settings, "to@test.local", "s", "b");
         assert!(result.is_err(), "无 STARTTLS 能力时必须拒绝投递");
         let _ = handle.join();
     }

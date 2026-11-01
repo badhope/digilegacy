@@ -44,6 +44,32 @@ fn fresh_db_path(tag: &str) -> TempDb {
 }
 
 #[test]
+fn vault_guards_fail_closed_when_security_config_query_errors() {
+    let missing = rusqlite::Connection::open_in_memory().unwrap();
+    assert!(
+        ensure_vault_readable_pub(&missing).is_err(),
+        "缺少 security_config 时读取门禁必须返回错误"
+    );
+    assert!(
+        ensure_vault_writable_pub(&missing).is_err(),
+        "缺少 security_config 时写入门禁必须返回错误"
+    );
+
+    let damaged = rusqlite::Connection::open_in_memory().unwrap();
+    damaged
+        .execute_batch("CREATE VIEW security_config AS SELECT id FROM missing_security_source;")
+        .unwrap();
+    assert!(
+        ensure_vault_readable_pub(&damaged).is_err(),
+        "security_config 查询损坏时读取门禁必须返回错误"
+    );
+    assert!(
+        ensure_vault_writable_pub(&damaged).is_err(),
+        "security_config 查询损坏时写入门禁必须返回错误"
+    );
+}
+
+#[test]
 fn test_migration_encryption_and_credential_roundtrip() {
     let _g = vault::test_lock();
     vault::clear_key();
@@ -78,7 +104,7 @@ fn test_migration_encryption_and_credential_roundtrip() {
     let salt = crate::crypto::generate_salt();
     let key = crate::crypto::derive_key_bytes("test-master-123", &salt);
     let verifier = vault::make_verifier(&key).unwrap();
-    set_security_config_db("dGVzdC1zYWx0", &verifier).unwrap();
+    set_security_config_with_dek_db("dGVzdC1zYWx0", &verifier, "").unwrap();
     vault::set_key(key);
 
     let changed = encrypt_existing_data_db().unwrap();
@@ -93,7 +119,7 @@ fn test_migration_encryption_and_credential_roundtrip() {
             |r| r.get(0),
         )
         .unwrap();
-    assert!(vault::is_encrypted(&raw_after), "库内应为 enc:v1: 密文");
+    assert!(vault::is_encrypted(&raw_after), "库内应为 enc: 密文");
     assert!(!raw_after.contains("13800000000"), "库内不得出现明文");
     drop(guard);
 
@@ -163,7 +189,7 @@ fn encrypt_existing_data_covers_all_profile_fields() {
     let salt = crate::crypto::generate_salt();
     let key = crate::crypto::derive_key_bytes("master-pw-123", &salt);
     let verifier = vault::make_verifier(&key).unwrap();
-    set_security_config_db("dGVzdC1zYWx0", &verifier).unwrap();
+    set_security_config_with_dek_db("dGVzdC1zYWx0", &verifier, "").unwrap();
     vault::set_key(key);
 
     let changed = encrypt_existing_data_db().expect("档案加密不得 panic 或报错");
@@ -235,7 +261,7 @@ fn test_change_password_and_backup_roundtrip() {
     let salt1 = crate::crypto::generate_salt();
     let key1 = crate::crypto::derive_key_bytes("old-master-123", &salt1);
     let verifier1 = vault::make_verifier(&key1).unwrap();
-    set_security_config_db(&b64.encode(salt1), &verifier1).unwrap();
+    set_security_config_with_dek_db(&b64.encode(salt1), &verifier1, "").unwrap();
     vault::set_key(key1);
     encrypt_existing_data_db().unwrap();
     set_asset_credential_db(id, "cred-round2").unwrap();
@@ -249,26 +275,35 @@ fn test_change_password_and_backup_roundtrip() {
     assert_eq!(asset.heir_contact.as_deref(), Some("13900000000"));
 
     let (salt2_b64, verifier2) = get_security_config_db().unwrap().unwrap();
-    // 改密后安全配置应为 v2 盐（自描述前缀 + 60 万次迭代）
+    // 改密后安全配置应为 v3 盐（Argon2id，参数随盐串自描述）
     assert!(
-        salt2_b64.starts_with(crate::crypto::SALT_PREFIX_V2),
-        "改密后盐应为 v2 格式"
+        salt2_b64.starts_with(crate::crypto::SALT_PREFIX_V3),
+        "改密后盐应为 v3 格式（Argon2id）"
     );
-    let (salt2_bytes, salt2_iters) = crate::crypto::resolve_salt(&salt2_b64).unwrap();
-    assert_eq!(salt2_iters, crate::crypto::PBKDF2_ITERATIONS_V2);
-    let key2 = crate::crypto::derive_key_bytes_v("new-master-456", &salt2_bytes, salt2_iters);
-    assert!(vault::verify_key(&verifier2, &key2), "新密码应可解锁");
-    let key_old = crate::crypto::derive_key_bytes_v("old-master-123", &salt2_bytes, salt2_iters);
-    assert!(!vault::verify_key(&verifier2, &key_old), "旧密码不得再解锁");
+    // 两层密钥语义：verifier 绑定的是**数据密钥**，不是密码派生 KEK。
+    // 新密码派生 KEK → 解开 wrapped_dek → 得到同一把 DEK（本例中就是 legacy 模式下的 key1）。
+    let kek_new = crate::crypto::derive_from_salt("new-master-456", &salt2_b64).unwrap();
+    let wrapped_after = get_wrapped_dek_db().unwrap();
+    assert!(!wrapped_after.is_empty(), "改密后必须写入 wrapped_dek");
+    let dek = crate::vault::unwrap_data_key(&wrapped_after, &kek_new).unwrap();
+    assert!(
+        vault::verify_key(&verifier2, &dek),
+        "新密码解出的数据密钥必须通过校验"
+    );
+    let kek_old = crate::crypto::derive_from_salt("old-master-123", &salt2_b64).unwrap();
+    assert!(
+        crate::vault::unwrap_data_key(&wrapped_after, &kek_old).is_err(),
+        "旧密码不得再解出数据密钥"
+    );
 
     // 新恢复密钥必须能解封"当前数据密钥"（改密轮换恢复码不得丢弃——历史缺陷回归）
     let seal_after = get_recovery_seal_db().unwrap();
     let unsealed = crate::recovery::unseal_with_recovery(&new_recovery_code, &seal_after).unwrap();
-    assert_eq!(*unsealed, *key2, "新恢复码必须解出改密后的数据密钥");
+    assert_eq!(*unsealed, *dek, "新恢复码必须解出改密后的数据密钥");
 
     let backup = export_backup_json_db().unwrap();
     assert!(
-        backup.contains("acc-round2") || backup.contains("enc:v1:"),
+        backup.contains("acc-round2") || backup.contains("enc:v1:") || backup.contains("enc:v2:"),
         "备份应含密文数据"
     );
 
@@ -290,11 +325,7 @@ fn test_change_password_and_backup_roundtrip() {
         "导入后应处于锁定态，需重新解锁"
     );
 
-    vault::set_key(crate::crypto::derive_key_bytes_v(
-        "new-master-456",
-        &salt2_bytes,
-        salt2_iters,
-    ));
+    vault::set_key(dek.clone());
     assert_eq!(
         get_asset_credential_db(id).unwrap(),
         "cred-round2",
@@ -303,7 +334,7 @@ fn test_change_password_and_backup_roundtrip() {
 
     vault::clear_key();
     let (_, verifier_after) = get_security_config_db().unwrap().unwrap();
-    let key2b = crate::crypto::derive_key_bytes_v("new-master-456", &salt2_bytes, salt2_iters);
+    let key2b = dek.clone();
     assert!(
         vault::verify_key(&verifier_after, &key2b),
         "导入后新密码仍可解锁"
@@ -332,16 +363,22 @@ fn import_backup_preserves_v3_seal_and_clears_legacy_stale_seal() {
     let salt = crate::crypto::generate_salt();
     let key = crate::crypto::derive_key_bytes("seal-master-123", &salt);
     let verifier = vault::make_verifier(&key).unwrap();
-    set_security_config_db(&b64.encode(salt), &verifier).unwrap();
-    set_recovery_seal_db("RS2.本设备的恢复密钥封印").unwrap();
-    vault::set_key(key);
+    set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
+    let (_, recovery_seal) = crate::recovery::create_recovery_seal(&key).unwrap();
+    set_recovery_seal_db(&recovery_seal).unwrap();
+    vault::set_key(key.clone());
 
     // v3：封印随备份往返
     let backup = export_backup_json_db().unwrap();
-    import_backup_json_db(&backup).unwrap();
+    import_backup_json_db_with_mode_and_password(
+        &backup,
+        ImportMode::Replace,
+        Some("seal-master-123"),
+    )
+    .unwrap();
     assert_eq!(
         get_recovery_seal_db().unwrap(),
-        "RS2.本设备的恢复密钥封印",
+        recovery_seal,
         "v3 备份必须保留恢复密钥封印"
     );
 
@@ -354,7 +391,13 @@ fn import_backup_preserves_v3_seal_and_clears_legacy_stale_seal() {
         .unwrap()
         .remove("recovery_seal");
     vault::clear_key();
-    import_backup_json_db(&legacy.to_string()).unwrap();
+    vault::set_key(key);
+    import_backup_json_db_with_mode_and_password(
+        &legacy.to_string(),
+        ImportMode::Replace,
+        Some("seal-master-123"),
+    )
+    .unwrap();
     assert_eq!(
         get_recovery_seal_db().unwrap(),
         "",
@@ -393,7 +436,7 @@ fn locked_vault_blocks_plaintext_writes() {
     let salt = crate::crypto::generate_salt();
     let key = crate::crypto::derive_key_bytes("lock-master-123", &salt);
     let verifier = vault::make_verifier(&key).unwrap();
-    set_security_config_db(&b64.encode(salt), &verifier).unwrap();
+    set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
     vault::clear_key();
 
     assert!(add_asset_db(&req).is_err(), "锁定态不得静默新增敏感字段");
@@ -598,6 +641,13 @@ fn backup_v2_covers_heartbeat_and_platform_overrides() {
     let _g = vault::test_lock();
     let path = fresh_db_path("backupv2");
     init_database_at(path.clone()).unwrap();
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("backup-v2-password", &salt).unwrap();
+    let dek = vault::generate_data_key();
+    let wrapped = vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = vault::make_verifier(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    vault::set_key(dek.clone());
 
     set_heartbeat_config_db(true, "hb-token-123", "https://hb.example.org").unwrap();
     import_platform_overrides_db(
@@ -608,12 +658,19 @@ fn backup_v2_covers_heartbeat_and_platform_overrides() {
     let json = export_backup_json_db().unwrap();
     let v: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(
-        v["version"], 4,
+        v["version"], 5,
         "新增表（heirs/smtp/custody/assistant）后必须升版本号"
     );
-    assert_eq!(
-        v["tables"]["heartbeat_config"]["token"], "hb-token-123",
-        "心跳令牌必须进备份"
+    let exported_token = v["tables"]["heartbeat_config"]["token"]
+        .as_str()
+        .unwrap_or_default();
+    assert!(
+        crate::vault::is_encrypted(exported_token),
+        "心跳令牌必须以密文进入备份"
+    );
+    assert!(
+        !exported_token.contains("hb-token-123"),
+        "备份不得含心跳令牌明文"
     );
     assert_eq!(
         v["tables"]["platform_overrides"].as_array().unwrap().len(),
@@ -624,7 +681,14 @@ fn backup_v2_covers_heartbeat_and_platform_overrides() {
     // 清空后导入，两项都要回来
     set_heartbeat_config_db(false, "", "").unwrap();
     clear_platform_overrides_db().unwrap();
-    import_backup_json_db(&json).unwrap();
+    let key_for_read = vault::get_key().unwrap();
+    import_backup_json_db_with_mode_and_password(
+        &json,
+        ImportMode::Replace,
+        Some("backup-v2-password"),
+    )
+    .unwrap();
+    vault::set_key(key_for_read);
 
     let (enabled, token, endpoint) = get_heartbeat_config_db().unwrap();
     assert!(enabled);
@@ -635,12 +699,115 @@ fn backup_v2_covers_heartbeat_and_platform_overrides() {
     let _ = std::fs::remove_file(&path);
 }
 
+#[test]
+fn authenticated_backup_rejects_tampered_external_configuration() {
+    let _g = vault::test_lock();
+    vault::clear_key();
+    let source_path = fresh_db_path("auth_external_binding_source");
+    init_database_at(source_path.clone()).unwrap();
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("external-binding-password", &salt).unwrap();
+    let dek = vault::generate_data_key();
+    let wrapped = vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = vault::make_verifier(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    vault::set_key(dek);
+    set_heartbeat_config_db(true, "heartbeat-binding-test", "https://hb.example.org").unwrap();
+    set_assistant_config_db(
+        true,
+        "https://assistant.example.org/v1",
+        "bound-model",
+        Some("assistant-binding-test"),
+    )
+    .unwrap();
+    set_smtp_config_db(
+        "smtp.example.org",
+        587,
+        "owner@example.org",
+        "smtp-user",
+        Some("smtp-binding-test"),
+        false,
+    )
+    .unwrap();
+    let backup = export_backup_json_db().unwrap();
+    let mut tampered: serde_json::Value = serde_json::from_str(&backup).unwrap();
+    tampered["tables"]["heartbeat_config"]["endpoint"] =
+        serde_json::json!("https://attacker.example.org");
+
+    vault::clear_key();
+    let target_path = fresh_db_path("auth_external_binding_target");
+    init_database_at(target_path.clone()).unwrap();
+    let result = import_backup_json_db_with_mode_and_password(
+        &tampered.to_string(),
+        ImportMode::Replace,
+        Some("external-binding-password"),
+    );
+    assert!(result.is_err(), "篡改外连配置的认证备份必须被拒绝");
+    assert_eq!(
+        get_heartbeat_config_db().unwrap(),
+        (false, String::new(), String::new())
+    );
+    let assistant = get_assistant_config_db().unwrap();
+    assert!(!assistant.enabled);
+    assert!(assistant.endpoint.is_empty());
+    let smtp = get_smtp_config_db().unwrap();
+    assert!(smtp.host.is_empty());
+    assert!(!smtp.allow_insecure);
+
+    vault::clear_key();
+    let _ = std::fs::remove_file(&source_path);
+    let _ = std::fs::remove_file(&target_path);
+}
+
+#[test]
+fn backup_import_rejects_heartbeat_endpoint_outside_public_https_policy() {
+    let _g = vault::test_lock();
+    vault::clear_key();
+    let path = fresh_db_path("backup-heartbeat-policy");
+    init_database_at(path.clone()).unwrap();
+    let backup = serde_json::json!({
+        "app": "digilegacy",
+        "version": 1,
+        "tables": {
+            "digital_assets": [],
+            "user_profile": [],
+            "check_in_log": [],
+            "dms_config": null,
+            "security_config": null,
+            "heartbeat_config": {
+                "enabled": 1,
+                "token": "",
+                "endpoint": "http://example.com"
+            }
+        }
+    })
+    .to_string();
+
+    let err = import_backup_json_db_with_mode(&backup, ImportMode::Replace).unwrap_err();
+    assert!(
+        err.contains("https") || err.contains("公网"),
+        "实际错误: {}",
+        err
+    );
+
+    let stored = get_heartbeat_config_db().unwrap();
+    assert_eq!(stored, (false, String::new(), String::new()));
+    let _ = std::fs::remove_file(&path);
+}
+
 /// 旧版 v1 备份仍可导入，且不会清空本地 v2 才有的配置。
 #[test]
 fn legacy_v1_backup_imports_without_wiping_v2_config() {
     let _g = vault::test_lock();
     let path = fresh_db_path("backupv1");
     init_database_at(path.clone()).unwrap();
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("backup-v1-password", &salt).unwrap();
+    let dek = vault::generate_data_key();
+    let wrapped = vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = vault::make_verifier(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    vault::set_key(dek.clone());
 
     set_heartbeat_config_db(true, "keep-me", "https://hb.example.org").unwrap();
     import_platform_overrides_db(
@@ -660,7 +827,9 @@ fn legacy_v1_backup_imports_without_wiping_v2_config() {
         }
     })
     .to_string();
-    import_backup_json_db(&v1).unwrap();
+    let key_for_read = vault::get_key().unwrap();
+    import_backup_json_db_with_mode(&v1, ImportMode::Merge).unwrap();
+    vault::set_key(key_for_read);
 
     let (enabled, token, _) = get_heartbeat_config_db().unwrap();
     assert!(enabled, "导入 v1 备份不得关闭心跳");
@@ -686,7 +855,7 @@ fn plaintext_backup_never_lands_as_plaintext_in_encrypted_vault() {
     let salt = crate::crypto::generate_salt();
     let key = crate::crypto::derive_key_bytes("plain-import-pw", &salt);
     let verifier = vault::make_verifier(&key).unwrap();
-    set_security_config_db(&b64.encode(salt), &verifier).unwrap();
+    set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
 
     let plaintext_backup = serde_json::json!({
         "app": "digilegacy",
@@ -873,6 +1042,364 @@ fn backup_import_rejects_invalid_asset_fields() {
     let _ = std::fs::remove_file(&path);
 }
 
+#[test]
+fn encrypted_vault_rejects_malformed_security_config_before_plaintext_write() {
+    let _g = vault::test_lock();
+    use base64::{engine::general_purpose::STANDARD as b64, Engine};
+
+    for (label, security_config) in [
+        ("empty", serde_json::json!({})),
+        (
+            "incomplete",
+            serde_json::json!({"kdf_salt": "v3.19456.2.1.AAAAAAAAAAAAAAAAAAAAAA=="}),
+        ),
+        (
+            "forged",
+            serde_json::json!({
+                "kdf_salt": "not-a-valid-salt",
+                "verifier": "not-a-ciphertext"
+            }),
+        ),
+    ] {
+        vault::clear_key();
+        let path = fresh_db_path(&format!("malformed_security_{}", label));
+        init_database_at(path.clone()).unwrap();
+
+        let salt = crate::crypto::generate_salt();
+        let key = crate::crypto::derive_key_bytes("malformed-security-pw", &salt);
+        let verifier = vault::make_verifier(&key).unwrap();
+        set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
+
+        let backup = serde_json::json!({
+            "app": "digilegacy",
+            "version": 5,
+            "tables": {
+                "digital_assets": [{
+                    "id": 1,
+                    "platform_id": 1,
+                    "account_identifier": "malformed-config-plaintext",
+                    "account_description": "敏感明文",
+                    "category": "property",
+                    "estimated_value": 10.0,
+                    "value_currency": "CNY",
+                    "disposal_method": "inherit",
+                    "heir_name": "明文继承人",
+                    "heir_contact": "13800000000",
+                    "notes": "明文备注",
+                    "credential_enc": "明文凭据",
+                    "is_confirmed": 1,
+                    "created_at": "2026-01-01 00:00:00",
+                    "updated_at": "2026-01-01 00:00:00"
+                }],
+                "user_profile": [],
+                "check_in_log": [],
+                "dms_config": null,
+                "security_config": security_config
+            }
+        })
+        .to_string();
+
+        let result = import_backup_json_db_with_mode(&backup, ImportMode::Replace);
+        let (count, raw_identifier): (i64, String) = {
+            let guard = get_conn().unwrap();
+            let conn = guard.as_ref().unwrap();
+            conn.query_row(
+                "SELECT COUNT(*), COALESCE(MAX(account_identifier), '') FROM digital_assets",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap()
+        };
+        vault::clear_key();
+        let _ = std::fs::remove_file(&path);
+
+        assert!(result.is_err(), "{} security_config 必须被拒绝", label);
+        assert_eq!(count, 0, "{} 被拒绝后不得写入资产", label);
+        assert!(
+            raw_identifier.is_empty(),
+            "{} 被拒绝后不得留下敏感明文",
+            label
+        );
+    }
+}
+
+#[test]
+fn encrypted_vault_rejects_plaintext_fields_with_valid_security_config() {
+    let _g = vault::test_lock();
+    use base64::{engine::general_purpose::STANDARD as b64, Engine};
+    vault::clear_key();
+    let path = fresh_db_path("plaintext_with_config");
+    init_database_at(path.clone()).unwrap();
+
+    let salt = crate::crypto::generate_salt();
+    let key = crate::crypto::derive_key_bytes("plaintext-config-pw", &salt);
+    let verifier = vault::make_verifier(&key).unwrap();
+    set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
+    let backup = serde_json::json!({
+        "app": "digilegacy",
+        "version": 5,
+        "tables": {
+            "digital_assets": [{
+                "id": 1,
+                "platform_id": 1,
+                "account_identifier": "plaintext-under-valid-config",
+                "category": "property",
+                "estimated_value": 1.0,
+                "disposal_method": "inherit",
+                "heir_name": "明文继承人",
+                "credential_enc": "明文凭据"
+            }],
+            "user_profile": [],
+            "check_in_log": [],
+            "security_config": {
+                "kdf_salt": b64.encode(salt),
+                "verifier": verifier,
+                "wrapped_dek": ""
+            }
+        }
+    })
+    .to_string();
+
+    let result = import_backup_json_db_with_mode(&backup, ImportMode::Replace);
+    let count: i64 = {
+        let guard = get_conn().unwrap();
+        let conn = guard.as_ref().unwrap();
+        conn.query_row("SELECT COUNT(*) FROM digital_assets", [], |row| row.get(0))
+            .unwrap()
+    };
+    vault::clear_key();
+    let _ = std::fs::remove_file(&path);
+
+    assert!(result.is_err(), "有效外形配置下的敏感明文必须被拒绝");
+    assert_eq!(count, 0, "拒绝后不得写入敏感明文");
+}
+
+#[test]
+fn merge_rejects_same_password_backup_with_different_wrapped_dek() {
+    let _g = vault::test_lock();
+    vault::clear_key();
+    let source_path = fresh_db_path("merge_source");
+    init_database_at(source_path.clone()).unwrap();
+
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("merge-same-password", &salt).unwrap();
+    let source_dek = vault::generate_data_key();
+    let source_wrapped = vault::wrap_data_key(&source_dek, &kek).unwrap();
+    let source_verifier = vault::make_verifier(&source_dek).unwrap();
+    set_security_config_with_dek_db(&salt, &source_verifier, &source_wrapped).unwrap();
+    vault::set_key(source_dek.clone());
+    add_asset_db(&AssetRequest {
+        platform_id: 1,
+        account_identifier: "source-asset".to_string(),
+        account_description: String::new(),
+        category: "property".to_string(),
+        estimated_value: Some(10.0),
+        disposal_method: "inherit".to_string(),
+        heir_name: Some("source-heir".to_string()),
+        heir_contact: None,
+        notes: String::new(),
+    })
+    .unwrap();
+    let backup = export_backup_json_db().unwrap();
+
+    let other_dek = vault::generate_data_key();
+    let other_wrapped = vault::wrap_data_key(&other_dek, &kek).unwrap();
+    let mut forged: serde_json::Value = serde_json::from_str(&backup).unwrap();
+    forged["tables"]["security_config"]["wrapped_dek"] = serde_json::json!(other_wrapped);
+    let forged_backup = forged.to_string();
+
+    vault::clear_key();
+    let target_path = fresh_db_path("merge_target");
+    init_database_at(target_path.clone()).unwrap();
+    set_security_config_with_dek_db(&salt, &source_verifier, &source_wrapped).unwrap();
+    vault::set_key(source_dek);
+    add_asset_db(&AssetRequest {
+        platform_id: 1,
+        account_identifier: "target-asset".to_string(),
+        account_description: String::new(),
+        category: "property".to_string(),
+        estimated_value: Some(20.0),
+        disposal_method: "inherit".to_string(),
+        heir_name: Some("target-heir".to_string()),
+        heir_contact: None,
+        notes: String::new(),
+    })
+    .unwrap();
+
+    let result = import_backup_json_db_with_mode_and_password(
+        &forged_backup,
+        ImportMode::Merge,
+        Some("merge-same-password"),
+    );
+    let identifiers = get_all_assets_db()
+        .unwrap()
+        .into_iter()
+        .map(|asset| asset.account_identifier)
+        .collect::<Vec<_>>();
+    vault::clear_key();
+    let _ = std::fs::remove_file(&source_path);
+    let _ = std::fs::remove_file(&target_path);
+
+    assert!(result.is_err(), "不同 wrapped_dek 的 Merge 必须被拒绝");
+    assert_eq!(identifiers, vec!["target-asset"], "拒绝后不得追加源库资产");
+}
+
+#[test]
+fn authenticated_backup_import_rejects_missing_password_fake_ciphertext_and_empty_wrapped() {
+    let _g = vault::test_lock();
+    vault::clear_key();
+    let path = fresh_db_path("auth_backup_boundary");
+    init_database_at(path.clone()).unwrap();
+
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("source-backup-password", &salt).unwrap();
+    let dek = vault::generate_data_key();
+    let wrapped = vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = vault::make_verifier(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    vault::set_key(dek);
+    let backup = export_backup_json_db().unwrap();
+    vault::clear_key();
+    let target_path = fresh_db_path("auth_backup_boundary_target");
+    init_database_at(target_path.clone()).unwrap();
+
+    assert!(
+        import_backup_json_db_with_mode_and_password(&backup, ImportMode::Replace, None).is_err()
+    );
+
+    let mut fake: serde_json::Value = serde_json::from_str(&backup).unwrap();
+    fake["tables"]["digital_assets"] = serde_json::json!([{
+        "id": 1,
+        "platform_id": 1,
+        "account_identifier": "enc:v1:AAAAAAAAAAAAAAAAAAAAAA==",
+        "category": "property",
+        "estimated_value": 1.0,
+        "disposal_method": "delete",
+        "created_at": "",
+        "updated_at": ""
+    }]);
+    assert!(import_backup_json_db_with_mode_and_password(
+        &fake.to_string(),
+        ImportMode::Replace,
+        Some("source-backup-password")
+    )
+    .is_err());
+
+    fake["tables"]["security_config"]["wrapped_dek"] = serde_json::json!("");
+    assert!(import_backup_json_db_with_mode_and_password(
+        &fake.to_string(),
+        ImportMode::Replace,
+        Some("source-backup-password")
+    )
+    .is_err());
+
+    vault::clear_key();
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(&target_path);
+}
+
+#[test]
+fn authenticated_backup_import_rejects_scalar_configuration_rows() {
+    let _g = vault::test_lock();
+    vault::clear_key();
+    let path = fresh_db_path("auth_backup_scalar");
+    init_database_at(path.clone()).unwrap();
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("source-backup-password", &salt).unwrap();
+    let dek = vault::generate_data_key();
+    let wrapped = vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = vault::make_verifier(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    vault::set_key(dek);
+    let mut backup: serde_json::Value =
+        serde_json::from_str(&export_backup_json_db().unwrap()).unwrap();
+    backup["tables"]["smtp_config"] = serde_json::json!("scalar");
+    vault::clear_key();
+    assert!(import_backup_json_db_with_mode_and_password(
+        &backup.to_string(),
+        ImportMode::Replace,
+        Some("source-backup-password")
+    )
+    .is_err());
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn authenticated_backup_import_accepts_real_dek_verifier_and_aead_fields() {
+    let _g = vault::test_lock();
+    vault::clear_key();
+    let source_path = fresh_db_path("auth_backup_source");
+    init_database_at(source_path.clone()).unwrap();
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("source-backup-password", &salt).unwrap();
+    let dek = vault::generate_data_key();
+    let wrapped = vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = vault::make_verifier(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    vault::set_key(dek.clone());
+    add_asset_db(&AssetRequest {
+        platform_id: 1,
+        account_identifier: "authenticated-account".to_string(),
+        account_description: "authenticated-description".to_string(),
+        category: "property".to_string(),
+        estimated_value: Some(1.0),
+        disposal_method: "delete".to_string(),
+        heir_name: None,
+        heir_contact: None,
+        notes: "authenticated-notes".to_string(),
+    })
+    .unwrap();
+    let backup = export_backup_json_db().unwrap();
+
+    vault::clear_key();
+    let target_path = fresh_db_path("auth_backup_target");
+    init_database_at(target_path.clone()).unwrap();
+    assert_eq!(
+        import_backup_json_db_with_mode_and_password(
+            &backup,
+            ImportMode::Replace,
+            Some("source-backup-password")
+        )
+        .unwrap(),
+        1
+    );
+    assert!(!vault::is_unlocked());
+    vault::set_key(dek);
+    assert_eq!(
+        get_all_assets_db().unwrap()[0].account_identifier,
+        "authenticated-account"
+    );
+
+    vault::clear_key();
+    let _ = std::fs::remove_file(&source_path);
+    let _ = std::fs::remove_file(&target_path);
+}
+
+#[test]
+fn locked_vault_rejects_backup_export_and_import() {
+    let _g = vault::test_lock();
+    vault::clear_key();
+    let path = fresh_db_path("locked_backup_boundary");
+    init_database_at(path.clone()).unwrap();
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("source-backup-password", &salt).unwrap();
+    let dek = vault::generate_data_key();
+    let wrapped = vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = vault::make_verifier(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    vault::set_key(dek);
+    let backup = export_backup_json_db().unwrap();
+    vault::clear_key();
+    assert!(export_backup_json_db().is_err());
+    assert!(import_backup_json_db_with_mode_and_password(
+        &backup,
+        ImportMode::Merge,
+        Some("source-backup-password")
+    )
+    .is_err());
+    let _ = std::fs::remove_file(&path);
+}
+
 /// 安全回归：资产详情页拿到占位符后点「保存修改」，必须被拒绝且原始密文不受影响。
 ///
 /// 历史缺陷：`row_to_asset` 用占位符降级，前端把整张表单原样提交，
@@ -888,7 +1415,7 @@ fn asset_placeholder_cannot_be_written_back() {
     let salt = crate::crypto::generate_salt();
     let key = crate::crypto::derive_key_bytes("asset-pw", &salt);
     let verifier = vault::make_verifier(&key).unwrap();
-    set_security_config_db(&b64.encode(salt), &verifier).unwrap();
+    set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
     vault::set_key(key.clone());
 
     let id = add_asset_db(&AssetRequest {
@@ -978,7 +1505,7 @@ fn profile_placeholder_cannot_be_written_back() {
     let salt = crate::crypto::generate_salt();
     let key = crate::crypto::derive_key_bytes("wb-pw", &salt);
     let verifier = vault::make_verifier(&key).unwrap();
-    set_security_config_db(&b64.encode(salt), &verifier).unwrap();
+    set_security_config_with_dek_db(&b64.encode(salt), &verifier, "").unwrap();
     vault::set_key(key.clone());
 
     let mut profile = UserProfile {
@@ -1244,7 +1771,7 @@ fn add_asset_encrypts_every_sensitive_column_on_write() {
         use base64::{engine::general_purpose::STANDARD as b64, Engine as _};
         b64.encode(salt)
     };
-    set_security_config_db(&salt_b64, &verifier).unwrap();
+    set_security_config_with_dek_db(&salt_b64, &verifier, "").unwrap();
     vault::set_key(key);
 
     let id = add_asset_db(&AssetRequest {
@@ -1649,7 +2176,7 @@ fn reset_security_reencrypts_assets_and_profile() {
     let salt_old = crate::crypto::generate_salt();
     let key_old = crate::crypto::derive_key_bytes("old-master-111", &salt_old);
     let verifier_old = vault::make_verifier(&key_old).unwrap();
-    set_security_config_db(&b64.encode(salt_old), &verifier_old).unwrap();
+    set_security_config_with_dek_db(&b64.encode(salt_old), &verifier_old, "").unwrap();
     vault::set_key(key_old.clone());
 
     let id = add_asset_db(&AssetRequest {
@@ -1686,17 +2213,16 @@ fn reset_security_reencrypts_assets_and_profile() {
         assert!(vault::is_encrypted(&raw), "前置：档案字段必须是密文");
     }
 
-    // 新密钥体系（salt 与密钥必须配对）
-    let salt_new = crate::crypto::generate_salt();
-    let key_new = crate::crypto::derive_key_bytes("new-master-222", &salt_new);
-    let verifier_new = vault::make_verifier(&key_new).unwrap();
-    let salt_v2 = crate::crypto::generate_salt_v2();
+    // 两层密钥：恢复重设沿用同一把数据密钥，只换 KEK（O(1)，不再逐字段重加密）
+    let kek_new = crate::crypto::derive_key_bytes("new-master-222", &[7u8; 16]);
+    let verifier_new = vault::make_verifier(&key_old).unwrap();
+    let salt_v3 = crate::crypto::generate_salt_v3();
 
-    reset_security_config_db(&salt_v2, &verifier_new, "", &key_old, &key_new)
-        .expect("重加密必须成功");
+    reset_security_config_db(&salt_v3, &verifier_new, "", &key_old, &kek_new)
+        .expect("重设必须成功");
 
-    // 切到新密钥后，所有数据必须可读且值不变
-    vault::set_key(key_new.clone());
+    // 数据密钥未变 → 切回同一把 DEK 后所有数据必须可读且值不变
+    vault::set_key(key_old.clone());
     let asset = get_asset_by_id_db(id).unwrap().unwrap();
     assert_eq!(asset.account_identifier, "reset-acc");
     assert_eq!(asset.account_description, "desc-reset");
@@ -1710,19 +2236,18 @@ fn reset_security_reencrypts_assets_and_profile() {
     assert_eq!(profile.full_name, "档案姓名", "档案必须用新密钥重新加密");
     assert_eq!(profile.phone, "13800000000");
 
-    // 旧密钥不再能解开任何数据（证明密钥真的换了）
-    vault::set_key(key_old);
-    let stale = get_asset_by_id_db(id).unwrap().unwrap();
-    assert!(
-        stale.account_identifier.contains("加密数据"),
-        "旧密钥必须解不开新密文，实际拿到: {}",
-        stale.account_identifier
+    // 两层密钥的核心不变式：数据密钥不随密码变化。
+    // 重设只换了包裹它的 KEK —— 这正是「改密 O(1)」与「继承人份额不失效」的前提。
+    let wrapped_after = get_wrapped_dek_db().unwrap();
+    assert!(!wrapped_after.is_empty(), "重设后必须写入 wrapped_dek");
+    assert_eq!(
+        *crate::vault::unwrap_data_key(&wrapped_after, &kek_new).unwrap(),
+        *key_old,
+        "新 KEK 必须能解出同一把数据密钥"
     );
-    let stale_profile = get_user_profile_db().unwrap().unwrap();
     assert!(
-        stale_profile.full_name.contains("加密数据"),
-        "旧密钥必须解不开档案，实际拿到: {}",
-        stale_profile.full_name
+        crate::vault::unwrap_data_key(&wrapped_after, &key_old).is_err(),
+        "旧 KEK 不得再解开 wrapped_dek"
     );
 
     vault::clear_key();
@@ -1820,6 +2345,13 @@ fn heartbeat_only_does_not_count_as_reachable_trigger() {
     init_database_at(path.clone()).unwrap();
 
     // 启用 DMS + 心跳，但完全没配 SMTP
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("heartbeat-dashboard-password", &salt).unwrap();
+    let dek = crate::vault::generate_data_key();
+    let wrapped = crate::vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = crate::vault::make_verifier(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    vault::set_key(dek);
     set_dms_config_db(true, 30).unwrap();
     set_heartbeat_config_db(true, "tok", "https://hb.example.org").unwrap();
 
@@ -1967,4 +2499,202 @@ fn review_records_survive_backup_roundtrip() {
     import_backup_json_db(&json).unwrap();
     let again = list_review_records_db("platform-policy", "1").unwrap();
     assert_eq!(again.len(), 1, "重复导入不得产生重复留痕");
+}
+
+/// 两层密钥的核心收益：改密码不再重写任何字段。
+///
+/// 用一个可观测的不变式证明：改密前后**密文本身完全不变**。
+/// 若实现退回「逐字段重加密」，AES-GCM 每次 nonce 随机 → 密文必然变，测试立刻失败。
+#[test]
+fn change_password_does_not_touch_ciphertext() {
+    let _g = vault::test_lock();
+    vault::clear_key();
+    let path = std::env::temp_dir().join(format!("digilegacy_layered_{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    init_database_at(path.clone()).unwrap();
+
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("old-master-123", &salt).unwrap();
+    let dek = crate::vault::generate_data_key();
+    let wrapped = crate::vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = vault::make_verifier(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    vault::set_key(dek.clone());
+
+    let req = AssetRequest {
+        platform_id: 1,
+        account_identifier: "o1".into(),
+        account_description: "d1".into(),
+        category: "property".into(),
+        estimated_value: Some(100.0),
+        disposal_method: "inherit".into(),
+        heir_name: Some("甲".into()),
+        heir_contact: Some("139".into()),
+        notes: "n1".into(),
+    };
+    let id = add_asset_db(&req).unwrap();
+    set_asset_credential_db(id, "cred-o1").unwrap();
+
+    let ciphertext_before: String = {
+        let guard = get_conn().unwrap();
+        let conn = guard.as_ref().unwrap();
+        conn.query_row(
+            "SELECT account_identifier || '|' || credential_enc FROM digital_assets WHERE id=?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+
+    change_master_password_db("old-master-123", "new-master-456", "new-master-456").unwrap();
+
+    let ciphertext_after: String = {
+        let guard = get_conn().unwrap();
+        let conn = guard.as_ref().unwrap();
+        conn.query_row(
+            "SELECT account_identifier || '|' || credential_enc FROM digital_assets WHERE id=?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .unwrap()
+    };
+    assert_eq!(
+        ciphertext_before, ciphertext_after,
+        "改密不得重写字段：密文必须逐字节相同（否则是 O(n) 旧实现）"
+    );
+    assert_eq!(get_asset_credential_db(id).unwrap(), "cred-o1");
+    assert!(
+        ciphertext_after.contains("enc:v2:"),
+        "新写入的字段应为 v2（HKDF 域分离）"
+    );
+
+    vault::clear_key();
+    let _ = std::fs::remove_file(&path);
+}
+
+/// 跨设备恢复：库 A 生成恢复包（元数据随备份导出），库 B 导入后用份额 + 口令解出同一数据密钥。
+#[test]
+fn cross_device_recovery_from_shares_and_backup() {
+    let _g = vault::test_lock();
+    vault::clear_key();
+
+    let path_a = std::env::temp_dir().join(format!("digilegacy_devA_{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&path_a);
+    init_database_at(path_a.clone()).unwrap();
+
+    let salt = crate::crypto::generate_salt_v3();
+    let kek = crate::crypto::derive_from_salt("device-a-pw", &salt).unwrap();
+    let dek = crate::vault::generate_data_key();
+    let wrapped = crate::vault::wrap_data_key(&dek, &kek).unwrap();
+    let verifier = vault::make_verifier(&dek).unwrap();
+    let (_code, seal) = crate::recovery::create_recovery_seal(&dek).unwrap();
+    set_security_config_with_dek_db(&salt, &verifier, &wrapped).unwrap();
+    set_recovery_seal_db(&seal).unwrap();
+    vault::set_key(dek.clone());
+
+    // 生成恢复包（口令模式：份额拆的是密文，必须口令 + 份额同时具备）
+    let dir = std::env::temp_dir().join(format!("digilegacy_kit_{}", std::process::id()));
+    let (kit, _html) =
+        crate::heir_recovery::generate_kit(3, 5, Some("kit-passphrase"), &dir).unwrap();
+    assert_eq!(kit.total, 5);
+    assert!(kit.passphrase_protected);
+
+    // 把生成的 HTML 里每份份额抽出来（模拟家人按纸上内容输入）
+    let on_disk = std::fs::read_to_string(&kit.path).unwrap();
+    let mut shares: Vec<String> = Vec::new();
+    let mut rest = on_disk.as_str();
+    while let Some(pos) = rest.find(crate::heir_recovery::SHARE_PREFIX) {
+        let tail = &rest[pos..];
+        let code: String = tail
+            .chars()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '-')
+            .collect();
+        let advance = code.len().max(1);
+        if code.len() > 20 {
+            shares.push(code);
+        }
+        rest = &tail[advance..];
+    }
+    assert_eq!(shares.len(), 5, "恢复包必须包含 5 份可抄写的份额");
+
+    let backup = export_backup_json_db().unwrap();
+    let v: serde_json::Value = serde_json::from_str(&backup).unwrap();
+    assert_eq!(v["version"], 5);
+    assert!(
+        v["tables"]["heir_recovery"]["fingerprint"].is_string(),
+        "备份必须携带恢复包元数据，否则换机后份额配不上"
+    );
+
+    // ── 设备 B ──
+    vault::clear_key();
+    let path_b = std::env::temp_dir().join(format!("digilegacy_devB_{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&path_b);
+    init_database_at(path_b.clone()).unwrap();
+    import_backup_json_db_with_mode_and_password(&backup, ImportMode::Replace, Some("device-a-pw"))
+        .unwrap();
+    vault::clear_key();
+
+    // 份额不足 → 必须拒绝
+    assert!(
+        crate::heir_recovery::recover_from_shares(&shares[..2], Some("kit-passphrase")).is_err(),
+        "少于门限不得恢复"
+    );
+    // 口令错误 → 必须拒绝
+    assert!(
+        crate::heir_recovery::recover_from_shares(&shares[..3], Some("wrong-pass")).is_err(),
+        "口令错误不得恢复"
+    );
+    // 正确：任意 3 份 + 口令
+    crate::heir_recovery::recover_from_shares(&shares[..3], Some("kit-passphrase"))
+        .expect("跨设备恢复必须成功");
+    assert_eq!(*vault::get_key().unwrap(), *dek, "必须解出同一把数据密钥");
+
+    vault::clear_key();
+    let _ = std::fs::remove_file(&path_a);
+    let _ = std::fs::remove_file(&path_b);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// AI 问答历史：追加 → 倒序读取 → 清空。
+#[test]
+fn ai_chat_log_roundtrip() {
+    let _g = vault::test_lock();
+    let path = std::env::temp_dir().join(format!("digilegacy_chat_{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    init_database_at(path.clone()).unwrap();
+
+    append_ai_chat_db(
+        "怎么继承支付宝余额？",
+        "第一步：准备死亡证明…",
+        "gpt-4o-mini",
+    )
+    .unwrap();
+    append_ai_chat_db("恢复码丢了怎么办？", "用继承人恢复份额…", "gpt-4o-mini").unwrap();
+
+    let history = list_ai_chat_db(10).unwrap();
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[0]["question"], "恢复码丢了怎么办？", "新的在前");
+    assert_eq!(history[1]["answer"], "第一步：准备死亡证明…");
+    assert!(history[0]["model"] == "gpt-4o-mini");
+
+    clear_ai_chat_db().unwrap();
+    assert!(list_ai_chat_db(10).unwrap().is_empty(), "清空后必须为空");
+
+    let _ = std::fs::remove_file(&path);
+}
+
+/// 长度上限：超长问答必须拒绝（防止把几十 MB 粘贴进历史表）。
+#[test]
+fn ai_chat_log_rejects_oversized() {
+    let _g = vault::test_lock();
+    let path = std::env::temp_dir().join(format!("digilegacy_chat2_{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    init_database_at(path.clone()).unwrap();
+
+    let big_q = "x".repeat(2_001);
+    assert!(append_ai_chat_db(&big_q, "ok", "m").is_err());
+    let big_a = "y".repeat(20_001);
+    assert!(append_ai_chat_db("q", &big_a, "m").is_err());
+
+    let _ = std::fs::remove_file(&path);
 }

@@ -306,7 +306,7 @@ fn category_label(cat: &str, locale: ReportLocale) -> &'static str {
     }
 }
 
-fn disposal_label(method: &str, locale: ReportLocale) -> &'static str {
+pub(crate) fn disposal_label(method: &str, locale: ReportLocale) -> &'static str {
     match (method, locale) {
         ("inherit", ReportLocale::Zh) => "指定继承",
         ("liquidate", ReportLocale::Zh) => "变现分配",

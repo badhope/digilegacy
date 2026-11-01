@@ -23,6 +23,7 @@ import ProfileView from './ProfileView.vue';
 import { useFeedback, settleConfirm, lastConfirm } from '../composables/feedback';
 import { invoke } from '../api/invoke';
 import { useSecurityStore } from '../stores/security';
+import { locale, setLocale } from '../i18n';
 import { silenceExpectedErrors } from '../test-utils/silence';
 
 silenceExpectedErrors();
@@ -149,12 +150,26 @@ describe('启用主密码', () => {
 });
 
 describe('备份导出', () => {
+  it('备份源主密码 placeholder 跟随英文 i18n，而不是硬编码中文', async () => {
+    const previousLocale = locale.value;
+    setLocale('en-US');
+    try {
+      const w = await mountProfile();
+      expect(w.find('#pf-backup-source-password').attributes('placeholder')).toBe(
+        'Enter the source master password (required for encrypted backups)',
+      );
+      expect(w.find('#pf-backup-source-password').attributes('placeholder')).not.toContain('备份源');
+    } finally {
+      setLocale(previousLocale);
+    }
+  });
+
   it('成功时显示落地路径', async () => {
     const w = await mountProfile({
       export_backup: () => ({ success: true, message: '备份已导出', data: 'C:/app/备份/x.json' }),
     });
 
-    const btn = w.findAll('button').find(b => b.text().includes('导出加密备份'))!;
+    const btn = w.findAll('button').find(b => b.text().includes('导出备份'))!;
     await btn.trigger('click');
     await flushPromises();
 
@@ -166,7 +181,7 @@ describe('备份导出', () => {
       export_backup: () => ({ success: false, message: '写入备份失败', data: null }),
     });
 
-    const btn = w.findAll('button').find(b => b.text().includes('导出加密备份'))!;
+    const btn = w.findAll('button').find(b => b.text().includes('导出备份'))!;
     await btn.trigger('click');
     await flushPromises();
 
@@ -422,6 +437,12 @@ describe('导入备份（导入后必须刷新全部数据视图）', () => {
       import_backup: () => { calls.push('import_backup'); return { success: true, message: '已恢复', data: '2 条' }; },
       get_all_assets: () => { calls.push('get_all_assets'); return { success: true, message: '', data: [] }; },
       get_dashboard_stats: () => { calls.push('get_dashboard_stats'); return { success: true, message: '', data: null }; },
+      get_user_profile: () => { calls.push('get_user_profile'); return { success: true, message: '', data: null }; },
+      get_heirs: () => { calls.push('get_heirs'); return { success: true, message: '', data: [] }; },
+      get_custody_hints: () => { calls.push('get_custody_hints'); return { success: true, message: '', data: { backup_location: '', recovery_code_location: '' } }; },
+      get_assistant_config: () => { calls.push('get_assistant_config'); return { success: true, message: '', data: { enabled: false, endpoint: '', model: '', has_key: false } }; },
+      get_smtp_config: () => { calls.push('get_smtp_config'); return { success: true, message: '', data: { host: '', port: 587, from_addr: '', username: '', has_password: false, allow_insecure: false } }; },
+      get_heartbeat_config: () => { calls.push('get_heartbeat_config'); return { success: true, message: '', data: { enabled: false, has_token: false, endpoint: '' } }; },
     });
 
     const btn = w.findAll('button').find(b => b.text().includes('导入备份文件'))!;
@@ -435,6 +456,12 @@ describe('导入备份（导入后必须刷新全部数据视图）', () => {
     expect(calls).toContain('import_backup');
     expect(calls, '导入后必须重取资产列表').toContain('get_all_assets');
     expect(calls, '导入后必须重取统计').toContain('get_dashboard_stats');
+    expect(calls, '导入后必须重取用户档案').toContain('get_user_profile');
+    expect(calls, '导入后必须重取继承人').toContain('get_heirs');
+    expect(calls, '导入后必须重取保管位置').toContain('get_custody_hints');
+    expect(calls, '导入后必须重取助手配置').toContain('get_assistant_config');
+    expect(calls, '导入后必须重取 SMTP 配置').toContain('get_smtp_config');
+    expect(calls, '导入后必须重取心跳配置').toContain('get_heartbeat_config');
     expect(w.text()).toContain('已恢复');
   });
 });
@@ -595,10 +622,11 @@ describe('SMTP 配置（家人能否真的收到通知的前提）', () => {
 });
 
 describe('备份导入模式（覆盖是不可逆操作）', () => {
-  it('默认入口按 merge 导入', async () => {
+  it('默认入口按 merge 导入并传递源主密码', async () => {
     const w = await mountProfile({
       import_backup: () => ({ success: true, message: '备份导入完成', data: '已按合并模式导入 1 条资产' }),
     });
+    await w.find('#pf-backup-source-password').setValue('source-backup-password');
     const btn = w.findAll('button').find(b => b.text().includes('导入备份'))!;
     await btn.trigger('click');
     await flushPromises();
@@ -607,6 +635,7 @@ describe('备份导入模式（覆盖是不可逆操作）', () => {
     const call = mockedInvoke.mock.calls.find(c => c[0] === 'import_backup');
     expect(call, '必须调用导入').toBeTruthy();
     expect((call![1] as Record<string, unknown>).mode).toBe('merge');
+    expect((call![1] as Record<string, unknown>).sourcePassword).toBe('source-backup-password');
   });
 
   it('覆盖导入必须显式传 replace，且在确认框里说明会清空', async () => {
@@ -741,5 +770,160 @@ describe('继承人名单（多继承人 + 执行人）', () => {
     await w.findAll('button').find(b => b.text().includes('保存继承人名单'))!.trigger('click');
     await flushPromises();
     expect(w.text()).toContain('恰好指定一位遗产执行人');
+  });
+});
+
+// ── 继承人恢复包（单机应用唯一能让家人解密的路径）──
+describe('继承人恢复包', () => {
+  it('未生成时如实显示「尚未生成」，不假装已保护', async () => {
+    const w = await mountProfile({
+      heir_recovery_status: () => ({ success: true, message: '', data: { exists: false, stale: false } }),
+    });
+    expect(w.text(), '必须显示未生成状态').toContain('尚未生成恢复包');
+  });
+
+  it('已生成时显示门限/份数/生成时间', async () => {
+    const w = await mountProfile({
+      heir_recovery_status: () => ({
+        success: true,
+        message: '',
+        data: {
+          exists: true,
+          threshold: 3,
+          total: 5,
+          created_at: '2026-10-29 10:00:00',
+          passphrase_protected: false,
+          stale: false,
+        },
+      }),
+    });
+    const text = w.text();
+    expect(text).toContain('门限 3 / 共 5 份');
+    expect(text).toContain('2026-10-29 10:00:00');
+  });
+
+  it('主密码变更后（stale）必须提示旧份额已失效', async () => {
+    const w = await mountProfile({
+      heir_recovery_status: () => ({
+        success: true,
+        message: '',
+        data: {
+          exists: true,
+          threshold: 3,
+          total: 5,
+          created_at: '2026-10-29 10:00:00',
+          passphrase_protected: false,
+          stale: true,
+        },
+      }),
+    });
+    expect(w.text()).toContain('已失效');
+  });
+
+  it('门限大于份数时本地拦截，不调用后端', async () => {
+    const w = await mountProfile({
+      heir_recovery_status: () => ({ success: true, message: '', data: { exists: false, stale: false } }),
+      security_status: () => ({ success: true, message: '', data: { has_master_password: true, unlocked: true } }),
+    });
+    await w.find('#kit-threshold').setValue('4');
+    await w.find('#kit-total').setValue('2');
+    const btn = w.findAll('button').find(b => b.text().includes('生成恢复包'))!;
+    await btn.trigger('click');
+    await flushPromises();
+    expect(mockedInvoke.mock.calls.some(c => c[0] === 'generate_heir_recovery_kit')).toBe(false);
+  });
+
+  it('生成成功后显示落地路径与份数', async () => {
+    const w = await mountProfile({
+      heir_recovery_status: () => ({ success: true, message: '', data: { exists: false, stale: false } }),
+      security_status: () => ({ success: true, message: '', data: { has_master_password: true, unlocked: true } }),
+      generate_heir_recovery_kit: () => ({
+        success: true,
+        message: '恢复包已生成',
+        data: { path: 'C:/data/继承人恢复包/kit.html', threshold: 3, total: 5 },
+      }),
+    });
+    const btn = w.findAll('button').find(b => b.text().includes('生成恢复包'))!;
+    await btn.trigger('click');
+    await flushPromises();
+    const call = mockedInvoke.mock.calls.find(c => c[0] === 'generate_heir_recovery_kit');
+    expect(call, '必须调用后端生成').toBeTruthy();
+    expect((call![1] as Record<string, unknown>).threshold).toBe(3);
+    expect((call![1] as Record<string, unknown>).total).toBe(5);
+    expect(w.text()).toContain('kit.html');
+  });
+
+  it('生成失败时显示后端原因，不得静默', async () => {
+    const w = await mountProfile({
+      heir_recovery_status: () => ({ success: true, message: '', data: { exists: false, stale: false } }),
+      security_status: () => ({ success: true, message: '', data: { has_master_password: true, unlocked: true } }),
+      generate_heir_recovery_kit: () => ({ success: false, message: '请先解锁后再生成恢复包', data: null }),
+    });
+    const btn = w.findAll('button').find(b => b.text().includes('生成恢复包'))!;
+    await btn.trigger('click');
+    await flushPromises();
+    expect(w.text()).toContain('请先解锁后再生成恢复包');
+  });
+});
+
+describe('恢复演练', () => {
+  it('受口令保护时透传演练口令并显示 GCM 指纹验证结果', async () => {
+    const w = await mountProfile({
+      heir_recovery_status: () => ({
+        success: true, message: '', data: { exists: true, threshold: 3, total: 5, created_at: '2026-10-29', stale: false },
+      }),
+      run_recovery_drill: (args) => ({
+        success: true,
+        message: '',
+        data: {
+          self_test_ok: true, self_test_ms: 3, provided: 3, valid: 3, threshold: 3,
+          enough: true, same_batch: true, passphrase_verified: true, errors: [],
+        },
+      }),
+    });
+    await w.find('#kit-drill-passphrase').setValue('drill-passphrase');
+    await w.findAll('button').find(b => b.text().includes('开始演练'))!.trigger('click');
+    await flushPromises();
+    const call = mockedInvoke.mock.calls.find(c => c[0] === 'run_recovery_drill');
+    expect((call?.[1] as Record<string, unknown>).passphrase).toBe('drill-passphrase');
+    expect(w.text()).toContain('口令与批次指纹验证通过');
+  });
+
+  it('演练结果显示自检、有效份数与批次一致性', async () => {
+    const w = await mountProfile({
+      heir_recovery_status: () => ({
+        success: true, message: '', data: { exists: true, threshold: 3, total: 5, created_at: '2026-10-29', stale: false },
+      }),
+      run_recovery_drill: () => ({
+        success: true,
+        message: '',
+        data: { self_test_ok: true, self_test_ms: 3, provided: 3, valid: 3, threshold: 3, enough: true, same_batch: true, errors: [] },
+      }),
+    });
+    const btn = w.findAll('button').find(b => b.text().includes('开始演练'))!;
+    expect(btn, '演练入口必须存在').toBeTruthy();
+    await btn.trigger('click');
+    await flushPromises();
+    const text = w.text();
+    expect(text).toContain('通过（3 ms）');
+    expect(text).toContain('有效份额 3 / 提供 3');
+    expect(text).toContain('份额数量足够');
+    expect(text).toContain('批次一致');
+  });
+
+  it('份额不足时明确提示，不假装通过', async () => {
+    const w = await mountProfile({
+      heir_recovery_status: () => ({
+        success: true, message: '', data: { exists: true, threshold: 3, total: 5, created_at: '2026-10-29', stale: false },
+      }),
+      run_recovery_drill: () => ({
+        success: true, message: '',
+        data: { self_test_ok: true, self_test_ms: 2, provided: 2, valid: 2, threshold: 3, enough: false, same_batch: false, errors: [] },
+      }),
+    });
+    await w.findAll('button').find(b => b.text().includes('开始演练'))!.trigger('click');
+    await flushPromises();
+    expect(w.text()).toContain('份额数量不足');
+    expect(w.text()).toContain('批次不一致');
   });
 });

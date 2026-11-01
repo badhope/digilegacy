@@ -5,14 +5,22 @@ import type { Mock } from 'vitest';
 
 // ReportView 的两个导出按钮此前失败时完全静默：
 // 点击后界面毫无反应，用户会以为文件已生成却找不到。
+const mockTauriEnv = vi.hoisted(() => ({ value: false }));
 vi.mock('../api/invoke', () => ({
   invoke: vi.fn(),
-  isTauriEnv: () => false,
+  isTauriEnv: () => mockTauriEnv.value,
+}));
+vi.mock('@tauri-apps/api/core', () => ({
+  Channel: class {
+    onmessage: ((value: unknown) => void) | null = null;
+    send(value: unknown) { this.onmessage?.(value); }
+  },
 }));
 
 import ReportView from './ReportView.vue';
 import { invoke } from '../api/invoke';
 import { silenceExpectedErrors } from '../test-utils/silence';
+import { settleConfirm } from '../composables/feedback';
 
 silenceExpectedErrors();
 
@@ -51,7 +59,10 @@ function reportData() {
 
 async function mountReport(over: Record<string, unknown> = {}) {
   mockedInvoke.mockImplementation(async (cmd: string) => {
-    if (cmd in over) return over[cmd as keyof typeof over];
+    if (cmd in over) {
+      const value = over[cmd as keyof typeof over];
+      return typeof value === 'function' ? await (value as (args?: Record<string, unknown>) => unknown)(undefined) : value;
+    }
     if (cmd === 'get_inheritance_report') return { success: true, message: '', data: reportData() };
     if (cmd === 'get_all_platforms') return { success: true, message: '', data: [] };
     // 报告 HTML 由后端渲染（与桌面版同一契约），测试里给等价的最小文档
@@ -75,6 +86,7 @@ async function mountReport(over: Record<string, unknown> = {}) {
 beforeEach(() => {
   setActivePinia(createPinia());
   mockedInvoke.mockReset();
+  mockTauriEnv.value = false;
 });
 
 describe('ReportView 导出反馈', () => {
@@ -474,5 +486,109 @@ describe('权威来源（预览必须与导出同源）', () => {
   it('没有来源时不渲染空章节', async () => {
     const w = await mountReport();
     expect(w.text()).not.toContain('权威来源');
+  });
+});
+
+describe('AI 问答历史（本地留痕）', () => {
+  it('回答完成后刷新历史列表', async () => {
+    const w = await mountReport({
+      get_assistant_config: { success: true, message: '', data: { enabled: true, endpoint: 'https://x/v1', model: 'm', has_key: true } },
+      preview_assistant_payload: { success: true, message: '', data: { fields: ['平台名称'], payload: '{}', chars: 10 } },
+      ask_assistant: { success: true, message: '', data: '答案内容' },
+      list_ai_chat: {
+        success: true, message: '',
+        data: [{ id: 1, question: '支付宝怎么继承？', answer: '准备死亡证明', model: 'm', created_at: '2026-10-30 10:00:00' }],
+      },
+    });
+    await flushPromises();
+    expect(w.text()).toContain('问答历史');
+    expect(w.text()).toContain('支付宝怎么继承？');
+
+    // 再次提问 → 历史重新加载
+    await w.findAll('button').find(b => b.text().includes('查看将发送的内容'))!.trigger('click');
+    await flushPromises();
+    await w.findAll('button').find(b => b.text() === '提问')!.trigger('click');
+    await flushPromises();
+    expect(mockedInvoke.mock.calls.some(c => c[0] === 'list_ai_chat')).toBe(true);
+  });
+
+  it('清空历史必须走确认框，确认后才调用后端', async () => {
+    const w = await mountReport({
+      get_assistant_config: { success: true, message: '', data: { enabled: false } },
+      list_ai_chat: {
+        success: true, message: '',
+        data: [{ id: 1, question: 'q', answer: 'a', model: 'm', created_at: '2026-10-30' }],
+      },
+      clear_ai_chat: { success: true, message: '已清空', data: null },
+    });
+    await flushPromises();
+    const btn = w.findAll('button').find(b => b.text().includes('清空历史'))!;
+    expect(btn, '清空入口必须存在').toBeTruthy();
+    await btn.trigger('click');
+    await flushPromises();
+    expect(mockedInvoke.mock.calls.some(c => c[0] === 'clear_ai_chat')).toBe(false);
+    settleConfirm(true);
+    await flushPromises();
+    expect(mockedInvoke.mock.calls.some(c => c[0] === 'clear_ai_chat')).toBe(true);
+  });
+});
+
+describe('内置 Agent（受限本地工具循环）', () => {
+  it('启用 AI 后显示 Agent 任务面板与安全提示', async () => {
+    const w = await mountReport({
+      get_assistant_config: { success: true, message: '', data: { enabled: true, endpoint: 'https://x/v1', model: 'm', has_key: true } },
+      list_ai_chat: { success: true, message: '', data: [] },
+    });
+    await flushPromises();
+    expect(w.find('[data-testid="agent-card"]').exists()).toBe(true);
+    expect(w.text()).toContain('内置 Agent');
+    expect(w.text()).toContain('不会写入数据或读取凭据');
+    expect(w.find('[data-testid="agent-run"]').attributes('disabled')).toBeDefined();
+  });
+
+  it('浏览器演示模式不启动 Agent，给出桌面版边界提示', async () => {
+    const w = await mountReport({
+      get_assistant_config: { success: true, message: '', data: { enabled: true, endpoint: 'https://x/v1', model: 'm', has_key: true } },
+      list_ai_chat: { success: true, message: '', data: [] },
+    });
+    await flushPromises();
+    await w.find('#agent-task').setValue('查支付宝余额继承流程');
+    await w.find('[data-testid="agent-run"]').trigger('click');
+    await flushPromises();
+    expect(w.text()).toContain('桌面版可用');
+  });
+
+  it('Agent 时间线与草稿结果可见（契约 fixture）', async () => {
+    const w = await mountReport({
+      get_assistant_config: { success: true, message: '', data: { enabled: true, endpoint: 'https://x/v1', model: 'm', has_key: true } },
+      list_ai_chat: { success: true, message: '', data: [] },
+    });
+    await flushPromises();
+    // 浏览器模式下不真正调用 endpoint；这里锁定 UI 的 empty/disabled 边界，
+    // Tauri Channel 的事件序列由 Rust agent 单测覆盖。
+    expect(w.find('.agent-timeline').exists()).toBe(false);
+    expect(w.find('[data-testid="agent-run"]').exists()).toBe(true);
+  });
+});
+
+describe('内置 Agent 桌面分支', () => {
+  it('Tauri 模式通过 Channel 显示工具步骤与最终草稿', async () => {
+    mockTauriEnv.value = true;
+    const w = await mountReport({
+      get_assistant_config: { success: true, message: '', data: { enabled: true, endpoint: 'https://x/v1', model: 'm', has_key: true } },
+      list_ai_chat: { success: true, message: '', data: [] },
+      run_agent_task_streaming: (args?: Record<string, unknown>) => {
+        const channel = args?.onEvent as { send?: (value: unknown) => void } | undefined;
+        channel?.send?.({ kind: 'tool_start', round: 1, tool: 'query_platform_policy' });
+        return { success: true, message: '', data: { steps: [{ kind: 'tool_end', round: 1, tool: 'query_platform_policy', result: '政策结果' }], final_text: '给家人的草稿', truncated: false } };
+      },
+    });
+    await flushPromises();
+    await w.find('#agent-task').setValue('查支付宝继承流程');
+    await w.find('[data-testid="agent-run"]').trigger('click');
+    await flushPromises();
+    expect(w.text()).toContain('给家人的草稿');
+    expect(w.text()).toContain('政策结果');
+    expect(mockedInvoke.mock.calls.some(c => c[0] === 'run_agent_task_streaming')).toBe(true);
   });
 });

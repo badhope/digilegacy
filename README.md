@@ -9,9 +9,9 @@
 <p>
   <a href="https://github.com/badhope/digilegacy/actions/workflows/ci.yml"><img src="https://github.com/badhope/digilegacy/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT">
-  <img src="https://img.shields.io/badge/tests-204%20Rust%20%C2%B7%20424%20frontend%20%C2%B7%2080%20E2E-brightgreen.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-267%20Rust%20%C2%B7%20450%20frontend%20%C2%B7%2080%20E2E-lightgrey.svg" alt="Source-derived test inventory; not the latest run status">
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg" alt="Windows">
-  <img src="https://img.shields.io/badge/servers-none-4a7c8c.svg" alt="No servers">
+  <img src="https://img.shields.io/badge/default%20storage-local-4a7c8c.svg" alt="Local storage by default">
   <img src="https://img.shields.io/badge/telemetry-none-4a7c8c.svg" alt="No telemetry">
 </p>
 
@@ -28,14 +28,14 @@
 
 ---
 
-## The whole chain, in one app
+## One local workflow for digital legacy planning
 
-Most tools solve one slice: Google and Apple only cover their own accounts, password managers hand over passwords, will services never touch the accounts. DigiLegacy covers the full path — **discovery → registration → planning → documents → trigger → execution** — in a single local database.
+DigiLegacy helps an owner discover digital assets, record handling wishes, prepare family-facing documents, configure reminders, and rehearse the handover path. The desktop app stores its working data locally by default; it does not include a hosted account, telemetry, or cloud sync.
 
 | | |
 |---|---|
-| **152** platforms in the built-in inheritance policy database, 16 categories | **69** IPC commands across a Rust core and a Vue frontend |
-| **AES-256-GCM** field-level encryption, PBKDF2-SHA256 at 600k iterations | **0** servers, **0** telemetry, **0** cloud calls |
+| **152** platforms in the built-in policy database, across 16 categories | **83** IPC commands across a Rust core and a Vue frontend |
+| New vaults use **AES-256-GCM** field encryption and Argon2id key derivation; recovery kits use Shamir threshold shares | External connections are optional and user-configured: heartbeat, SMTP/IMAP, and the BYOK assistant/Agent |
 
 ## A guided tour
 
@@ -70,29 +70,38 @@ Most tools solve one slice: Google and Apple only cover their own accounts, pass
 | 📄 **Report & toolkit** | Print-ready HTML + ZIP (report, asset list, summary, instructions) | |
 | ⏰ **Dead man's switch** | Three-stage confirmation chain, tray residency, optional zero-content heartbeat | |
 | 👥 **Heir guidance** | Per-platform documents, procedure, transfer path, risk warnings | |
-| 🔐 **Encrypted vault** | AES-256-GCM, idle auto-lock, one-time recovery key, encrypted backup | |
+| 🔐 **Encrypted vault** | AES-256-GCM, Argon2id, idle auto-lock, one-time recovery key, encrypted backup |
+| 👥 **Heir recovery kit** | Shamir threshold shares + printable recovery file + read-only drill; recovery still requires the configured vault/recovery conditions | |
+| 🤖 **Optional assistant/Agent** | Uses a user-configured OpenAI-compatible endpoint; bounded local read/draft tools, visible steps, human review, and no credential/write tools | |
 | 🎨 **Two themes** | Light and dark from the same design tokens, reduced-motion aware | |
 | 🔎 **Search & charts** | Full-text search, sorting, ECharts composition donut | |
 | 🧪 **Live demo** | Full UI in the browser on mock data — click before you install | |
 
-## Built like a product
+## Verification status
 
-| Check | Result |
+The repository keeps historical verification records in [`docs/VERIFICATION.md`](docs/VERIFICATION.md). The 2026-11-01 local run verified the frontend, browser E2E, documentation and Rust gates using the installed MSVC toolchain; network source verification was intentionally not run.
+
+| Check | Latest local result |
 |---|---|
-| Rust tests | **202 passing**, 1 ignored (`cargo test --locked`; 204 declared incl. 1 Unix-only) |
-| Frontend unit tests | **424 passing** across 32 files |
-| End-to-end tests | **80 passing** in real Chromium |
-| Coverage | **85.2% statements**, 86.7% lines — thresholds enforced in CI |
-| Type safety | `vue-tsc --noEmit` clean, Rust `clippy -D warnings` clean |
-| Supply chain | `cargo audit` and `npm audit`: 0 vulnerabilities |
-| CI | 5 jobs — frontend, E2E, Rust, heartbeat server, Windows installer build |
-| Release | Build pipeline publishes MSI + NSIS with SHA-256 checksums, re-downloaded and verified after publish |
+| Rust tests | **265 passed, 1 ignored**; 267 declared source tests |
+| Frontend unit tests | **450 passing** across 32 files; coverage: 83.43% statements, 78.59% branches, 76.41% functions, 84.92% lines |
+| Type safety | `npm run typecheck` passed |
+| Production build | `npm run build` passed; no `mock-*` chunk |
+| Demo build | `npm run build:demo` passed; this is a browser mock-data build, not the desktop backend |
+| Heartbeat server behavior | `node server/heartbeat-server.test.mjs` passed |
+| Documentation/policy checks | `check-doc-facts` and `check-policy-provenance` passed |
+| Rust fmt | `cargo fmt --check` passed |
+| Rust clippy/tests | `cargo clippy --all-targets -- -D warnings` and `cargo test --locked` passed with MSVC `cl.exe` |
+| E2E | **80 passed** with `PW_CHANNEL=msedge`; coverage run also passed and produced 31-file report |
 
-**Production hygiene:** the demo backend is compiled out of the installer (CI asserts no `mock-*` chunk), the schema is versioned with `PRAGMA user_version`, command inputs are capped and validated at the IPC boundary, backups carry heartbeat settings, policy patches, the recovery seal, heirs, SMTP, custody locations and assistant config (v4), backup, report, toolkit and SMTP-credential files are written owner-only, and importing a backup writes a pre-import snapshot and merges by default.
+**Production boundaries:** the browser demo stores mock data in unencrypted `localStorage` and does not start the Agent. A normal desktop build excludes the mock backend. The database schema is at `PRAGMA user_version` 7; exported backups use format v5 and include the configured security/recovery metadata. IPC inputs are bounded and validated. Reports, toolkits, backups, and credential-bearing configuration files use the private-write path. Backup import defaults to non-destructive merge; explicit replace mode creates a pre-import snapshot and aborts if that snapshot cannot be written.
+
 
 ## Get started
 
-**Windows 10/11 · ~3.5 MB · no account, no sign-up, no network**
+**Windows 10/11 · installer size varies by release · no account or sign-up**
+
+The desktop app works offline for local planning and exports. Optional features can make user-configured outbound connections: SMTP/IMAP, the zero-content heartbeat, or the BYOK assistant/Agent.
 
 ```bash
 # Download from Releases, then run the installer.
@@ -112,13 +121,13 @@ npm run tauri:build    # installers
 
 ## Tech stack
 
-`Tauri 2` · `Rust` · `rusqlite` · `aes-gcm` · `pbkdf2` · `Vue 3` · `TypeScript` · `Pinia` · `Vite` · `ECharts` · `Playwright` · `Vitest`
+`Tauri 2` · `Rust` · `rusqlite` · `aes-gcm` · `argon2` · `pbkdf2` (legacy) · `Vue 3` · `TypeScript` · `Pinia` · `Vite` · `ECharts` · `Playwright` · `Vitest`
 
 ## Honest limits
 
 Local encryption protects data at rest — it cannot stop malware running as you, or someone who knows your master password. Reports and toolkits are plain files: treat them like paper. The desktop UI ships in Simplified Chinese and English (switch in the header); the website, docs and demo are bilingual as well.
 
-**The dead man's switch is best-effort, and the app says so.** It only evaluates while the app is running; nothing is checked while the machine is off, asleep or the app is quit, and missed rounds are not replayed. Email needs an SMTP server you configure yourself — without it notifications only reach the local (plaintext) outbox and your family receives nothing. The optional zero-content heartbeat is the only channel that still works after the app is closed, and it is off by default.
+**The dead man's switch is best-effort, and the app says so.** It evaluates while the app is running; nothing is checked while the machine is off, asleep, or the app is fully quit, and missed rounds are not replayed. Email needs an SMTP server you configure yourself — without it notifications only reach the local plaintext outbox. IMAP check-in also requires a user-configured mailbox. The optional zero-content heartbeat is off by default and sends only the configured token to the endpoint you provide; it is not a hosted DigiLegacy service.
 
 ## Go deeper
 

@@ -70,11 +70,7 @@ jobs:
         # 且未核实条目数只能减少不能增加（棘轮）。绝不自动补写出处或核对日期。
         run: node scripts/check-policy-provenance.mjs
 
-      - name: 权威来源核验
-        # 外部链接会腐烂。这里实测每个来源的 HTTP 状态与页面内容，
-        # 区分「可达」与「内容匹配」两件不同的事实。
-        # 只在 allow-failure 模式下跑：政务站点偶发超时不应阻塞构建。
-        continue-on-error: true
+      - name: 权威来源核验（失败阻断）
         run: node scripts/verify-authorities.mjs
 
       - name: 依赖漏洞扫描（npm）
@@ -105,17 +101,14 @@ jobs:
         timeout-minutes: 15
         run: npx playwright install --with-deps chromium
 
-      - name: 运行 E2E
+      - name: 运行 E2E 行为测试
         run: npx playwright test
 
-      - name: E2E 覆盖率（不阻断，仅报告）
-        # 与单元覆盖率是两套口径：前者证明「用户点到的路径都跑过」，
-        # 后者证明「分支组合被覆盖」。这里只产出报告，不设阈值。
+      - name: E2E 覆盖率收集（失败阻断）
         run: |
-          rm -rf e2e/.coverage
+          rm -rf e2e/.coverage coverage-e2e
           E2E_COVERAGE=1 npx playwright test
           node e2e/collect-coverage.mjs
-        continue-on-error: true
 
       - name: 上传 E2E 覆盖率
         if: always()
@@ -123,6 +116,7 @@ jobs:
         with:
           name: e2e-coverage
           path: digilegacy/coverage-e2e/
+          if-no-files-found: error
           retention-days: 7
 
       - name: 上传失败痕迹

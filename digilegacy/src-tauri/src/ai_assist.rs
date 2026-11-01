@@ -3,7 +3,7 @@
 // 设计边界（写进代码，不靠自觉）：
 // 1. **默认关闭**。没有任何内置端点、没有官方服务、没有账号体系。
 //    用户自己填 OpenAI 兼容的端点与 Key，有端点时才可用。
-// 2. **传输在 Rust 层**（复用系统 curl），因此 `tauri.conf.json` 的 CSP
+// 2. **传输在 Rust 层**（进程内 ureq），因此 `tauri.conf.json` 的 CSP
 //    保持 `connect-src 'self' ipc:` 不变——前端永远不发网络请求。
 // 3. **出境白名单**：只允许平台名、类别、处置方式、缺失项这类**非身份信息**。
 //    凭据、账号标识、继承人联系方式、姓名、电话、邮箱一律在组装请求前剔除，
@@ -16,6 +16,7 @@
 use serde::{Deserialize, Serialize};
 
 const TIMEOUT_SECS: u64 = 60;
+pub(crate) const TIMEOUT_SECS_AGENT: u64 = TIMEOUT_SECS;
 
 /// 助手配置（不含 Key 明文）。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -135,8 +136,9 @@ Rules: 1) never invent platform policies, links or statutes; 2) if the answer is
 
 /// 调用 OpenAI 兼容的 `/chat/completions`。
 ///
-/// 用系统 curl 而不是 Rust HTTP 依赖：与我们「不引入新网络栈」的既有选择一致，
-/// 并且可以复用同一套超时/协议校验习惯（见 `heartbeat.rs`）。
+/// 进程内 HTTP（ureq + rustls）：不依赖系统 curl、不把 Key 交给子进程参数，
+/// 超时与 TLS 校验由代码统一控制。CSP 仍保持 `connect-src 'self'`——
+/// 前端永远不发网络请求，出网只发生在 Rust 层。
 pub(crate) fn call_chat_api(
     endpoint: &str,
     api_key: &str,
@@ -144,9 +146,6 @@ pub(crate) fn call_chat_api(
     system: &str,
     user_content: &str,
 ) -> Result<String, String> {
-    use std::io::Write;
-    use std::process::{Command, Stdio};
-
     let ep = endpoint.trim();
     if !(ep.starts_with("https://") || ep.starts_with("http://")) {
         return Err("端点必须以 https:// 或 http:// 开头".to_string());
@@ -163,59 +162,31 @@ pub(crate) fn call_chat_api(
             { "role": "user", "content": user_content },
         ],
     });
-    let body_text = serde_json::to_string(&body).map_err(|e| format!("组装请求失败: {}", e))?;
 
-    // Key 经 curl 的 config 文件从 stdin 传入（`-K -`），不出现在命令行参数里：
-    // 同机进程可以枚举 argv，密钥绝不能走那条路径。
-    let mut child = Command::new("curl")
-        .args([
-            "-s",
-            "-S",
-            "-X",
-            "POST",
-            "-H",
-            "Content-Type: application/json",
-            "-m",
-            &TIMEOUT_SECS.to_string(),
-            "-K",
-            "-",
-            "--data-binary",
-            "@-",
-            "--",
-            &url,
-        ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("启动 curl 失败: {}", e))?;
+    let config = ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_secs(TIMEOUT_SECS)))
+        .max_redirects(0)
+        .http_status_as_error(false)
+        .build();
+    let agent: ureq::Agent = config.into();
 
-    {
-        let mut stdin = child.stdin.take().ok_or("无法打开 curl 标准输入")?;
-        // curl config 的 header 行用双引号包裹；Key 里若含反斜杠或双引号，
-        // 会破坏 config 语法（甚至注入额外 header），先剔除这两类字符。
-        let safe_key: String = api_key
-            .chars()
-            .filter(|c| *c != '\\' && *c != '"')
-            .collect();
-        let header = format!("header = \"Authorization: Bearer {}\"\n", safe_key);
-        stdin
-            .write_all(header.as_bytes())
-            .and_then(|_| stdin.write_all(body_text.as_bytes()))
-            .map_err(|e| format!("写入请求失败: {}", e))?;
+    let response = agent
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("Authorization", &format!("Bearer {}", api_key.trim()))
+        .send_json(&body)
+        .map_err(|e| format!("请求失败: {}", e))?;
+
+    let status = response.status().as_u16();
+    let text = response
+        .into_body()
+        .read_to_string()
+        .map_err(|e| format!("读取响应失败: {}", e))?;
+    if !(200..300).contains(&status) {
+        // 错误体可能包含提供商的具体原因；截断避免把超长 HTML 错误页回显到 UI。
+        let brief: String = text.chars().take(400).collect();
+        return Err(format!("请求失败 (HTTP {}): {}", status, brief.trim()));
     }
-
-    let output = child
-        .wait_with_output()
-        .map_err(|e| format!("等待 curl 退出失败: {}", e))?;
-    if !output.status.success() {
-        return Err(format!(
-            "请求失败 (curl exit {}): {}",
-            output.status.code().unwrap_or(-1),
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
-    }
-    let text = String::from_utf8_lossy(&output.stdout).to_string();
     let parsed: serde_json::Value =
         serde_json::from_str(&text).map_err(|_| "返回内容不是合法 JSON".to_string())?;
     parsed
@@ -227,6 +198,108 @@ pub(crate) fn call_chat_api(
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .ok_or_else(|| "返回内容缺少 choices[0].message.content".to_string())
+}
+
+/// 供命令层（流式路径）构造出境 payload —— 与 `ask` 走同一个白名单函数。
+pub(crate) fn preview_payload(
+    report: &crate::models::InheritanceReport,
+    question: &str,
+) -> serde_json::Value {
+    build_safe_payload(report, question)
+}
+
+/// 供命令层（流式路径）取系统提示词。
+pub(crate) fn system_prompt_pub(locale: crate::report::ReportLocale) -> &'static str {
+    system_prompt(locale)
+}
+
+/// 流式调用 OpenAI 兼容的 `/chat/completions`（SSE）。
+///
+/// 与 `call_chat_api` 相同的白名单 payload 与安全约束；差别只在响应读取方式：
+/// 逐行读 `data: {...}` 增量，把每个 delta 通过 `on_delta` 回调交给调用方
+/// （命令层经 Tauri channel 推给前端，实现逐字渲染）。
+/// SSE 流里的 `[DONE]` 终止；任何一行解析失败不中断流（跳过），由 HTTP 状态兜底。
+pub(crate) fn call_chat_api_streaming(
+    endpoint: &str,
+    api_key: &str,
+    model: &str,
+    system: &str,
+    user_content: &str,
+    on_delta: &mut dyn FnMut(&str),
+) -> Result<(), String> {
+    let ep = endpoint.trim();
+    if !(ep.starts_with("https://") || ep.starts_with("http://")) {
+        return Err("端点必须以 https:// 或 http:// 开头".to_string());
+    }
+    if api_key.trim().is_empty() {
+        return Err("尚未填写 API Key".to_string());
+    }
+    let url = format!("{}/chat/completions", ep.trim_end_matches('/'));
+    let body = serde_json::json!({
+        "model": model,
+        "temperature": 0.2,
+        "stream": true,
+        "messages": [
+            { "role": "system", "content": system },
+            { "role": "user", "content": user_content },
+        ],
+    });
+
+    let config = ureq::Agent::config_builder()
+        .timeout_global(Some(std::time::Duration::from_secs(TIMEOUT_SECS)))
+        .max_redirects(0)
+        .http_status_as_error(false)
+        .build();
+    let agent: ureq::Agent = config.into();
+
+    let response = agent
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("Authorization", &format!("Bearer {}", api_key.trim()))
+        .header("Accept", "text/event-stream")
+        .send_json(&body)
+        .map_err(|e| format!("请求失败: {}", e))?;
+
+    let status = response.status().as_u16();
+    if !(200..300).contains(&status) {
+        let text = response.into_body().read_to_string().unwrap_or_default();
+        let brief: String = text.chars().take(400).collect();
+        return Err(format!("请求失败 (HTTP {}): {}", status, brief.trim()));
+    }
+
+    let mut reader = std::io::BufReader::new(response.into_body().into_reader());
+    let mut line = String::new();
+    loop {
+        line.clear();
+        let n = std::io::BufRead::read_line(&mut reader, &mut line)
+            .map_err(|e| format!("读取流失败: {}", e))?;
+        if n == 0 {
+            break; // EOF
+        }
+        let trimmed = line.trim_end();
+        let Some(data) = trimmed.strip_prefix("data:") else {
+            continue; // SSE 注释行 / 空行
+        };
+        let data = data.trim();
+        if data == "[DONE]" {
+            break;
+        }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(data) {
+            if let Some(delta) = v
+                .get("choices")
+                .and_then(|c| c.get(0))
+                .and_then(|c| c.get("delta"))
+                .and_then(|d| d.get("content"))
+                .and_then(|c| c.as_str())
+            {
+                if !delta.is_empty() {
+                    on_delta(delta);
+                }
+            }
+        }
+        // 解析失败的行跳过：注释、心跳、非 OpenAI 格式的杂讯都不致命
+    }
+    Ok(())
 }
 
 /// 执行一次提问。调用方（命令层）负责检查开关、解密 Key 与占位符拦截。
@@ -418,5 +491,68 @@ mod tests {
         let en = system_prompt(ReportLocale::En);
         assert!(en.contains("never invent"));
         assert!(en.contains("never ask for passwords"));
+    }
+
+    /// SSE 流解析：从模拟的分块行流里抽出全部增量，按顺序拼接。
+    /// 这是 call_chat_api_streaming 的读循环核心（网络层用本地 mock 代替）。
+    #[test]
+    fn sse_delta_extraction_from_lines() {
+        let lines = [
+            "data: {\"choices\":[{\"delta\":{\"content\":\"你好\"}}]}",
+            "",
+            ": keep-alive comment",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"，家人\"}}]}",
+            "data: {\"choices\":[{\"delta\":{}}]}",
+            "data: [DONE]",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"不应出现\"}}]}",
+        ];
+        let mut collected = String::new();
+        for raw in lines {
+            let trimmed = raw.trim_end();
+            let Some(data) = trimmed.strip_prefix("data:") else {
+                continue;
+            };
+            let data = data.trim();
+            if data == "[DONE]" {
+                break;
+            }
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(data) {
+                if let Some(delta) = v
+                    .get("choices")
+                    .and_then(|c| c.get(0))
+                    .and_then(|c| c.get("delta"))
+                    .and_then(|d| d.get("content"))
+                    .and_then(|c| c.as_str())
+                {
+                    collected.push_str(delta);
+                }
+            }
+        }
+        assert_eq!(
+            collected, "你好，家人",
+            "[DONE] 之后不得再消费；注释行/空行跳过"
+        );
+    }
+
+    /// 白名单回归：出境 payload 永不含身份字段（FORBIDDEN_FIELDS 全量反向断言）。
+    #[test]
+    fn streaming_payload_never_contains_forbidden_fields() {
+        let mut r = report();
+        r.assets[0].account_identifier = "secret-account-id".into();
+        r.user.full_name = "机密姓名".into();
+        let payload = preview_payload(&r, "继承人该怎么取回支付宝余额？");
+        let text = serde_json::to_string(&payload).unwrap();
+        for f in FORBIDDEN_FIELDS {
+            // 字段名本身不得出现（值级检查在 outbound_payload_contains_no_identity_data）
+            assert!(
+                !text.contains(&format!("\"{}\":", f)),
+                "出境 payload 不得包含字段 {}",
+                f
+            );
+        }
+        assert!(
+            !text.contains("secret-account-id") && !text.contains("机密姓名"),
+            "身份值不得出境"
+        );
     }
 }
