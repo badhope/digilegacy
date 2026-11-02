@@ -1251,6 +1251,11 @@ body {
 /* 分类卡图标容器 */
 .category-icon svg { width: 34px; height: 34px; }
 .platform-icon svg { width: 26px; height: 26px; }
+/* 内联图标默认尺寸：@vicons 的 SVG 只有 viewBox、没有 width/height，
+   在普通流式容器里会按 SVG 默认 300x150 撑满父容器（法律模板页的警告图标
+   曾因此占满整屏）。这里给一个全局兜底，再用具体容器的规则覆盖。 */
+.inline-icon svg,
+p > svg { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }
 /* 通用按钮/头部图标尺寸 */
 .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
 .sidebar-security svg { width: 14px; height: 14px; vertical-align: -2px; }

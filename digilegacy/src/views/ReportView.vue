@@ -88,7 +88,7 @@
           <strong>{{ idx + 1 }}. {{ asset.platform_name }}</strong>
           <p style="font-size: 13px; color: var(--gray-600); margin-top: 4px;">
             {{ t('report.disposalMethod', { method: disposalLabel(asset.disposal_method) }) }} |
-            <span v-if="asset.heir_name">{{ t('report.heirInfo', { name: asset.heir_name, contact: asset.heir_contact }) }}</span>
+            <span v-if="asset.heir_name">{{ heirInfoText(asset) }}</span>
           </p>
         </div>
       </div>
@@ -361,6 +361,17 @@ const loadError = ref('');
 const loading = ref(true);
 /** 浏览器预览模式没有 `reveal_exported_file`，按钮不该出现。 */
 const canReveal = computed(() => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
+
+/** 继承人一行文案：联系方式可能为空（只填了姓名），此时不能渲染成 "(null)"。
+ *  历史上 `report.heirInfo` 直接把 null 插值进模板，英文界面会出现
+ *  「Heir: 演示继承人 (null)」这种半成品。 */
+function heirInfoText(asset: { heir_name?: string | null; heir_contact?: string | null }): string {
+  const name = (asset.heir_name || '').trim();
+  const contact = (asset.heir_contact || '').trim();
+  return contact
+    ? t('report.heirInfo', { name, contact })
+    : t('report.heirInfoNoContact', { name });
+}
 
 const inheritableAssets = computed(() =>
   (report.value?.assets || []).filter(a => a.disposal_method !== 'no_action')

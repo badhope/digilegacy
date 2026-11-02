@@ -28,6 +28,9 @@ interface MockState {
   nextAssetId: number;
   __schema?: number;
   custody?: { backup_location: string; recovery_code_location: string };
+  /** 演示态的 SMTP 设置：真实收发不发生，只用于让「触发链是否就绪」这一维
+   *  与后端同一口径计算（后端 = DMS 启用 && SMTP 已配置）。 */
+  smtp?: { host: string; port: number; from_addr: string; username: string; has_password: boolean };
   reviews?: Record<string, Array<{
     key: string; title: string; preview?: string; status: string;
     ai_verdict: string | null; ai_note: string; human_note: string;
@@ -444,7 +447,13 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
       ).length;
       // 与桌面版同口径：只有邮件通道可用才算触发链达标；
       // 仅心跳时家人收不到邮件，不能算完成。
-      const triggerReady = state.dms.enabled && false;
+      //
+      // 演示环境不连接真实 SMTP（get_smtp_config 恒返回未配置），
+      // 因此这里必须走与后端相同的判定而不是写死 false——写死会让
+      // 「触发链」这一维在任何演示状态下都恒为 0，四维完成度永远不到 100%，
+      // 与「配置了 SMTP 就应达标」的后端契约不一致。
+      const smtpConfigured = Boolean(state.smtp?.host && state.smtp?.from_addr);
+      const triggerReady = state.dms.enabled && smtpConfigured;
       const ratio = (n: number) => (assets.length > 0 ? Math.round((n * 100) / assets.length) : 0);
       const completion = assets.length > 0
         ? Math.round((ratio(planned) + ratio(heirAssigned) + ratio(identifierReady) + (triggerReady ? 100 : 0)) / 4)
@@ -756,12 +765,23 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'review_payload_fields': {
       // 每个场景的送审字段不同：这是「AI 看到什么」的真实契约，
       // 全部返回同一份会让法律文书场景错误地宣称会发政策字段。
+      // 值是 i18n 标识而非中文文案——否则英文界面会把中文原样打印出来。
       const byProfile: Record<string, string[]> = {
-        'platform-policy': ['平台名称', '类别', '是否可继承', '所需材料', '办理流程', '难度', '预计时长', '官方链接', '来源标注', '备注'],
-        'legal-template': ['文书类型', '说明', '正文全文'],
-        'family-note': ['字段名', '填写内容'],
-        'asset-classification': ['平台名称', '资产类别', '处置方式', '平台能力标记'],
-        'heir-comprehension': ['执行包正文（平台/处置/继承人/材料/流程）', '继承人分配说明', '给家人的开头说明'],
+        'platform-policy': [
+          'payload.field.platformName', 'payload.field.category', 'payload.field.inheritable',
+          'payload.field.requiredDocs', 'payload.field.procedure', 'payload.field.difficulty',
+          'payload.field.estimatedTime', 'payload.field.officialUrl',
+          'payload.field.sourceNote', 'payload.field.notes',
+        ],
+        'legal-template': ['payload.field.legalDocType', 'payload.field.legalDescription', 'payload.field.legalBody'],
+        'family-note': ['payload.field.noteFieldName', 'payload.field.noteContent'],
+        'asset-classification': [
+          'payload.field.platformName', 'payload.field.assetCategory',
+          'payload.field.disposalMethod', 'payload.field.platformCapability',
+        ],
+        'heir-comprehension': [
+          'payload.field.heirKitBody', 'payload.field.heirAllocation', 'payload.field.heirIntro',
+        ],
       };
       return ok(byProfile[String(a['profileId'] ?? '')] ?? []) as T;
     }

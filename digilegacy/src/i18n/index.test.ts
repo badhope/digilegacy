@@ -74,4 +74,19 @@ describe('i18n 核心', () => {
     setLocale('en-US');
     expect(localStorage.getItem(STORAGE_KEY)).toBe('en-US');
   });
+
+  it('英文词典里不得残留中文（除专有名词白名单外）', async () => {
+    // 英文界面出现中文是真实缺陷：它意味着某个键的值忘了翻译，
+    // 或者把中文数据直接插值进了英文模板。这里只放过少量专有名词。
+    const { enUS } = await import('./index');
+    const cjk = /[一-鿿]/;
+    const allow = new Set<string>([
+      // 语言名一律用该语言自称（English / 中文），这是界面惯例，不是漏翻
+      'common.zh',
+    ]);
+    const offenders = Object.entries(enUS)
+      .filter(([k, v]) => cjk.test(v) && !allow.has(k))
+      .map(([k, v]) => `${k}=${v}`);
+    expect(offenders, '英文词典中的中文条目').toEqual([]);
+  });
 });

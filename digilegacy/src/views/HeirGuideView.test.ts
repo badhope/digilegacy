@@ -132,8 +132,11 @@ describe('变现场景筛选', () => {
     await tabs[1].trigger('click');
     for (let i = 0; i < 3; i++) { await flushPromises(); await w.vm.$nextTick(); }
 
-    const catBtn = w.findAll('button').find(b => b.text() === '支付金融');
-    expect(catBtn, '类别筛选按钮必须存在').toBeTruthy();
+    // 分类筛选按钮显示的是**当前语言**的分类名（中文界面下「支付金融」→「金融资产」），
+    // 不再是原始数据值。历史上这里断言原始中文值，等于把「界面直接打印数据串」
+    // 这个缺陷固化成了期望行为。
+    const catBtn = w.findAll('button').find(b => b.text() === '金融资产');
+    expect(catBtn, '类别筛选按钮必须存在且显示译名').toBeTruthy();
     await catBtn!.trigger('click');
     await flushPromises();
 
@@ -142,7 +145,7 @@ describe('变现场景筛选', () => {
     // 只断言分组标题：页面顶部的类别筛选按钮里本来就可能有「社交通讯」等字样，
     // 用整页 text 判断会误判。
     const groupTitles = w.findAll('.collapse-title').map(t => t.text());
-    expect(groupTitles).toEqual(['支付金融']);
+    expect(groupTitles).toEqual(['金融资产']);
   });
 });
 

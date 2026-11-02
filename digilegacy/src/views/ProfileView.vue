@@ -93,7 +93,7 @@
           {{ t('profile.dmsNote') }}
         </p>
         <p class="form-hint" style="margin-top: 8px;">
-          当前：{{ dmsSummary }}
+          {{ t('profile.dmsCurrent', { summary: dmsSummary }) }}
         </p>
         <router-link to="/dms" class="btn btn-secondary btn-sm mt-16">{{ t('profile.dmsGo') }} →</router-link>
       </div>

@@ -37,7 +37,7 @@
         {{ activeProfile?.use_ai ? t('review.payloadNote') : t('review.scopeNote') }}
       </p>
       <ul class="payload-list">
-        <li v-for="f in payloadFields" :key="f">{{ f }}</li>
+        <li v-for="f in payloadFields" :key="f">{{ t(f) }}</li>
       </ul>
       <div v-if="isStrict" style="margin-top: 12px;">
         <div style="font-size: 13px; font-weight: 600;">{{ t('review.strictChecksTitle') }}</div>

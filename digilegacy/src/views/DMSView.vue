@@ -10,6 +10,12 @@
         <div>
           <div style="font-size: 20px; font-weight: 700;" :style="{ color: statusColor }">{{ statusTitle }}</div>
           <div class="text-muted mt-16" style="font-size: 13px;">{{ statusSubtitle }}</div>
+          <!-- 状态「安好」只说明签到计时正常，不等于家人能收到通知。
+               仪表板把它算作 blocker；这里必须给出同一结论，否则两个页面自相矛盾。 -->
+          <div v-if="!deliveryReady" class="dms-delivery-warn" role="alert">
+            <WarningOutline />
+            <span>{{ t('dms.deliveryWarning') }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -157,6 +163,10 @@ const deliveryChannel = computed(() => {
   return t('dms.channelLocal');
 });
 
+/** 家人是否真的能收到通知：只有配置了 SMTP 才算。
+ *  与后端 `trigger_ready = dms_enabled && trigger_channel == "smtp"` 同一口径。 */
+const deliveryReady = computed(() => Boolean(dashboard.stats?.trigger_ready));
+
 const dmsState = computed(() => {
   if (!status.value?.dms_enabled) return 'disabled';
   if ((daysUntilDue.value ?? 999) <= 0) return 'overdue';
@@ -225,6 +235,25 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.dms-delivery-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--warning);
+  background: var(--warning-light);
+  color: var(--warning-strong);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.dms-delivery-warn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
 .dms-ok { background: var(--success-light); border-color: var(--success); }
 .dms-warning { background: var(--warning-light); border-color: var(--warning); }
 .dms-overdue { background: var(--danger-light); border-color: var(--danger); }

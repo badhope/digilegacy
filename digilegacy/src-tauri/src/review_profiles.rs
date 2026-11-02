@@ -327,38 +327,45 @@ pub fn items_for(id: &str) -> Option<Vec<ReviewItem>> {
 }
 
 /// 场景的「送审字段」说明，界面展示用：让用户明确知道 AI 看到了什么。
+///
+/// 返回的是**稳定的字段标识**（`payload.field.*`），不是中文文案。此前这里
+/// 直接返回中文串，导致英文界面把中文原样打印出来（中英混排），而且字段
+/// 改名会静默改变界面文案。前端负责把这些标识翻译成当前语言。
 pub fn payload_fields_for(id: &str) -> Vec<String> {
     match id {
         LEGAL_REVIEW => vec![
-            "文书类型".to_string(),
-            "说明".to_string(),
-            "正文全文".to_string(),
+            "payload.field.legalDocType".to_string(),
+            "payload.field.legalDescription".to_string(),
+            "payload.field.legalBody".to_string(),
         ],
-        FAMILY_NOTE_REVIEW => vec!["字段名".to_string(), "填写内容".to_string()],
+        FAMILY_NOTE_REVIEW => vec![
+            "payload.field.noteFieldName".to_string(),
+            "payload.field.noteContent".to_string(),
+        ],
         ASSET_REVIEW => vec![
-            "平台名称".to_string(),
-            "资产类别".to_string(),
-            "处置方式".to_string(),
-            "平台能力标记".to_string(),
+            "payload.field.platformName".to_string(),
+            "payload.field.assetCategory".to_string(),
+            "payload.field.disposalMethod".to_string(),
+            "payload.field.platformCapability".to_string(),
         ],
         crate::review_heir::HEIR_COMPREHENSION_REVIEW => vec![
-            "执行包正文（平台/处置/继承人/材料/流程）".to_string(),
-            "继承人分配说明".to_string(),
-            "给家人的开头说明".to_string(),
+            "payload.field.heirKitBody".to_string(),
+            "payload.field.heirAllocation".to_string(),
+            "payload.field.heirIntro".to_string(),
         ],
         POLICY_REVIEW => vec![
-            "平台名称".to_string(),
-            "类别".to_string(),
-            "是否可继承".to_string(),
-            "所需材料".to_string(),
-            "办理流程".to_string(),
-            "难度".to_string(),
-            "预计时长".to_string(),
-            "官方链接".to_string(),
-            "来源标注".to_string(),
-            "备注".to_string(),
+            "payload.field.platformName".to_string(),
+            "payload.field.category".to_string(),
+            "payload.field.inheritable".to_string(),
+            "payload.field.requiredDocs".to_string(),
+            "payload.field.procedure".to_string(),
+            "payload.field.difficulty".to_string(),
+            "payload.field.estimatedTime".to_string(),
+            "payload.field.officialUrl".to_string(),
+            "payload.field.sourceNote".to_string(),
+            "payload.field.notes".to_string(),
         ],
-        _ => vec!["未知场景".to_string()],
+        _ => vec!["payload.field.unknown".to_string()],
     }
 }
 
@@ -440,15 +447,20 @@ mod tests {
         // 该测试不依赖真实数据库：直接检查构造函数的字段模板
         let profile = profile_by_id(ASSET_REVIEW).unwrap();
         assert!(profile.use_ai);
-        // 送审字段清单里不应出现隐私字段名
+        // 送审字段清单里不应出现隐私字段标识
         let fields = payload_fields_for(ASSET_REVIEW);
-        for forbidden in ["账号", "金额", "备注", "联系方式"] {
+        for forbidden in ["account", "amount", "notes", "contact"] {
             assert!(
-                !fields.iter().any(|f| f.contains(forbidden)),
+                !fields.iter().any(|f| f.to_lowercase().contains(forbidden)),
                 "资产分类送审字段不得包含 {}",
                 forbidden
             );
         }
+        // 必须全部是 i18n 标识而不是可直接展示的中文文案
+        assert!(
+            fields.iter().all(|f| f.starts_with("payload.field.")),
+            "送审字段必须返回稳定的 i18n 标识，界面才能按当前语言渲染"
+        );
     }
 
     /// 家人说明场景的送审字段同样只有「字段名 + 内容」。
