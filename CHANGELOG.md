@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-03
+
+### Fixed
+
+- **Legal templates page was covered by a single icon.** `@vicons` SVGs carry only a `viewBox`, so an icon placed directly in a text container rendered at the SVG default 300×150 and filled the whole page. Inline icons now have a global fallback size, and the legal notice uses a flex layout.
+- **The report title read `DIGITALL EGACYPLAN`.** The English title was written with manual spaces (`D I G I T A L   L E G A C Y   P L A N`); HTML collapses runs of spaces, so the word boundaries vanished. Real text plus CSS `letter-spacing` now.
+- **The reminder page said "All good" while the dashboard called the missing mail channel a blocker.** The state card now shows a delivery warning when no SMTP channel is configured, using the same rule as the backend (`dms_enabled && trigger_channel == "smtp"`).
+- **Mixed-language UI in English mode.** Review payload field names were hardcoded Chinese in the Rust layer and printed verbatim; they are now stable `payload.field.*` identifiers translated by the frontend. Platform category names (4 of 16) had no English translations; they are now complete and covered by a gate in `check-doc-facts`.
+- **`Heir: 演示继承人 (null)`** — a null heir contact was interpolated literally. Now distinguishes "no contact recorded".
+- **The demo completion metric could never reach 100%.** The mock hardcoded `triggerReady` to `false` instead of deriving it from SMTP state like the backend.
+- **A test asserted the buggy behaviour.** `HeirGuideView.test.ts` expected the category filter to show the raw Chinese data value instead of the translated label.
+
+### Changed
+
+- **`db.rs` split: backup logic moved to `db_backup.rs`** (~1,500 lines). Backup has its own validation layer, transaction boundaries and authenticated-import rules; the split gives security review a clear scope. Pure move, zero behaviour change.
+- **`commands.rs` split into seven domain modules** — platform, assets, report, review, ai, profile, security — plus a shared `commands_win_shell.rs` (used by both `open_external` and `reveal_exported_file`). `lib.rs` still references `commands::*`; the IPC registration path is unchanged. Pure move, zero behaviour change.
+- **Screenshots are regenerated in both languages** (Chinese in `docs/screenshots/`, English in `docs/screenshots/en/`), and the capture script asserts the page title matches the target language so a wrong page fails the run.
+- **README rewritten as an outward-facing product page** (English primary, Chinese mirror), moving the test-count ledger to `docs/VERIFICATION.md` where it belongs.
+- **`.github/CODEOWNERS` added**: crypto, backup, recovery, outbound-connection and gate scripts require maintainer review.
+- **Repository hygiene**: 5 stale local branches and 1 remote branch removed (single `main` everywhere), `git filter-branch` leftovers purged, `.git` shrunk 358 MB → 29 MB.
+
 ## [0.2.2] - 2026-10-28
 
 ### Added
