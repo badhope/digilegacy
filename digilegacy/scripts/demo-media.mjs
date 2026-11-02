@@ -20,26 +20,36 @@ const SHOTS = path.join(ROOT, 'docs', 'screenshots');
 const MEDIA = path.join(ROOT, 'docs', 'media');
 const BASE = process.env.DEMO_BASE || 'http://localhost:1420';
 
+// 每张图都要出两种语言：官网与 README 都是双语的，英文页贴中文截图
+// 等于对外承诺和实际展示不符。`title` 是该语言下的页面标题，
+// 用来断言「截到的确实是这个页面」，而不是一张 404 或上一页的残留。
 const PAGES = [
-  { file: '01-dashboard', path: '/dashboard', title: '仪表板' },
-  { file: '02-discover', path: '/discover', title: '资产发现' },
-  { file: '03-assets', path: '/assets', title: '我的资产' },
-  { file: '04-asset-detail', path: '/assets/1', title: '资产详情' },
-  { file: '05-profile', path: '/profile', title: '我的档案' },
-  { file: '06-dms', path: '/dms', title: '安心传承' },
-  { file: '07-report', path: '/report', title: '继承报告' },
-  { file: '08-heir-guide', path: '/heir', title: '继承人向导' },
-  { file: '09-legal', path: '/legal', title: '法律模板' },
+  { file: '01-dashboard', path: '/dashboard', zh: '仪表板', en: 'Dashboard' },
+  { file: '02-discover', path: '/discover', zh: '资产发现', en: 'Discover' },
+  { file: '03-assets', path: '/assets', zh: '我的资产', en: 'My Assets' },
+  { file: '04-asset-detail', path: '/assets/1', zh: '资产详情', en: 'Asset Detail' },
+  { file: '05-profile', path: '/profile', zh: '我的档案', en: 'Profile' },
+  { file: '06-dms', path: '/dms', zh: '安心传承', en: 'Legacy Care' },
+  { file: '07-report', path: '/report', zh: '继承报告', en: 'Inheritance Report' },
+  { file: '08-heir-guide', path: '/heir', zh: '继承人向导', en: 'Heir Guide' },
+  { file: '09-legal', path: '/legal', zh: '法律模板', en: 'Legal Templates' },
 ];
+
+/** 出图语言：默认两种都出；SHOT_LOCALES=en 只出英文，便于快速迭代。 */
+const LOCALES = (process.env.SHOT_LOCALES || 'zh,en').split(',').map((x) => x.trim()).filter(Boolean);
+const LOCALE_TAG = { zh: 'zh-CN', en: 'en-US' };
+/** 英文截图落到 docs/screenshots/en/，中文留在原目录，路径稳定不破坏已有引用。 */
+const shotDir = (locale) => (locale === 'en' ? path.join(SHOTS, 'en') : SHOTS);
 
 const VIEWPORT = { width: 1200, height: 800 };
 
-async function seed(page) {
+async function seed(page, locale) {
   // 必须先让应用建出演示状态，再改写它——首次访问时 localStorage 还是空的，
   // 直接 addInitScript 拿不到 state，截图就会显示「未启用加密」。
   await page.goto(`${BASE}/dashboard`, { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(900);
-  await page.evaluate(() => {
+  // 注意：传给 page.evaluate 的参数必须显式透传，闭包变量在浏览器上下文里不可见
+  await page.evaluate((loc) => {
     const KEY = 'digilegacy-web-preview-v1';
     const raw = localStorage.getItem(KEY);
     if (raw) {
@@ -53,50 +63,55 @@ async function seed(page) {
     }
     sessionStorage.setItem('digilegacy-web-preview-unlocked', '1');
     localStorage.setItem('digilegacy_onboarding_done', '1');
-  });
+    localStorage.setItem('digilegacy_locale', loc);
+  }, locale);
   await page.reload({ waitUntil: 'networkidle' });
 }
 
 async function captureScreenshots(browser) {
-  await mkdir(SHOTS, { recursive: true });
-  const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 2 });
-  const page = await context.newPage();
+  const allErrors = [];
+  for (const locale of LOCALES) {
+    const dir = shotDir(locale);
+    await mkdir(dir, { recursive: true });
+    const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 2 });
+    const page = await context.newPage();
 
-  const consoleErrors = [];
-  page.on('console', (m) => {
-    if (m.type() === 'error') consoleErrors.push(m.text());
-  });
-  page.on('pageerror', (e) => consoleErrors.push('PAGEERROR ' + e.message));
+    page.on('console', (m) => {
+      if (m.type() === 'error') allErrors.push(`[${locale}] ${m.text()}`);
+    });
+    page.on('pageerror', (e) => allErrors.push(`[${locale}] PAGEERROR ${e.message}`));
 
-  await seed(page);
-  for (const item of PAGES) {
-    await page.goto(`${BASE}${item.path}`, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(700);
-    const heading = (await page.locator('.header-title').textContent().catch(() => '')) ?? '';
-    if (!heading.trim()) throw new Error(`${item.file}: 页面标题为空，未渲染完成`);
-    // 标题不一致通常意味着路由没生效或截到了 404/上一页，直接失败比交付错图好
-    if (!heading.includes(item.title)) {
-      throw new Error(`${item.file}: 期望标题含「${item.title}」，实际「${heading.trim()}」`);
+    await seed(page, LOCALE_TAG[locale]);
+    for (const item of PAGES) {
+      const expected = item[locale];
+      await page.goto(`${BASE}${item.path}`, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(700);
+      const heading = (await page.locator('.header-title').textContent().catch(() => '')) ?? '';
+      if (!heading.trim()) throw new Error(`${item.file}[${locale}]: 页面标题为空，未渲染完成`);
+      // 标题不一致通常意味着路由没生效或截到了 404/上一页，直接失败比交付错图好
+      if (!heading.includes(expected)) {
+        throw new Error(`${item.file}[${locale}]: 期望标题含「${expected}」，实际「${heading.trim()}」`);
+      }
+      await page.screenshot({ path: path.join(dir, `${item.file}.png`) });
+      console.log(`captured ${locale}/${item.file}.png  ← ${item.path} 「${heading.trim()}」`);
     }
-    await page.screenshot({ path: path.join(SHOTS, `${item.file}.png`) });
-    console.log(`captured ${item.file}.png  ← ${item.path} 「${heading.trim()}」`);
+
+    // 深色模式截图（展示品牌在暗色下的表现）
+    await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' });
+    await page.evaluate(() => {
+      localStorage.setItem('digilegacy_theme', 'dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.style.colorScheme = 'dark';
+    });
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: path.join(dir, '10-dashboard-dark.png') });
+    console.log(`captured ${locale}/10-dashboard-dark.png`);
+
+    await context.close();
   }
-
-  // 深色模式截图（展示品牌在暗色下的表现）
-  await page.goto(`${BASE}/dashboard`, { waitUntil: 'networkidle' });
-  await page.evaluate(() => {
-    localStorage.setItem('digilegacy_theme', 'dark');
-    document.documentElement.setAttribute('data-theme', 'dark');
-    document.documentElement.style.colorScheme = 'dark';
-  });
-  await page.waitForTimeout(700);
-  await page.screenshot({ path: path.join(SHOTS, '10-dashboard-dark.png') });
-  console.log('captured 10-dashboard-dark.png');
-
-  await context.close();
-  if (consoleErrors.length > 0) {
-    console.warn(`注意：截图过程中出现 ${consoleErrors.length} 条控制台错误：`);
-    for (const e of consoleErrors.slice(0, 5)) console.warn('  ' + e);
+  if (allErrors.length > 0) {
+    console.warn(`注意：截图过程中出现 ${allErrors.length} 条控制台错误：`);
+    for (const e of allErrors.slice(0, 5)) console.warn('  ' + e);
   }
 }
 
@@ -107,7 +122,7 @@ async function recordWalkthrough(browser) {
     recordVideo: { dir: MEDIA, size: VIEWPORT },
   });
   const page = await context.newPage();
-  await seed(page);
+  await seed(page, LOCALE_TAG.zh);
 
   const pause = (ms) => page.waitForTimeout(ms);
 

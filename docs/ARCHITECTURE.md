@@ -10,11 +10,11 @@ DigiLegacy is a single-process Tauri 2 desktop application. There is no backend 
                                         │ Tauri IPC (83 commands)
 ┌───────────────────────────────────────▼──────────────────────┐
 │ Rust core (src-tauri/src)                                    │
-│   commands.rs   thin command layer, input caps, envelopes    │
+│   commands.rs   thin command layer, split by domain below    │
 │   vault.rs      master key in memory, field encrypt/decrypt   │
 │   crypto.rs     AES-256-GCM + Argon2id/PBKDF2 primitives      │
 │   recovery.rs   one-time recovery key seal                    │
-│   db.rs         schema, migrations, security, backup, DMS     │
+│   db.rs         schema, migrations, security, DMS, reports    │
 │   fsutil.rs     0600 file writes (backups / reports / netrc)   │
 │   notify.rs     DMS evaluation + outbox + SMTP (lettre)       │
 │   heartbeat.rs  zero-content heartbeat over curl              │
@@ -28,7 +28,7 @@ DigiLegacy is a single-process Tauri 2 desktop application. There is no backend 
 
 ## Layering rules
 
-1. **`commands.rs` is a thin adapter.** It validates IPC input (size caps, enum values, existence checks), wraps results in `ApiResponse<T>`, and delegates to `db::*`. Business logic and SQL belong in `db.rs`; cryptographic primitives belong in `crypto.rs` / `vault.rs` / `recovery.rs`.
+1. **`commands.rs` is a thin adapter.** It validates IPC input (size caps, enum values, existence checks), wraps results in `ApiResponse<T>`, and delegates to `db::*`. The commands are split by domain into `commands_{platform,assets,report,review,ai,profile,security,custody}.rs` (plus a shared `commands_win_shell.rs` used by both `open_external` and `reveal_exported_file`); `lib.rs` still registers them through `commands::*`, so the IPC surface is unchanged. Business logic and SQL belong in `db.rs` and its `db_*.rs` store modules; cryptographic primitives belong in `crypto.rs` / `vault.rs` / `recovery.rs`.
 2. **Frontend never talks to the filesystem or SQLite directly.** Every side effect goes through `invoke()`. The only exception is downloading a file in browser-preview mode, which the mock handles.
 3. **`api/invoke.ts` is the single IPC seam.** In a Tauri webview it calls `@tauri-apps/api/core`; in `npm run dev` — and in the `VITE_DEMO=1` static build used for the website demo — it lazily loads `api/mock.ts`. The mock must implement the same command names and response shape; it is the only thing E2E and the public demo talk to. In a normal production build that branch is dead code, so Rollup drops `mock.ts` from the installer bundle entirely (verify: `ls dist/assets | grep mock` returns nothing after `npm run build`).
 4. **`db.rs` owns the connection.** A process-global `Mutex<Option<Connection>>` holds one WAL connection with `busy_timeout=5000`. Tests serialize on `vault::test_lock()` because both the connection and the master key are process-global. The schema version lives in `PRAGMA user_version` (`SCHEMA_VERSION`), so a future migration can branch on a number instead of re-deriving intent from `PRAGMA table_info`.
@@ -92,7 +92,8 @@ Why not scrape the DOM (the old approach): the page shows placeholders while loc
 
 | File | Responsibility |
 |---|---|
-| `db.rs` | connection lifecycle, schema, migrations, security, backup, DMS, report queries |
+| `db.rs` | connection lifecycle, schema, migrations, security, DMS, report queries |
+| `db_backup.rs` | backup export / authenticated import / stock encryption (split out of db.rs) |
 | `db_assets.rs` | asset CRUD (split out of db.rs; write-gate + placeholder rejection preserved) |
 | `db_profile.rs` | user profile read/write; owns `PROFILE_SENSITIVE_COLUMNS` used by all three re-encryption paths |
 | `heir_recovery.rs` | Shamir threshold recovery kit: share encode/decode, printable HTML, metadata (shares never persisted) |
@@ -249,5 +250,6 @@ research, not for silently approving content.
 
 - The desktop UI ships in Simplified Chinese and English; `src/i18n/index.ts` holds both dictionaries, `setLocale` also updates `<html lang>`, and a unit test asserts the two key sets are identical. Legal template bodies are Chinese-only by design (they are jurisdiction-specific documents).
 - Migrations are additive `ALTER TABLE` checks and `PRAGMA user_version` is currently `SCHEMA_VERSION = 7`; future destructive migrations must branch on the version rather than on column presence alone.
-- `db.rs` still owns connection lifecycle, schema, security, backup, DMS and report queries. Asset CRUD moved to `db_assets.rs`, profile to `db_profile.rs`, platform patches to `db_platforms.rs`, custody to `db_custody.rs`, heirs to `db_heirs.rs`, review trail to `db_review.rs`, and the regression suite to `db_tests.rs`.
+- `db.rs` still owns connection lifecycle, schema, security, DMS and report queries. Asset CRUD moved to `db_assets.rs`, profile to `db_profile.rs`, platform patches to `db_platforms.rs`, custody to `db_custody.rs`, heirs to `db_heirs.rs`, review trail to `db_review.rs`, **backup export/import to `db_backup.rs`**, and the regression suite to `db_tests.rs`.
+- `commands.rs` keeps the cross-domain integration tests; the 83 IPC commands live in `commands_{platform,assets,report,review,ai,profile,security,custody}.rs` with a shared `commands_win_shell.rs`.
 - The public demo is a static build of the real UI over the mock backend. It is a showcase, not a security boundary: its data lives unencrypted in `localStorage`; recovery-kit, Agent and external integration paths are desktop-only.

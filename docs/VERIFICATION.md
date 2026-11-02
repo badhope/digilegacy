@@ -2,18 +2,64 @@
 
 本文件记录最终验证证据，避免"看起来绿"与"真的绿"混淆。历史轮次保留当时的数字，但不代表当前工作树或本轮门禁结果。
 
-## 2026-11-01 文档与真实功能审计：当前基线
+## 2026-11-02 仓库治理与双语展示轮次：当前基线
+
+本轮做了三件事：清理仓库结构（分支、对象库、分支残留）、修复界面缺陷（图标尺寸、报告标题字距、DMS 与仪表板口径矛盾、送审字段中英混排）、把对外展示统一为英文主 + 中文可切换。下表是本轮实跑结果。
+
+| 命令 | 本轮基线结果 | 证据边界 |
+|---|---|---|
+| `npm run typecheck` | PASS | `vue-tsc --noEmit` |
+| `npm run test:coverage` | **32 files / 451 tests passed**；83.36% statements、78.31% branches、76.36% functions、84.84% lines | 前端单测与覆盖率；不是 E2E，也不是 Rust |
+| `npm run build` | PASS；`ls dist/assets | grep '^mock-'` 无输出 | 生产前端构建；不等于 Windows 安装包构建 |
+| `npm run build:demo` | PASS | 浏览器 mock 数据构建；数据写入未加密 `localStorage`，不连接桌面 Rust 后端 |
+| `node scripts/check-doc-facts.mjs` | PASS | 267 Rust 声明测试、451 前端源码用例、83 IPC、17 表、152 平台、80 E2E 与文档一致；含平台分类双语完整性检查 |
+| `node scripts/check-policy-provenance.mjs` | PASS | 152 条中 147 条显式未核实、5 条有出处缺复审日期；棘轮未变差 |
+| `node server/heartbeat-server.test.mjs` | PASS | 本地心跳服务器行为 |
+| `cargo fmt --check` | PASS | 仅格式检查，不编译 |
+| `cargo clippy --all-targets -- -D warnings` | PASS | 通过 MSVC `cl.exe`；唯一提示是 imap-proto 的 future-incompat 警告（上游依赖） |
+| `cargo test --locked` | **265 passed / 1 ignored**（266 collected） | 通过 MSVC `cl.exe` |
+| `PW_CHANNEL=msedge npx playwright test` | **80 passed** | 系统 Edge 通道；全量 E2E 实跑 |
+| `npm run lint` | NOT CONFIGURED | `package.json` 没有 `lint` script；未把类型检查冒充 lint |
+
+### 本轮修复的缺陷
+
+1. **法律模板页被一个图标撑满整屏**：`@vicons` 的 SVG 只有 `viewBox`、没有宽高，在流式容器里按默认 300×150 渲染。加了全局内联图标兜底尺寸，并给该提示条单独的 flex 布局。
+2. **报告标题单词粘连**：英文标题写成 `'D I G I T A L   L E G A C Y   P L A N'`，HTML 折叠连续空格后变成 `DIGITALL EGACYPLAN`。改为正常文案 + CSS `letter-spacing`。
+3. **DMS 页与仪表板口径矛盾**：仪表板把「无邮件通道」列为 blocker，DMS 页却显示「一切安好」。现在 DMS 页在同一张状态卡里给出投递警告，判定与后端 `trigger_ready = dms_enabled && trigger_channel == "smtp"` 一致。
+4. **送审字段中英混排**：Rust 侧 `payload_fields_for` 返回中文文案，英文界面原样打印。改为返回稳定标识 `payload.field.*`，由前端按当前语言渲染。
+5. **报告继承人联系方式为 null 时渲染 `(null)`**：改为区分「有联系方式 / 未留联系方式」两种文案。
+6. **平台分类未本地化**：16 个分类中 4 个缺译名，英文界面露出中文分组标题。补齐并加了门禁。
+7. **演示端完成度恒不高**：mock 里 `triggerReady` 写死 `false`，导致四维完成度的触发链一维永远为 0，与后端契约不一致。
+8. **测试固化了缺陷**：`HeirGuideView.test.ts` 断言分类筛选按钮文字是原始中文数据值，等于把「界面直接打印数据串」当成期望行为。
+
+### 仓库结构变更
+
+- 删除 5 个本地分支与 1 个远程分支，本地/远程统一为 `main`。
+- 清理 `refs/original/*`（`git filter-branch` 遗留）与全部 reflog，`git gc` 后 `.git` 从 358 MB 降到 29 MB。
+- 顶层临时产物（`e2e_run.log`、`out/`、文件名损坏的心跳日志）移出仓库树。
+- 新增 `.github/CODEOWNERS`，把加密、备份、外连配置与门禁脚本标为必须维护者审阅。
+- 截图脚本改为双语出图：中文留 `docs/screenshots/`，英文落 `docs/screenshots/en/`，并断言页面标题与目标语言一致（截错页直接失败）。
+
+### 已知未验证项（与本轮无关，仍然成立）
+
+- 外部政策链接的真实内容未联网核验；147 条未核实是如实标注，不是遗漏。
+- 线上站点、GitHub Actions、Release 产物未在本轮验证（本轮只推送 GitCode 与 Gitee）。
+- 真实 SMTP/IMAP/AI endpoint 未实测；Tauri 原生窗口的导入导出未实测。
+
+---
+
+## 2026-11-01 文档与真实功能审计：历史基线
 
 本轮目标是把项目简介、README 与实现边界对齐，并记录当前工作树的可复现实证据；不把历史 Rust 或发布结果冒充本轮证据。前端单测、浏览器 E2E、覆盖率收集和 Rust 门禁已在本轮实跑；网络来源真实性核验未运行，因为本轮不联网。
 
 | 命令 | 本轮基线结果 | 证据边界 |
 |---|---|---|
-| `npm run test:coverage` | **32 files / 450 tests passed**；83.43% statements、78.59% branches、76.41% functions、84.92% lines | 前端单测与覆盖率；不是 E2E，也不是 Rust |
+| `npm run test:coverage` | **32 files / 451 tests passed**；83.36% statements、78.31% branches、76.36% functions、84.84% lines | 前端单测与覆盖率；不是 E2E，也不是 Rust |
 | `npm run typecheck` | PASS | `vue-tsc --noEmit` |
 | `npm run build` | PASS；产物无 `mock-*` 分块 | 生产前端构建；不等于 Windows 安装包构建 |
 | `npm run build:demo` | PASS | 浏览器 mock 数据构建；数据写入未加密 `localStorage`，不连接桌面 Rust 后端 |
 | `node server/heartbeat-server.test.mjs` | PASS | 本地心跳服务器行为；不代表用户自配外部端点可达 |
-| `node scripts/check-doc-facts.mjs` | PASS | 源码推导的 267 Rust 声明测试、450 前端源码用例、83 IPC、17 表、152 平台、80 E2E 清单与文档一致；清单数字不等于 Rust 测试已在本机执行 |
+| `node scripts/check-doc-facts.mjs` | PASS | 源码推导的 267 Rust 声明测试、451 前端源码用例、83 IPC、17 表、152 平台、80 E2E 清单与文档一致；清单数字不等于 Rust 测试已在本机执行 |
 | `node scripts/check-policy-provenance.mjs` | PASS | 政策条目溯源棘轮；不等于所有外部链接内容已人工核实 |
 | `cargo fmt --check` | PASS | 正确 crate 根目录 `digilegacy/src-tauri` 执行；仅格式检查，不编译 Rust |
 | `cargo clippy --all-targets -- -D warnings` | PASS | 通过 MSVC `cl.exe`；无 warnings |
