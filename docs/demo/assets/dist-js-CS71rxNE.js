@@ -1,1 +1,0 @@
-import{r as e}from"./core-CWdvxcep.js";async function t(){return await e(`plugin:autostart|is_enabled`)}export{t as isEnabled};
