@@ -7,7 +7,7 @@ DigiLegacy is a single-process Tauri 2 desktop application. There is no backend 
 │ WebView (Vue 3 + TypeScript + Pinia)                         │
 │   views/ ── stores/ ── api/invoke.ts ──┐                     │
 └───────────────────────────────────────┼──────────────────────┘
-                                        │ Tauri IPC (87 commands)
+                                        │ Tauri IPC (89 commands)
 ┌───────────────────────────────────────▼──────────────────────┐
 │ Rust core (src-tauri/src)                                    │
 │   commands.rs   thin command layer, split by domain below    │
@@ -257,7 +257,7 @@ research, not for silently approving content.
 - The desktop UI ships in Simplified Chinese and English; `src/i18n/index.ts` holds both dictionaries, `setLocale` also updates `<html lang>`, and a unit test asserts the two key sets are identical. Legal template bodies are Chinese-only by design (they are jurisdiction-specific documents).
 - Migrations are additive `ALTER TABLE` checks and `PRAGMA user_version` is currently `SCHEMA_VERSION = 7`; future destructive migrations must branch on the version rather than on column presence alone.
 - `db.rs` still owns connection lifecycle, schema, security, DMS and report queries. Asset CRUD moved to `db_assets.rs`, profile to `db_profile.rs`, platform patches to `db_platforms.rs`, custody to `db_custody.rs`, heirs to `db_heirs.rs`, review trail to `db_review.rs`, **backup export/import to `db_backup.rs`**, and the regression suite to `db_tests.rs`.
-- `commands.rs` keeps the cross-domain integration tests; the 87 IPC commands live in `commands_{platform,assets,report,review,ai,profile,security,custody,checkpoint}.rs` with a shared `commands_win_shell.rs`.
+- `commands.rs` keeps the cross-domain integration tests; the 89 IPC commands live in `commands_{platform,assets,report,review,ai,profile,security,custody,checkpoint}.rs` with a shared `commands_win_shell.rs`.
 
 ## Harness layer
 

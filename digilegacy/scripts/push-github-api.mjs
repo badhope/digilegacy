@@ -182,15 +182,15 @@ async function syncRepo({ owner, tokenVar }) {
   );
 
   // tag：优先移动（PATCH + force），标签已指向旧提交时直接搬到新提交；
-  // 不存在才创建。之前的「已存在，跳过」会让 v0.3.0 一直钉在失败的旧提交上。
-  const TAG = 'refs/tags/v0.3.0';
+  // 不存在才创建。标签名随版本走（v0.3.1 起），由环境变量或默认值决定。
+  const TAG = `refs/tags/${process.env.RELEASE_TAG ?? 'v0.3.1'}`;
   try {
     await gh(
       `${repoPath}/git/${TAG}`,
       { method: 'PATCH', body: JSON.stringify({ sha: commit.sha, force: true }) },
       token,
     );
-    console.log(`[${owner}] tag v0.3.0 已移动到 ${commit.sha.slice(0, 7)}`);
+    console.log(`[${owner}] release tag 已移动到 ${commit.sha.slice(0, 7)}`);
   } catch (e) {
     if (!String(e).includes('422') && !String(e).includes('404')) throw e;
     // PATCH 不接受时（旧实现创建的轻量标签等）退回「删除再建」
@@ -200,7 +200,7 @@ async function syncRepo({ owner, tokenVar }) {
       { method: 'POST', body: JSON.stringify({ ref: TAG, sha: commit.sha }) },
       token,
     );
-    console.log(`[${owner}] tag v0.3.0 已重建 → ${commit.sha.slice(0, 7)}`);
+    console.log(`[${owner}] release tag 已重建 → ${commit.sha.slice(0, 7)}`);
   }
 
   console.log(`[${owner}] 完成 → ${commit.sha.slice(0, 7)}`);

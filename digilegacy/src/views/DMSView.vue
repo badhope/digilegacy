@@ -20,6 +20,15 @@
       </div>
     </div>
 
+    <!-- 外出暂停横幅：暂停期内不判逾期，家人通知链整体挂起 -->
+    <div v-if="status?.paused" class="dms-delivery-warn mb-32" role="status">
+      <CheckmarkCircleOutline />
+      <span>{{ t('dms.pauseActive', { until: status.paused_until }) }}</span>
+      <button class="btn btn-sm" style="margin-left: auto;" @click="resumeDms" :disabled="pausing">
+        {{ t('dms.resumeBtn') }}
+      </button>
+    </div>
+
     <!-- 操作面板 -->
     <div class="grid grid-2 mb-32">
       <div class="card">
@@ -53,6 +62,40 @@
           </select>
         </div>
         <button class="btn btn-primary btn-sm mt-16" @click="saveSettings">{{ t('dms.saveSettings') }}</button>
+      </div>
+    </div>
+
+    <!-- 外出暂停 + 规划复核：竞品通用的两个「防误触发 / 防陈旧」机制 -->
+    <div class="grid grid-2 mb-32">
+      <div class="card">
+        <div class="card-title mb-16">{{ t('dms.pauseTitle') }}</div>
+        <p class="form-hint mb-16">{{ t('dms.pauseHint') }}</p>
+        <div class="flex items-center gap-12">
+          <input
+            type="date"
+            class="form-select"
+            style="max-width: 200px;"
+            v-model="pauseDate"
+            :min="today"
+            :aria-label="t('dms.pauseDateLabel')"
+          />
+          <button class="btn btn-primary btn-sm" @click="applyPause" :disabled="pausing || !pauseDate">
+            {{ t('dms.pauseBtn') }}
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title mb-16">{{ t('dms.reviewTitle') }}</div>
+        <p class="form-hint mb-16">{{ t('dms.reviewHint') }}</p>
+        <div class="flex items-center gap-12">
+          <span class="text-muted" style="font-size: 13px;">
+            {{ dashboard.stats?.last_reviewed_at ? t('dms.reviewLast', { date: dashboard.stats.last_reviewed_at }) : t('dms.reviewNever') }}
+          </span>
+          <button class="btn btn-primary btn-sm" style="margin-left: auto;" @click="markReviewed" :disabled="reviewing">
+            {{ t('dms.reviewMarkBtn') }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -127,6 +170,8 @@ import CheckmarkCircleOutline from '@vicons/ionicons5/es/CheckmarkCircleOutline'
 import RemoveCircleOutline from '@vicons/ionicons5/es/RemoveCircleOutline';
 import WarningOutline from '@vicons/ionicons5/es/WarningOutline';
 import { useDashboardStore } from '../stores/dashboard';
+import { invoke } from '../api/invoke';
+import type { ApiResponse } from '../types';
 import { sendTestNotification } from '../api/reminders';
 import { toast } from '../composables/feedback';
 import { INTERVAL_OPTIONS } from '../constants/dms';
@@ -134,6 +179,10 @@ import { INTERVAL_OPTIONS } from '../constants/dms';
 const { t } = useI18n();
 const dashboard = useDashboardStore();
 const checking = ref(false);
+const pausing = ref(false);
+const reviewing = ref(false);
+const pauseDate = ref('');
+const today = new Date().toISOString().slice(0, 10);
 const settings = ref({ interval: 30, enabled: false });
 const testingNotify = ref(false);
 const testResult = ref<'' | 'ok' | 'fail'>('');
@@ -208,6 +257,62 @@ async function handleCheckIn() {
     await dashboard.checkIn();
   } finally {
     checking.value = false;
+  }
+}
+
+/** 外出模式：暂停期内 stage 评估整体挂起（后端与 mock 同一口径），到期自动恢复。 */
+async function applyPause() {
+  pausing.value = true;
+  try {
+    const res = await invoke<ApiResponse<void>>('set_dms_pause', { until: pauseDate.value });
+    if (!res.success) {
+      toast(res.message || t('dms.pauseFailed'), 'error');
+      return;
+    }
+    toast(res.message || t('dms.pauseDone'));
+    await dashboard.loadCheckInStatus();
+    await dashboard.evaluateDms();
+  } catch (e) {
+    toast(t('dms.pauseFailed', { e: String(e) }), 'error');
+  } finally {
+    pausing.value = false;
+  }
+}
+
+async function resumeDms() {
+  pausing.value = true;
+  try {
+    const res = await invoke<ApiResponse<void>>('set_dms_pause', { until: '' });
+    if (!res.success) {
+      toast(res.message || t('dms.pauseFailed'), 'error');
+      return;
+    }
+    toast(res.message || t('dms.resumeDone'));
+    pauseDate.value = '';
+    await dashboard.loadCheckInStatus();
+    await dashboard.evaluateDms();
+  } catch (e) {
+    toast(t('dms.pauseFailed', { e: String(e) }), 'error');
+  } finally {
+    pausing.value = false;
+  }
+}
+
+/** 年度复核：重置仪表板的 planning_review_stale 提醒。 */
+async function markReviewed() {
+  reviewing.value = true;
+  try {
+    const res = await invoke<ApiResponse<void>>('record_planning_review');
+    if (!res.success) {
+      toast(res.message || t('dms.reviewFailed'), 'error');
+      return;
+    }
+    toast(res.message || t('dms.reviewDone'));
+    await dashboard.loadStats();
+  } catch (e) {
+    toast(t('dms.reviewFailed', { e: String(e) }), 'error');
+  } finally {
+    reviewing.value = false;
   }
 }
 

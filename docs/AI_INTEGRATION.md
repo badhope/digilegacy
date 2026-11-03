@@ -88,6 +88,36 @@ ReportView 在助手已启用时展示 Agent 面板：
 
 支持本地模型时，优先使用用户本机提供的 OpenAI-compatible endpoint（例如用户自行运行的本地服务），不把模型文件或推理服务打进 DigiLegacy 安装包。这样保持安装包大小、无服务器和无遥测契约。
 
+## MCP 服务器（业界标准协议接入）
+
+2026-11 起，除了应用内的 OpenAI-compatible 助手通道，同一套只读工具还通过
+**MCP（Model Context Protocol，stdio 传输）** 暴露给用户自己的 agent 客户端
+（Claude Desktop、Cursor、WorkBuddy 等原生支持 MCP）。
+
+- 二进制：`src-tauri/src/bin/digilegacy-mcp.rs`（`cargo build` 自动产出 `digilegacy-mcp.exe`）。
+- 白名单：**只暴露 `Read` 档位工具**；`Draft` 档不暴露——MCP 客户端的信任模型
+  与应用内对话不同，宁可少给。即使注册表将来加入 Draft 工具，MCP 侧也会二次拦截。
+- 数据库：默认 `%APPDATA%\com.digilegacy.app\digilegacy.db`，`DIGILEGACY_DB`
+  环境变量可覆盖（便携/测试场景）。文件不存在时启动即失败并给出指引，
+  绝不静默新建空库让客户端误以为「用户什么都没规划」。
+- 加密边界不变：锁定态下敏感字段是占位符；工具层本就把账号标识、联系方式、
+  凭据排除在输出之外。服务器进程不建立任何网络连接。
+- 客户端配置示例（Claude Desktop / 任何 MCP 客户端）：
+
+```json
+{
+  "mcpServers": {
+    "digilegacy": {
+      "command": "C:\Program Files\DigiLegacy\digilegacy-mcp.exe"
+    }
+  }
+}
+```
+
+- 测试：`cargo test -p digilegacy --bin digilegacy-mcp` 覆盖版本协商、
+  通知静默、白名单拦截（Draft 被拒）、未知方法/坏 JSON 的协议错误、
+  工具级错误走 `isError` 而非 JSON-RPC error 等契约。
+
 ## 已知边界与下一步
 
 - 当前 Agent 任务没有持久化完整步骤日志；步骤在本次任务的响应与 UI 时间线中可见，最终文本进入已有 AI 问答历史的路径仍是单轮助手路径。若要长期审计，应新增 `agent_run_log`，但需设计保留期限与清除策略。

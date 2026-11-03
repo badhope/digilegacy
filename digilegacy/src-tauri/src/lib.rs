@@ -1,21 +1,21 @@
 mod action_guide;
 mod agent;
-mod agent_tools;
+pub mod agent_tools;
 mod ai_assist;
 mod backup;
 mod checkpoint;
 mod commands;
 mod crypto;
-mod db;
+pub mod db;
 mod family_faq;
 mod fsutil;
 mod heartbeat;
 mod heir_recovery;
 mod imap_checkin;
 mod kdbx_export;
-mod models;
+pub mod models;
 mod notify;
-mod platform_data;
+pub mod platform_data;
 mod recovery;
 mod report;
 mod review;
@@ -204,6 +204,8 @@ pub fn run() {
             commands::get_check_in_status,
             commands::get_dms_status,
             commands::get_dms_history,
+            commands::set_dms_pause,
+            commands::record_planning_review,
             commands::set_dead_mans_switch,
             commands::get_dashboard_stats,
             commands::security_status,

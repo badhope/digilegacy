@@ -16,6 +16,10 @@ interface MockDms {
   enabled: boolean;
   interval: number;
   lastCheckIn: string | null;
+  /** 外出模式暂停截止日（YYYY-MM-DD）；空 = 未暂停 */
+  pausedUntil: string;
+  /** 上次规划复核（YYYY-MM-DD）；空 = 从未复核 */
+  lastReviewedAt: string;
 }
 
 interface MockState {
@@ -52,6 +56,12 @@ function platformById(id: number): Record<string, unknown> | undefined {
 function platformIdByName(keyword: string): number {
   const hit = seedPlatforms.find(p => String(p.name).includes(keyword));
   return hit ? Number(hit.id) : Number(seedPlatforms[0].id);
+}
+
+function mockPausedUntil(state: MockState): string | null {
+  const until = (state.dms.pausedUntil ?? '').trim();
+  if (!until) return null;
+  return new Date(until + 'T23:59:59').getTime() >= Date.now() ? until : null;
 }
 
 function now(): string {
@@ -121,7 +131,7 @@ function defaultState(): MockState {
         share_note: '负责金融账户与主要资产', is_executor: true, sort_order: 0,
       },
     ],
-    dms: { enabled: true, interval: 30, lastCheckIn: null },
+    dms: { enabled: true, interval: 30, lastCheckIn: null, pausedUntil: '', lastReviewedAt: '' },
     masterPassword: null,
     credentials: {},
     nextAssetId: id,
@@ -471,6 +481,8 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
         total_estimated_value: assets.reduce((sum, x) => sum + (x.estimated_value || 0), 0),
         last_check_in: state.dms.lastCheckIn,
         dms_enabled: state.dms.enabled,
+        last_reviewed_at: state.dms.lastReviewedAt ?? '',
+        review_stale: assets.length > 0 && !(state.dms.lastReviewedAt ?? '').trim(),
         completion_percentage: completion,
         // 与桌面版同口径：把「还差什么」算成可点击的待办
         issues: (() => {
@@ -502,6 +514,10 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
               severity: 'blocker', count: 0, target: '/profile',
             });
           }
+          // 与桌面版同口径：从未复核（且已有资产）→ 提醒
+          if (assets.length > 0 && !(state.dms.lastReviewedAt ?? '').trim()) {
+            list.push({ key: 'planning_review_stale', severity: 'info', count: 0, target: '/dms' });
+          }
           return list;
         })(),
       };
@@ -527,12 +543,16 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
         nextDue = due.toISOString().slice(0, 10);
         daysUntil = Math.ceil((due.getTime() - Date.now()) / 86400000);
       }
+      const pausedUntil = (state.dms.pausedUntil ?? '').trim();
+      const paused = Boolean(pausedUntil) && new Date(pausedUntil + 'T23:59:59').getTime() >= Date.now();
       const status: CheckInStatus = {
         last_check_in: state.dms.lastCheckIn,
         interval_days: interval,
         dms_enabled: state.dms.enabled,
         next_check_in_due: nextDue,
         days_until_due: daysUntil,
+        paused_until: paused ? pausedUntil : null,
+        paused,
         recent_check_ins: [...state.checkIns].reverse().slice(0, 5),
       };
       return ok(status) as T;
@@ -550,10 +570,26 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
     }
 
     case 'evaluate_dms':
-      return ok({ enabled: state.dms.enabled, overdue: false, current_stage: 0, days_overdue: 0, notifications: [] }) as T;
+      return ok({ enabled: state.dms.enabled, overdue: false, current_stage: 0, days_overdue: 0, paused_until: mockPausedUntil(state), notifications: [] }) as T;
 
     case 'get_dms_status':
-      return ok({ enabled: state.dms.enabled, overdue: false, current_stage: 0, days_overdue: 0 }) as T;
+      return ok({ enabled: state.dms.enabled, overdue: false, current_stage: 0, days_overdue: 0, paused_until: mockPausedUntil(state) }) as T;
+
+    case 'set_dms_pause': {
+      const until = String(a['until'] ?? '').trim();
+      if (until && new Date(until + 'T00:00:00').getTime() < new Date().setHours(0, 0, 0, 0)) {
+        return fail<null>('暂停截止日不能早于今天') as T;
+      }
+      state.dms.pausedUntil = until;
+      saveState(state);
+      return ok(null, until ? `已开启外出暂停，${until} 前不会判逾期` : '已恢复到期提醒评估') as T;
+    }
+
+    case 'record_planning_review': {
+      state.dms.lastReviewedAt = new Date().toISOString().slice(0, 10);
+      saveState(state);
+      return ok(null, '已记录本次复核') as T;
+    }
 
     case 'get_dms_history':
       return ok([]) as T;
@@ -682,7 +718,7 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
             state.assets.push({ ...item, id: nextId++ });
           }
         }
-        state.dms = { enabled: Boolean(tables.dms_config?.enabled), interval: Number(tables.dms_config?.check_in_interval_days ?? 30), lastCheckIn: tables.dms_config?.last_check_in ?? null };
+        state.dms = { enabled: Boolean(tables.dms_config?.enabled), interval: Number(tables.dms_config?.check_in_interval_days ?? 30), lastCheckIn: tables.dms_config?.last_check_in ?? null, pausedUntil: (tables.dms_config?.paused_until as string) ?? '', lastReviewedAt: (tables.user_profile?.last_reviewed_at as string) ?? '' };
         state.nextAssetId = state.assets.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1;
         saveState(state);
         sessionStorage.removeItem(SS_UNLOCK);
