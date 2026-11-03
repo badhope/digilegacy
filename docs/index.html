@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DigiLegacy — Open-Source Local-First Digital Legacy &amp; Digital Inheritance Manager</title>
+<meta name="description" content="DigiLegacy (归零) is a local-first desktop app for digital legacy planning. Record asset handling wishes, create family-facing reports and action guides, and keep working data on the local machine by default. Optional heartbeat, SMTP/IMAP and BYOK assistant connections use endpoints configured by the user.">
+<meta name="keywords" content="digital legacy,digital inheritance,digital assets management,estate planning software,dead man's switch,digital legacy manager,password inheritance,local-first software,privacy-first,open source,zero knowledge,encrypted vault,Tauri,Rust,Vue,digital estate planning,inactive account manager alternative,中国数字遗产,数字遗产管理,数字遗产继承,归零">
+<meta name="author" content="DigiLegacy contributors">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#b4594a">
+<link rel="canonical" href="https://badhope.github.io/digilegacy/">
+<link rel="alternate" hreflang="en" href="https://badhope.github.io/digilegacy/">
+<link rel="alternate" hreflang="zh-Hans" href="https://badhope.github.io/digilegacy/zh/">
+<link rel="alternate" hreflang="x-default" href="https://badhope.github.io/digilegacy/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="DigiLegacy 归零">
+<meta property="og:title" content="DigiLegacy — Open-Source Digital Legacy &amp; Inheritance Manager">
+<meta property="og:description" content="Local-first desktop app for digital legacy planning and inheritance. Built-in platform policy data, encrypted local fields, family-facing reports and action guides. Optional external connections are user-configured.">
+<meta property="og:url" content="https://badhope.github.io/digilegacy/">
+<meta property="og:image" content="https://badhope.github.io/digilegacy/screenshots/en/01-dashboard.png">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="zh_CN">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="DigiLegacy — Open-Source Digital Legacy &amp; Inheritance Manager">
+<meta name="twitter:description" content="Plan your digital legacy locally. Encrypted local fields, family-facing reports and action guides; optional external connections use endpoints you configure.">
+<meta name="twitter:image" content="https://badhope.github.io/digilegacy/screenshots/en/01-dashboard.png">
+
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23c46a5c'/%3E%3Cstop offset='1' stop-color='%239a473b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='40' height='40' rx='9' fill='url(%23g)'/%3E%3Ccircle cx='20' cy='20' r='11.6' stroke='%23fff' stroke-width='2.1' fill='none' opacity='0.95'/%3E%3Ccircle cx='20' cy='20' r='7.2' stroke='%23fff' stroke-width='1.2' fill='none' opacity='0.6'/%3E%3Ccircle cx='20' cy='20' r='2.9' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="site.css">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "DigiLegacy",
+  "alternateName": "归零",
+  "applicationCategory": "SecurityApplication",
+  "applicationSubCategory": "Digital legacy planning and inheritance",
+  "operatingSystem": "Windows 10, Windows 11",
+  "softwareVersion": "0.3.0",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "downloadUrl": "https://github.com/badhope/digilegacy",
+  "codeRepository": "https://github.com/badhope/digilegacy",
+  "programmingLanguage": ["Rust", "TypeScript", "Vue"],
+  "description": "Local-first desktop application for digital legacy planning and digital inheritance. Helps users discover, register and plan digital assets, then export family-facing reports and action guides. Working data stays local by default; optional external connections are user-configured.",
+  "featureList": [
+    "Digital asset discovery across 152-platform policy database",
+    "Asset classification and registration",
+    "Disposal planning (inherit, liquidate, memorialize, authorize, delete, donate)",
+    "Inheritance report and executable toolkit export",
+    "Dead man's switch with three-stage confirmation chain and system notifications",
+    "Heir guidance wizard with per-platform procedures",
+    "Legal document template library",
+    "AES-256-GCM field-level encryption with recovery key",
+    "Optional zero-content heartbeat to a user-configured endpoint",
+    "Full-text search, sorting and asset composition chart"
+  ],
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <rect width="40" height="40" rx="11" fill="#a8524a"/>
+        <circle cx="20" cy="20" r="9.5" stroke="#fff" stroke-width="2.2" opacity=".95"/>
+        <circle cx="20" cy="20" r="3.2" fill="#fff"/>
+      </svg>
+      DigiLegacy <small>归零</small>
+    </a>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#screenshots">Screenshots</a></li>
+      <li><a href="#security">Security</a></li>
+      <li><a href="#compare">Comparison</a></li>
+      <li><a href="demo/">Live demo</a></li>
+      <li><a href="#start">Get started</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <div class="lang" role="group" aria-label="Language / 语言">
+      <a href="./" aria-current="page" lang="en">EN</a>
+      <a href="zh/" lang="zh-Hans">中文</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <h1>DigiLegacy</h1>
+    <p class="cn">归零 · 数字遗产管理及继承系统</p>
+    <p class="lead">
+      An <span class="accent">open-source, local-first</span> desktop app for <strong>digital legacy planning</strong>
+      and <strong>digital inheritance</strong>. Record the assets you know about, decide how each should be handled,
+      and export family-facing reports and action guides. Working data stays on your own machine by default;
+      optional external connections use endpoints you configure.
+    </p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/badhope/digilegacy/releases">⬇ Download for Windows</a>
+      <a class="btn btn-ghost" href="demo/">▶ Try the interactive demo</a>
+      <a class="btn btn-ghost" href="https://github.com/badhope/digilegacy">View source on GitHub</a>
+    </div>
+    <!-- 徽章用本地 span 而不是 shields.io 图片：后者在中国大陆常被阻断，
+         一个加载失败的 <img> 会显示成破图，比没有徽章更糟。 -->
+    <ul class="badges" aria-label="Project facts">
+      <li class="pill">MIT License</li>
+      <li class="pill">267 Rust tests · 451 frontend tests · 80 E2E</li>
+      <li class="pill">Windows 10/11</li>
+      <li class="pill">Local by default</li>
+      <li class="pill">No telemetry</li>
+    </ul>
+
+    <figure class="hero-shot">
+      <img src="screenshots/en/01-dashboard.png" width="2400" height="1600" alt="DigiLegacy dashboard: asset totals, estimated value, planning completion and an asset composition donut chart" fetchpriority="high">
+      <figcaption>The actual app — dashboard with planning progress and asset composition. Every other screen is below.</figcaption>
+    </figure>
+  </div>
+</header>
+
+<div class="new-band">
+  <div class="wrap">
+    <div class="item"><strong>New in 0.3.0</strong>Family action guide, multiple heirs with an executor, in-app SMTP setup and an optional bring-your-own-key assistant.</div>
+    <div class="item"><strong>New in 0.3.0</strong>Review pipeline with AI pre-review and human sign-off — five scenes, strict mode for legal documents.</div>
+    <div class="item"><strong>Hardened</strong>Backup v5, pre-import snapshot, merge-by-default import, policy provenance gate, four-dimension completion metric.</div>
+    <div class="item"><strong>Source inventory</strong>267 declared Rust tests + 451 frontend source cases; the local run passed 265 Rust tests, 451 frontend tests and 80 browser E2E tests, with one ignored developer-only test.</div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2>The problem: your digital life has no will</h2>
+    <p class="sub">When someone dies, their family usually cannot find — or access — what they left online.</p>
+    <div class="grid g3">
+      <div class="card">
+        <span class="num">01</span>
+        <h3>Nobody knows what exists</h3>
+        <p>Payment balances, game assets, subscription credits, creator income — scattered across dozens of platforms. Even the account owner cannot list them from memory.</p>
+      </div>
+      <div class="card">
+        <span class="num">02</span>
+        <h3>Nobody knows what is inheritable</h3>
+        <p>A wallet balance can be inherited; the account itself often cannot. Game accounts have case law supporting property rights. Rules differ per platform and sit buried in terms of service.</p>
+      </div>
+      <div class="card">
+        <span class="num">03</span>
+        <h3>Nobody knows how to claim it</h3>
+        <p>A deadlock: platforms ask for a notarized certificate; notaries need to know what the accounts contain; the family does not know. The estate simply goes dormant.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <h2>What DigiLegacy does</h2>
+    <p class="sub">The full path: discovery → registration → planning → documents → trigger → execution. Eight capabilities, one local database.</p>
+    <div class="grid g3">
+      <div class="card">
+        <span class="num">01</span>
+        <h3>Digital asset discovery</h3>
+        <p>A built-in policy database of <strong>152 platforms across 16 categories</strong> plus a guided self-check questionnaire — designed to surface accounts you have already forgotten. Search the whole catalogue by name.</p>
+      </div>
+      <div class="card">
+        <span class="num">02</span>
+        <h3>Classification &amp; registration</h3>
+        <p>Every asset is classified as property, personality, or mixed. Platform passwords are never stored; the app records <em>where</em> an account exists, not <em>how to break into it</em>.</p>
+      </div>
+      <div class="card">
+        <span class="num">03</span>
+        <h3>Disposal planning</h3>
+        <p>Choose per asset: inherit by a named person, liquidate and distribute, memorialize, authorize viewing, delete permanently, donate, or take no action.</p>
+      </div>
+      <div class="card">
+        <span class="num">04</span>
+        <h3>Inheritance report &amp; toolkit</h3>
+        <p>One click generates a print-ready HTML report and exports a ZIP toolkit (report, asset list, summary, instructions) in open formats — readable without this app.</p>
+      </div>
+      <div class="card">
+        <span class="num">05</span>
+        <h3>Dead man's switch</h3>
+        <p>Periodic check-in with a <strong>three-stage confirmation chain</strong>: remind you → notify your emergency contact → send inheritance instructions to your executor. Runs in the system tray, re-evaluating every 30 minutes; an optional zero-content heartbeat sends only to an endpoint you configure.</p>
+      </div>
+      <div class="card">
+        <span class="num">06</span>
+        <h3>Heir guidance &amp; legal templates</h3>
+        <p>A wizard that walks family members through each platform's procedure, required documents and transfer path — plus six categories of legal document templates.</p>
+      </div>
+      <div class="card">
+        <span class="num">07</span>
+        <h3>Search, sort &amp; composition chart</h3>
+        <p>Full-text search across platform, account and notes; sort by recency, value, platform or disposal state; a donut chart splits property / personality / mixed at a glance.</p>
+      </div>
+      <div class="card">
+        <span class="num">08</span>
+        <h3>Encrypted credential vault</h3>
+        <p>Optionally store account credentials, AES-256-GCM encrypted on your machine. Excluded from reports and toolkits; the encrypted backup carries only ciphertext, unreadable without your master password.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="screenshots">
+  <div class="wrap">
+    <h2>Screenshots — what it actually looks like</h2>
+    <p class="sub">A native desktop app for Windows 10/11; release size varies by build, with a 1200×800 default window. The interface ships in Simplified Chinese and English; switch languages in the header. Click any shot to open it full size.</p>
+    <figure style="margin-bottom:26px">
+      <video class="walkthrough" controls preload="metadata" poster="screenshots/en/01-dashboard.png">
+        <source src="media/demo-walkthrough.mp4" type="video/mp4">
+        Your browser does not support the video tag —
+        <a href="media/demo-walkthrough.mp4">download the 32-second walkthrough</a>.
+      </video>
+      <figcaption>32-second walkthrough — discovery → registration → disposal → check-in → report → heir guide</figcaption>
+    </figure>
+    <div class="shots">
+      <figure>
+        <a href="screenshots/en/01-dashboard.png"><img src="screenshots/en/01-dashboard.png" alt="DigiLegacy dashboard showing asset totals, total estimated value, planning completion and asset composition chart" loading="lazy"></a>
+        <figcaption>Dashboard — asset overview, planning progress and composition</figcaption>
+      </figure>
+      <figure>
+        <a href="screenshots/en/02-discover.png"><img src="screenshots/en/02-discover.png" alt="Digital asset discovery questionnaire with asset categories" loading="lazy"></a>
+        <figcaption>Guided discovery questionnaire</figcaption>
+      </figure>
+      <figure>
+        <a href="screenshots/en/03-assets.png"><img src="screenshots/en/03-assets.png" alt="Registered digital assets list with search, sort, category and disposal tags" loading="lazy"></a>
+        <figcaption>Registered assets with search, sort and disposal status</figcaption>
+      </figure>
+      <figure>
+        <a href="screenshots/en/04-asset-detail.png"><img src="screenshots/en/04-asset-detail.png" alt="Asset detail page with platform inheritance policy and encrypted credential vault" loading="lazy"></a>
+        <figcaption>Asset detail &amp; encrypted credential vault</figcaption>
+      </figure>
+      <figure>
+        <a href="screenshots/en/05-profile.png"><img src="screenshots/en/05-profile.png" alt="Profile page with encryption, recovery key and encrypted backup settings" loading="lazy"></a>
+        <figcaption>Profile — encryption, recovery key, backup</figcaption>
+      </figure>
+      <figure>
+        <a href="screenshots/en/06-dms.png"><img src="screenshots/en/06-dms.png" alt="Dead man's switch page with check-in and three-stage notification chain" loading="lazy"></a>
+        <figcaption>Dead man's switch &amp; local reminders</figcaption>
+      </figure>
+      <figure>
+        <a href="screenshots/en/07-report.png"><img src="screenshots/en/07-report.png" alt="Generated inheritance report document" loading="lazy"></a>
+        <figcaption>Generated inheritance report</figcaption>
+      </figure>
+      <figure>
+        <a href="screenshots/en/08-heir-guide.png"><img src="screenshots/en/08-heir-guide.png" alt="Heir guidance wizard with per-platform inheritance procedures" loading="lazy"></a>
+        <figcaption>Heir guidance wizard</figcaption>
+      </figure>
+      <figure>
+        <a href="screenshots/en/09-legal.png"><img src="screenshots/en/09-legal.png" alt="Legal document template library with six categories" loading="lazy"></a>
+        <figcaption>Legal template library</figcaption>
+      </figure>
+      <figure>
+        <a href="screenshots/en/10-dashboard-dark.png"><img src="screenshots/en/10-dashboard-dark.png" alt="Dark theme dashboard" loading="lazy"></a>
+        <figcaption>Dark theme — token-driven, WCAG AA contrast</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="security">
+  <div class="wrap">
+    <h2>Security: not even we can read your data</h2>
+    <p class="sub">Digital legacy data is the most private data a person owns. So the architecture removes the question instead of promising an answer.</p>
+    <div class="grid g2">
+      <div class="card">
+          <h3>Field-level AES-256-GCM encryption</h3>
+        <p>A local-first design: after you set a master password, account identifiers, credentials, profile fields and heir contacts are encrypted <em>before</em> they reach the database. New vaults derive keys with Argon2id; legacy PBKDF2 formats remain readable. Keys live only in memory and are cleared when the app locks.</p>
+      </div>
+      <div class="card">
+        <h3>Recovery key, not a dead end</h3>
+        <p>Setting a master password generates a one-time 24-character recovery key. Forget the password and you can still reset it and recover everything; the recovery key is rotated automatically on every password change.</p>
+      </div>
+      <div class="card">
+        <h3>Local by default, no telemetry</h3>
+        <p>There is no DigiLegacy backend or hosted account. Data lives in a local SQLite file you can copy, back up or delete. Optional heartbeat, SMTP/IMAP and BYOK assistant connections are disabled until you configure their endpoints.</p>
+      </div>
+      <div class="card">
+        <h3>Optional zero-content heartbeat</h3>
+        <p>If you configure a heartbeat endpoint, it receives only the token you provide. It does not receive an asset, credential or name, and it is not a DigiLegacy-hosted service. A reference implementation is included (<code>server/heartbeat-server.mjs</code>).</p>
+      </div>
+    </div>
+    <p class="warn" style="margin-top:22px">
+      <strong>Honest limitation:</strong> local encryption protects data at rest and cannot stop malware already running as your user, or someone who knows your master password. The recovery key is the only way back — write it down and keep it offline.
+    </p>
+  </div>
+</section>
+
+<section id="compare">
+  <div class="wrap">
+    <h2>How it compares</h2>
+    <p class="sub">The full chain — discovery, registration, planning, documents, trigger, execution — is currently unoccupied. Existing tools each cover a fragment.</p>
+    <table>
+      <thead>
+        <tr><th>Tool</th><th>Scope</th><th>What it leaves out</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>DigiLegacy</strong></td><td class="yes">One workflow spanning six intended stages</td><td class="no">Platform execution and legal validity still require human follow-through</td></tr>
+        <tr><td>Google Inactive Account Manager</td><td>Google accounts only</td><td class="no">Any non-Google platform; no asset inventory; no planning workflow</td></tr>
+        <tr><td>Apple Digital Legacy</td><td>Apple ID access for a legacy contact</td><td class="no">No inventory, no procedures, no disposal planning</td></tr>
+        <tr><td>Meta memorialization</td><td>Facebook / Instagram accounts</td><td class="no">Passive marking only, no active planning</td></tr>
+        <tr><td>Password managers (1Password, Bitwarden…)</td><td>Credential handover</td><td class="no">Answers "who gets the password", not "can it be inherited and how"</td></tr>
+        <tr><td>Dead man's switch tools (LastSignal, Aeterna…)</td><td>Timed message delivery</td><td class="no">No asset inventory, no platform policy, no per-asset disposal plan</td></tr>
+        <tr><td>Offline will services / notary offices</td><td>Paper wills</td><td class="no">No digital asset discovery; no platform-by-platform guidance</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="start">
+  <div class="wrap">
+    <h2>Get started</h2>
+    <div class="grid g2">
+      <div>
+        <h3>Use the app</h3>
+        <p style="color:var(--muted);font-size:14.5px">Download the installer or the MSI from Releases. Windows 10/11, release size varies, no account, no sign-up. Local planning and exports work offline; optional connections require your configuration.</p>
+        <pre><code># 1. Download from GitHub Releases
+#    DigiLegacy_*_x64-setup.exe    (installer)
+#    DigiLegacy_*_x64_zh-CN.msi    (MSI, for managed deployment)
+
+# 2. Launch it. Your data stays in:
+#    %APPDATA%\com.digilegacy.app\digilegacy.db</code></pre>
+        <p class="note">On first launch a short guided tour explains each screen. A built-in help centre explains the encryption model and the real capability boundaries of the reminder chain. Prefer to look around first? <a href="demo/">Open the interactive demo</a> — same UI, mock data in your browser, no install.</p>
+      </div>
+      <div>
+        <h3>Build from source</h3>
+        <pre><code>git clone https://github.com/badhope/digilegacy.git
+cd digilegacy
+
+npm install
+npm run tauri:dev      # desktop dev mode
+npm run tauri:build    # produce installers
+
+# Frontend only (browser preview with mock data):
+npm run dev            # http://localhost:1420
+
+# Tests
+cd src-tauri &amp;&amp; cargo test</code></pre>
+        <p class="note">Stack: <strong>Tauri 2 (Rust)</strong> + <strong>Vue 3 + TypeScript</strong> + <strong>SQLite</strong>. The source inventory is 267 declared Rust tests and 451 frontend cases. The current verification record distinguishes executed tests from source inventory and historical E2E runs.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <h2>Roadmap</h2>
+    <div class="grid g3">
+      <div class="card"><h3>Shipped</h3><p>Asset discovery, encrypted vault, disposal planning, report &amp; toolkit export, dead man's switch with tray residency, recovery key, onboarding tour, help centre, zero-content heartbeat client &amp; reference server, <strong>offline policy-patch channel</strong>, asset search &amp; sort, composition chart, <strong>interactive browser demo</strong>, backup v5, family action guide with an offline FAQ, multiple heirs with an executor, in-app SMTP/IMAP setup, custody locations, <strong>review pipeline with AI pre-review and human sign-off</strong> (five scenes, legal documents in strict mode), and an optional user-configured assistant/Agent that is off by default with no built-in endpoint.</p></div>
+      <div class="card"><h3>Next</h3><p>More interface languages (Simplified Chinese and English already ship), mobile companion for check-ins (separate codebase), notification action buttons (native notification actions), macOS/Linux installers and further policy verification. <strong>None of these are started.</strong></p></div>
+      <div class="card"><h3>Later</h3><p>Fully verified policy data — 147 of 152 entries are explicitly marked unverified and can only be confirmed by hand; deep-dive guides for the 50 most common platforms; author-side AI that writes a personalized family FAQ which the holder reviews and freezes into the toolkit. Constraints and acceptance criteria are in <a href="https://github.com/badhope/digilegacy/blob/main/docs/ROADMAP.md">the roadmap</a>. Also: institution integrations, patent filings, community-contributed policy database.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2>FAQ</h2>
+
+    <details open>
+      <summary>Is DigiLegacy really free?</summary>
+      <p>Yes. The desktop app is MIT-licensed and free to use. It does not include a DigiLegacy-hosted account or cloud service; any external endpoint or mailbox used by optional features is configured and paid for by you.</p>
+    </details>
+
+    <details>
+      <summary>What happens to my data if the project stops being maintained?</summary>
+      <p>Your local data and exports remain on the machine you control. There is no DigiLegacy-hosted account to switch off; optional connections remain dependent on the endpoints and mailboxes you configured. The code and exported formats are public and can be continued independently.</p>
+    </details>
+
+    <details>
+      <summary>Does it store my passwords?</summary>
+      <p>It never stores platform passwords in plaintext. You can optionally save credentials, and those are encrypted with your master password on your machine. Credentials are deliberately excluded from every exported report and toolkit.</p>
+    </details>
+
+    <details>
+      <summary>Can it automatically detect all my accounts?</summary>
+      <p>No, and any tool claiming to do so would be lying or would need your credentials. DigiLegacy does guided discovery: it knows 152 mainstream platforms and prompts you with questions that help you remember, then you confirm. The final list is always yours.</p>
+    </details>
+
+    <details>
+      <summary>Do reminders work when the app is closed?</summary>
+      <p>With the tray resident (default) it evaluates every 30 minutes while running, and can be set to start with Windows. For a token-only check while the app is closed, configure the optional zero-content heartbeat yourself; it sends only to the endpoint you provide. It does not replace a hosted monitoring service.</p>
+    </details>
+
+    <details>
+      <summary>Is it about accounts on Chinese platforms specifically?</summary>
+      <p>The policy database covers 152 platforms used in mainland China (WeChat, Alipay, Taobao, Bilibili, Steam and more) because that is where platform inheritance rules are most opaque. The architecture is not region-bound.</p>
+    </details>
+
+    <details>
+      <summary>Do I need to speak Chinese to use it?</summary>
+      <p>The desktop UI ships in Simplified Chinese and English; switch languages from the header. This website, the README and the browser demo are bilingual, and the demo lets you click through every screen before installing.</p>
+    </details>
+
+    <details>
+      <summary>How can I contribute?</summary>
+      <p>Issues and pull requests are welcome — especially policy corrections (add the official policy URL and a source citation) and translations. The database is plain Rust data, easy to extend.</p>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap cols">
+    <div>
+      <h4>DigiLegacy 归零</h4>
+      <p style="margin:0">Open-source digital legacy &amp; inheritance manager.<br>Local-first. Encrypted. Yours.</p>
+    </div>
+    <div>
+      <h4>Mirrors</h4>
+      <ul class="mirror">
+        <li><a href="https://github.com/badhope/digilegacy">GitHub (badhope)</a></li>
+        <li><a href="https://github.com/x33834/digilegacy">GitHub (x33834)</a></li>
+        <li><a href="https://github.com/Morningstar202604/digilegacy">GitHub (Morningstar202604)</a></li>
+        <li><a href="https://gitee.com/badhope/digilegacy">Gitee</a></li>
+        <li><a href="https://gitcode.com/badhope/digilegacy">GitCode</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Project</h4>
+      <ul>
+        <li><a href="https://github.com/badhope/digilegacy#features">Features</a></li>
+        <li><a href="https://github.com/badhope/digilegacy#security-model">Security model</a></li>
+        <li><a href="https://github.com/badhope/digilegacy/blob/main/LICENSE">MIT License</a></li>
+        <li><a href="https://github.com/badhope/digilegacy/blob/main/README.zh-CN.md">中文 README</a></li>
+        <li><a href="https://github.com/badhope/digilegacy/issues">Report an issue</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Deployment</h4>
+      <ul>
+        <li><a href="https://badhope.github.io/digilegacy/">badhope.github.io/digilegacy</a></li>
+        <li><a href="https://x33834.github.io/digilegacy/">x33834.github.io/digilegacy</a></li>
+        <li><a href="https://morningstar202604.github.io/digilegacy/">morningstar202604.github.io/digilegacy</a></li>
+        <li><a href="zh/">中文官网</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap" style="margin-top:26px;padding-top:18px;border-top:1px solid rgba(255,255,255,.12);font-size:13px">
+    MIT License · Local by default · No telemetry · Optional connections use endpoints you configure.
+  </div>
+</footer>
+
+
+<script>
+// 语言切换保留当前章节锚点：从中文站「截图」切到英文站仍停在截图区
+document.querySelectorAll('.lang a').forEach(function (a) {
+  a.addEventListener('click', function () {
+    if (location.hash) a.href = a.getAttribute('href').split('#')[0] + location.hash;
+  });
+});
+</script>
+</body>
+</html>

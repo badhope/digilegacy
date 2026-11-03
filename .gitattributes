@@ -1,0 +1,35 @@
+# Line endings: text files stored as LF in the repository, checked out per OS.
+* text=auto eol=lf
+
+# Windows batch / PowerShell keep CRLF
+*.bat eol=crlf
+*.cmd eol=crlf
+*.ps1 eol=crlf
+
+# Binary assets must never be line-ending converted or diffed as text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.zip binary
+*.msi binary
+*.exe binary
+*.mp4 binary
+*.webm binary
+
+# Lockfiles: generated, but reviewed when dependency changes are intentional
+package-lock.json linguist-generated=true
+digilegacy/src-tauri/Cargo.lock linguist-generated=true
+
+# Vendored / generated directories are excluded from language statistics
+node_modules/** linguist-vendored
+digilegacy/dist/** linguist-generated
+digilegacy/coverage/** linguist-generated
+digilegacy/coverage-e2e/** linguist-generated
+digilegacy/src-tauri/target/** linguist-generated
+digilegacy/src-tauri/gen/** linguist-generated
+docs/demo/** linguist-generated

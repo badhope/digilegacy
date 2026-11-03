@@ -30,19 +30,33 @@ if (!TOKEN) {
 const API = 'https://api.github.com';
 
 async function gh(pathname, init = {}, token = TOKEN, attempt = 0) {
-  const res = await fetch(`${API}${pathname}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'Content-Type': 'application/json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      ...(init.headers ?? {}),
-    },
-  });
-  // 二级限流与 5xx 都值得重试：等待时间指数增长（2s, 4s, 8s, 16s, 32s）
+  let res;
+  try {
+    res = await fetch(`${API}${pathname}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        Connection: 'close',
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch (e) {
+    // 本机到 GitHub 的链路偶发连接重置/超时（undici socket 错误），同样退避重试
+    if (attempt < 8) {
+      const waitMs = Math.min(2000 * 2 ** attempt, 60000);
+      console.log(`\n  网络错误（${String(e).split('\n')[0].slice(0, 80)}），${waitMs / 1000}s 后重试（第 ${attempt + 1} 次）`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      return gh(pathname, init, token, attempt + 1);
+    }
+    throw e;
+  }
+  // 400（GitHub 偶发 "malformed request"，重发即好）与 401/403/429/5xx 都重试：
+  // 等待时间指数增长（2s, 4s, 8s, 16s, 32s）
   if (
-    (res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) &&
+    (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) &&
     attempt < 5
   ) {
     const waitMs = 2000 * 2 ** attempt;
@@ -70,6 +84,13 @@ function listTrackedFiles() {
   return out.toString('utf8').split('\0').filter(Boolean);
 }
 
+import { createHash } from 'node:crypto';
+
+/** git blob sha1 = sha1("blob <len>\0" + content)，与 `git hash-object` 一致。 */
+function gitBlobSha(buf) {
+  return createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex');
+}
+
 async function uploadBlob(repoOwner, token, filePath) {
   const abs = path.resolve(filePath);
   const stat = statSync(abs);
@@ -77,6 +98,14 @@ async function uploadBlob(repoOwner, token, filePath) {
   // 大于 10MB 走 API 会慢，但本仓库没有这种文件；保留检查以便早失败
   if (buf.length > 90 * 1024 * 1024) {
     throw new Error(`${filePath} 超过 90MB，跳过 API 上传`);
+  }
+  const sha = gitBlobSha(buf);
+  // 先查后传：blob 是内容寻址的，已存在就跳过——重跑时大部分文件直接命中
+  try {
+    await gh(`/repos/${repoOwner}/digilegacy/git/blobs/${sha}`, {}, token);
+    return { path: filePath.replace(/\\/g, '/'), mode: '100644', type: 'blob', sha, size: stat.size };
+  } catch (e) {
+    if (!String(e).includes('-> 404')) throw e;
   }
   const body = await gh(
     `/repos/${repoOwner}/digilegacy/git/blobs`,
@@ -89,7 +118,8 @@ async function uploadBlob(repoOwner, token, filePath) {
     },
     token,
   );
-  return { path: filePath.replace(/\\/g, '/'), mode: '100644', type: 'blob', sha: body.sha, size: stat.size };
+  if (body.sha !== sha) throw new Error(`${filePath}: 远端 blob sha 与本地不符`);
+  return { path: filePath.replace(/\\/g, '/'), mode: '100644', type: 'blob', sha, size: stat.size };
 }
 
 async function syncRepo({ owner, tokenVar }) {
@@ -109,7 +139,7 @@ async function syncRepo({ owner, tokenVar }) {
   const entries = [];
   // GitHub 的二级限流对「短时间大量写请求」很敏感。8 路并发会在 ~180 个
   // blob 后触发 403；3 路 + 退避重试能稳定跑完，代价只是慢一点。
-  const CONCURRENCY = 3;
+  const CONCURRENCY = 2;
   for (let i = 0; i < files.length; i += CONCURRENCY) {
     const chunk = files.slice(i, i + CONCURRENCY);
     const results = await Promise.all(chunk.map((f) => uploadBlob(owner, token, f)));
@@ -184,5 +214,17 @@ if (only && targets.length === 0) {
   process.exit(1);
 }
 for (const repo of targets) {
-  await syncRepo(repo);
+  // 仓库级重试：GitHub 偶发 400/401/5xx（实测上传中会蹦出一次 Bad credentials，
+  // 但 token 本身有效），blob 上传是幂等的内容寻址，重跑安全。
+  let done = false;
+  for (let attempt = 1; attempt <= 3 && !done; attempt++) {
+    try {
+      await syncRepo(repo);
+      done = true;
+    } catch (e) {
+      console.error(`[${repo.owner}] 第 ${attempt} 次失败: ${String(e).split('\n')[0]}`);
+      if (attempt === 3) throw e;
+      await new Promise((r) => setTimeout(r, 30000));
+    }
+  }
 }

@@ -1,0 +1,42 @@
+name: Platform policy correction
+description: A platform's inheritance policy, required documents, or link is wrong or outdated
+labels: ["policy-data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Policy entries live in `digilegacy/src-tauri/src/platform_data.rs`. Every entry carries a `data_source` field — a correction without a citable source cannot be merged.
+  - type: input
+    id: platform
+    attributes:
+      label: Platform name and id
+      placeholder: "微信 (id 10)"
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What the database currently says
+    validations:
+      required: true
+  - type: textarea
+    id: corrected
+    attributes:
+      label: What it should say
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source URL or case citation
+      description: Official platform policy page, regulator notice, or court case number.
+      placeholder: "https://..."
+    validations:
+      required: true
+  - type: input
+    id: checked
+    attributes:
+      label: Date you verified the source
+      placeholder: "2026-10-23"
+    validations:
+      required: true

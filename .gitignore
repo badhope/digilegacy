@@ -1,0 +1,87 @@
+# ---- Node / 前端 ----
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+coverage/
+
+# ---- Rust / Tauri ----
+**/src-tauri/target/
+**/src-tauri/gen/schemas/
+
+# ---- 数据库运行时产物 ----
+**/src-tauri/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ---- 工具链产物 ----
+.qoder-credits/
+.meituan-catpaw/
+.opencode/
+*.canvas.tsx
+
+# ---- 导出文件 ----
+继承报告.html
+
+# ---- 编辑器 / 系统 ----
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# ---- 日志 ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+# ---- ZCode 工具本地缓存 ----
+.v2c/
+
+# ---- 参赛材料（仅存本地，不入仓库） ----
+参赛材料/
+.research_tmp/
+
+# ---- 工作区本地材料（WorkBuddy 会话状态与分析报告，不入仓库） ----
+.workbuddy/
+digilegacy-analysis-report.html
+digilegacy-hardening-report.html
+
+# ---- AQG 本地施工状态 ----
+.aqg/
+
+# ---- 心跳服务器运行时状态（含 token 与时间戳，不得入库） ----
+digilegacy/server/state.json
+digilegacy/server/registrations.json
+
+# ---- 本地临时产物 ----
+out/
+.tmp/
+
+# ---- Playwright ----
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# ---- E2E 覆盖率 ----
+coverage-e2e/
+digilegacy/e2e/.coverage/
+
+# 全功能核对截图（过程产物，不随仓库分发）
+docs/screenshots/audit/
+# 宣传片原始素材与切分中间件
+digilegacy/.tmp/
+
+# 挑战杯参赛材料（参赛用途，与开源项目本身分开，不入库）
+挑战杯参赛材料/
+# Playwright 本地浏览器缓存（第二轮 E2E 用系统 Edge 通道，官方下载仅作后备）
+digilegacy/.pw-browsers/
+# tauri 构建产物
+digilegacy/src-tauri/target/
+.aqg/
