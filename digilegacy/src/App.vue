@@ -58,7 +58,20 @@
       <header class="main-header">
         <div class="header-title">{{ currentPageTitle }}</div>
         <div class="header-actions">
-          <button class="btn btn-sm btn-secondary" :aria-label="themeLabel" :title="themeLabel" @click="toggleTheme">
+          <!-- 命令面板入口：把 ⌘K 这条隐形快捷键变成可见入口，
+               否则只有读过文档的用户才知道它存在。 -->
+          <button
+            class="btn btn-sm btn-secondary cmdk-trigger"
+            data-testid="cmdk-open"
+            :aria-label="t('cmdk.openHint')"
+            :title="t('cmdk.openHint')"
+            @click="showPalette = true"
+          >
+            <component :is="SearchOutline" aria-hidden="true" />
+            <span class="cmdk-trigger-text">{{ t('cmdk.placeholder') }}</span>
+            <kbd class="cmdk-kbd cmdk-trigger-kbd">{{ isMac ? '⌘' : 'Ctrl' }}K</kbd>
+          </button>
+          <button class="btn btn-sm btn-secondary" data-testid="theme-switch" :aria-label="themeLabel" :title="themeLabel" @click="toggleTheme">
             <component :is="themeIcon" aria-hidden="true" />
           </button>
           <button class="btn btn-sm btn-secondary" data-testid="lang-switch" :title="locale === 'zh-CN' ? 'Switch to English' : '切换到中文'" @click="toggleLocale">
@@ -170,6 +183,7 @@
 
     <!-- 全局反馈层：Toast + 确认框（替代原生 alert/confirm） -->
     <FeedbackLayer />
+    <CommandPalette v-model:open="showPalette" />
   </div>
 </template>
 
@@ -204,6 +218,7 @@ import { initTheme, toggleTheme, useTheme } from './composables/theme';
 import { useI18n } from './i18n';
 import OnboardingTour from './components/OnboardingTour.vue';
 import HelpDrawer from './components/HelpDrawer.vue';
+import CommandPalette from './components/CommandPalette.vue';
 import FeedbackLayer from './components/FeedbackLayer.vue';
 import type { ApiResponse, SecurityStatus } from './types';
 
@@ -234,6 +249,10 @@ const unlockPassword = ref('');
 const unlockError = ref('');
 const showTour = ref(false);
 const showHelp = ref(false);
+const showPalette = ref(false);
+
+/** 快捷键提示用哪个修饰键：macOS 显示 ⌘，其余显示 Ctrl。 */
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
 const { resolved: themeResolved } = useTheme();
 const themeIcon = computed(() => (themeResolved.value === 'dark' ? SunnyOutline : MoonOutline));
 const themeLabel = computed(() => (themeResolved.value === 'dark' ? t('app.themeToLight') : t('app.themeToDark')));

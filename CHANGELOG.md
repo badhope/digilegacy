@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-03
+
+### Added
+
+- **Command palette (⌘K / Ctrl+K).** Full keyboard path — type to filter, ↑↓ to move, Enter to run, Esc to close — covering all nine pages plus theme, language and lock actions. A visible header trigger exposes the shortcut so it is discoverable without reading docs. Accessible as a `dialog` + `combobox`, with `aria-activedescendant` and `aria-selected` wired.
+- **Checkpoints with one-click restore.** A named snapshot taken the moment you press the button, distinct from the daily automatic backup. Restore goes through the same authenticated-import path (source password, wrapped key, AEAD tag), and takes a `pre-restore` checkpoint first so the rollback itself is reversible. Capped at 12, auto checkpoints evicted before manual ones.
+- **Tool registry with permission tiers (`agent_tools.rs`).** Tool definition, execution and permission now live on one `ToolSpec`, so `tool_definitions()` and `execute()` cannot drift apart. Two tiers (`Read`, `Draft`) are enforced centrally instead of per-tool. Five tests assert every tool is annotated and that no tier can write to the database.
+- **Design system layer (`design-upgrade.css`).** Modular type scale, 4px spacing ladder, five-step elevation ladder (separate values for dark mode), semantic surface tokens, and duration tokens. Cards and stat values use the new ladder; `prefers-reduced-motion` is honoured throughout.
+- **New visual primitives:** conic-gradient metric ring, segmented dimension bar, skeleton loaders, and a proper empty-state block.
+
+### Changed
+
+- **Dashboard completion section** now pairs one headline ring with a four-dimension segmented bar — the percentage says how much is left, the breakdown says which dimension is behind.
+- **Header** gained a search/command trigger that collapses to an icon on narrow viewports.
+- **Theme toggle got a stable `data-testid`.** An E2E test selected `header button` by position and broke the moment a new button was added; the selector now names the control.
+
+### Fixed
+
+- **Metric ring label overlapped the percentage.** `place-items: center` stacked the two lines on top of each other; the ring now uses a column flow.
+- **Command palette footer was pushed outside the panel** when the list overflowed; the panel is now a bounded flex column and only the list scrolls.
+- **Checkpoints were invisible in the browser preview.** `loadCheckpoints()` sat inside the `if (isTauri)` guard, so the demo always showed the empty state even though the mock supports checkpoints.
+
 ## [0.2.3] - 2026-11-03
 
 ### Fixed

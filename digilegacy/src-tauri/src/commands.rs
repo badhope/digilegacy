@@ -1212,3 +1212,7 @@ pub use custody::*;
 
 #[path = "commands_win_shell.rs"]
 pub(crate) mod win_shell;
+
+#[path = "commands_checkpoint.rs"]
+mod checkpoint_cmds;
+pub use checkpoint_cmds::*;

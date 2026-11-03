@@ -267,7 +267,9 @@ test.describe('语言与主题切换：8 路由往返（16 场景）', () => {
       await expect(page.locator('.header-title')).toHaveText(route.zh);
 
       const before = await page.locator('html').getAttribute('data-theme');
-      await page.locator('header button').first().click();
+      // 用稳定 testid：历史上这里用 'header button' 的位置选择器，
+      // 任何在它前面新增的按钮都会让断言点错元素。
+      await page.locator('[data-testid="theme-switch"]').click();
       const after = await page.locator('html').getAttribute('data-theme');
       expect(after, `${route.path} 主题切换无效`).not.toBe(before);
     }

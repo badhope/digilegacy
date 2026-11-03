@@ -86,7 +86,19 @@ for (const file of ['README.md', 'README.zh-CN.md']) {
 
 // 测试台账的唯一归属：docs/VERIFICATION.md
 expectIn('docs/VERIFICATION.md', /(\d+) tests passed/, facts_.frontendCases, '验证记录前端测试数');
-expectIn('docs/VERIFICATION.md', /(\d+) passed \/ (\d+) ignored/, 265, '验证记录 Rust 通过数');
+// 验证记录里的 Rust 通过数会随每次追加而变，不能写死。
+// 改为校验「通过数 ≤ 源码声明数」这条不变量：通过数超过声明数说明数字抄错了。
+{
+  const text = read('docs/VERIFICATION.md');
+  const m = text.match(/(\d+) passed \/ (\d+) ignored/);
+  if (!m) {
+    problems.push('docs/VERIFICATION.md: 找不到 Rust 测试通过数');
+  } else if (Number(m[1]) > facts_.rustTests) {
+    problems.push(
+      `docs/VERIFICATION.md: Rust 通过数 ${m[1]} 大于源码声明数 ${facts_.rustTests}`,
+    );
+  }
+}
 
 // 官网双语：首屏 pill 与「已验证」两处都要对上
 for (const file of ['docs/index.html', 'docs/zh/index.html']) {

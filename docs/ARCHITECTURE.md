@@ -7,10 +7,12 @@ DigiLegacy is a single-process Tauri 2 desktop application. There is no backend 
 │ WebView (Vue 3 + TypeScript + Pinia)                         │
 │   views/ ── stores/ ── api/invoke.ts ──┐                     │
 └───────────────────────────────────────┼──────────────────────┘
-                                        │ Tauri IPC (83 commands)
+                                        │ Tauri IPC (87 commands)
 ┌───────────────────────────────────────▼──────────────────────┐
 │ Rust core (src-tauri/src)                                    │
 │   commands.rs   thin command layer, split by domain below    │
+│   agent_tools   tool registry + permission tiers              │
+│   checkpoint    named snapshots + restore                     │
 │   vault.rs      master key in memory, field encrypt/decrypt   │
 │   crypto.rs     AES-256-GCM + Argon2id/PBKDF2 primitives      │
 │   recovery.rs   one-time recovery key seal                    │
@@ -94,6 +96,9 @@ Why not scrape the DOM (the old approach): the page shows placeholders while loc
 |---|---|
 | `db.rs` | connection lifecycle, schema, migrations, security, DMS, report queries |
 | `db_backup.rs` | backup export / authenticated import / stock encryption (split out of db.rs) |
+| `agent_tools.rs` | tool registry: definition + execution + permission bound on one spec |
+| `checkpoint.rs` | named snapshots, retention, restore plumbing |
+| `commands_checkpoint.rs` | checkpoint IPC commands |
 | `db_assets.rs` | asset CRUD (split out of db.rs; write-gate + placeholder rejection preserved) |
 | `db_profile.rs` | user profile read/write; owns `PROFILE_SENSITIVE_COLUMNS` used by all three re-encryption paths |
 | `heir_recovery.rs` | Shamir threshold recovery kit: share encode/decode, printable HTML, metadata (shares never persisted) |
@@ -251,5 +256,13 @@ research, not for silently approving content.
 - The desktop UI ships in Simplified Chinese and English; `src/i18n/index.ts` holds both dictionaries, `setLocale` also updates `<html lang>`, and a unit test asserts the two key sets are identical. Legal template bodies are Chinese-only by design (they are jurisdiction-specific documents).
 - Migrations are additive `ALTER TABLE` checks and `PRAGMA user_version` is currently `SCHEMA_VERSION = 7`; future destructive migrations must branch on the version rather than on column presence alone.
 - `db.rs` still owns connection lifecycle, schema, security, DMS and report queries. Asset CRUD moved to `db_assets.rs`, profile to `db_profile.rs`, platform patches to `db_platforms.rs`, custody to `db_custody.rs`, heirs to `db_heirs.rs`, review trail to `db_review.rs`, **backup export/import to `db_backup.rs`**, and the regression suite to `db_tests.rs`.
-- `commands.rs` keeps the cross-domain integration tests; the 83 IPC commands live in `commands_{platform,assets,report,review,ai,profile,security,custody}.rs` with a shared `commands_win_shell.rs`.
+- `commands.rs` keeps the cross-domain integration tests; the 87 IPC commands live in `commands_{platform,assets,report,review,ai,profile,security,custody,checkpoint}.rs` with a shared `commands_win_shell.rs`.
+
+## Harness layer
+
+The agent used to keep its tool definitions in one JSON array and its dispatch in a `match`, with the permission boundary expressed only in comments. `agent_tools.rs` makes that a data structure instead:
+
+- **One `ToolSpec` per tool** — name, description, JSON Schema, permission tier and executor. `tool_definitions()` and `execute()` are both derived from `registry()`, so they cannot drift apart.
+- **Permission tiers are enums, not comments.** `Read` and `Draft` are both allowed today; the check runs centrally in `execute()`, so a future write tier has one obvious place to be gated. A test asserts every tool is annotated and that no current tier can write.
+- **Checkpoints reuse the backup pipeline.** `checkpoint.rs` stores named copies of the exported backup JSON and restores through the same authenticated-import function, which means a restore is subject to the identical source-password / wrapped-key / AEAD checks. A `pre-restore` checkpoint is written first.
 - The public demo is a static build of the real UI over the mock backend. It is a showcase, not a security boundary: its data lives unencrypted in `localStorage`; recovery-kit, Agent and external integration paths are desktop-only.

@@ -981,6 +981,34 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'reveal_exported_file':
       return ok(null, '演示模式不支持打开文件夹') as T;
 
+    // 检查点：演示态存在 sessionStorage，仅用于让界面可走通。
+    // 明确不做持久化——演示数据本来就不该被当成真实快照。
+    case 'create_checkpoint': {
+      const list = readMockCheckpoints();
+      const meta = {
+        id: `demo-${Date.now()}`,
+        label: String(a['label'] ?? ''),
+        created_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        size: JSON.stringify(state).length,
+        auto: false,
+      };
+      list.unshift(meta);
+      sessionStorage.setItem('digilegacy_mock_checkpoints', JSON.stringify(list.slice(0, 12)));
+      return ok(meta, '演示模式：检查点仅存在于本次会话') as T;
+    }
+
+    case 'list_checkpoints':
+      return ok(readMockCheckpoints()) as T;
+
+    case 'delete_checkpoint': {
+      const list = readMockCheckpoints().filter((c: { id: string }) => c.id !== a['id']);
+      sessionStorage.setItem('digilegacy_mock_checkpoints', JSON.stringify(list));
+      return ok(null, '已删除') as T;
+    }
+
+    case 'restore_checkpoint':
+      return ok('演示模式不会真的回滚数据', '已回滚（模拟）') as T;
+
     case 'get_backup_status':
       return ok({ count: 0, latest_name: null, latest_size: null }) as T;
 
@@ -1007,5 +1035,16 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
 
     default:
       throw new Error(`Web 预览模式未实现命令: ${cmd}`);
+  }
+}
+
+/** 演示态检查点列表读取：集中在 helper 里，避免三个 case 各写一遍解析。
+ *  只存在 sessionStorage——演示数据不该被当成真实快照持久化。 */
+function readMockCheckpoints(): Array<{ id: string; label: string; created_at: string; size: number; auto: boolean }> {
+  try {
+    const raw = sessionStorage.getItem('digilegacy_mock_checkpoints');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
 }

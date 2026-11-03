@@ -90,7 +90,9 @@
       </div>
     </div>
 
-    <!-- 完成度：四项分别可解释，不再是一个「处置方式不是待设定」的虚高百分比 -->
+    <!-- 完成度：一个环看总量，四个分段看构成。
+         「一个百分比」说不清差在哪，所以环旁边必须有四项分解；
+         反过来说，四项分解也需要一个一眼可见的总量，二者缺一不可。 -->
     <div class="card mb-32">
       <div class="card-header">
         <div>
@@ -110,9 +112,38 @@
           </template>
         </div>
       </div>
-      <div class="progress-bar" style="height: 12px;">
-        <div class="progress-fill blue" :style="{ width: (stats?.completion_percentage ?? 0) + '%' }"></div>
+
+      <div class="progress-hero">
+        <div
+          class="metric-ring"
+          :style="{ '--pct': stats?.total_assets ? (stats?.completion_percentage ?? 0) : 0, '--ring-color': ringColor }"
+          role="img"
+          :aria-label="t('dashboard.completionAria', { pct: stats?.total_assets ? (stats?.completion_percentage ?? 0) : 0 })"
+        >
+          <span class="metric-ring-value">{{ stats?.total_assets ? (stats?.completion_percentage ?? 0) + '%' : '—' }}</span>
+          <span class="metric-ring-label">{{ t('dashboard.completion') }}</span>
+        </div>
+
+        <div class="progress-breakdown">
+          <!-- 四维分段条：宽度按各项完成比例，颜色区分「达标/待办」 -->
+          <div class="segmented-bar" role="img" :aria-label="t('dashboard.dimensionAria')">
+            <span
+              v-for="dim in dimensions"
+              :key="dim.key"
+              :style="{ width: dim.share + '%', background: dim.color }"
+              :title="`${t(dim.labelKey)}: ${dim.done}/${dim.total}`"
+            ></span>
+          </div>
+          <div class="segmented-legend">
+            <span v-for="dim in dimensions" :key="dim.key">
+              <span class="dot" :style="{ background: dim.color }"></span>
+              {{ t(dim.labelKey) }}
+              <strong :class="{ 'dim-ok': dim.ok }">{{ dim.done }}/{{ dim.total }}</strong>
+            </span>
+          </div>
+        </div>
       </div>
+
       <div class="checklist-grid">
         <div class="check-item" :class="{ done: isDone(stats?.disposal_planned_count) }">
           <span class="check-mark" aria-hidden="true">{{ isDone(stats?.disposal_planned_count) ? '✓' : '·' }}</span>
@@ -267,6 +298,37 @@ const triggerText = computed(() => {
   return t('dashboard.checkTriggerNoChannel');
 });
 
+/** 四维完成度：与后端 `completion_percentage`（四项各 25%）同口径，
+ *  但拆开显示「每项做了几个/共几个」，用户能看出差在哪一项。 */
+const dimensions = computed(() => {
+  const total = stats.value?.total_assets ?? 0;
+  const rows = [
+    { key: 'disposal', labelKey: 'dashboard.checkDisposalLabel', done: stats.value?.disposal_planned_count ?? 0 },
+    { key: 'heir', labelKey: 'dashboard.checkHeirLabel', done: stats.value?.heir_assigned_count ?? 0 },
+    { key: 'identifier', labelKey: 'dashboard.checkIdentifierLabel', done: stats.value?.identifier_ready_count ?? 0 },
+    { key: 'trigger', labelKey: 'dashboard.checkTriggerLabel', done: stats.value?.trigger_ready ? total : 0 },
+  ];
+  return rows.map((r) => {
+    const ratio = total > 0 ? r.done / total : 0;
+    return {
+      ...r,
+      total,
+      ok: total > 0 && r.done >= total,
+      // 分段条按「该维完成比例」占总宽度的 1/4 展示，四项等宽，避免某一项压倒其余
+      share: (ratio * 100) / rows.length,
+      color: total > 0 && r.done >= total ? 'var(--success)' : 'var(--warning)',
+    };
+  });
+});
+
+/** 环形进度颜色：达标绿、接近蓝、未过半用暖色，让「还差多少」有情绪层次。 */
+const ringColor = computed(() => {
+  const pct = stats.value?.completion_percentage ?? 0;
+  if (pct >= 100) return 'var(--success)';
+  if (pct >= 60) return 'var(--primary)';
+  return 'var(--warning)';
+});
+
 onMounted(async () => {
   await Promise.all([dashboard.refreshAll(), assetsStore.loadAssets()]);
 });
@@ -295,6 +357,19 @@ onMounted(async () => {
   padding: 12px 14px;
   background: var(--gray-50);
   border-radius: 10px;
+}
+.progress-hero {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin: 20px 0 8px;
+}
+.progress-breakdown { flex: 1; min-width: 0; }
+.segmented-legend strong { color: var(--gray-700); font-variant-numeric: tabular-nums; }
+.segmented-legend strong.dim-ok { color: var(--success-strong); }
+@media (max-width: 760px) {
+  .progress-hero { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .progress-breakdown { width: 100%; }
 }
 .handover-item strong { font-size: 20px; color: var(--gray-900); }
 .handover-item span { font-size: 13px; color: var(--gray-600); }

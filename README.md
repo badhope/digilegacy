@@ -43,6 +43,12 @@ Everything runs on your machine. No account, no cloud sync, no telemetry. Extern
 | <img src="docs/screenshots/en/07-report.png" width="420"><br>**Hand over something usable**<br>A print-ready inheritance report plus a ZIP toolkit: asset list, per-platform action guide, family FAQ and instructions. | <img src="docs/screenshots/en/08-heir-guide.png" width="420"><br>**Give heirs a route, not a riddle**<br>Per-platform documents, procedure, expected duration, difficulty and official links — grouped so someone grieving can follow it. |
 | <img src="docs/screenshots/en/09-legal.png" width="420"><br>**Start from real templates**<br>Six categories of legal documents with the blanks marked, plus an explicit note that templates are not legal advice. | <img src="docs/screenshots/en/10-dashboard-dark.png" width="420"><br>**Work in either theme**<br>Light and dark from the same design tokens, reduced-motion aware, WCAG AA contrast. |
 
+## Interaction, not just features
+
+- **Command palette (⌘K / Ctrl+K).** Jump to any screen or run theme / language / lock without leaving the keyboard. Type to filter, ↑↓ to move, Enter to run.
+- **Checkpoints.** Take a named snapshot before a significant edit. Restore is one click and goes through the same authenticated-import checks as a backup — and the restore itself is undoable because a `pre-restore` checkpoint is written first.
+- **A dashboard that answers "what now".** One completion ring for the headline number, a four-dimension bar underneath it, and an issue list where every row is a link to the fix.
+
 ## Install
 
 **Windows 10/11** · no account required · MSI and NSIS installers on the [releases page](https://github.com/badhope/digilegacy/releases).

@@ -1,7 +1,9 @@
 mod action_guide;
 mod agent;
+mod agent_tools;
 mod ai_assist;
 mod backup;
+mod checkpoint;
 mod commands;
 mod crypto;
 mod db;
@@ -218,6 +220,10 @@ pub fn run() {
             commands::complete_recovery,
             commands::get_recovery_seal_exists,
             commands::get_backup_status,
+            commands::create_checkpoint,
+            commands::list_checkpoints,
+            commands::restore_checkpoint,
+            commands::delete_checkpoint,
             commands::get_heartbeat_status,
             commands::get_smtp_config,
             commands::set_smtp_config,

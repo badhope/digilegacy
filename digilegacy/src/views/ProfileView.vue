@@ -190,6 +190,49 @@
       <p class="form-hint" style="margin-top: 10px;" aria-live="polite">{{ autoBackupSummary }}</p>
     </div>
 
+    <!-- 检查点：备份是「按天」，检查点是「按你按下按钮的那一刻」。
+         两者解决不同问题，不能互相替代。 -->
+    <div class="card mt-24">
+      <div class="card-header">
+        <div>
+          <div class="card-title">{{ t('profile.checkpointTitle') }}</div>
+          <div class="card-subtitle">{{ t('profile.checkpointDesc') }}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" :disabled="checkpointBusy" @click="createCheckpoint">
+          {{ t('profile.checkpointCreate') }}
+        </button>
+      </div>
+
+      <div v-if="checkpoints.length === 0" class="form-hint" style="padding: 8px 0;">
+        {{ t('profile.checkpointEmpty') }}
+      </div>
+
+      <ul v-else class="checkpoint-list">
+        <li v-for="cp in checkpoints" :key="cp.id" class="checkpoint-row">
+          <div class="checkpoint-info">
+            <strong>{{ cp.label || cp.id }}</strong>
+            <span class="checkpoint-meta">
+              {{ cp.created_at }} · {{ formatBytes(cp.size) }}
+              <span v-if="cp.auto" class="tag tag-secondary" style="margin-left: 6px;">{{ t('profile.checkpointAuto') }}</span>
+            </span>
+          </div>
+          <div class="checkpoint-actions">
+            <button class="btn btn-secondary btn-sm" :disabled="checkpointBusy" @click="restoreCheckpoint(cp)">
+              {{ t('profile.checkpointRestore') }}
+            </button>
+            <button class="btn btn-secondary btn-sm" :disabled="checkpointBusy" @click="removeCheckpoint(cp)">
+              {{ t('common.delete') }}
+            </button>
+          </div>
+        </li>
+      </ul>
+
+      <p v-if="checkpointMessage" role="alert" class="form-hint" style="margin-top: 10px;"
+         :style="{ color: checkpointOk ? 'var(--success-strong)' : 'var(--danger-strong)' }">
+        {{ checkpointMessage }}
+      </p>
+    </div>
+
     <div class="card mt-24">
       <div class="card-title mb-16">{{ t('profile.custodyTitle') }}</div>
       <p style="font-size: 13px; color: var(--gray-600);">{{ t('profile.custodyDesc') }}</p>
@@ -496,6 +539,89 @@ const changeMessage = ref('');
 const changeOk = ref(false);
 
 const backupMessage = ref('');
+
+interface CheckpointMeta {
+  id: string;
+  label: string;
+  created_at: string;
+  size: number;
+  auto: boolean;
+}
+const checkpoints = ref<CheckpointMeta[]>([]);
+const checkpointBusy = ref(false);
+const checkpointMessage = ref('');
+const checkpointOk = ref(false);
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+async function loadCheckpoints() {
+  try {
+    const res = await invoke<ApiResponse<CheckpointMeta[]>>('list_checkpoints');
+    if (res.success && res.data) checkpoints.value = res.data;
+  } catch (e) {
+    console.error('读取检查点失败:', e);
+  }
+}
+
+async function createCheckpoint() {
+  checkpointBusy.value = true;
+  checkpointMessage.value = '';
+  try {
+    const res = await invoke<ApiResponse<CheckpointMeta>>('create_checkpoint', {
+      label: t('profile.checkpointDefaultLabel'),
+    });
+    checkpointOk.value = res.success;
+    checkpointMessage.value = res.message;
+    if (res.success) await loadCheckpoints();
+  } catch (e) {
+    checkpointOk.value = false;
+    checkpointMessage.value = String(e);
+  } finally {
+    checkpointBusy.value = false;
+  }
+}
+
+async function restoreCheckpoint(cp: CheckpointMeta) {
+  // 回滚是破坏性操作：必须显式确认，并说明会覆盖当前数据
+  const okToRun = window.confirm(t('profile.checkpointRestoreConfirm', { label: cp.label || cp.id }));
+  if (!okToRun) return;
+  checkpointBusy.value = true;
+  checkpointMessage.value = '';
+  try {
+    const res = await invoke<ApiResponse<string>>('restore_checkpoint', {
+      id: cp.id,
+      sourcePassword: backupSourcePassword.value,
+    });
+    checkpointOk.value = res.success;
+    checkpointMessage.value = res.message;
+    if (res.success) {
+      await loadCheckpoints();
+      await security.refresh();
+    }
+  } catch (e) {
+    checkpointOk.value = false;
+    checkpointMessage.value = String(e);
+  } finally {
+    checkpointBusy.value = false;
+  }
+}
+
+async function removeCheckpoint(cp: CheckpointMeta) {
+  checkpointBusy.value = true;
+  try {
+    await invoke<ApiResponse<null>>('delete_checkpoint', { id: cp.id });
+    await loadCheckpoints();
+  } catch (e) {
+    checkpointOk.value = false;
+    checkpointMessage.value = String(e);
+  } finally {
+    checkpointBusy.value = false;
+  }
+}
 const backupOk = ref(false);
 const backupSourcePassword = ref('');
 
@@ -871,6 +997,7 @@ async function saveSmtp() {
     if (res.success) {
       smtpPassword.value = '';
       await loadSmtpConfig();
+  await loadCheckpoints();
     }
   } catch (e) {
     smtpOk.value = false;
@@ -1191,6 +1318,9 @@ onMounted(async () => {
   await loadAssistant();
   await loadHeirs();
   await loadSmtpConfig();
+  // 检查点在浏览器预览里也有 mock 实现，因此不能塞进 if (isTauri)：
+  // 否则演示页永远显示「还没有检查点」，用户看不到这个能力。
+  await loadCheckpoints();
 
   if (isTauri) {
     try {
@@ -1251,6 +1381,48 @@ async function saveProfile() {
 </script>
 
 <style scoped>
+.checkpoint-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.checkpoint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--gray-50);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+.checkpoint-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.checkpoint-info strong {
+  font-size: 14px;
+  color: var(--gray-900);
+  overflow-wrap: break-word;
+}
+.checkpoint-meta {
+  font-size: 12px;
+  color: var(--gray-600);
+  font-variant-numeric: tabular-nums;
+}
+.checkpoint-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+[data-theme='dark'] .checkpoint-row { background: var(--gray-800); }
+[data-theme='dark'] .checkpoint-info strong { color: var(--gray-100); }
+
 .recovery-code-box {
   margin-top: 12px;
   padding: 12px 14px;

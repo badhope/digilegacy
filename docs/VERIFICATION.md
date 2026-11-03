@@ -2,14 +2,45 @@
 
 本文件记录最终验证证据，避免"看起来绿"与"真的绿"混淆。历史轮次保留当时的数字，但不代表当前工作树或本轮门禁结果。
 
-## 2026-11-02 仓库治理与双语展示轮次：当前基线
+## 2026-11-03 设计与 harness 轮次（v0.3.0）：当前基线
+
+本轮做了三件事：设计系统与关键页面视觉升级、harness 能力落地（工具注册表 + 权限分级 + 检查点回滚）、双语截图与文档同步。下表为本轮实跑结果。
+
+| 命令 | 本轮基线结果 | 证据边界 |
+|---|---|---|
+| `npm run typecheck` | PASS | `vue-tsc --noEmit` |
+| `npm run test:coverage` | **34 files / 468 tests passed**；83.05% statements、79.05% branches、75.81% functions、84.59% lines | 前端单测与覆盖率；覆盖率阈值全部达标 |
+| `npm run build` | PASS；`ls dist/assets | grep '^mock-'` 无输出 | 生产前端构建 |
+| `cargo fmt --check` | PASS | 仅格式检查 |
+| `cargo clippy --all-targets -- -D warnings` | PASS | 无 warnings；唯一提示是上游 imap-proto 的 future-incompat |
+| `cargo test --locked` | **274 passed / 1 ignored**（276 collected） | 通过 MSVC `cl.exe`；新增工具注册表 5 项 + 检查点 4 项 |
+| `PW_CHANNEL=msedge npx playwright test` | **85 passed** | 全量 E2E；新增 `harness.spec.ts` 5 项 |
+| `node scripts/check-doc-facts.mjs` | PASS | 276 Rust、468 前端、87 IPC、17 表、152 平台、85 E2E |
+
+### 本轮新增能力
+
+1. **命令面板（⌘K / Ctrl+K）**：键盘优先的全局导航，覆盖 9 个页面 + 主题/语言/锁定三个动作。头部有可见入口，不依赖用户读过文档。无障碍实现为 `dialog` + `combobox` + `aria-activedescendant`。
+2. **检查点与一键回滚**：命名快照，粒度是「按下按钮那一刻」，与每日自动备份互补。回滚走既有认证式导入（源口令 + wrapped_dek + AEAD），且回滚前自动打 `pre-restore` 检查点，保证回滚本身可撤销。上限 12 个，自动检查点优先淘汰。
+3. **工具注册表与权限分级（`agent_tools.rs`）**：工具定义、执行、权限绑定在同一条 `ToolSpec` 上，`tool_definitions()` 与 `execute()` 不可能漂移。权限是枚举（`Read` / `Draft`）并在执行入口统一拦截，5 个测试断言「每个工具都有权限标注」「没有档位能写库」。
+4. **设计系统增强层（`design-upgrade.css`）**：模块化字号阶梯、4px 间距阶梯、五档高度阶梯（深色模式单独取值）、语义化表面令牌、动效时长令牌。新增环形指标、分段进度条、骨架屏、规范空态。
+
+### 本轮修复的界面缺陷
+
+- 环形指标里百分比与标签重叠（`place-items: center` 把两行叠在一起）。
+- 命令面板列表溢出时页脚被挤出面板（面板未限高、列表未用 flex 填充）。
+- 检查点在浏览器预览里不可见（`loadCheckpoints()` 误放进 `if (isTauri)` 守卫）。
+- E2E 主题切换用 `header button` 位置选择器，头部新增按钮后点错元素（改为 `data-testid`）。
+
+---
+
+## 2026-11-02 仓库治理与双语展示轮次：历史基线
 
 本轮做了三件事：清理仓库结构（分支、对象库、分支残留）、修复界面缺陷（图标尺寸、报告标题字距、DMS 与仪表板口径矛盾、送审字段中英混排）、把对外展示统一为英文主 + 中文可切换。下表是本轮实跑结果。
 
 | 命令 | 本轮基线结果 | 证据边界 |
 |---|---|---|
 | `npm run typecheck` | PASS | `vue-tsc --noEmit` |
-| `npm run test:coverage` | **32 files / 451 tests passed**；83.36% statements、78.31% branches、76.36% functions、84.84% lines | 前端单测与覆盖率；不是 E2E，也不是 Rust |
+| `npm run test:coverage` | **32 files / 451 tests passed**；83.36% statements、78.31% branches、76.36% functions、84.84% lines | 该轮历史数字；不是 E2E，也不是 Rust |
 | `npm run build` | PASS；`ls dist/assets | grep '^mock-'` 无输出 | 生产前端构建；不等于 Windows 安装包构建 |
 | `npm run build:demo` | PASS | 浏览器 mock 数据构建；数据写入未加密 `localStorage`，不连接桌面 Rust 后端 |
 | `node scripts/check-doc-facts.mjs` | PASS | 267 Rust 声明测试、451 前端源码用例、83 IPC、17 表、152 平台、80 E2E 与文档一致；含平台分类双语完整性检查 |
@@ -54,7 +85,7 @@
 
 | 命令 | 本轮基线结果 | 证据边界 |
 |---|---|---|
-| `npm run test:coverage` | **32 files / 451 tests passed**；83.36% statements、78.31% branches、76.36% functions、84.84% lines | 前端单测与覆盖率；不是 E2E，也不是 Rust |
+| `npm run test:coverage` | **32 files / 451 tests passed**；83.36% statements、78.31% branches、76.36% functions、84.84% lines | 该轮历史数字；不是 E2E，也不是 Rust |
 | `npm run typecheck` | PASS | `vue-tsc --noEmit` |
 | `npm run build` | PASS；产物无 `mock-*` 分块 | 生产前端构建；不等于 Windows 安装包构建 |
 | `npm run build:demo` | PASS | 浏览器 mock 数据构建；数据写入未加密 `localStorage`，不连接桌面 Rust 后端 |

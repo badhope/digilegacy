@@ -43,6 +43,12 @@
 | <img src="docs/screenshots/07-report.png" width="420"><br>**交出去的东西能用**<br>可打印的继承报告 + ZIP 工具包：资产清单、按平台聚合的执行清单、家人 FAQ 与操作说明。 | <img src="docs/screenshots/08-heir-guide.png" width="420"><br>**给家人一条路，而不是一道谜**<br>逐平台的材料、流程、预计时长、难度与官方链接，按分类归拢，悲伤中也能照着走。 |
 | <img src="docs/screenshots/09-legal.png" width="420"><br>**从真实模板起步**<br>六类法律文书，空白项已标注；同时明确说明模板不构成法律意见。 | <img src="docs/screenshots/10-dashboard-dark.png" width="420"><br>**两种主题都能干活**<br>同一套设计令牌驱动明暗主题，适配减少动效偏好，对比度达 WCAG AA。 |
 
+## 交互，而不只是功能
+
+- **命令面板（⌘K / Ctrl+K）**：键盘就能到任意页面、切主题/语言/锁定。输入即过滤，↑↓ 选择，Enter 执行。
+- **检查点**：重要改动前手动存一份命名快照。回滚一次点击，且与备份走同一套认证式导入校验；回滚前会自动再存一份 `pre-restore`，所以回滚本身也可撤销。
+- **回答「现在该做什么」的仪表板**：一个环给总量，下面一条四维分段条给构成，再配一份每行都能直接跳到修复处的待办清单。
+
 ## 安装
 
 **Windows 10/11** · 无需注册账号 · MSI 与 NSIS 安装包见 [releases 页面](https://github.com/badhope/digilegacy/releases)。

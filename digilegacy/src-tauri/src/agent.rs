@@ -19,7 +19,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ai_assist;
-use crate::db;
 
 /// 单轮模型调用没给出工具调用也没给结论时，最多再给几轮机会。
 pub const MAX_ROUNDS: usize = 8;
@@ -27,7 +26,6 @@ pub const MAX_ROUNDS: usize = 8;
 const MAX_TOOL_CALLS_PER_ROUND: usize = 6;
 /// 单个工具结果回传给模型的最大字符数（防止单条政策全文撑爆上下文）。
 const TOOL_RESULT_MAX_CHARS: usize = 6_000;
-const TOOL_ARGS_MAX_CHARS: usize = 8_000;
 const MAX_MODEL_RESPONSE_BYTES: usize = 1_000_000;
 const MAX_FINAL_CHARS: usize = 20_000;
 
@@ -116,58 +114,12 @@ pub fn parse_tool_calls(response_text: &str) -> Vec<ToolCall> {
         .collect()
 }
 
-/// 工具定义（发给模型的 tools 数组；与下方 `execute_tool` 一一对应）。
+/// 工具定义（发给模型的 tools 数组）。
+///
+/// 定义已迁移到 `agent_tools::registry()`：定义/执行/权限三者在同一条规格上，
+/// 不再需要「这里改一处、那里改一处」地人工保持同步。
 pub fn tool_definitions() -> serde_json::Value {
-    serde_json::json!([
-        {
-            "type": "function",
-            "function": {
-                "name": "query_assets",
-                "description": "查询用户已登记的数字资产列表（平台名/类别/处置方式/继承人；不含凭据与密码）",
-                "parameters": {"type":"object","properties":{"category":{"type":"string","description":"可选过滤：property/personality/mixed"}}}
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "query_platform_policy",
-                "description": "按平台名或关键词查内置继承政策库（所需材料/办理流程/难度/时长/官方链接/来源标注）",
-                "parameters": {"type":"object","properties":{"keyword":{"type":"string","description":"平台名关键词，如 支付宝"}}}
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_planning_stats",
-                "description": "获取继承规划完成度统计（资产数/处置进度/触发链状态/待办清单）",
-                "parameters": {"type":"object","properties":{}}
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "run_readiness_drill",
-                "description": "跑一次家人演练（只读元数据）：家人拿到执行包会在哪一步卡住",
-                "parameters": {"type":"object","properties":{}}
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_trigger_status",
-                "description": "查询到期提醒（安心传承）当前状态：是否启用、逾期阶段、最近确认时间",
-                "parameters": {"type":"object","properties":{}}
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "draft_heir_note",
-                "description": "起草一段给继承人的说明文字草稿（只返回草稿文本；由用户确认后自行保存，agent 不会写入任何数据）",
-                "parameters": {"type":"object","properties":{"topic":{"type":"string"},"points":{"type":"string","description":"要点，分号分隔"}},"required":["topic"]}
-            }
-        }
-    ])
+    crate::agent_tools::tool_definitions()
 }
 
 fn truncate(s: &str, max: usize) -> String {
@@ -180,166 +132,12 @@ fn truncate(s: &str, max: usize) -> String {
 }
 
 /// 执行一个工具调用；未知工具返回显式错误文本（让模型自己纠正）。
+///
+/// 实际分发与权限拦截在 `agent_tools::execute`：那里按注册表统一检查权限，
+/// 本函数只负责解析参数并保持既有调用契约。
 pub fn execute_tool(name: &str, args: &str) -> Result<String, String> {
-    if args.chars().count() > TOOL_ARGS_MAX_CHARS {
-        return Err("工具参数过长".to_string());
-    }
     let args_v: serde_json::Value = serde_json::from_str(args).unwrap_or(serde_json::json!({}));
-
-    match name {
-        "query_assets" => {
-            let category = args_v
-                .get("category")
-                .and_then(|x| x.as_str())
-                .unwrap_or("");
-            let assets = db::get_all_assets_db()?;
-            let lines: Vec<String> = assets
-                .iter()
-                .filter(|a| category.is_empty() || a.category == category)
-                .map(|a| {
-                    // Agent 只需要判断规划状态；账号标识、继承人姓名/联系方式、备注与凭据
-                    // 都不出境，避免「本地只读工具」变成身份数据外送工具。
-                    format!(
-                        "- 平台={}（类别={}）：处置={}，继承人状态={}",
-                        a.platform_name,
-                        a.category,
-                        a.disposal_method,
-                        if a.heir_name.as_deref().map(|v| !v.trim().is_empty() && !v.contains("需解锁")).unwrap_or(false) { "已指定" } else { "未指定/未知" }
-                    )
-                })
-                .collect();
-            if lines.is_empty() {
-                Ok("（没有符合条件的资产）".to_string())
-            } else {
-                Ok(truncate(&lines.join("\n"), TOOL_RESULT_MAX_CHARS))
-            }
-        }
-        "query_platform_policy" => {
-            let kw = args_v
-                .get("keyword")
-                .and_then(|x| x.as_str())
-                .unwrap_or("")
-                .trim();
-            if kw.is_empty() {
-                return Err("keyword 不能为空".to_string());
-            }
-            if kw.chars().count() > 100 || kw.chars().any(|c| c.is_control()) {
-                return Err("keyword 含非法字符或超过 100 字符".to_string());
-            }
-            let platforms = crate::platform_data::get_all_platforms();
-            let hits: Vec<String> = platforms
-                .iter()
-                .filter(|p| p.name.contains(kw) || p.name_en.to_lowercase().contains(&kw.to_lowercase()))
-                .take(5)
-                .map(|p| {
-                    format!(
-                        "【{}】可继承：{}\n所需材料：{}\n流程：{}\n难度：{}；时长：{}\n来源：{}",
-                        p.name,
-                        if p.inheritable { "是" } else { "否" },
-                        p.required_documents,
-                        p.process_description,
-                        p.estimated_difficulty,
-                        p.estimated_time_days,
-                        p.data_source,
-                    )
-                })
-                .collect();
-            if hits.is_empty() {
-                Ok(format!("（内置政策库没有匹配「{}」的平台）", kw))
-            } else {
-                Ok(truncate(&hits.join("\n\n"), TOOL_RESULT_MAX_CHARS))
-            }
-        }
-        "get_planning_stats" => {
-            let s = db::get_dashboard_stats_db()?;
-            let todos: Vec<String> = s
-                .issues
-                .iter()
-                .map(|i| format!("[{}] {}（去 {}）", i.severity, i.key, i.target))
-                .collect();
-            Ok(format!(
-                "资产 {} 项（财产 {} / 人格 {} / 混合 {}）；已设定处置 {}；继承人已填 {}；完成度 {}%；触发链：{}/{}\n待办：{}",
-                s.total_assets,
-                s.property_count,
-                s.personality_count,
-                s.mixed_count,
-                s.disposal_planned_count,
-                s.heir_assigned_count,
-                s.completion_percentage,
-                if s.trigger_ready { "就绪" } else { "未就绪" },
-                s.trigger_channel,
-                if todos.is_empty() { "无".to_string() } else { todos.join("；") },
-            ))
-        }
-        "run_readiness_drill" => {
-            let report = db::get_inheritance_report_db()?;
-            let stats = db::get_dashboard_stats_db()?;
-            let trigger_ready = stats.trigger_ready;
-            let drill = crate::toolkit::evaluate_drill(&report, trigger_ready, &stats.trigger_channel);
-            let checks: Vec<String> = drill
-                .checks
-                .iter()
-                .map(|c| format!("- {}：{}", c.key, if c.ok { "通过" } else { "未通过" }))
-                .collect();
-            Ok(format!(
-                "可见平台 {} 个、资产 {} 条；缺继承人 {}；缺政策 {}；政策未核实 {}。\n{}",
-                drill.platforms,
-                drill.assets,
-                drill.assets_without_heir,
-                drill.assets_without_policy,
-                drill.unverified_platforms,
-                checks.join("\n"),
-            ))
-        }
-        "get_trigger_status" => {
-            let st = crate::notify::status_snapshot()?;
-            let checkin = db::get_check_in_status_db()?;
-            Ok(format!(
-                "到期提醒：{}；当前阶段 {}；逾期 {} 天；最近确认：{}；距下次到期：{} 天",
-                if st.enabled { "已启用" } else { "未启用" },
-                st.current_stage,
-                st.days_overdue,
-                checkin.last_check_in.as_deref().unwrap_or("从未"),
-                checkin
-                    .days_until_due
-                    .map(|d| d.to_string())
-                    .unwrap_or_else(|| "未知".into()),
-            ))
-        }
-        "draft_heir_note" => {
-            // 草稿工具：纯文本拼装，不触碰任何写路径。
-            let topic = args_v
-                .get("topic")
-                .and_then(|x| x.as_str())
-                .unwrap_or("")
-                .trim();
-            if topic.is_empty() {
-                return Err("topic 不能为空".to_string());
-            }
-            if topic.chars().count() > 200 || topic.chars().any(|c| c.is_control()) {
-                return Err("topic 含非法字符或超过 200 字符".to_string());
-            }
-            let points = args_v
-                .get("points")
-                .and_then(|x| x.as_str())
-                .unwrap_or("");
-            let mut out = format!("【给继承人的说明草稿 · {}】\n", topic);
-            for (i, p) in points
-                .split(['；', ';'])
-                .map(str::trim)
-                .filter(|p| !p.is_empty())
-                .enumerate()
-            {
-                out.push_str(&format!("{}. {}\n", i + 1, p));
-            }
-            out.push_str("（草稿：请人工核对后自行保存；本助手不会替你写入任何数据）");
-            Ok(out)
-        }
-        other => Err(format!(
-            "未知工具 {}。可用工具：query_assets / query_platform_policy / get_planning_stats / run_readiness_drill / get_trigger_status / draft_heir_note",
-            other
-        )),
-    }
+    crate::agent_tools::execute(name, &args_v)
 }
 
 /// Agent 系统提示词：说明角色、工具用法与安全红线。
@@ -781,8 +579,13 @@ mod tests {
             r#"{"topic":"支付宝余额","points":"第一步联系客服；带死亡证明；无需公证（5 万以下）"}"#,
         )
         .unwrap();
+        // 断言行为而不是文案格式：
+        // - 输出必须被标记为草稿（用户不能误以为是已保存内容）
+        // - 必须声明未写入任何数据（agent 无写路径）
+        // - 用户提供的要点必须原样出现在结果里（不能吞掉用户输入）
         assert!(out.contains("草稿"));
-        assert!(out.contains("不会替你写入"));
-        assert!(out.contains("1. 第一步联系客服"));
+        assert!(out.contains("不会写入任何数据"));
+        assert!(out.contains("第一步联系客服"));
+        assert!(out.contains("无需公证（5 万以下）"));
     }
 }
