@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-04
+
+### Added
+
+- **Vacation pause for the dead man's switch.** Every comparable service offers check-in pause; the app now does too — but as a *date*, not a boolean. `set_dms_pause` suspends overdue evaluation entirely until the chosen day (auto-expires, so a forgotten pause cannot keep the trigger chain disarmed). The DMS screen shows an active-pause banner with one-click resume; `stage_snapshot` and the read-only status share the same rule.
+- **Annual plan review.** Planning drifts — heirs move, accounts change. When a plan has assets but no review on record, or the last review is older than 365 days, the dashboard derives an `info` todo (translated in both languages) and the DMS screen records the review with one click. The anchor lives in `user_profile.last_reviewed_at`.
+- **MCP server (`digilegacy-mcp`).** The read-only tool registry is now also exposed over the Model Context Protocol (stdio), so Claude Desktop, Cursor, WorkBuddy or any MCP client can query planning stats, readiness drills and platform policies. Only `Read`-tier tools are whitelisted (a second check on top of the registry); no network connections; the DB path is discovered like the app's (`DIGILEGACY_DB` override for portable setups) and a missing database fails loudly instead of silently creating an empty one. Nine protocol-contract tests cover version negotiation, silent notifications, whitelist blocking and error shapes.
+- **Docs for the audit era:** `docs/COMPETITIVE.md` (20+ comparable products, what was adopted and what was deliberately rejected), `docs/TECH-STACK.md` (every dependency and every deliberate in-house part, with reasons), and a mermaid diagram of the six-stage flow in both READMEs.
+
+### Changed
+
+- `AssetCategory`/`DisposalMethod` now implement the standard `FromStr` trait instead of confusingly-named inherent methods; validation uses `str::parse::<T>()`.
+- `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` IPC command counts updated to 89 (the doc-facts gate caught the drift — as designed).
+
 ## [0.3.0] - 2026-11-03
 
 ### Added

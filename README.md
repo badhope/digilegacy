@@ -43,6 +43,30 @@ Everything runs on your machine. No account, no cloud sync, no telemetry. Extern
 | <img src="docs/screenshots/en/07-report.png" width="420"><br>**Hand over something usable**<br>A print-ready inheritance report plus a ZIP toolkit: asset list, per-platform action guide, family FAQ and instructions. | <img src="docs/screenshots/en/08-heir-guide.png" width="420"><br>**Give heirs a route, not a riddle**<br>Per-platform documents, procedure, expected duration, difficulty and official links — grouped so someone grieving can follow it. |
 | <img src="docs/screenshots/en/09-legal.png" width="420"><br>**Start from real templates**<br>Six categories of legal documents with the blanks marked, plus an explicit note that templates are not legal advice. | <img src="docs/screenshots/en/10-dashboard-dark.png" width="420"><br>**Work in either theme**<br>Light and dark from the same design tokens, reduced-motion aware, WCAG AA contrast. |
 
+## How the six-stage flow fits together
+
+```mermaid
+flowchart LR
+    A[Discover<br/>self-check survey] --> B[Register<br/>152-platform library]
+    B --> C[Plan<br/>6 disposal types + heirs]
+    C --> D[Documents<br/>printable report + toolkit]
+    C --> E[Trigger<br/>3-stage dead man's switch]
+    D --> F[Family execution<br/>per-platform guide + drill]
+    E --> F
+```
+
+## Works with your AI agent (MCP)
+
+The same read-only tool set the built-in assistant uses is also exposed over
+**MCP** (Model Context Protocol) — point Claude Desktop, Cursor, WorkBuddy or
+any MCP client at the bundled `digilegacy-mcp.exe` and ask about planning
+progress, drills or platform policies. No cloud, no credentials leave the
+machine, locked fields stay locked:
+
+```json
+{ "mcpServers": { "digilegacy": { "command": "C:\Program Files\DigiLegacy\digilegacy-mcp.exe" } } }
+```
+
 ## Interaction, not just features
 
 - **Command palette (⌘K / Ctrl+K).** Jump to any screen or run theme / language / lock without leaving the keyboard. Type to filter, ↑↓ to move, Enter to run.
@@ -111,7 +135,9 @@ scripts/verify.sh      Local gate — the same commands CI runs
 - [Architecture and encryption flow](docs/ARCHITECTURE.md)
 - [Roadmap and positioning review](docs/ROADMAP.md)
 - [Verification records](docs/VERIFICATION.md) — commands, numbers and known gaps
-- [AI integration boundaries](docs/AI_INTEGRATION.md)
+- [Competitive teardown](docs/COMPETITIVE.md) — 20+ comparable products, what was learned and what was rejected
+- [Tech-stack audit](docs/TECH-STACK.md) — every wheel checked: mature libraries vs deliberate in-house parts
+- [AI integration boundaries](docs/AI_INTEGRATION.md) — including the MCP server contract
 - [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [Changelog](CHANGELOG.md)
 
 ## Project status

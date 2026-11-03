@@ -92,6 +92,26 @@ pub fn set_dead_mans_switch(enabled: bool, interval_days: i64) -> Result<ApiResp
     Ok(ApiResponse::ok_with_msg((), &msg))
 }
 
+/// 外出模式：暂停/恢复到期提醒的逾期评估。空串 = 恢复。
+#[command]
+pub fn set_dms_pause(until: String) -> Result<ApiResponse<()>, String> {
+    let clean = until.trim().to_string();
+    db::set_dms_pause_db(&clean)?;
+    let msg = if clean.is_empty() {
+        "已恢复到期提醒评估".to_string()
+    } else {
+        format!("已开启外出暂停，{clean} 前不会判逾期")
+    };
+    Ok(ApiResponse::ok_with_msg((), &msg))
+}
+
+/// 标记「本次规划已复核」，重置年度复核提醒。
+#[command]
+pub fn record_planning_review() -> Result<ApiResponse<()>, String> {
+    db::record_planning_review_db()?;
+    Ok(ApiResponse::ok_with_msg((), "已记录本次复核"))
+}
+
 // ========== 仪表板统计 ==========
 
 #[command]

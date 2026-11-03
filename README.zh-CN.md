@@ -43,6 +43,29 @@
 | <img src="docs/screenshots/07-report.png" width="420"><br>**交出去的东西能用**<br>可打印的继承报告 + ZIP 工具包：资产清单、按平台聚合的执行清单、家人 FAQ 与操作说明。 | <img src="docs/screenshots/08-heir-guide.png" width="420"><br>**给家人一条路，而不是一道谜**<br>逐平台的材料、流程、预计时长、难度与官方链接，按分类归拢，悲伤中也能照着走。 |
 | <img src="docs/screenshots/09-legal.png" width="420"><br>**从真实模板起步**<br>六类法律文书，空白项已标注；同时明确说明模板不构成法律意见。 | <img src="docs/screenshots/10-dashboard-dark.png" width="420"><br>**两种主题都能干活**<br>同一套设计令牌驱动明暗主题，适配减少动效偏好，对比度达 WCAG AA。 |
 
+## 六段链路如何咬合
+
+```mermaid
+flowchart LR
+    A[资产发现<br/>自检问卷] --> B[分类登记<br/>152 平台政策库]
+    B --> C[处置规划<br/>6 种处置 + 继承人]
+    C --> D[法律文书<br/>可打印报告 + 工具包]
+    C --> E[到期触发<br/>三级死亡开关]
+    D --> F[家人执行<br/>逐平台清单 + 演练]
+    E --> F
+```
+
+## 接入你的 AI Agent（MCP）
+
+应用内助手使用的同一套只读工具，也通过 **MCP（Model Context Protocol）**
+暴露——把 Claude Desktop、Cursor、WorkBuddy 等任意 MCP 客户端指向随包安装的
+`digilegacy-mcp.exe`，即可查询规划进度、演练结果或平台政策。
+不联网、凭据不出机器、锁定态字段保持锁定：
+
+```json
+{ "mcpServers": { "digilegacy": { "command": "C:\Program Files\DigiLegacy\digilegacy-mcp.exe" } } }
+```
+
 ## 交互，而不只是功能
 
 - **命令面板（⌘K / Ctrl+K）**：键盘就能到任意页面、切主题/语言/锁定。输入即过滤，↑↓ 选择，Enter 执行。
@@ -111,7 +134,9 @@ scripts/verify.sh      本地门禁 —— 与 CI 跑的是同一组命令
 - [架构与加密流程](docs/ARCHITECTURE.md)
 - [路线图与定位复核](docs/ROADMAP.md)
 - [验证记录](docs/VERIFICATION.md) —— 命令、数字与已知缺口
-- [AI 集成边界](docs/AI_INTEGRATION.md)
+- [竞品深度对照](docs/COMPETITIVE.md) —— 20+ 同类产品，学到了什么、拒绝了什么
+- [技术栈审计](docs/TECH-STACK.md) —— 逐项查轮子：哪里用成熟库、哪里有意自研
+- [AI 集成边界](docs/AI_INTEGRATION.md) —— 含 MCP 服务器契约
 - [贡献指南](CONTRIBUTING.md) · [安全策略](SECURITY.md) · [行为准则](CODE_OF_CONDUCT.md) · [变更日志](CHANGELOG.md)
 
 ## 项目状态

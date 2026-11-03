@@ -32,6 +32,8 @@ pub struct DmsStatus {
     pub overdue: bool,
     pub current_stage: i64,
     pub days_overdue: i64,
+    /// 外出模式暂停截止日（YYYY-MM-DD）；处于暂停期才有值。
+    pub paused_until: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -54,6 +56,7 @@ pub fn status_snapshot() -> Result<DmsStatus, String> {
             overdue: false,
             current_stage: 0,
             days_overdue: 0,
+            paused_until: None,
         });
     }
     let (overdue_days, current_stage) = stage_snapshot(&cfg);
@@ -62,10 +65,19 @@ pub fn status_snapshot() -> Result<DmsStatus, String> {
         overdue: current_stage > 0,
         current_stage,
         days_overdue: overdue_days,
+        paused_until: cfg.paused_until,
     })
 }
 
 fn stage_snapshot(cfg: &DmsConfig) -> (i64, i64) {
+    // 外出模式：暂停期内一律不判逾期。出差一周回来不该收到「家人已收到通知」。
+    if let Some(until) = &cfg.paused_until {
+        if let Ok(d) = chrono::NaiveDate::parse_from_str(until, "%Y-%m-%d") {
+            if d >= chrono::Local::now().date_naive() {
+                return (0, 0);
+            }
+        }
+    }
     match &cfg.last_check_in {
         Some(last) => match days_since_last_check_in(last) {
             Some(days) => {
@@ -136,6 +148,8 @@ struct DmsConfig {
     interval_days: i64,
     stage1_wait_days: i64,
     stage2_wait_days: i64,
+    /// 外出模式：暂停到该日期（YYYY-MM-DD）；None = 未暂停。
+    paused_until: Option<String>,
     #[allow(dead_code)]
     last_check_in: Option<String>,
 }
@@ -174,11 +188,18 @@ fn read_config() -> Result<DmsConfig, String> {
             r.get(0)
         })
         .ok();
+    let paused_until: Option<String> = conn
+        .query_row("SELECT paused_until FROM dms_config WHERE id=1", [], |r| {
+            r.get(0)
+        })
+        .ok()
+        .filter(|s: &String| !s.trim().is_empty());
     Ok(DmsConfig {
         enabled: enabled != 0,
         interval_days: interval,
         stage1_wait_days: s1,
         stage2_wait_days: s2,
+        paused_until,
         last_check_in: last,
     })
 }
@@ -627,6 +648,7 @@ mod tests {
             interval_days: 30,
             stage1_wait_days: s1,
             stage2_wait_days: s2,
+            paused_until: None,
             last_check_in: None,
         }
     }
@@ -844,6 +866,32 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
+    /// 外出暂停：即使逾期很久，暂停期内分级必须归零——
+    /// 出差回来不该面对已经发给家人的「告别邮件」。
+    #[test]
+    fn paused_config_suppresses_stage() {
+        let future = (Local::now().date_naive() + chrono::Duration::days(7))
+            .format("%Y-%m-%d")
+            .to_string();
+        let mut cfg = test_config(3, 7, 14);
+        cfg.paused_until = Some(future);
+        cfg.last_check_in = Some(
+            (Local::now() - chrono::Duration::days(60))
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string(),
+        );
+        let (days, stage) = stage_snapshot(&cfg);
+        assert_eq!((days, stage), (0, 0), "暂停期内不得判逾期");
+
+        // 暂停到期后自动恢复：过期日期不挂起评估。
+        let past = (Local::now().date_naive() - chrono::Duration::days(1))
+            .format("%Y-%m-%d")
+            .to_string();
+        cfg.paused_until = Some(past);
+        let (days, stage) = stage_snapshot(&cfg);
+        assert!(days > 0 && stage >= 1, "过期暂停必须自动失效");
+    }
+
     /// 只读状态快照必须与投递共用同一套分级，但绝不产生副作用。
     #[test]
     fn stage_snapshot_matches_compute_stage() {
@@ -852,6 +900,7 @@ mod tests {
             interval_days: 30,
             stage1_wait_days: 3,
             stage2_wait_days: 7,
+            paused_until: None,
             last_check_in: Some(
                 (Local::now() - chrono::Duration::days(60))
                     .format("%Y-%m-%d %H:%M:%S")
@@ -920,6 +969,7 @@ mod stage_boundary_tests {
             interval_days: 30,
             stage1_wait_days: 3,
             stage2_wait_days: 7,
+            paused_until: None,
             last_check_in: None,
         }
     }

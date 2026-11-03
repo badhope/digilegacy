@@ -38,8 +38,8 @@ pub fn init_database(app_handle: &AppHandle) -> Result<(), String> {
     init_database_at(app_dir.join("digilegacy.db"))
 }
 
-/// 在指定路径初始化数据库（供启动流程与测试复用）
-pub(crate) fn init_database_at(db_path: PathBuf) -> Result<(), String> {
+/// 在指定路径初始化数据库（供启动流程、测试与 MCP 服务器 bin 复用）
+pub fn init_database_at(db_path: PathBuf) -> Result<(), String> {
     {
         let mut path_guard = DB_PATH.lock().unwrap();
         *path_guard = Some(db_path.clone());
@@ -174,7 +174,9 @@ fn create_tables(conn: &Connection) -> rusqlite::Result<()> {
             stage1_wait_days INTEGER DEFAULT 3,
             stage2_wait_days INTEGER DEFAULT 7,
             stage3_wait_days INTEGER DEFAULT 14,
-            last_check_in TEXT
+            last_check_in TEXT,
+            -- 外出模式：暂停到该日期（YYYY-MM-DD），到期自动恢复；空 = 未暂停
+            paused_until TEXT DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS heartbeat_config (
@@ -363,13 +365,28 @@ fn migrate_schema(conn: &Connection) -> rusqlite::Result<()> {
         .query_map([], |row| row.get::<_, String>(1))?
         .filter_map(|r| r.ok())
         .collect();
-    for col in ["emergency_contact_email", "heir_primary_email"] {
+    for col in [
+        "emergency_contact_email",
+        "heir_primary_email",
+        "last_reviewed_at",
+    ] {
         if !profile_columns.iter().any(|name| name == col) {
             conn.execute_batch(&format!(
                 "ALTER TABLE user_profile ADD COLUMN {} TEXT DEFAULT ''",
                 col
             ))?;
         }
+    }
+
+    // dms_config.paused_until：外出模式暂停。竞品（SafeBeyond、LastSend 等）普遍
+    // 支持 check-in 暂停；用日期而不是布尔——忘记恢复也会自动到期，不会一直裸奔。
+    let has_paused_until: bool = conn
+        .prepare("PRAGMA table_info(dms_config)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .any(|name| name == "paused_until");
+    if !has_paused_until {
+        conn.execute_batch("ALTER TABLE dms_config ADD COLUMN paused_until TEXT DEFAULT ''")?;
     }
     Ok(())
 }
@@ -1310,12 +1327,27 @@ pub fn get_check_in_status_db() -> Result<CheckInStatus, String> {
         None
     };
 
+    // 外出模式：paused_until 是未来日期时，逾期评估整体挂起（notify::stage_snapshot 同步此逻辑）。
+    let paused_until_raw: Option<String> = conn
+        .query_row("SELECT paused_until FROM dms_config WHERE id=1", [], |r| {
+            r.get(0)
+        })
+        .ok()
+        .filter(|s: &String| !s.trim().is_empty());
+    let paused = paused_until_raw
+        .as_deref()
+        .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok())
+        .map(|d| d >= chrono::Local::now().date_naive())
+        .unwrap_or(false);
+
     Ok(CheckInStatus {
         last_check_in,
         interval_days: interval,
         dms_enabled,
         next_check_in_due,
         days_until_due,
+        paused_until: if paused { paused_until_raw } else { None },
+        paused,
         recent_check_ins: recent_check_ins_db(conn, 5).unwrap_or_default(),
     })
 }
@@ -1330,6 +1362,55 @@ fn recent_check_ins_db(conn: &Connection, limit: usize) -> Result<Vec<String>, S
         .map_err(|e| format!("读取签到记录失败: {}", e))?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("收集签到记录失败: {}", e))
+}
+
+/// 设置/清除外出模式暂停。`until` 空串 = 清除；否则必须是 YYYY-MM-DD 且不早于今天。
+/// 日期制而非布尔制：用户忘记恢复也会自动到期，不会让触发链一直裸奔。
+pub fn set_dms_pause_db(until: &str) -> Result<(), String> {
+    ensure_vault_writable_db()?;
+    let until = until.trim();
+    let value = if until.is_empty() {
+        String::new()
+    } else {
+        let d = chrono::NaiveDate::parse_from_str(until, "%Y-%m-%d")
+            .map_err(|_| "日期格式必须是 YYYY-MM-DD".to_string())?;
+        if d < chrono::Local::now().date_naive() {
+            return Err("暂停截止日不能早于今天".to_string());
+        }
+        until.to_string()
+    };
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    conn.execute(
+        "UPDATE dms_config SET paused_until = ?1 WHERE id = 1",
+        params![value],
+    )
+    .map_err(|e| format!("写入暂停状态失败: {}", e))?;
+    Ok(())
+}
+
+/// 标记「本次规划已复核」：年度复核提醒的数据锚点。
+/// 竞品调研（Switchify/GoodTrust 等的公开指南）都强调年检；但强调的人多，
+/// 做进产品提醒链路的少——这里把它做成仪表板可派生的待办而不是日历喊话。
+pub fn record_planning_review_db() -> Result<(), String> {
+    ensure_vault_writable_db()?;
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    let updated = conn
+        .execute(
+            "UPDATE user_profile SET last_reviewed_at = ?1 WHERE id = 1",
+            params![today],
+        )
+        .map_err(|e| format!("写入复核时间失败: {}", e))?;
+    if updated == 0 {
+        conn.execute(
+            "INSERT INTO user_profile (id, last_reviewed_at) VALUES (1, ?1)",
+            params![today],
+        )
+        .map_err(|e| format!("写入复核时间失败: {}", e))?;
+    }
+    Ok(())
 }
 
 pub fn set_dms_config_db(enabled: bool, interval_days: i64) -> Result<(), String> {
@@ -1673,6 +1754,30 @@ pub fn get_dashboard_stats_db() -> Result<DashboardStats, String> {
         });
     }
 
+    // 年度复核提醒：规划是一次承诺，不是一次性设置。从未复核（且已有资产）
+    // 或距上次复核超过 365 天时提醒。字段加密与否不影响本查询（普通列）。
+    let last_reviewed_at: String = conn
+        .query_row(
+            "SELECT COALESCE(last_reviewed_at, '') FROM user_profile WHERE id = 1",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or_default();
+    let review_stale = total > 0
+        && (last_reviewed_at.trim().is_empty()
+            || chrono::NaiveDate::parse_from_str(last_reviewed_at.trim(), "%Y-%m-%d")
+                .ok()
+                .map(|d| (chrono::Local::now().date_naive() - d).num_days() > 365)
+                .unwrap_or(true));
+    if review_stale {
+        issues.push(crate::models::CheckIssue {
+            key: "planning_review_stale".into(),
+            severity: "info".into(),
+            count: 0,
+            target: "/profile".into(),
+        });
+    }
+
     let trigger_score = if trigger_ready { 100 } else { 0 };
     let completion = if total > 0 {
         (ratio(disposal_planned) + ratio(heir_assigned) + ratio(identifier_ready) + trigger_score)
@@ -1694,6 +1799,8 @@ pub fn get_dashboard_stats_db() -> Result<DashboardStats, String> {
         total_estimated_value: total_value,
         last_check_in,
         dms_enabled,
+        last_reviewed_at,
+        review_stale,
         completion_percentage: completion,
         issues,
     })
@@ -1707,6 +1814,10 @@ pub struct CheckInStatus {
     pub dms_enabled: bool,
     pub next_check_in_due: Option<String>,
     pub days_until_due: Option<i64>,
+    /// 外出模式暂停截止日（YYYY-MM-DD）；处于暂停期才有值。
+    pub paused_until: Option<String>,
+    /// 当前是否处于暂停期（逾期评估被挂起）。
+    pub paused: bool,
     /// 最近 5 次确认时间（新的在前）。签到日志此前只写不读，
     /// 用户无法判断「我真的点过吗、上次是什么时候」。
     pub recent_check_ins: Vec<String>,

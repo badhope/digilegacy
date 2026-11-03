@@ -231,6 +231,10 @@ export interface DashboardStats {
   total_estimated_value: number;
   last_check_in: string | null;
   dms_enabled: boolean;
+  /** 上次规划复核时间（YYYY-MM-DD）；空串 = 从未复核 */
+  last_reviewed_at: string;
+  /** 从未复核且已有资产，或距上次复核超过 365 天 */
+  review_stale: boolean;
   /** 四项检查各 25% 的加权结果 */
   completion_percentage: number;
   /** 待办检查项：每条都带跳转目标，点一下就去做 */
@@ -257,6 +261,10 @@ export interface CheckInStatus {
   dms_enabled: boolean;
   next_check_in_due: string | null;
   days_until_due: number | null;
+  /** 外出模式暂停截止日（YYYY-MM-DD）；处于暂停期才有值 */
+  paused_until?: string | null;
+  /** 当前是否处于暂停期（逾期评估被挂起） */
+  paused?: boolean;
   /** 最近 5 次确认时间（新的在前） */
   recent_check_ins?: string[];
 }
@@ -284,6 +292,8 @@ export interface DmsStatus {
   overdue: boolean;
   current_stage: number;
   days_overdue: number;
+  /** 外出模式暂停截止日（YYYY-MM-DD）；处于暂停期才有值 */
+  paused_until?: string | null;
 }
 
 

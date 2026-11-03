@@ -1,6 +1,6 @@
 [package]
 name = "digilegacy"
-version = "0.3.0"
+version = "0.3.1"
 description = "DigiLegacy - local-first digital legacy planning desktop app"
 authors = ["DigiLegacy Team"]
 edition = "2021"

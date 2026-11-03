@@ -15,13 +15,16 @@ pub enum AssetCategory {
     Mixed,       // 混合型
 }
 
-impl AssetCategory {
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for AssetCategory {
+    type Err = ();
+    /// 解析资产类别字符串（snake_case）。解析失败返回 ()——调用方只需要
+    /// 「认不认识」这一个比特，不需要错误详情。
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "property" => Some(Self::Property),
-            "personality" => Some(Self::Personality),
-            "mixed" => Some(Self::Mixed),
-            _ => None,
+            "property" => Ok(Self::Property),
+            "personality" => Ok(Self::Personality),
+            "mixed" => Ok(Self::Mixed),
+            _ => Err(()),
         }
     }
 }
@@ -39,34 +42,36 @@ pub enum DisposalMethod {
     NoAction,
 }
 
-impl DisposalMethod {
-    pub fn from_str(s: &str) -> Option<Self> {
+impl std::str::FromStr for DisposalMethod {
+    type Err = ();
+    /// 解析处置方式字符串（snake_case）。解析失败返回 ()。
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "inherit" => Some(Self::Inherit),
-            "liquidate" => Some(Self::Liquidate),
-            "memorialize" => Some(Self::Memorialize),
-            "authorize_view" => Some(Self::AuthorizeView),
-            "delete" => Some(Self::Delete),
-            "donate" => Some(Self::Donate),
-            "no_action" => Some(Self::NoAction),
-            _ => None,
+            "inherit" => Ok(Self::Inherit),
+            "liquidate" => Ok(Self::Liquidate),
+            "memorialize" => Ok(Self::Memorialize),
+            "authorize_view" => Ok(Self::AuthorizeView),
+            "delete" => Ok(Self::Delete),
+            "donate" => Ok(Self::Donate),
+            "no_action" => Ok(Self::NoAction),
+            _ => Err(()),
         }
     }
 }
 
 /// 校验并规范化资产类别
 pub fn validate_category(cat: &str) -> Result<String, String> {
-    match AssetCategory::from_str(cat) {
-        Some(_) => Ok(cat.to_string()),
-        None => Err(format!("无效的资产类别: {}", cat)),
+    match cat.parse::<AssetCategory>() {
+        Ok(_) => Ok(cat.to_string()),
+        Err(_) => Err(format!("无效的资产类别: {}", cat)),
     }
 }
 
 /// 校验并规范化处置方式
 pub fn validate_disposal(method: &str) -> Result<String, String> {
-    match DisposalMethod::from_str(method) {
-        Some(_) => Ok(method.to_string()),
-        None => Err(format!("无效的处置方式: {}", method)),
+    match method.parse::<DisposalMethod>() {
+        Ok(_) => Ok(method.to_string()),
+        Err(_) => Err(format!("无效的处置方式: {}", method)),
     }
 }
 
@@ -318,6 +323,10 @@ pub struct DashboardStats {
     pub total_estimated_value: f64,
     pub last_check_in: Option<String>,
     pub dms_enabled: bool,
+    /// 上次规划复核时间（YYYY-MM-DD）；空串 = 从未复核。年度复核提醒的数据锚点。
+    pub last_reviewed_at: String,
+    /// 从未复核且已有资产，或距上次复核超过 365 天。
+    pub review_stale: bool,
     /// 四项检查各 25% 的加权结果。
     pub completion_percentage: i64,
     /// 待办检查项：每条都是一句可直接执行的动作，不是泛泛的「建议完善」。
