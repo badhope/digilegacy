@@ -8,6 +8,10 @@ license = "MIT"
 repository = "https://github.com/badhope/digilegacy"
 readme = "../../README.md"
 
+# 仓库里有两个 bin（主应用 + digilegacy-mcp MCP 服务器）。
+# 不指定 default-run，tauri build 会报 "failed to find main binary"。
+default-run = "digilegacy"
+
 [lib]
 name = "digilegacy_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
