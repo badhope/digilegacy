@@ -65,7 +65,7 @@
         <CollapseGroup
           v-for="g in groupedPlatforms"
           :key="g.key"
-          :title="g.key"
+          :title="categoryLabel(g.key)"
           :count="g.platforms.length"
           v-model="openGroups[g.key]"
         >
@@ -73,7 +73,7 @@
             <div style="padding: 12px 16px; background: var(--gray-50); display: flex; justify-content: space-between; align-items: center; gap: 12px;">
               <div class="flex items-center gap-8 minw-0">
                 <strong class="ellipsis">{{ platform.name }}</strong>
-                <span class="text-muted" style="font-size: 12px;">{{ platform.category }}</span>
+                <span class="text-muted" style="font-size: 12px;">{{ categoryLabel(platform.category) }}</span>
               </div>
               <span class="tag" :class="{
                 'tag-success': platform.inheritable,
@@ -107,7 +107,7 @@
         <div class="flex items-center justify-between flex-wrap gap-12 mb-8">
           <div class="flex gap-8 flex-wrap" role="group" :aria-label="t('heir.categoryFilterLabel')">
             <button class="btn btn-sm" :class="categoryFilter === 'all' ? 'btn-primary' : 'btn-secondary'" :aria-pressed="categoryFilter === 'all'" @click="categoryFilter = 'all'">{{ t('heir.all') }}</button>
-            <button class="btn btn-sm" v-for="cat in categories" :key="cat" :class="categoryFilter === cat ? 'btn-primary' : 'btn-secondary'" :aria-pressed="categoryFilter === cat" @click="categoryFilter = cat">{{ cat }}</button>
+            <button class="btn btn-sm" v-for="cat in categories" :key="cat" :class="categoryFilter === cat ? 'btn-primary' : 'btn-secondary'" :aria-pressed="categoryFilter === cat" @click="categoryFilter = cat">{{ categoryLabel(cat) }}</button>
           </div>
           <button class="collapse-all" @click="toggleAllExt">{{ extAllOpen ? t('heir.collapseAll') : t('heir.expandAll') }}</button>
         </div>
@@ -115,7 +115,7 @@
         <CollapseGroup
           v-for="g in groupedExtended"
           :key="g.key"
-          :title="g.key"
+          :title="categoryLabel(g.key)"
           :count="g.platforms.length"
           v-model="openExtGroups[g.key]"
         >
@@ -123,7 +123,7 @@
           <div style="padding: 12px 16px; background: linear-gradient(135deg, var(--primary-light) 0%, var(--secondary-light) 100%); display: flex; justify-content: space-between; align-items: center;">
             <div class="flex items-center gap-8">
               <strong>{{ platform.name }}</strong>
-              <span class="text-muted" style="font-size: 12px;">{{ platform.category }}</span>
+              <span class="text-muted" style="font-size: 12px;">{{ categoryLabel(platform.category) }}</span>
             </div>
             <div class="flex gap-8">
               <span class="tag" :class="{
@@ -254,6 +254,16 @@ import type { ApiResponse, PlatformExtended } from '../types';
 
 const { t } = useI18n();
 const platforms = usePlatformsStore();
+
+/** 平台分类的中文标识 → 当前语言的展示名。
+ *  分类值是平台库里的中文串（数据契约的一部分，不能改），
+ *  但界面必须按语言渲染——否则英文界面会整片出现中文分组标题。
+ *  词典缺失时回退原值，保证新增分类不会白屏。 */
+function categoryLabel(category: string): string {
+  const key = `discover.cat.${category}.name`;
+  const label = t(key);
+  return label === key ? category : label;
+}
 
 /** 与后端 `UNVERIFIED_SOURCE` 常量一致：把「未核实」当状态展示，而不是当出处。 */
 function isUnverified(source: string | undefined | null): boolean {

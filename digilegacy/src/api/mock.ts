@@ -28,6 +28,9 @@ interface MockState {
   nextAssetId: number;
   __schema?: number;
   custody?: { backup_location: string; recovery_code_location: string };
+  /** 演示态的 SMTP 设置：真实收发不发生，只用于让「触发链是否就绪」这一维
+   *  与后端同一口径计算（后端 = DMS 启用 && SMTP 已配置）。 */
+  smtp?: { host: string; port: number; from_addr: string; username: string; has_password: boolean };
   reviews?: Record<string, Array<{
     key: string; title: string; preview?: string; status: string;
     ai_verdict: string | null; ai_note: string; human_note: string;
@@ -37,6 +40,7 @@ interface MockState {
     id?: number; name: string; relation: string; phone: string; email: string;
     share_note: string; is_executor: boolean; sort_order: number;
   }>;
+  aiChat?: Array<{ id: number; question: string; answer: string; model: string; created_at: string }>;
 }
 
 const seedPlatforms = platformsSeed as unknown as Array<Record<string, unknown>>;
@@ -217,6 +221,34 @@ function isUnlocked(): boolean {
   return sessionStorage.getItem(SS_UNLOCK) === '1';
 }
 
+const VALID_CATEGORIES = ['property', 'personality', 'mixed'];
+const VALID_DISPOSALS = ['inherit', 'liquidate', 'memorialize', 'authorize_view', 'delete', 'donate', 'no_action'];
+
+function validateAssetRequest(req: Record<string, unknown>): string | null {
+  if (Number(req.platform_id) <= 0) return '平台 id 必须为正数';
+  const category = String(req.category ?? '');
+  if (!VALID_CATEGORIES.includes(category)) return `无效的资产类别: ${category}`;
+  const disposal = String(req.disposal_method ?? 'no_action');
+  if (!VALID_DISPOSALS.includes(disposal)) return `无效的处置方式: ${disposal}`;
+  const value = req.estimated_value as number | null | undefined;
+  if (value != null && (!Number.isFinite(value) || value < 0 || value > 1e12)) {
+    return '预估价值必须是 0 到 1 万亿之间的有限数值';
+  }
+  for (const [label, raw] of [
+    ['账号标识', req.account_identifier],
+    ['账号描述', req.account_description],
+    ['备注', req.notes],
+    ['继承人姓名', req.heir_name],
+    ['继承人联系方式', req.heir_contact],
+  ] as const) {
+    if (raw != null && String(raw).length > 8_000) return `${label}过长（上限 8000 字符）`;
+  }
+  if (disposal === 'inherit' && !String(req.heir_name ?? '').trim()) {
+    return '处置方式为「指定继承」时必须填写继承人姓名';
+  }
+  return null;
+}
+
 function toPlatform(entry: Record<string, unknown>): Platform {
   return {
     id: Number(entry.id),
@@ -272,18 +304,8 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return ok(state.assets.filter(x => x.category === a['category']).map(withPlatformName)) as T;
 
     case 'add_asset': {
-      // 与 Rust 命令层同一边界：非法类别/处置与非有限或负金额必须拒绝，
-      // 否则演示环境的行为会与桌面版不一致（用户会以为桌面版也接受）。
-      const VALID_CATEGORIES = ['property', 'personality', 'mixed'];
-      const VALID_DISPOSALS = ['inherit', 'liquidate', 'memorialize', 'authorize_view', 'delete', 'donate', 'no_action'];
-      const inputCategory = String(req.category ?? '');
-      const inputDisposal = String(req.disposal_method ?? 'no_action');
-      if (!VALID_CATEGORIES.includes(inputCategory)) return fail<null>('无效的资产类别') as T;
-      if (!VALID_DISPOSALS.includes(inputDisposal)) return fail<null>('无效的处置方式') as T;
-      const inputValue = req.estimated_value as number | null | undefined;
-      if (inputValue != null && (!Number.isFinite(inputValue) || inputValue < 0 || inputValue > 1e12)) {
-        return fail<null>('预估价值必须是 0 到 1 万亿之间的有限数值') as T;
-      }
+      const validationError = validateAssetRequest(req);
+      if (validationError) return fail<null>(validationError) as T;
       const asset: DigitalAsset = {
         id: state.nextAssetId++,
         platform_id: Number(req.platform_id),
@@ -310,6 +332,8 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'update_asset': {
       const target = state.assets.find(x => x.id === Number(a['id']));
       if (!target) return fail<null>('资产不存在或已被删除') as T;
+      const validationError = validateAssetRequest(req);
+      if (validationError) return fail<null>(validationError) as T;
       Object.assign(target, {
         platform_id: Number(req.platform_id),
         account_identifier: String(req.account_identifier ?? ''),
@@ -336,7 +360,16 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'set_disposal_wish': {
       const target = state.assets.find(x => x.id === Number(a['asset_id']));
       if (!target) return fail<null>('资产不存在') as T;
-      target.disposal_method = String(a['disposal_method']);
+      const disposal = String(a['disposal_method'] ?? '');
+      if (!VALID_DISPOSALS.includes(disposal)) return fail<null>(`无效的处置方式: ${disposal}`) as T;
+      const heirName = (a['heir_name'] as string) || '';
+      const heirContact = (a['heir_contact'] as string) || '';
+      const notes = String(a['notes'] ?? '');
+      if (disposal === 'inherit' && !heirName.trim()) return fail<null>('处置方式为「指定继承」时必须填写继承人姓名') as T;
+      if (heirName.length > 8_000 || heirContact.length > 8_000 || notes.length > 8_000) {
+        return fail<null>('处置意愿字段过长（上限 8000 字符）') as T;
+      }
+      target.disposal_method = disposal;
       target.heir_name = (a['heir_name'] as string) || null;
       target.heir_contact = (a['heir_contact'] as string) || null;
       target.notes = String(a['notes'] ?? '');
@@ -348,7 +381,10 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return ok(state.profile) as T;
 
     case 'set_user_profile': {
-      const profile = args as unknown as UserProfile;
+      if (!args?.profile || typeof args.profile !== 'object') {
+        return fail<null>('用户档案参数缺失') as T;
+      }
+      const profile = args.profile as UserProfile;
       state.profile = { ...profile, updated_at: now() };
       saveState(state);
       return ok(null, '用户档案已保存') as T;
@@ -411,7 +447,13 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
       ).length;
       // 与桌面版同口径：只有邮件通道可用才算触发链达标；
       // 仅心跳时家人收不到邮件，不能算完成。
-      const triggerReady = state.dms.enabled && false;
+      //
+      // 演示环境不连接真实 SMTP（get_smtp_config 恒返回未配置），
+      // 因此这里必须走与后端相同的判定而不是写死 false——写死会让
+      // 「触发链」这一维在任何演示状态下都恒为 0，四维完成度永远不到 100%，
+      // 与「配置了 SMTP 就应达标」的后端契约不一致。
+      const smtpConfigured = Boolean(state.smtp?.host && state.smtp?.from_addr);
+      const triggerReady = state.dms.enabled && smtpConfigured;
       const ratio = (n: number) => (assets.length > 0 ? Math.round((n * 100) / assets.length) : 0);
       const completion = assets.length > 0
         ? Math.round((ratio(planned) + ratio(heirAssigned) + ratio(identifierReady) + (triggerReady ? 100 : 0)) / 4)
@@ -496,11 +538,16 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
       return ok(status) as T;
     }
 
-    case 'set_dead_mans_switch':
+    case 'set_dead_mans_switch': {
+      const interval = Number(a['intervalDays'] ?? a['interval_days'] ?? 30);
+      if (!Number.isInteger(interval) || interval < 1 || interval > 365) {
+        return fail<null>('检查间隔必须为 1 到 365 天') as T;
+      }
       state.dms.enabled = Boolean(a['enabled']);
-      state.dms.interval = Number(a['intervalDays'] ?? a['interval_days'] ?? 30);
+      state.dms.interval = interval;
       saveState(state);
       return ok(null, 'Dead Man\'s Switch 设置已保存') as T;
+    }
 
     case 'evaluate_dms':
       return ok({ enabled: state.dms.enabled, overdue: false, current_stage: 0, days_overdue: 0, notifications: [] }) as T;
@@ -550,7 +597,7 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
       saveState(state);
       sessionStorage.setItem(SS_UNLOCK, '1');
       // 与桌面端一致：恢复密钥放在 data 字段返回（预览模式为演示数据）
-      return ok({ status: { has_master_password: true, unlocked: true }, recovery_code: 'ABCD-EFGH-JKLM-NPQR-STUV-WXYZ' }, '加密已启用（预览模式为演示实现）') as T;
+      return ok({ status: { has_master_password: true, unlocked: true }, recovery_code: 'ABCD-EFGH-JKLM-NPQR-STUV-WXYZ' }, '演示模式未加密/仅用于展示') as T;
     }
 
     case 'unlock': {
@@ -589,7 +636,7 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
       const target = state.assets.find(x => x.id === Number(a['id']));
       if (target) target.has_credential = Boolean(credential);
       saveState(state);
-      return ok(null, credential ? '凭据已加密保存（预览模式）' : '凭据已清除') as T;
+      return ok(null, credential ? '演示模式未加密/仅用于展示' : '凭据已清除') as T;
     }
 
     case 'get_asset_credential': {
@@ -689,6 +736,19 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
         },
         { id: 'family-note', title_key: 'review.profile.familyNote', criteria: '检查是否可执行、是否误导', use_ai: true, strictness: 'standard', strict_checks: [] },
         { id: 'asset-classification', title_key: 'review.profile.asset', criteria: '检查类别与平台能力是否一致', use_ai: true, strictness: 'standard', strict_checks: [] },
+        {
+          id: 'heir-comprehension', title_key: 'review.profile.heirComprehension',
+          criteria: '假设读者是刚失去亲人的普通家人：每条资产是否有找谁/带什么/做什么，无术语、无虚假时间承诺、无凭据明文',
+          use_ai: true, strictness: 'strict',
+          strict_checks: [
+            { id: 'next-step', label: '每条资产都有可执行的下一步' },
+            { id: 'jargon', label: '无开发者术语或内部占位符' },
+            { id: 'ordering', label: '有依赖的步骤已标顺序' },
+            { id: 'promise', label: '无无法兑现的时间承诺' },
+            { id: 'secret', label: '无凭据或密码明文' },
+            { id: 'disclaimer', label: '未暗示可替代公证/律师' },
+          ],
+        },
       ]) as T;
 
     case 'review_progress': {
@@ -705,11 +765,23 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'review_payload_fields': {
       // 每个场景的送审字段不同：这是「AI 看到什么」的真实契约，
       // 全部返回同一份会让法律文书场景错误地宣称会发政策字段。
+      // 值是 i18n 标识而非中文文案——否则英文界面会把中文原样打印出来。
       const byProfile: Record<string, string[]> = {
-        'platform-policy': ['平台名称', '类别', '是否可继承', '所需材料', '办理流程', '难度', '预计时长', '官方链接', '来源标注', '备注'],
-        'legal-template': ['文书类型', '说明', '正文全文'],
-        'family-note': ['字段名', '填写内容'],
-        'asset-classification': ['平台名称', '资产类别', '处置方式', '平台能力标记'],
+        'platform-policy': [
+          'payload.field.platformName', 'payload.field.category', 'payload.field.inheritable',
+          'payload.field.requiredDocs', 'payload.field.procedure', 'payload.field.difficulty',
+          'payload.field.estimatedTime', 'payload.field.officialUrl',
+          'payload.field.sourceNote', 'payload.field.notes',
+        ],
+        'legal-template': ['payload.field.legalDocType', 'payload.field.legalDescription', 'payload.field.legalBody'],
+        'family-note': ['payload.field.noteFieldName', 'payload.field.noteContent'],
+        'asset-classification': [
+          'payload.field.platformName', 'payload.field.assetCategory',
+          'payload.field.disposalMethod', 'payload.field.platformCapability',
+        ],
+        'heir-comprehension': [
+          'payload.field.heirKitBody', 'payload.field.heirAllocation', 'payload.field.heirIntro',
+        ],
       };
       return ok(byProfile[String(a['profileId'] ?? '')] ?? []) as T;
     }
@@ -841,6 +913,24 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'get_custody_hints':
       return ok({ backup_location: '', recovery_code_location: '' }) as T;
 
+    // 演示站不实现真正的 Shamir 拆分：浏览器端拆分只会给人「份额可用」的错觉。
+    case 'heir_recovery_status':
+      return ok({ exists: false, stale: false }) as T;
+
+    case 'list_ai_chat':
+      return ok(state.aiChat ?? []) as T;
+
+    case 'clear_ai_chat':
+      state.aiChat = [];
+      saveState(state);
+      return ok(null) as T;
+
+    case 'generate_heir_recovery_kit':
+    case 'clear_heir_recovery':
+    case 'unlock_with_recovery_shares':
+    case 'run_recovery_drill':
+      return fail<null>('在线演示不提供恢复包功能，请在桌面版使用') as T;
+
     case 'set_custody_hints': {
       const hints = (a['hints'] || {}) as { backup_location?: string; recovery_code_location?: string };
       state.custody = {
@@ -891,31 +981,45 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
     case 'reveal_exported_file':
       return ok(null, '演示模式不支持打开文件夹') as T;
 
+    // 检查点：演示态存在 sessionStorage，仅用于让界面可走通。
+    // 明确不做持久化——演示数据本来就不该被当成真实快照。
+    case 'create_checkpoint': {
+      const list = readMockCheckpoints();
+      const meta = {
+        id: `demo-${Date.now()}`,
+        label: String(a['label'] ?? ''),
+        created_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        size: JSON.stringify(state).length,
+        auto: false,
+      };
+      list.unshift(meta);
+      sessionStorage.setItem('digilegacy_mock_checkpoints', JSON.stringify(list.slice(0, 12)));
+      return ok(meta, '演示模式：检查点仅存在于本次会话') as T;
+    }
+
+    case 'list_checkpoints':
+      return ok(readMockCheckpoints()) as T;
+
+    case 'delete_checkpoint': {
+      const list = readMockCheckpoints().filter((c: { id: string }) => c.id !== a['id']);
+      sessionStorage.setItem('digilegacy_mock_checkpoints', JSON.stringify(list));
+      return ok(null, '已删除') as T;
+    }
+
+    case 'restore_checkpoint':
+      return ok('演示模式不会真的回滚数据', '已回滚（模拟）') as T;
+
     case 'get_backup_status':
       return ok({ count: 0, latest_name: null, latest_size: null }) as T;
 
     case 'get_recovery_seal_exists':
       return ok(state.masterPassword !== null) as T;
 
-    case 'start_recovery': {
-      const code = String(a['recoveryCode'] ?? '').replace(/[\s-]/g, '').toUpperCase();
-      if (state.masterPassword === null) return fail<null>('该安装未启用恢复密钥') as T;
-      sessionStorage.setItem('digilegacy-web-preview-recovery', code);
-      return ok({ has_master_password: true, unlocked: true }) as T;
-    }
+    case 'start_recovery':
+      return fail<null>('在线演示不提供恢复密钥验证，请在桌面版中使用') as T;
 
-    case 'complete_recovery': {
-      const newPw = String(a['newPassword'] ?? '');
-      const confirmPw = String(a['confirmPassword'] ?? '');
-      if (newPw.length < 8) return fail<null>('新主密码至少需要 8 个字符') as T;
-      if (newPw !== confirmPw) return fail<null>('两次输入的新主密码不一致') as T;
-      const expected = sessionStorage.getItem('digilegacy-web-preview-recovery');
-      if (!expected) return fail<null>('请先通过恢复密钥解锁') as T;
-      state.masterPassword = newPw;
-      saveState(state);
-      sessionStorage.removeItem('digilegacy-web-preview-recovery');
-      return ok('XXXX-XXXX-XXXX-XXXX-XXXX-DEMO', '主密码已重置，请立即保存新的恢复密钥') as T;
-    }
+    case 'complete_recovery':
+      return fail<null>('在线演示不提供主密码重设，请在桌面版中使用') as T;
 
     case 'get_heartbeat_status':
       return ok({ enabled: false, endpoint: '（预览模式未配置）', last_attempt: null, last_result: 'never' }) as T;
@@ -931,5 +1035,16 @@ export async function mockInvoke<T>(cmd: string, args?: Record<string, unknown>)
 
     default:
       throw new Error(`Web 预览模式未实现命令: ${cmd}`);
+  }
+}
+
+/** 演示态检查点列表读取：集中在 helper 里，避免三个 case 各写一遍解析。
+ *  只存在 sessionStorage——演示数据不该被当成真实快照持久化。 */
+function readMockCheckpoints(): Array<{ id: string; label: string; created_at: string; size: number; auto: boolean }> {
+  try {
+    const raw = sessionStorage.getItem('digilegacy_mock_checkpoints');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
 }

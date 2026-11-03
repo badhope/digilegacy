@@ -14,7 +14,9 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   // 采集覆盖率时每页都跑插桩代码，并发过高会让 Chromium 进程 OOM
   // （表现为 worker exited unexpectedly / code=3221226505）。
-  workers: process.env.CI || process.env.E2E_COVERAGE === '1' ? 1 : undefined,
+  // 本机 17GB 内存 + 单进程 Edge 通道，4 worker 并发时 Chromium 会直接 OOM
+  // （worker exited code=134，不是断言失败）。CI 仍用 1；本地压到 2，稳定性优先。
+  workers: process.env.CI || process.env.E2E_COVERAGE === '1' ? 1 : 2,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   timeout: 30_000,
   expect: { timeout: 8_000 },
@@ -27,7 +29,16 @@ export default defineConfig({
   },
 
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // 本机/受限网络环境可用系统 Edge（同为 Chromium 内核）跑 E2E：
+        //   PW_CHANNEL=msedge npx playwright test
+        // 不设置时保持默认（CI 用 playwright install 下载的 chromium）。
+        ...(process.env.PW_CHANNEL ? { channel: process.env.PW_CHANNEL } : {}),
+      },
+    },
   ],
 
   // E2E 覆盖率：设 E2E_COVERAGE=1 时启用（vite 侧同步插桩）

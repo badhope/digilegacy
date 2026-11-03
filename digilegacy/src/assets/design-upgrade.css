@@ -1,0 +1,429 @@
+/* ============================================================================
+   设计升级层 v2（2026-11）
+   ----------------------------------------------------------------------------
+   这一层只做「增强」不做「替换」：上面所有既有类名与行为保持不变，
+   测试与 E2E 依赖的选择器不受影响。新增内容包括：
+
+   1. 层次与深度：更细的阴影阶梯 + 分层表面（surface / raised / sunken）
+   2. 排版：模块化字号阶梯（--text-*），标题用光学字重与负字距
+   3. 动效：统一的入场/悬停/状态过渡，并尊重 prefers-reduced-motion
+   4. 组件增强：卡片悬停抬升、统计卡数值渐变、按钮微交互
+   5. 新增组件：命令面板、指标环、分段进度条、空态、骨架屏
+   ============================================================================ */
+
+:root {
+  /* ---- 字号阶梯：1.2 比例（minor third），从 11px 到 40px ---- */
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 16px;
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 27px;
+  --text-3xl: 34px;
+  --text-4xl: 40px;
+
+  /* ---- 字重语义化：避免到处写 600/700 却不知道代表什么 ---- */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* ---- 间距阶梯：4px 基准，全部走令牌，禁止随手写 13px/17px ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+
+  /* ---- 阴影阶梯：从「几乎看不见」到「明显浮起」，五档够用 ---- */
+  --elev-0: none;
+  --elev-1: 0 1px 2px rgba(35, 32, 25, 0.06);
+  --elev-2: 0 2px 6px rgba(35, 32, 25, 0.07), 0 1px 2px rgba(35, 32, 25, 0.04);
+  --elev-3: 0 6px 18px rgba(35, 32, 25, 0.09), 0 2px 6px rgba(35, 32, 25, 0.05);
+  --elev-4: 0 14px 36px rgba(35, 32, 25, 0.12), 0 4px 12px rgba(35, 32, 25, 0.06);
+  --elev-5: 0 28px 64px rgba(35, 32, 25, 0.16), 0 8px 20px rgba(35, 32, 25, 0.08);
+
+  /* ---- 焦点环：键盘可见，且不依赖浏览器默认 ---- */
+  --ring: 0 0 0 3px rgba(180, 89, 74, 0.28);
+
+  /* ---- 动效时长：三条曲线配三档时长，避免每处各写一个数 ---- */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+
+  /* ---- 语义化表面：比直接写 var(--surface) 更易读 ---- */
+  --surface-raised: var(--surface);
+  --surface-sunken: var(--gray-50);
+  --border-subtle: var(--gray-200);
+  --border-strong: var(--gray-300);
+}
+
+/* 深色主题下阴影要更深、更散，否则浮起效果完全看不出来 */
+[data-theme='dark'] {
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --elev-2: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elev-3: 0 8px 22px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --elev-4: 0 16px 40px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --elev-5: 0 30px 70px rgba(0, 0, 0, 0.6), 0 10px 24px rgba(0, 0, 0, 0.4);
+  --ring: 0 0 0 3px rgba(196, 106, 92, 0.4);
+}
+
+/* ---- 排版增强：标题用负字距收紧，正文保持可读行高 ---- */
+.card-title {
+  letter-spacing: -0.01em;
+}
+.stat-value {
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.header-title {
+  letter-spacing: -0.015em;
+}
+
+/* ---- 卡片：用 elev 阶梯替换单一阴影，悬停时抬升更克制 ---- */
+.card {
+  box-shadow: var(--elev-1);
+}
+.card:hover {
+  box-shadow: var(--elev-3);
+}
+
+/* ---- 统计卡：数值加渐变文字，视觉重心落在数字上 ---- */
+.stat-card {
+  box-shadow: var(--elev-1);
+}
+.stat-card:hover {
+  box-shadow: var(--elev-3);
+}
+.stat-value {
+  background: linear-gradient(135deg, var(--gray-900), var(--gray-700));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+[data-theme='dark'] .stat-value {
+  background: linear-gradient(135deg, #ffffff, #c9bfb2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ---- 按钮：主按钮加内阴影高光，按下回弹更细腻 ---- */
+.btn-primary,
+.btn-success,
+.btn-danger,
+.btn-warning {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), var(--elev-1);
+}
+.btn-primary:hover,
+.btn-success:hover,
+.btn-danger:hover,
+.btn-warning:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), var(--elev-2);
+}
+.btn:focus-visible {
+  box-shadow: var(--ring);
+  outline: none;
+}
+
+/* ---- 骨架屏：内容加载时用形状占位，避免「白屏 + 转圈」 ---- */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--gray-100);
+  border-radius: 6px;
+  height: 14px;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  animation: skeleton-sweep 1.4s var(--ease-in-out) infinite;
+}
+[data-theme='dark'] .skeleton {
+  background: var(--gray-800);
+}
+[data-theme='dark'] .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+}
+.skeleton-line { height: 14px; margin-bottom: 10px; }
+.skeleton-line.w-40 { width: 40%; }
+.skeleton-line.w-60 { width: 60%; }
+.skeleton-line.w-80 { width: 80%; }
+.skeleton-block { height: 120px; border-radius: 10px; }
+
+@keyframes skeleton-sweep {
+  100% { transform: translateX(100%); }
+}
+
+/* ---- 指标环：用 conic-gradient 画环形进度，纯 CSS 无额外依赖 ---- */
+.metric-ring {
+  --pct: 0;
+  --ring-color: var(--primary);
+  --ring-track: var(--gray-200);
+  width: 96px;
+  height: 96px;
+  /* 环内是两行（百分比 + 标签），必须用 flow 布局而不是 place-items:center——
+     后者会把两行叠在同一位置（百分比与 Completion 重叠，实测可见）。 */
+  flex-direction: column;
+  align-content: center;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--ring-color) calc(var(--pct) * 1%),
+    var(--ring-track) 0
+  );
+  display: grid;
+  place-items: center;
+  position: relative;
+  flex-shrink: 0;
+  text-align: center;
+}
+.metric-ring::before {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.metric-ring-value {
+  position: relative;
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
+  color: var(--gray-900);
+  font-variant-numeric: tabular-nums;
+}
+.metric-ring-label {
+  position: relative;
+  font-size: var(--text-2xs);
+  color: var(--gray-600);
+  margin-top: 1px;
+}
+[data-theme='dark'] .metric-ring {
+  --ring-track: var(--gray-800);
+}
+
+/* ---- 分段进度条：一维看总量，分段看构成 ---- */
+.segmented-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--gray-100);
+  gap: 2px;
+}
+.segmented-bar > span {
+  display: block;
+  height: 100%;
+  transition: width var(--dur-slow) var(--ease-out);
+}
+.segmented-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--gray-600);
+}
+.segmented-legend .dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 6px;
+}
+
+/* ---- 命令面板（Cmd/Ctrl+K）：对齐现代编辑器与 IDE 的肌肉记忆 ---- */
+.cmdk-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 21, 17, 0.42);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  z-index: 2000;
+  animation: cmdk-fade var(--dur-fast) var(--ease-out);
+}
+.cmdk-panel {
+  width: min(640px, 92vw);
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  box-shadow: var(--elev-5);
+  overflow: hidden;
+  animation: cmdk-rise var(--dur-base) var(--ease-out);
+}
+.cmdk-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cmdk-search svg { width: 18px; height: 18px; color: var(--gray-500); flex-shrink: 0; }
+.cmdk-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--text-md);
+  color: var(--gray-900);
+}
+.cmdk-input::placeholder { color: var(--gray-400); }
+.cmdk-list {
+  /* 列表自身滚动，但不能吃掉 footer：面板整体限高，列表用 flex 撑满剩余空间。
+     早期写法只给列表 52vh，内容超出时 footer 被挤到面板外（截图里看得见）。 */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px;
+}
+.cmdk-group-label {
+  padding: 10px 12px 6px;
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+  font-weight: var(--fw-semibold);
+}
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--gray-800);
+  font-size: var(--text-base);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.cmdk-item svg { width: 17px; height: 17px; color: var(--gray-500); flex-shrink: 0; }
+.cmdk-item[aria-selected='true'] {
+  background: var(--primary-light);
+  color: var(--gray-900);
+}
+.cmdk-item[aria-selected='true'] svg { color: var(--primary); }
+.cmdk-item-meta {
+  margin-left: auto;
+  font-size: var(--text-2xs);
+  color: var(--gray-500);
+  font-variant-numeric: tabular-nums;
+}
+.cmdk-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--gray-500);
+  font-size: var(--text-sm);
+}
+.cmdk-footer {
+  display: flex;
+  gap: var(--space-4);
+  padding: 10px 18px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  font-size: var(--text-2xs);
+  color: var(--gray-500);
+}
+.cmdk-kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--gray-700);
+  background: var(--surface);
+}
+
+@keyframes cmdk-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes cmdk-rise {
+  from { opacity: 0; transform: translateY(-8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---- 空态：区分「还没数据」与「搜不到」，两者引导完全不同 ---- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-9) var(--space-6);
+  text-align: center;
+}
+.empty-state-icon {
+  color: var(--gray-300);
+  display: grid;
+  place-items: center;
+}
+.empty-state-icon svg { width: 56px; height: 56px; }
+.empty-state-title {
+  font-size: var(--text-md);
+  font-weight: var(--fw-semibold);
+  color: var(--gray-800);
+}
+.empty-state-desc {
+  font-size: var(--text-sm);
+  color: var(--gray-600);
+  max-width: 46ch;
+  line-height: 1.65;
+}
+
+/* ---- 减少动效偏好：所有过渡与动画降到最短，不做纯装饰位移 ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton::after { animation: none; }
+  .card:hover,
+  .stat-card:hover { transform: none; }
+}
+
+/* ---- 头部命令面板入口：平时是按钮，窄屏时收成图标 ---- */
+.cmdk-trigger {
+  gap: 8px;
+}
+.cmdk-trigger-text {
+  color: var(--gray-500);
+  font-weight: var(--fw-regular);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmdk-trigger-kbd {
+  margin-left: 4px;
+  font-size: 10px;
+}
+@media (max-width: 1180px) {
+  .cmdk-trigger-text { display: none; }
+  .cmdk-trigger-kbd { display: none; }
+}
+

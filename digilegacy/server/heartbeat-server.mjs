@@ -5,11 +5,13 @@
 //   2. 失联提醒：令牌超期未心跳 → /check 返回提醒载荷，由你的定时任务转发 webhook；
 //   3. 可自托管：单文件、无外部依赖，状态落一个 JSON 文件。
 //
-// 运行：
-//   HEARTBEAT_ADMIN_TOKEN=<长随机串> node heartbeat-server.mjs
+// 运行（产品服务默认使用 HTTPS）：
+//   HEARTBEAT_ADMIN_TOKEN=<长随机串> HEARTBEAT_TLS_CERT=/path/cert.pem HEARTBEAT_TLS_KEY=/path/key.pem node heartbeat-server.mjs
 //
 // 客户端配置（应用内「我的档案 → 云端心跳」，或环境变量）：
-//   endpoint = http://<host>:8080     token = <在 registrations.json 里预注册的令牌>
+//   endpoint = https://<host>:8080     token = <在 registrations.json 里预注册的令牌>
+//
+// 仅行为测试 fixture 可显式设置 HEARTBEAT_TEST_HTTP=1 使用 HTTP；该开关不得用于产品部署。
 //
 // registrations.json（与脚本同目录，不入库）：
 //   { "<token>": { "notify_webhook": "https://…", "grace_days": 21 } }
@@ -23,6 +25,7 @@
 //     旧实现把 `_alerted` 放在内存里，进程重启后会重复轰炸，且第二次失联永不告警。
 
 import http from 'node:http';
+import https from 'node:https';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -31,6 +34,13 @@ import { fileURLToPath } from 'node:url';
 const PORT = Number(process.env.HEARTBEAT_PORT || 8080);
 const ADMIN_TOKEN = process.env.HEARTBEAT_ADMIN_TOKEN || '';
 const ALLOW_ANY = process.env.HEARTBEAT_ALLOW_ANY === '1';
+const TEST_HTTP = process.env.HEARTBEAT_TEST_HTTP === '1';
+const TLS_CERT = process.env.HEARTBEAT_TLS_CERT || '';
+const TLS_KEY = process.env.HEARTBEAT_TLS_KEY || '';
+if (!TEST_HTTP && (!TLS_CERT || !TLS_KEY)) {
+  console.error('产品心跳服务器必须配置 HEARTBEAT_TLS_CERT 与 HEARTBEAT_TLS_KEY；HTTP 仅可由 HEARTBEAT_TEST_HTTP=1 测试 fixture 启用');
+  process.exit(1);
+}
 const MAX_BODY = 4096;
 const MAX_TOKENS = Number(process.env.HEARTBEAT_MAX_TOKENS || 10000);
 const DEFAULT_GRACE_DAYS = 21;
@@ -112,7 +122,7 @@ function readBody(req) {
 
 const startedAt = Date.now();
 
-const server = http.createServer(async (req, res) => {
+const requestHandler = async (req, res) => {
   const url = new URL(req.url || '/', `http://localhost:${PORT}`);
   const route = url.pathname;
 
@@ -192,10 +202,18 @@ const server = http.createServer(async (req, res) => {
   }
 
   json(res, 404, { error: 'not found' });
-});
+};
+
+const server = TEST_HTTP
+  ? http.createServer(requestHandler)
+  : https.createServer({
+      cert: fs.readFileSync(TLS_CERT),
+      key: fs.readFileSync(TLS_KEY),
+    }, requestHandler);
+const protocol = TEST_HTTP ? 'http' : 'https';
 
 server.listen(PORT, () => {
-  console.log(`心跳服务器已启动: http://localhost:${PORT}`);
+  console.log(`心跳服务器已启动: ${protocol}://localhost:${PORT}`);
   console.log(`  POST /heartbeat  {"token":"..."}          （需已注册）`);
   console.log(`  GET  /check      检查超时令牌              （需 Bearer 管理令牌）`);
   console.log(`  GET  /health     存活探针`);

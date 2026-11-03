@@ -93,7 +93,7 @@
           {{ t('profile.dmsNote') }}
         </p>
         <p class="form-hint" style="margin-top: 8px;">
-          当前：{{ dmsSummary }}
+          {{ t('profile.dmsCurrent', { summary: dmsSummary }) }}
         </p>
         <router-link to="/dms" class="btn btn-secondary btn-sm mt-16">{{ t('profile.dmsGo') }} →</router-link>
       </div>
@@ -171,6 +171,16 @@
       <p style="font-size: 13px; color: var(--gray-600);">{{ t('profile.backupDesc') }}</p>
       <div style="display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap;">
         <button class="btn btn-secondary btn-sm" @click="exportBackup">{{ t('profile.exportBackup') }}</button>
+        <label class="sr-only" for="pf-backup-source-password">{{ t('profile.backupSourcePassword') }}</label>
+        <input
+          class="form-input"
+          id="pf-backup-source-password"
+          type="password"
+          autocomplete="current-password"
+          :placeholder="t('profile.backupSourcePasswordPlaceholder')"
+          style="max-width: 260px;"
+          v-model="backupSourcePassword"
+        />
         <!-- 默认合并：覆盖是破坏性操作，必须走独立的、带警告的入口 -->
         <button class="btn btn-secondary btn-sm" @click="importBackup(false)">{{ t('profile.importBackup') }}</button>
         <button class="btn btn-danger btn-sm" @click="importBackup(true)">{{ t('profile.importReplace') }}</button>
@@ -178,6 +188,49 @@
       <p v-if="backupMessage" role="alert" style="font-size: 13px; margin-top: 8px;" :style="{ color: backupOk ? 'var(--success)' : 'var(--danger)' }">{{ backupMessage }}</p>
       <p v-if="!security.hasMasterPassword" class="form-hint">{{ t('profile.backupPlainHint') }}</p>
       <p class="form-hint" style="margin-top: 10px;" aria-live="polite">{{ autoBackupSummary }}</p>
+    </div>
+
+    <!-- 检查点：备份是「按天」，检查点是「按你按下按钮的那一刻」。
+         两者解决不同问题，不能互相替代。 -->
+    <div class="card mt-24">
+      <div class="card-header">
+        <div>
+          <div class="card-title">{{ t('profile.checkpointTitle') }}</div>
+          <div class="card-subtitle">{{ t('profile.checkpointDesc') }}</div>
+        </div>
+        <button class="btn btn-primary btn-sm" :disabled="checkpointBusy" @click="createCheckpoint">
+          {{ t('profile.checkpointCreate') }}
+        </button>
+      </div>
+
+      <div v-if="checkpoints.length === 0" class="form-hint" style="padding: 8px 0;">
+        {{ t('profile.checkpointEmpty') }}
+      </div>
+
+      <ul v-else class="checkpoint-list">
+        <li v-for="cp in checkpoints" :key="cp.id" class="checkpoint-row">
+          <div class="checkpoint-info">
+            <strong>{{ cp.label || cp.id }}</strong>
+            <span class="checkpoint-meta">
+              {{ cp.created_at }} · {{ formatBytes(cp.size) }}
+              <span v-if="cp.auto" class="tag tag-secondary" style="margin-left: 6px;">{{ t('profile.checkpointAuto') }}</span>
+            </span>
+          </div>
+          <div class="checkpoint-actions">
+            <button class="btn btn-secondary btn-sm" :disabled="checkpointBusy" @click="restoreCheckpoint(cp)">
+              {{ t('profile.checkpointRestore') }}
+            </button>
+            <button class="btn btn-secondary btn-sm" :disabled="checkpointBusy" @click="removeCheckpoint(cp)">
+              {{ t('common.delete') }}
+            </button>
+          </div>
+        </li>
+      </ul>
+
+      <p v-if="checkpointMessage" role="alert" class="form-hint" style="margin-top: 10px;"
+         :style="{ color: checkpointOk ? 'var(--success-strong)' : 'var(--danger-strong)' }">
+        {{ checkpointMessage }}
+      </p>
     </div>
 
     <div class="card mt-24">
@@ -202,6 +255,109 @@
           <button class="btn btn-primary btn-sm" :disabled="custodyBusy" @click="saveCustody">{{ custodyBusy ? t('common.saving') : t('profile.custodySave') }}</button>
         </div>
         <p v-if="custodyMsg" style="font-size: 12px; margin-top: 8px;" :style="{ color: custodyOk ? 'var(--success)' : 'var(--danger)' }" role="alert" aria-live="polite">{{ custodyMsg }}</p>
+      </template>
+    </div>
+
+    <!-- 继承人恢复包：单机应用唯一能让家人在持有者失能后解密数据的路径 -->
+    <div class="card mt-24" id="recovery-kit-card">
+      <div class="card-title mb-16">{{ t('kit.title') }}</div>
+      <p style="font-size: 13px; color: var(--gray-600);">{{ t('kit.desc') }}</p>
+      <template v-if="!isTauri">
+        <p class="form-hint">{{ t('profile.browserUnsupported') }}</p>
+      </template>
+      <template v-else>
+        <div v-if="kit.exists" class="form-hint" style="margin-top: 12px;" role="status">
+          <strong>{{ t('kit.exists') }}</strong>
+          {{ t('kit.existsDetail', { k: String(kit.threshold), n: String(kit.total), at: kit.created_at }) }}
+          <span v-if="kit.stale" class="tag tag-warning" style="margin-left: 6px;">{{ t('kit.stale') }}</span>
+        </div>
+        <p v-else class="form-hint" style="margin-top: 12px;">{{ t('kit.none') }}</p>
+
+        <div v-if="kit.stale && !kit.exists" class="form-hint">{{ t('kit.regenerateHint') }}</div>
+        <p v-if="kitMessage" role="alert" style="font-size: 12px; margin-top: 8px;" :style="{ color: kitOk ? 'var(--success)' : 'var(--danger)' }">{{ kitMessage }}</p>
+
+        <div style="margin-top: 12px; display: grid; gap: 10px; max-width: 640px;">
+          <div class="flex gap-12" style="flex-wrap: wrap;">
+            <div class="form-group" style="margin: 0; width: 140px;">
+              <label class="form-label" for="kit-threshold">{{ t('kit.threshold') }}</label>
+              <select class="form-select" id="kit-threshold" v-model.number="kitThreshold">
+                <option v-for="n in 4" :key="n" :value="n + 1">{{ n + 1 }}</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0; width: 140px;">
+              <label class="form-label" for="kit-total">{{ t('kit.total') }}</label>
+              <select class="form-select" id="kit-total" v-model.number="kitTotal">
+                <option v-for="n in 9" :key="n + 1" :value="n + 1">{{ n + 1 }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" for="kit-pass">{{ t('kit.passphrase') }}</label>
+            <input class="form-input" id="kit-pass" type="password" v-model="kitPassphrase" autocomplete="new-password" :placeholder="t('kit.passphrasePlaceholder')" />
+            <p class="form-hint">{{ t('kit.passphraseHint') }}</p>
+          </div>
+        </div>
+        <div style="margin-top: 12px; display: flex; gap: 12px; flex-wrap: wrap;">
+          <button class="btn btn-primary btn-sm" :disabled="kitBusy || !security.hasMasterPassword || !security.unlocked" @click="generateKit">
+            {{ kitBusy ? t('kit.generating') : t('kit.generate') }}
+          </button>
+          <button v-if="kit.exists" class="btn btn-danger btn-sm" :disabled="kitBusy" @click="clearKit">{{ t('kit.clear') }}</button>
+        </div>
+        <p class="form-hint">{{ t('kit.hint') }}</p>
+
+        <!-- 恢复演练：生成过 ≠ 可用。这里用只读校验证明份额真的能恢复。 -->
+        <div v-if="kit.exists" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
+          <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">{{ t('kit.drill') }}</div>
+          <p class="form-hint">{{ t('kit.drillDesc') }}</p>
+          <div style="display: grid; gap: 8px; max-width: 640px; margin-top: 10px;">
+            <div class="form-group" style="margin: 0;">
+              <label class="form-label" for="kit-drill-passphrase">{{ t('kit.drillPassphrase') }}</label>
+              <input
+                class="form-input"
+                id="kit-drill-passphrase"
+                type="password"
+                v-model="drillPassphrase"
+                :placeholder="t('kit.drillPassphrasePlaceholder')"
+                autocomplete="current-password"
+              />
+              <p class="form-hint">{{ t('kit.drillPassphraseHint') }}</p>
+            </div>
+            <textarea
+              v-for="(_, i) in drillInputs"
+              :key="i"
+              class="form-input"
+              rows="2"
+              v-model="drillInputs[i]"
+              :placeholder="t('kit.lockPlaceholder')"
+              style="font-family: ui-monospace, Consolas, monospace; font-size: 12px;"
+            ></textarea>
+          </div>
+          <div style="display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap;">
+            <button class="btn btn-secondary btn-sm" @click="drillInputs.push('')">{{ t('kit.addShare') }}</button>
+            <button class="btn btn-primary btn-sm" :disabled="drillBusy" @click="runDrill">
+              {{ drillBusy ? t('kit.drillRunning') : t('kit.drillRun') }}
+            </button>
+          </div>
+          <div v-if="drillResult" role="status" style="margin-top: 10px; font-size: 13px; line-height: 1.8;">
+            <div>{{ t('kit.drillSelfTest') }}：
+              <strong :style="{ color: drillResult.self_test_ok ? 'var(--success)' : 'var(--danger)' }">
+                {{ drillResult.self_test_ok ? t('kit.drillSelfTestOk', { ms: String(drillResult.self_test_ms) }) : t('kit.drillSelfTestFail') }}
+              </strong>
+            </div>
+            <div>{{ t('kit.drillValid', { valid: String(drillResult.valid), provided: String(drillResult.provided), threshold: String(drillResult.threshold) }) }}</div>
+            <div>{{ drillResult.enough ? t('kit.drillEnough') : t('kit.drillNotEnough') }}</div>
+            <div v-if="drillResult.passphrase_verified === true">{{ t('kit.drillPassphraseVerified') }}</div>
+            <div v-else-if="drillResult.passphrase_verified === false">{{ t('kit.drillPassphraseFailed') }}</div>
+            <div v-else-if="drillResult.errors.some(e => e.includes('只能验证结构'))">{{ t('kit.drillPassphraseHint') }}</div>
+            <div>{{ drillResult.same_batch ? t('kit.drillSameBatch') : t('kit.drillMixedBatch') }}</div>
+            <div v-if="drillResult.errors.length > 0">
+              {{ t('kit.drillErrors') }}
+              <ul style="margin: 4px 0 0 18px;">
+                <li v-for="(e, i) in drillResult.errors" :key="i">{{ e }}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </template>
     </div>
 
@@ -383,7 +539,91 @@ const changeMessage = ref('');
 const changeOk = ref(false);
 
 const backupMessage = ref('');
+
+interface CheckpointMeta {
+  id: string;
+  label: string;
+  created_at: string;
+  size: number;
+  auto: boolean;
+}
+const checkpoints = ref<CheckpointMeta[]>([]);
+const checkpointBusy = ref(false);
+const checkpointMessage = ref('');
+const checkpointOk = ref(false);
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+async function loadCheckpoints() {
+  try {
+    const res = await invoke<ApiResponse<CheckpointMeta[]>>('list_checkpoints');
+    if (res.success && res.data) checkpoints.value = res.data;
+  } catch (e) {
+    console.error('读取检查点失败:', e);
+  }
+}
+
+async function createCheckpoint() {
+  checkpointBusy.value = true;
+  checkpointMessage.value = '';
+  try {
+    const res = await invoke<ApiResponse<CheckpointMeta>>('create_checkpoint', {
+      label: t('profile.checkpointDefaultLabel'),
+    });
+    checkpointOk.value = res.success;
+    checkpointMessage.value = res.message;
+    if (res.success) await loadCheckpoints();
+  } catch (e) {
+    checkpointOk.value = false;
+    checkpointMessage.value = String(e);
+  } finally {
+    checkpointBusy.value = false;
+  }
+}
+
+async function restoreCheckpoint(cp: CheckpointMeta) {
+  // 回滚是破坏性操作：必须显式确认，并说明会覆盖当前数据
+  const okToRun = window.confirm(t('profile.checkpointRestoreConfirm', { label: cp.label || cp.id }));
+  if (!okToRun) return;
+  checkpointBusy.value = true;
+  checkpointMessage.value = '';
+  try {
+    const res = await invoke<ApiResponse<string>>('restore_checkpoint', {
+      id: cp.id,
+      sourcePassword: backupSourcePassword.value,
+    });
+    checkpointOk.value = res.success;
+    checkpointMessage.value = res.message;
+    if (res.success) {
+      await loadCheckpoints();
+      await security.refresh();
+    }
+  } catch (e) {
+    checkpointOk.value = false;
+    checkpointMessage.value = String(e);
+  } finally {
+    checkpointBusy.value = false;
+  }
+}
+
+async function removeCheckpoint(cp: CheckpointMeta) {
+  checkpointBusy.value = true;
+  try {
+    await invoke<ApiResponse<null>>('delete_checkpoint', { id: cp.id });
+    await loadCheckpoints();
+  } catch (e) {
+    checkpointOk.value = false;
+    checkpointMessage.value = String(e);
+  } finally {
+    checkpointBusy.value = false;
+  }
+}
 const backupOk = ref(false);
+const backupSourcePassword = ref('');
 
 const isTauri = isTauriEnv();
 const recoveryExists = ref<boolean | null>(null);
@@ -588,6 +828,131 @@ async function loadCustody() {
   }
 }
 
+// ── 继承人恢复包 ──
+interface KitStatus {
+  exists: boolean;
+  threshold?: number;
+  total?: number;
+  created_at?: string;
+  passphrase_protected?: boolean;
+  stale?: boolean;
+}
+const kit = ref<KitStatus>({ exists: false });
+const kitBusy = ref(false);
+const kitMessage = ref('');
+const kitOk = ref(false);
+const kitThreshold = ref(3);
+const kitTotal = ref(5);
+const kitPassphrase = ref('');
+
+async function loadKit() {
+  if (!isTauri) return;
+  try {
+    const res = await invoke<ApiResponse<KitStatus>>('heir_recovery_status');
+    if (res.success && res.data) {
+      kit.value = res.data;
+      if (res.data.exists && res.data.threshold) kitThreshold.value = res.data.threshold;
+      if (res.data.exists && res.data.total) kitTotal.value = res.data.total;
+    }
+  } catch (e) {
+    kitMessage.value = String(e);
+  }
+}
+
+async function generateKit() {
+  kitBusy.value = true;
+  kitMessage.value = '';
+  if (kitThreshold.value > kitTotal.value) {
+    kitMessage.value = t('kit.thresholdTooHigh');
+    kitOk.value = false;
+    kitBusy.value = false;
+    return;
+  }
+  try {
+    const res = await invoke<ApiResponse<{ path: string; threshold: number; total: number }>>(
+      'generate_heir_recovery_kit',
+      {
+        threshold: kitThreshold.value,
+        total: kitTotal.value,
+        passphrase: kitPassphrase.value.trim() ? kitPassphrase.value : null,
+      },
+    );
+    kitOk.value = res.success;
+    kitMessage.value = res.success
+      ? t('kit.generated', { path: res.data?.path ?? '', n: String(res.data?.total ?? kitTotal.value) })
+      : res.message;
+    if (res.success) {
+      kitPassphrase.value = '';
+      await loadKit();
+    }
+  } catch (e) {
+    kitOk.value = false;
+    kitMessage.value = String(e);
+  } finally {
+    kitBusy.value = false;
+  }
+}
+
+// ── 恢复演练 ──
+interface DrillResult {
+  self_test_ok: boolean;
+  self_test_ms: number;
+  provided: number;
+  valid: number;
+  threshold: number;
+  enough: boolean;
+  same_batch: boolean;
+  passphrase_verified?: boolean | null;
+  errors: string[];
+}
+const drillInputs = ref<string[]>(['']);
+const drillPassphrase = ref('');
+const drillBusy = ref(false);
+const drillResult = ref<DrillResult | null>(null);
+
+async function runDrill() {
+  drillBusy.value = true;
+  drillResult.value = null;
+  try {
+    const shares = drillInputs.value.map(s => s.trim()).filter(Boolean);
+    const passphrase = drillPassphrase.value.trim() || null;
+    const res = await invoke<ApiResponse<DrillResult>>('run_recovery_drill', { shares, passphrase });
+    if (res.success && res.data) {
+      drillResult.value = res.data;
+      drillPassphrase.value = '';
+    } else {
+      kitOk.value = false;
+      kitMessage.value = res.message;
+    }
+  } catch (e) {
+    kitOk.value = false;
+    kitMessage.value = String(e);
+  } finally {
+    drillBusy.value = false;
+  }
+}
+
+async function clearKit() {
+  const ok = await confirmDialog({
+    title: t('kit.clearTitle'),
+    message: t('kit.clearMessage'),
+    danger: true,
+  });
+  if (!ok) return;
+  kitBusy.value = true;
+  try {
+    const res = await invoke<ApiResponse<null>>('clear_heir_recovery');
+    kitOk.value = res.success;
+    kitMessage.value = res.message;
+    await loadKit();
+  } catch (e) {
+    kitOk.value = false;
+    kitMessage.value = String(e);
+  } finally {
+    kitBusy.value = false;
+  }
+}
+
 async function saveCustody() {
   custodyBusy.value = true;
   custodyMsg.value = '';
@@ -632,6 +997,7 @@ async function saveSmtp() {
     if (res.success) {
       smtpPassword.value = '';
       await loadSmtpConfig();
+  await loadCheckpoints();
     }
   } catch (e) {
     smtpOk.value = false;
@@ -756,10 +1122,37 @@ async function exportBackup() {
   }
 }
 
+async function refreshImportedState() {
+  await Promise.all([
+    dashboard.loadUser(),
+    dashboard.loadStats(),
+    dashboard.loadCheckInStatus(),
+    security.refresh(),
+    assets.loadAssets(),
+    platforms.refreshPlatforms(),
+    loadHeirs(),
+    loadCustody(),
+    loadAssistant(),
+    loadSmtpConfig(),
+    loadHeartbeatConfig(),
+    loadKit(),
+    loadPatchStatus(),
+    loadAutoBackupStatus(),
+  ]);
+  if (dashboard.user) {
+    profile.value = { ...profile.value, ...dashboard.user };
+    if (dashboard.checkInStatus) {
+      profile.value.dms_enabled = dashboard.checkInStatus.dms_enabled;
+      profile.value.check_in_interval_days = dashboard.checkInStatus.interval_days;
+    }
+  }
+}
+
 async function importBackup(replace = false) {
   backupMessage.value = '';
   if (!isTauri) {
     backupOk.value = false;
+    backupSourcePassword.value = '';
     backupMessage.value = t('profile.webImportUnsupported');
     return;
   }
@@ -769,31 +1162,33 @@ async function importBackup(replace = false) {
     confirmText: replace ? t('profile.importReplaceConfirm') : t('profile.importBackupConfirm'),
     danger: replace,
   });
-  if (!ok) return;
+  if (!ok) {
+    backupSourcePassword.value = '';
+    return;
+  }
   try {
     const { open } = await import('@tauri-apps/plugin-dialog');
     const { readTextFile } = await import('@tauri-apps/plugin-fs');
     const selected = await open({ multiple: false, filters: [{ name: t('profile.backupFilterName'), extensions: ['json'] }] });
     if (!selected || typeof selected !== 'string') return;
     const content = await readTextFile(selected);
+    const sourcePassword = backupSourcePassword.value || null;
     const res = await invoke<ApiResponse<string>>('import_backup', {
       content,
       mode: replace ? 'replace' : 'merge',
+      sourcePassword,
     });
     backupOk.value = res.success;
     backupMessage.value = res.success ? `${res.message}：${res.data}` : res.message;
+    backupSourcePassword.value = '';
     if (res.success) {
       // 备份已写入数据库：必须让所有数据视图重新拉取，
       // 否则用户看到的是导入前的旧列表，会误判「恢复失败」并反复导入。
-      await Promise.all([
-        security.refresh(),
-        dashboard.refreshAll(),
-        assets.loadAssets(),
-        platforms.refreshPlatforms(),
-      ]);
+      await refreshImportedState();
     }
   } catch (e) {
     backupOk.value = false;
+    backupSourcePassword.value = '';
     backupMessage.value = t('profile.importFailed', { e: String(e) });
   }
 }
@@ -905,7 +1300,9 @@ const dmsSummary = computed(() => {
 });
 
 onMounted(async () => {
-  await Promise.all([dashboard.loadUser(), dashboard.loadCheckInStatus()]);
+  // 安全状态由本页自己拉取一次：不能假设 App 的初始化一定先完成
+  // （单测/深链直接进入本页时 App 尚未 ready，会显示「未启用加密」的错误状态）。
+  await Promise.all([security.refresh(), dashboard.loadUser(), dashboard.loadCheckInStatus()]);
   if (dashboard.user) {
     profile.value = { ...profile.value, ...dashboard.user };
     // 档案表里的 DMS 副本可能是旧值；显示与保存都跟随 dms_config
@@ -917,9 +1314,13 @@ onMounted(async () => {
   // 四块配置在浏览器演示模式下同样有 mock 实现，且界面会渲染它们；
   // 只在桌面版加载会让演示页显示「尚未登记继承人」等空态。
   await loadCustody();
+  await loadKit();
   await loadAssistant();
   await loadHeirs();
   await loadSmtpConfig();
+  // 检查点在浏览器预览里也有 mock 实现，因此不能塞进 if (isTauri)：
+  // 否则演示页永远显示「还没有检查点」，用户看不到这个能力。
+  await loadCheckpoints();
 
   if (isTauri) {
     try {
@@ -980,6 +1381,48 @@ async function saveProfile() {
 </script>
 
 <style scoped>
+.checkpoint-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.checkpoint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--gray-50);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+.checkpoint-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.checkpoint-info strong {
+  font-size: 14px;
+  color: var(--gray-900);
+  overflow-wrap: break-word;
+}
+.checkpoint-meta {
+  font-size: 12px;
+  color: var(--gray-600);
+  font-variant-numeric: tabular-nums;
+}
+.checkpoint-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+[data-theme='dark'] .checkpoint-row { background: var(--gray-800); }
+[data-theme='dark'] .checkpoint-info strong { color: var(--gray-100); }
+
 .recovery-code-box {
   margin-top: 12px;
   padding: 12px 14px;

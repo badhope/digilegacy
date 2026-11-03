@@ -1,7 +1,8 @@
 {
   "name": "digilegacy",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.3.0",
+  "description": "DigiLegacy - local-first digital legacy planning desktop app",
   "type": "module",
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26"
@@ -28,12 +29,11 @@
     "@tauri-apps/plugin-autostart": "^2.7.0",
     "@tauri-apps/plugin-dialog": "^2.8.3",
     "@tauri-apps/plugin-fs": "^2.7.1",
-    "@tauri-apps/plugin-notification": "^2.7.0",
+    "@tauri-apps/plugin-notification": "^2.8.0",
     "@vicons/fa": "^0.13.0",
     "@vicons/ionicons5": "^0.13.0",
     "echarts": "^6.1.0",
     "jszip": "^3.10.2",
-    "naive-ui": "^2.45.3",
     "pinia": "^4.1.0",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0"

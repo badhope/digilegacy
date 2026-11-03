@@ -1,17 +1,17 @@
 <div align="center">
 
-<img src="docs/screenshots/01-dashboard.png" alt="DigiLegacy dashboard — asset totals, planning progress and asset composition" width="900">
+<img src="docs/screenshots/en/01-dashboard.png" alt="DigiLegacy dashboard — asset totals, estimated value, planning completion and asset composition" width="900">
 
-<h1>DigiLegacy 归零</h1>
+<h1>DigiLegacy</h1>
 
 <p><strong>Plan your digital legacy. Leave your family a toolkit, not a puzzle.</strong></p>
 
 <p>
   <a href="https://github.com/badhope/digilegacy/actions/workflows/ci.yml"><img src="https://github.com/badhope/digilegacy/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT">
-  <img src="https://img.shields.io/badge/tests-204%20Rust%20%C2%B7%20424%20frontend%20%C2%B7%2080%20E2E-brightgreen.svg" alt="Tests">
-  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg" alt="Windows">
-  <img src="https://img.shields.io/badge/servers-none-4a7c8c.svg" alt="No servers">
+  <a href="https://github.com/badhope/digilegacy/releases/latest"><img src="https://img.shields.io/github/v/release/badhope/digilegacy?include_prereleases&sort=semver" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT licence">
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg" alt="Windows 10/11">
+  <img src="https://img.shields.io/badge/storage-local%20by%20default-4a7c8c.svg" alt="Local storage by default">
   <img src="https://img.shields.io/badge/telemetry-none-4a7c8c.svg" alt="No telemetry">
 </p>
 
@@ -22,112 +22,104 @@
   <a href="https://github.com/badhope/digilegacy/releases"><strong>Download</strong></a>
 </p>
 
-<p><a href="README.zh-CN.md">简体中文</a> · <strong>English</strong></p>
+<p><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 
 </div>
 
 ---
 
-## The whole chain, in one app
+A local-first Windows desktop app for digital legacy planning. It inventories the accounts and assets you hold, records what should happen to each one, and produces the documents, checklists and recovery material your family needs to act on it.
 
-Most tools solve one slice: Google and Apple only cover their own accounts, password managers hand over passwords, will services never touch the accounts. DigiLegacy covers the full path — **discovery → registration → planning → documents → trigger → execution** — in a single local database.
+Everything runs on your machine. No account, no cloud sync, no telemetry. External connections — mail delivery, check-in heartbeat, an optional AI assistant — exist only when you configure them yourself.
+
+**[▶ Watch the 32-second walkthrough](docs/media/demo-walkthrough.mp4)** — the whole flow, no install required.
+
+## What it does
 
 | | |
 |---|---|
-| **152** platforms in the built-in inheritance policy database, 16 categories | **69** IPC commands across a Rust core and a Vue frontend |
-| **AES-256-GCM** field-level encryption, PBKDF2-SHA256 at 600k iterations | **0** servers, **0** telemetry, **0** cloud calls |
+| <img src="docs/screenshots/en/02-discover.png" width="420"><br>**Find what you've forgotten**<br>A ten-question self-check surfaces accounts people routinely leave behind, backed by a policy library covering 152 platforms across 16 categories. | <img src="docs/screenshots/en/03-assets.png" width="420"><br>**Record a decision for each one**<br>Inherit, liquidate, memorialise, authorise access, delete or donate — with the heir, contact and identifier each decision requires. |
+| <img src="docs/screenshots/en/04-asset-detail.png" width="420"><br>**Keep credentials encrypted**<br>AES-256-GCM per-field encryption, Argon2id key derivation, idle auto-lock. Credential reads fail closed while locked rather than returning empty strings. | <img src="docs/screenshots/en/06-dms.png" width="420"><br>**Know when you've gone quiet**<br>A three-stage dead man's switch — you → emergency contact → executor — with an honest warning when no mail channel is configured. |
+| <img src="docs/screenshots/en/07-report.png" width="420"><br>**Hand over something usable**<br>A print-ready inheritance report plus a ZIP toolkit: asset list, per-platform action guide, family FAQ and instructions. | <img src="docs/screenshots/en/08-heir-guide.png" width="420"><br>**Give heirs a route, not a riddle**<br>Per-platform documents, procedure, expected duration, difficulty and official links — grouped so someone grieving can follow it. |
+| <img src="docs/screenshots/en/09-legal.png" width="420"><br>**Start from real templates**<br>Six categories of legal documents with the blanks marked, plus an explicit note that templates are not legal advice. | <img src="docs/screenshots/en/10-dashboard-dark.png" width="420"><br>**Work in either theme**<br>Light and dark from the same design tokens, reduced-motion aware, WCAG AA contrast. |
 
-## A guided tour
+## Interaction, not just features
 
-<table>
-<tr>
-<td width="50%"><img src="docs/screenshots/02-discover.png" alt="Guided asset discovery"><br><sub><b>Discovery</b> — a self-check questionnaire that surfaces accounts you forgot</sub></td>
-<td width="50%"><img src="docs/screenshots/03-assets.png" alt="Asset list with search and sorting"><br><sub><b>Your assets</b> — search, four sort orders, disposal status at a glance</sub></td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/04-asset-detail.png" alt="Asset detail with encrypted credential vault"><br><sub><b>Asset detail</b> — platform policy, disposal wish, encrypted credential vault</sub></td>
-<td><img src="docs/screenshots/06-dms.png" alt="Dead man's switch"><br><sub><b>Dead man's switch</b> — three-stage chain: you → emergency contact → executor</sub></td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/07-report.png" alt="Inheritance report"><br><sub><b>Inheritance report</b> — print-ready document plus a ZIP toolkit</sub></td>
-<td><img src="docs/screenshots/08-heir-guide.png" alt="Heir guidance wizard"><br><sub><b>Heir guide</b> — per-platform procedure, documents and transfer path</sub></td>
-</tr>
-<tr>
-<td><img src="docs/screenshots/09-legal.png" alt="Legal templates"><br><sub><b>Legal templates</b> — six categories, ready to fill in</sub></td>
-<td><img src="docs/screenshots/10-dashboard-dark.png" alt="Dark theme"><br><sub><b>Dark mode</b> — token-driven, WCAG AA contrast</sub></td>
-</tr>
-</table>
+- **Command palette (⌘K / Ctrl+K).** Jump to any screen or run theme / language / lock without leaving the keyboard. Type to filter, ↑↓ to move, Enter to run.
+- **Checkpoints.** Take a named snapshot before a significant edit. Restore is one click and goes through the same authenticated-import checks as a backup — and the restore itself is undoable because a `pre-restore` checkpoint is written first.
+- **A dashboard that answers "what now".** One completion ring for the headline number, a four-dimension bar underneath it, and an issue list where every row is a link to the fix.
 
-**[▶ Watch the 32-second walkthrough](docs/media/demo-walkthrough.mp4)** — the entire flow, no install.
+## Install
 
-## What you get
+**Windows 10/11** · no account required · MSI and NSIS installers on the [releases page](https://github.com/badhope/digilegacy/releases).
 
-| | | |
-|---|---|---|
-| 🔍 **Discovery** | 152-platform policy library, guided questionnaire, de-duplication | |
-| 🗂 **Registration** | Property / personality / mixed classification, per-asset detail | |
-| 📝 **Disposal planning** | Inherit · liquidate · memorialize · authorize · delete · donate | |
-| 📄 **Report & toolkit** | Print-ready HTML + ZIP (report, asset list, summary, instructions) | |
-| ⏰ **Dead man's switch** | Three-stage confirmation chain, tray residency, optional zero-content heartbeat | |
-| 👥 **Heir guidance** | Per-platform documents, procedure, transfer path, risk warnings | |
-| 🔐 **Encrypted vault** | AES-256-GCM, idle auto-lock, one-time recovery key, encrypted backup | |
-| 🎨 **Two themes** | Light and dark from the same design tokens, reduced-motion aware | |
-| 🔎 **Search & charts** | Full-text search, sorting, ECharts composition donut | |
-| 🧪 **Live demo** | Full UI in the browser on mock data — click before you install | |
-
-## Built like a product
-
-| Check | Result |
-|---|---|
-| Rust tests | **202 passing**, 1 ignored (`cargo test --locked`; 204 declared incl. 1 Unix-only) |
-| Frontend unit tests | **424 passing** across 32 files |
-| End-to-end tests | **80 passing** in real Chromium |
-| Coverage | **85.2% statements**, 86.7% lines — thresholds enforced in CI |
-| Type safety | `vue-tsc --noEmit` clean, Rust `clippy -D warnings` clean |
-| Supply chain | `cargo audit` and `npm audit`: 0 vulnerabilities |
-| CI | 5 jobs — frontend, E2E, Rust, heartbeat server, Windows installer build |
-| Release | Build pipeline publishes MSI + NSIS with SHA-256 checksums, re-downloaded and verified after publish |
-
-**Production hygiene:** the demo backend is compiled out of the installer (CI asserts no `mock-*` chunk), the schema is versioned with `PRAGMA user_version`, command inputs are capped and validated at the IPC boundary, backups carry heartbeat settings, policy patches, the recovery seal, heirs, SMTP, custody locations and assistant config (v4), backup, report, toolkit and SMTP-credential files are written owner-only, and importing a backup writes a pre-import snapshot and merges by default.
-
-## Get started
-
-**Windows 10/11 · ~3.5 MB · no account, no sign-up, no network**
-
-```bash
-# Download from Releases, then run the installer.
-# Your data lives in: %APPDATA%\com.digilegacy.app\digilegacy.db
-```
-
-[⬇ Download the installer](https://github.com/badhope/digilegacy/releases) · [▶ Try the live demo](https://badhope.github.io/digilegacy/demo/)
+Your data lives at `%APPDATA%\com.digilegacy.app\digilegacy.db`. Reports, toolkits and backups are written as ordinary open files — HTML, JSON and ZIP — so they stay readable without this app.
 
 Build from source:
 
 ```bash
 git clone https://github.com/badhope/digilegacy.git
-cd digilegacy && npm install
-npm run tauri:dev      # desktop dev
-npm run tauri:build    # installers
+cd digilegacy
+npm ci
+npm run tauri:dev      # desktop app with hot reload
+npm run tauri:build    # MSI + NSIS installers
 ```
 
-## Tech stack
+Requires Node 22.22.2 (see `.nvmrc`), Rust stable, and the Tauri system dependencies for your platform.
 
-`Tauri 2` · `Rust` · `rusqlite` · `aes-gcm` · `pbkdf2` · `Vue 3` · `TypeScript` · `Pinia` · `Vite` · `ECharts` · `Playwright` · `Vitest`
+## Security model
+
+| Concern | How it is handled |
+|---|---|
+| Data at rest | Sensitive fields are AES-256-GCM encrypted before they reach SQLite. A random data key encrypts fields; the password-derived key only wraps that data key, so changing the password is a rewrap rather than a full re-encryption. |
+| Key derivation | Argon2id (m=19 MiB, t=2, p=1) for new vaults, with explicit upper bounds on memory, iterations and parallelism. Legacy PBKDF2 vaults still open. |
+| Locked state | Decryption is refused in the Rust layer, not hidden behind a UI overlay. |
+| Backups | Authenticated import: the source password, wrapped key, verifier and AEAD tag must all check out. Tampered or unauthenticated ciphertext is rejected. Import defaults to a non-destructive merge and writes a pre-import snapshot first. |
+| Recovery | Shamir threshold shares plus a printable recovery kit. Recovery still requires the vault and recovery conditions you configured. |
+| Outbound data | Nothing leaves the machine unless you configure it. The optional assistant sends a whitelisted payload — platform name, category, disposal method, policy fields, your question — and never accounts, names, contacts, amounts or credentials. |
 
 ## Honest limits
 
-Local encryption protects data at rest — it cannot stop malware running as you, or someone who knows your master password. Reports and toolkits are plain files: treat them like paper. The desktop UI ships in Simplified Chinese and English (switch in the header); the website, docs and demo are bilingual as well.
+- Local encryption protects data at rest. It cannot stop malware running as you, or someone who knows your master password.
+- The dead man's switch only evaluates while the app is running. Nothing is checked while the machine is off, asleep, or the app is fully quit, and missed rounds are not replayed.
+- Email delivery needs an SMTP server you configure. Without one, notifications only reach a local plaintext outbox — the app says so on the dashboard and on the reminder page rather than implying your family will be notified.
+- Reports and toolkits are plain files. Treat them like paper.
+- 147 of the 152 built-in policy entries are explicitly marked **unverified**. The provenance gate prevents that number from growing, and never fills in a source automatically.
 
-**The dead man's switch is best-effort, and the app says so.** It only evaluates while the app is running; nothing is checked while the machine is off, asleep or the app is quit, and missed rounds are not replayed. Email needs an SMTP server you configure yourself — without it notifications only reach the local (plaintext) outbox and your family receives nothing. The optional zero-content heartbeat is the only channel that still works after the app is closed, and it is off by default.
+## Repository
 
-## Go deeper
+```
+digilegacy/            Vue 3 + TypeScript frontend, and the Rust core under src-tauri/
+docs/                  Static site (EN + 中文), demo build, screenshots, architecture and verification records
+scripts/verify.sh      Local gate — the same commands CI runs
+```
 
-- **Architecture & encryption flow** — [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
-- **Roadmap** (positioning review, gap list, priorities and acceptance criteria) — [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- **Verification evidence** (commands, numbers, known gaps) — [`docs/VERIFICATION.md`](docs/VERIFICATION.md)
-- **Comparison, security notes, FAQ** — [website](https://badhope.github.io/digilegacy/#compare) · [中文](https://badhope.github.io/digilegacy/zh/#compare)
-- **Contributing** — [`CONTRIBUTING.md`](CONTRIBUTING.md) · **Security policy** — [`SECURITY.md`](SECURITY.md)
+| Gate | Command |
+|---|---|
+| Frontend types | `npm run typecheck` |
+| Frontend tests + coverage thresholds | `npm run test:coverage` |
+| Production and demo builds | `npm run build` · `npm run build:demo` |
+| Browser E2E | `npx playwright test` |
+| Rust format / lint / tests | `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test --locked` |
+| Documentation facts | `node scripts/check-doc-facts.mjs` |
+| Policy provenance | `node scripts/check-policy-provenance.mjs` |
 
-## License
+`bash scripts/verify.sh --with-e2e` runs all of them in order.
 
-MIT. Five mirrors: [GitHub](https://github.com/badhope/digilegacy) · [x33834](https://github.com/x33834/digilegacy) · [Morningstar202604](https://github.com/Morningstar202604/digilegacy) · [Gitee](https://gitee.com/badhope/digilegacy) · [GitCode](https://gitcode.com/badhope/digilegacy).
+## Documentation
+
+- [Architecture and encryption flow](docs/ARCHITECTURE.md)
+- [Roadmap and positioning review](docs/ROADMAP.md)
+- [Verification records](docs/VERIFICATION.md) — commands, numbers and known gaps
+- [AI integration boundaries](docs/AI_INTEGRATION.md)
+- [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [Changelog](CHANGELOG.md)
+
+## Project status
+
+Early but complete: the six-stage flow — discovery, registration, disposal planning, legal documents, expiry trigger, family execution — runs end to end. The remaining risk is not missing features but whether a family can complete the handover without help, which is why the app produces printable guidance and a rehearsal drill rather than assuming the owner will be around to explain.
+
+Mirrors: [GitHub](https://github.com/badhope/digilegacy) · [Gitee](https://gitee.com/badhope/digilegacy) · [GitCode](https://gitcode.com/badhope/digilegacy).
+
+## Licence
+
+MIT.

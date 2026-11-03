@@ -7,16 +7,18 @@ DigiLegacy is a single-process Tauri 2 desktop application. There is no backend 
 │ WebView (Vue 3 + TypeScript + Pinia)                         │
 │   views/ ── stores/ ── api/invoke.ts ──┐                     │
 └───────────────────────────────────────┼──────────────────────┘
-                                        │ Tauri IPC (69 commands)
+                                        │ Tauri IPC (87 commands)
 ┌───────────────────────────────────────▼──────────────────────┐
 │ Rust core (src-tauri/src)                                    │
-│   commands.rs   thin command layer, input caps, envelopes    │
+│   commands.rs   thin command layer, split by domain below    │
+│   agent_tools   tool registry + permission tiers              │
+│   checkpoint    named snapshots + restore                     │
 │   vault.rs      master key in memory, field encrypt/decrypt   │
-│   crypto.rs     AES-256-GCM + PBKDF2 primitives               │
+│   crypto.rs     AES-256-GCM + Argon2id/PBKDF2 primitives      │
 │   recovery.rs   one-time recovery key seal                    │
-│   db.rs         schema, migrations, all SQL                   │
+│   db.rs         schema, migrations, security, DMS, reports    │
 │   fsutil.rs     0600 file writes (backups / reports / netrc)   │
-│   notify.rs     dead-man's-switch evaluation + outbox + SMTP  │
+│   notify.rs     DMS evaluation + outbox + SMTP (lettre)       │
 │   heartbeat.rs  zero-content heartbeat over curl              │
 │   backup.rs     daily snapshot, 7-day retention, atomic write │
 │   platform_data.rs  built-in 152-platform policy database     │
@@ -28,7 +30,7 @@ DigiLegacy is a single-process Tauri 2 desktop application. There is no backend 
 
 ## Layering rules
 
-1. **`commands.rs` is a thin adapter.** It validates IPC input (size caps, enum values, existence checks), wraps results in `ApiResponse<T>`, and delegates to `db::*`. Business logic and SQL belong in `db.rs`; cryptographic primitives belong in `crypto.rs` / `vault.rs` / `recovery.rs`.
+1. **`commands.rs` is a thin adapter.** It validates IPC input (size caps, enum values, existence checks), wraps results in `ApiResponse<T>`, and delegates to `db::*`. The commands are split by domain into `commands_{platform,assets,report,review,ai,profile,security,custody}.rs` (plus a shared `commands_win_shell.rs` used by both `open_external` and `reveal_exported_file`); `lib.rs` still registers them through `commands::*`, so the IPC surface is unchanged. Business logic and SQL belong in `db.rs` and its `db_*.rs` store modules; cryptographic primitives belong in `crypto.rs` / `vault.rs` / `recovery.rs`.
 2. **Frontend never talks to the filesystem or SQLite directly.** Every side effect goes through `invoke()`. The only exception is downloading a file in browser-preview mode, which the mock handles.
 3. **`api/invoke.ts` is the single IPC seam.** In a Tauri webview it calls `@tauri-apps/api/core`; in `npm run dev` — and in the `VITE_DEMO=1` static build used for the website demo — it lazily loads `api/mock.ts`. The mock must implement the same command names and response shape; it is the only thing E2E and the public demo talk to. In a normal production build that branch is dead code, so Rollup drops `mock.ts` from the installer bundle entirely (verify: `ls dist/assets | grep mock` returns nothing after `npm run build`).
 4. **`db.rs` owns the connection.** A process-global `Mutex<Option<Connection>>` holds one WAL connection with `busy_timeout=5000`. Tests serialize on `vault::test_lock()` because both the connection and the master key are process-global. The schema version lives in `PRAGMA user_version` (`SCHEMA_VERSION`), so a future migration can branch on a number instead of re-deriving intent from `PRAGMA table_info`.
@@ -53,7 +55,8 @@ Reading reverses it: `row_to_asset` calls `vault::decrypt_or_placeholder`, which
 
 | Concern | Where | Notes |
 |---|---|---|
-| Key derivation | `crypto.rs` | PBKDF2-HMAC-SHA256, 600k iterations for new vaults; salt carries a `v2.` prefix so old 100k salts still resolve. |
+| Key derivation | `crypto.rs` | Argon2id (m=19 MiB, t=2, p=1) for new vaults, encoded in a `v3.<m>.<t>.<p>.` salt prefix. PBKDF2 legacy paths still resolve: `v2.` = 600k, bare base64 = 100k. |
+| Two-layer keys | `vault.rs` | A random data key (DEK) encrypts fields; the password-derived KEK only wraps the DEK (`security_config.wrapped_dek`). Password change = rewrap, O(1). Fields carry `enc:v2:` (HKDF `field` domain); legacy `enc:v1:` still decrypts. |
 | Field encryption | `vault.rs` | `enc:v1:` + base64(nonce ‖ ciphertext), one random 12-byte nonce per value. |
 | Key lifetime | `vault.rs` | `Zeroizing<[u8; 32]>` in a `Mutex<Option<_>>`; cleared on lock and on idle timeout. |
 | Recovery | `recovery.rs` | The master key itself is encrypted under a key derived from a 24-character code. Changing the password rotates the code and re-encrypts every field in one transaction. |
@@ -91,7 +94,17 @@ Why not scrape the DOM (the old approach): the page shows placeholders while loc
 
 | File | Responsibility |
 |---|---|
-| `db.rs` | connection lifecycle, schema, migrations, assets, profile, security, backup, DMS, report queries |
+| `db.rs` | connection lifecycle, schema, migrations, security, DMS, report queries |
+| `db_backup.rs` | backup export / authenticated import / stock encryption (split out of db.rs) |
+| `agent_tools.rs` | tool registry: definition + execution + permission bound on one spec |
+| `checkpoint.rs` | named snapshots, retention, restore plumbing |
+| `commands_checkpoint.rs` | checkpoint IPC commands |
+| `db_assets.rs` | asset CRUD (split out of db.rs; write-gate + placeholder rejection preserved) |
+| `db_profile.rs` | user profile read/write; owns `PROFILE_SENSITIVE_COLUMNS` used by all three re-encryption paths |
+| `heir_recovery.rs` | Shamir threshold recovery kit: share encode/decode, printable HTML, metadata (shares never persisted) |
+| `kdbx_export.rs` | KDBX 4 long-term archive (KeePassXC-readable); refuses placeholders, archive password independent of master |
+| `imap_checkin.rs` | Inbound mail check-in (reply = I'm fine): sender whitelist, uid dedup, lookback window; credentials vault-encrypted |
+| `review_heir.rs` | "Heir comprehension" review scene: audits generated deliverables (action guide, heir plan) in strict mode — 6 checks from the family's reading perspective |
 | `db_platforms.rs` | policy-patch import/export/clear, `platforms` mirroring for the asset foreign key |
 | `db_tests.rs` | the db regression suite (split out so production code stays readable) |
 | `report.rs` | report HTML rendering (escaping, print styles, placeholder refusal) |
@@ -101,12 +114,43 @@ Why not scrape the DOM (the old approach): the page shows placeholders while loc
 | `toolkit.rs` | action-guide assembly + family drill (metadata only, no credentials) |
 | `family_faq.rs` | 12 deterministic bilingual FAQ entries embedded in the guide (no LLM, no network) |
 | `db_heirs.rs` | multiple heirs + exactly one executor; whole-list replace in a transaction |
-| `ai_assist.rs` | optional bring-your-own-key assistant: whitelist-built outbound payload, Rust-side curl, no built-in service |
+| `ai_assist.rs` | optional bring-your-own-key assistant: whitelist-built outbound payload, Rust-side ureq, no built-in service |
+| `agent.rs` | bounded local tool loop: six read/draft tools, max 8 rounds, no credential/write tool, Tauri step events |
 | `review.rs` | generic review state machine: AI can only advance to `AwaitingHuman`, `Approved` requires a human verdict |
 | `review_profiles.rs` | the scene registry — adding a scene is data, not pipeline code |
 | `db_review.rs` | append-only review audit trail; stale detection by content fingerprint |
 | `notify.rs` | DMS staging, outbox, SMTP (UI config first, env vars as fallback); read-only status snapshot |
 | `report.rs` | report HTML rendering (escaping, print styles, placeholder refusal, bilingual) |
+
+## Heir recovery kit (Shamir threshold)
+
+A single-machine app has exactly one decryption path: the owner's master password.
+If the owner is incapacitated, the family cannot open the database even with the file.
+The recovery kit closes that gap without a server:
+
+- **Threshold split.** `sharks` (GF(256) Shamir) splits either the master key
+  (default) or its ciphertext (passphrase mode) into `n` shares; any `threshold`
+  of them rebuild the key. Defaults are 3-of-5, bounded to 2..=10.
+- **Shares are never stored.** Only metadata (threshold, total, key fingerprint,
+  creation time, optional KDF salt) goes into `heir_recovery`. Shares exist only
+  in the printable HTML the user distributes. A copied database therefore yields
+  nothing.
+- **Human-transcribable encoding.** Shares are `DGL1-` + Base32 (A-Z2-7, 8-char
+  groups) + a 2-byte SHA-256 checksum. Base32 avoids the case/`+/=` ambiguity of
+  Base64 and does not collide with the `-` group separator; a single mistyped
+  character fails the checksum instead of silently rebuilding a wrong key.
+- **Batch fingerprinting.** Each share carries the key fingerprint, and the
+  metadata stores it too. Mixing shares from different batches (or using shares
+  after a password rotation) is rejected with an explicit message instead of
+  producing a key that cannot decrypt anything.
+- **Invalidation is transactional.** `change_master_password_db` and
+  `reset_security_config_db` both delete the metadata inside the same
+  `BEGIN IMMEDIATE` transaction that rewrites the security config, so the UI can
+  never claim a stale kit is still valid.
+- **Passphrase mode.** With a passphrase, the split payload is the AES-GCM
+  ciphertext of the master key under an Argon2id-derived wrapping key. Shares
+  alone are then insufficient — useful when shares are held by people who should
+  not be able to recover unilaterally.
 
 ## Placeholder is read-only
 
@@ -120,7 +164,7 @@ Why not scrape the DOM (the old approach): the page shows placeholders while loc
 
 ## Backup format
 
-`version: 3` adds `security_config.recovery_seal` to the export so a recovery code survives a machine move. Imports accept v1/v2/v3. A backup **without** `security_config` is treated as plaintext: importing it into an encrypted vault is rejected while locked and field-encrypted while unlocked — plaintext must never land in an `enc:v1:` column.
+`version: 5` exports `security_config`, `recovery_seal`, `wrapped_dek`, heirs, review records and the user-configured integration metadata. Imports accept v1 through v5. A backup **without** `security_config` is treated as plaintext: importing it into an encrypted vault is rejected while locked and field-encrypted while unlocked — plaintext must never land in an `enc:v1:` or `enc:v2:` column. A malformed or incomplete `security_config` is rejected fail-closed; merge mode never replaces a different local key configuration.
 
 ## Authoritative sources
 
@@ -162,9 +206,63 @@ Each item also carries a `preview` — a truncated, newline-flattened rendering 
 
 Content changes invalidate prior decisions: `summarise_states_db` compares each item's current fingerprint against its latest record and reports the item as `stale` (back to pending) when they differ, so a review can never apply to text it did not see.
 
+## AI assistant: streaming & local history
+
+The assistant path (`ai_assist.rs`) is one seam used by both the one-shot
+`ask_assistant` and the streaming `ask_assistant_streaming` command:
+
+- **One whitelist.** Both build the outbound payload through the same
+  `build_safe_payload` — a regression test asserts every `FORBIDDEN_FIELDS`
+  entry is absent by name *and* by value.
+- **SSE.** The streaming variant reads `data:` lines until `[DONE]`; comment
+  lines and unparseable chunks are skipped (heartbeats must not kill a stream).
+  Deltas travel to the frontend over a Tauri `Channel`; the frontend falls back
+  to the one-shot command outside Tauri (demo site, unit tests).
+- **Local history.** Completed Q&A rows land in `ai_chat_log` (schema v7) —
+  text only, no asset snapshots. The history card is visible even when the
+  assistant is disabled, and clearing requires an explicit confirmation.
+- **Review pipeline untouched.** Streaming serves the Q&A path only; the
+  review pipeline's "AI never approves" invariant is unchanged.
+
+
+## Embedded Agent boundary
+
+`agent.rs` is deliberately not a general-purpose autonomous computer agent. It is a
+bounded **local research loop** built on the existing BYOK assistant seam:
+
+1. The user supplies a task; the Rust side checks endpoint, API key, length and control characters.
+2. The model receives six OpenAI-compatible tools: `query_assets`,
+   `query_platform_policy`, `get_planning_stats`, `run_readiness_drill`,
+   `get_trigger_status`, and `draft_heir_note`.
+3. The only data tools return platform/category/planning facts. Account identifiers,
+   names, contacts, notes, credentials, passwords, API keys and recovery codes are
+   not part of the tool schema or `query_assets` result.
+4. Tool output is marked as untrusted data before it is placed back into the model
+   conversation; it cannot redefine system rules.
+5. The loop is capped at eight model calls in total (the last one is synthesis
+   only) and six tool calls per round. Responses are capped at 1 MiB, tool
+   arguments at 8k characters, tool results at 6k and final text at 20k. It emits
+   `started`, `tool_start`, `tool_end`, `final` or `truncated` events to the UI.
+6. The only write-like tool is `draft_heir_note`, which returns text with an explicit
+   human-review notice. There is no Agent write command for assets, profiles,
+   credentials or recovery settings.
+
+The existing review pipeline remains separate: AI can flag or pre-review content,
+but only a human verdict can produce `Approved`. The Agent is for task completion and
+research, not for silently approving content.
+
 ## Known limits
 
 - The desktop UI ships in Simplified Chinese and English; `src/i18n/index.ts` holds both dictionaries, `setLocale` also updates `<html lang>`, and a unit test asserts the two key sets are identical. Legal template bodies are Chinese-only by design (they are jurisdiction-specific documents).
-- Migrations are still additive `ALTER TABLE` checks; `PRAGMA user_version` now records the baseline (`SCHEMA_VERSION = 4`), so the first destructive migration should branch on it rather than on column presence.
-- `db.rs` is still the largest module (1882 lines): connection lifecycle, asset CRUD, profile, security, backup, and DMS live there. Platform patches already moved to `db_platforms.rs` (293 lines) and the regression suite to `db_tests.rs` (1722 lines). Splitting the remaining domains is the next step, but it is not urgent while the test suite covers the seams.
-- The public demo is a static build of the real UI over the mock backend. It is a showcase, not a security boundary: its data lives unencrypted in `localStorage` and the banner in the UI says so.
+- Migrations are additive `ALTER TABLE` checks and `PRAGMA user_version` is currently `SCHEMA_VERSION = 7`; future destructive migrations must branch on the version rather than on column presence alone.
+- `db.rs` still owns connection lifecycle, schema, security, DMS and report queries. Asset CRUD moved to `db_assets.rs`, profile to `db_profile.rs`, platform patches to `db_platforms.rs`, custody to `db_custody.rs`, heirs to `db_heirs.rs`, review trail to `db_review.rs`, **backup export/import to `db_backup.rs`**, and the regression suite to `db_tests.rs`.
+- `commands.rs` keeps the cross-domain integration tests; the 87 IPC commands live in `commands_{platform,assets,report,review,ai,profile,security,custody,checkpoint}.rs` with a shared `commands_win_shell.rs`.
+
+## Harness layer
+
+The agent used to keep its tool definitions in one JSON array and its dispatch in a `match`, with the permission boundary expressed only in comments. `agent_tools.rs` makes that a data structure instead:
+
+- **One `ToolSpec` per tool** — name, description, JSON Schema, permission tier and executor. `tool_definitions()` and `execute()` are both derived from `registry()`, so they cannot drift apart.
+- **Permission tiers are enums, not comments.** `Read` and `Draft` are both allowed today; the check runs centrally in `execute()`, so a future write tier has one obvious place to be gated. A test asserts every tool is annotated and that no current tier can write.
+- **Checkpoints reuse the backup pipeline.** `checkpoint.rs` stores named copies of the exported backup JSON and restores through the same authenticated-import function, which means a restore is subject to the identical source-password / wrapped-key / AEAD checks. A `pre-restore` checkpoint is written first.
+- The public demo is a static build of the real UI over the mock backend. It is a showcase, not a security boundary: its data lives unencrypted in `localStorage`; recovery-kit, Agent and external integration paths are desktop-only.

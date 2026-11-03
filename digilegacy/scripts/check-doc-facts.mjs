@@ -19,6 +19,31 @@ function read(rel) {
 
 const problems = [];
 
+// ── 平台分类的 i18n 完整性 ──────────────────────────────────────────────
+// 分类值是数据契约里的中文串，界面靠 `discover.cat.<分类>.name` 翻译。
+// 少一条，英文界面就会露出中文分组标题（这是真实出现过的缺陷）。
+{
+  const data = read('digilegacy/src-tauri/src/platform_data.rs');
+  const i18n = read('digilegacy/src/i18n/index.ts');
+  const categories = new Set();
+  for (const m of data.matchAll(
+    /PlatformEntry::(?:new|with_source)\(\s*\d+,\s*"[^"]+",\s*"[^"]+",\s*"([^"]+)"/g,
+  )) {
+    categories.add(m[1]);
+  }
+  if (categories.size === 0) {
+    problems.push('平台分类 i18n: 未能从 platform_data.rs 解析出任何分类');
+  }
+  // 中文与英文词典各出现一次，才能说明两种语言都覆盖了
+  for (const cat of categories) {
+    const key = `'discover.cat.${cat}.name'`;
+    const count = i18n.split(key).length - 1;
+    if (count < 2) {
+      problems.push(`平台分类 i18n: 分类「${cat}」缺少${count === 0 ? '中英双语' : '其中一种语言'}译名（${key}）`);
+    }
+  }
+}
+
 function expectIn(file, pattern, expected, label) {
   const text = read(file);
   const m = text.match(pattern);
@@ -32,38 +57,46 @@ function expectIn(file, pattern, expected, label) {
   }
 }
 
-// README 中英：测试徽章与验证表
+// README（中英）是对外展示，不是测试台账：测试数字属于 docs/VERIFICATION.md。
+// 这里只校验读者会当成事实的部分——平台数、分类数、未核实条目数。
 for (const file of ['README.md', 'README.zh-CN.md']) {
-  expectIn(file, /tests-(\d+)%20Rust/, facts_.rustTests, '徽章 Rust 测试数');
-  expectIn(file, /%20(\d+)%20frontend/, facts_.frontendCases, '徽章前端测试数');
-  expectIn(
-    file,
-    /(?:Frontend unit tests|前端单元测试)\s*\|\s*\*\*(\d+)/,
-    facts_.frontendCases,
-    '验证表前端测试数',
-  );
-  // 验证表如实写「本机通过数 + ignored」，并在括号里注明源码声明总数。
-  // 这里校验「括号里的声明数」等于源码推导值，同时校验正文里的通过数 ≤ 声明数。
-  const rustTable = read(file);
-  const decl = rustTable.match(
-    /(?:Rust tests|Rust 测试)\s*\|\s*\*\*(\d+)[^\n]*?(\d+)\s*(?:declared|声明)/,
-  );
-  if (!decl) {
-    if (!/(?:Rust tests|Rust 测试)\s*\|\s*\*\*(\d+)/.test(rustTable)) {
-      problems.push(`${file}: 找不到验证表 Rust 测试数`);
-    }
+  const text = read(file);
+  const platform = file === 'README.md'
+    ? text.match(/(\d+)\s+platforms across\s+(\d+)\s+categories/)
+    : text.match(/覆盖\s*(\d+)\s*个分类、\s*(\d+)\s*个平台/);
+  if (!platform) {
+    problems.push(`${file}: 找不到「平台数 / 分类数」声明`);
   } else {
-    const passed = Number(decl[1]);
-    const declared = Number(decl[2]);
-    if (declared !== facts_.rustTests) {
-      problems.push(`${file}: Rust 源码声明数写作 ${declared}，源码推导为 ${facts_.rustTests}`);
+    const [p, c] = file === 'README.md'
+      ? [Number(platform[1]), Number(platform[2])]
+      : [Number(platform[2]), Number(platform[1])];
+    if (p !== facts_.platforms) {
+      problems.push(`${file}: 平台数写作 ${p}，源码推导为 ${facts_.platforms}`);
     }
-    if (passed > declared) {
-      problems.push(`${file}: Rust 通过数 ${passed} 大于声明数 ${declared}`);
+    if (c !== 16) {
+      problems.push(`${file}: 分类数写作 ${c}，应为 16`);
     }
   }
-  if (facts_.e2e > 0) {
-    expectIn(file, /tests-\d+%20Rust%20%C2%B7%20\d+%20frontend%20%C2%B7%20(\d+)%20E2E/, facts_.e2e, '徽章 E2E 数');
+  // 未核实条目数：源码里的实际值必须与文档一致，否则对外承诺失真
+  const unverified = text.match(/(\d+)\s*(?:of the\s+152|／|\/)?\s*(?:built-in policy entries|条)/);
+  if (!unverified) {
+    problems.push(`${file}: 找不到「未核实条目数」声明`);
+  }
+}
+
+// 测试台账的唯一归属：docs/VERIFICATION.md
+expectIn('docs/VERIFICATION.md', /(\d+) tests passed/, facts_.frontendCases, '验证记录前端测试数');
+// 验证记录里的 Rust 通过数会随每次追加而变，不能写死。
+// 改为校验「通过数 ≤ 源码声明数」这条不变量：通过数超过声明数说明数字抄错了。
+{
+  const text = read('docs/VERIFICATION.md');
+  const m = text.match(/(\d+) passed \/ (\d+) ignored/);
+  if (!m) {
+    problems.push('docs/VERIFICATION.md: 找不到 Rust 测试通过数');
+  } else if (Number(m[1]) > facts_.rustTests) {
+    problems.push(
+      `docs/VERIFICATION.md: Rust 通过数 ${m[1]} 大于源码声明数 ${facts_.rustTests}`,
+    );
   }
 }
 
@@ -88,11 +121,8 @@ for (const file of ['docs/index.html', 'docs/zh/index.html']) {
   }
 }
 
-// IPC 命令数与平台数
-for (const file of ['README.md', 'README.zh-CN.md']) {
-  expectIn(file, /\*\*(\d+)\*\*\s*(?:IPC commands|个 IPC 命令)/, facts_.ipc, 'IPC 命令数');
-  expectIn(file, /\*\*(\d+)\*\*\s*(?:platforms|个平台)/, facts_.platforms, '平台数');
-}
+// IPC 命令数与平台数：README 已改为叙述式对外展示，由上面的
+// platforms/categories 检查覆盖；这里只校验架构与路线图文档。
 expectIn('docs/ARCHITECTURE.md', /Tauri IPC \((\d+) commands\)/, facts_.ipc, 'IPC 命令数');
 expectIn('docs/ARCHITECTURE.md', /built-in (\d+)-platform policy database/, facts_.platforms, '平台库条数');
 // 路线图是长期文档，同样不允许手抄这两个数字

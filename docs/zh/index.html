@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>归零 DigiLegacy — 开源、本地优先的数字遗产管理与继承系统</title>
-<meta name="description" content="归零 DigiLegacy 是一款免费、开源、本地优先的桌面应用，用于数字遗产规划与数字资产继承管理。内置 152 个平台的政策库，逐项安排处置意愿，为家人生成可直接执行的继承工具包。AES-256-GCM 字段级加密，无服务器、无遥测——连开发者也无法读取你的数据。">
+<meta name="description" content="归零 DigiLegacy 是一款本地优先的数字遗产规划桌面应用。记录资产处置意愿，生成面向家人的报告与执行清单，工作数据默认保存在本机。可选的心跳、SMTP/IMAP 与 BYOK 助手只连接到用户自行配置的端点。">
 <meta name="keywords" content="数字遗产,数字遗产管理,数字遗产继承,数字资产,虚拟财产继承,dead man's switch,安心传承,本地优先,隐私优先,开源,零知识,加密保险库,Tauri,Rust,Vue,digital legacy,digital inheritance,归零">
 <meta name="author" content="DigiLegacy contributors">
 <meta name="robots" content="index, follow">
@@ -17,7 +17,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="归零 DigiLegacy">
 <meta property="og:title" content="归零 DigiLegacy — 开源数字遗产管理与继承系统">
-<meta property="og:description" content="本地优先的数字遗产规划与继承桌面应用。152 平台政策库、AES-256-GCM 字段级加密、三级继承触发链。无服务器、无遥测。">
+<meta property="og:description" content="本地优先的数字遗产规划与继承桌面应用。内置平台政策数据、加密本地字段、面向家人的报告与执行清单；可选外部连接由用户自行配置。">
 <meta property="og:url" content="https://badhope.github.io/digilegacy/zh/">
 <meta property="og:image" content="https://badhope.github.io/digilegacy/screenshots/01-dashboard.png">
 <meta property="og:locale" content="zh_CN">
@@ -25,7 +25,7 @@
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="归零 DigiLegacy — 开源数字遗产管理与继承系统">
-<meta name="twitter:description" content="在本地规划数字遗产，加密、开源、无服务器，给家人一份可直接执行的工具包。">
+<meta name="twitter:description" content="在本地规划数字遗产，生成面向家人的报告与执行清单；可选外部连接使用用户自行配置的端点。">
 <meta name="twitter:image" content="https://badhope.github.io/digilegacy/screenshots/01-dashboard.png">
 
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23c46a5c'/%3E%3Cstop offset='1' stop-color='%239a473b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='40' height='40' rx='9' fill='url(%23g)'/%3E%3Ccircle cx='20' cy='20' r='11.6' stroke='%23fff' stroke-width='2.1' fill='none' opacity='0.95'/%3E%3Ccircle cx='20' cy='20' r='7.2' stroke='%23fff' stroke-width='1.2' fill='none' opacity='0.6'/%3E%3Ccircle cx='20' cy='20' r='2.9' fill='%23fff'/%3E%3C/svg%3E">
@@ -40,14 +40,14 @@
   "applicationCategory": "SecurityApplication",
   "applicationSubCategory": "数字遗产规划与继承",
   "operatingSystem": "Windows 10, Windows 11",
-  "softwareVersion": "0.2.2",
+  "softwareVersion": "0.3.0",
   "license": "https://opensource.org/licenses/MIT",
   "isAccessibleForFree": true,
   "downloadUrl": "https://github.com/badhope/digilegacy",
   "codeRepository": "https://github.com/badhope/digilegacy",
   "programmingLanguage": ["Rust", "TypeScript", "Vue"],
   "inLanguage": "zh-CN",
-  "description": "开源、本地优先的桌面应用，用于数字遗产规划与数字资产继承管理。帮助用户发现、登记并安排数字资产的处置方式，为继承人生成可执行的继承工具包。字段级 AES-256-GCM 加密；无服务器、无遥测。",
+  "description": "本地优先的桌面应用，用于数字遗产规划与数字资产继承管理。帮助用户发现、登记并安排数字资产的处置方式，导出面向家人的报告与执行清单。工作数据默认保存在本机；可选外部连接由用户配置。",
   "featureList": [
     "覆盖 152 个平台政策库的数字资产发现",
     "资产分类与登记",
@@ -57,7 +57,7 @@
     "按平台办理流程的继承人向导",
     "六类法律文书模板库",
     "AES-256-GCM 字段级加密与一次性恢复密钥",
-    "可选的零内容云端心跳",
+    "连接到用户自配端点的可选零内容心跳",
     "全文搜索、排序与资产构成图表"
   ],
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" }
@@ -96,10 +96,10 @@
   <div class="wrap">
     <h1>归零 DigiLegacy</h1>
     <p class="cn">数字遗产管理及继承系统 · 开源 · 本地优先</p>
-    <p class="lead">
-      帮你理清<b>每一个网络账号</b>，逐项决定它在你离开后应如何处置，
-      并为家人留下一份<b>可以直接照做的继承工具包</b>——
-      所有数据都加密保存在你自己的电脑上。
+      <p class="lead">
+      帮你记录<b>已知的数字资产</b>，逐项决定它在你离开后应如何处置，
+      并导出面向家人的<b>报告与执行清单</b>——
+      工作数据默认保存在你自己的电脑上；可选外部连接使用你自行配置的端点。
     </p>
     <div class="cta">
       <a class="btn btn-primary" href="https://github.com/badhope/digilegacy/releases">⬇ 下载 Windows 版</a>
@@ -108,9 +108,9 @@
     </div>
     <ul class="badges" aria-label="项目事实">
       <li class="pill">MIT 许可</li>
-      <li class="pill">204 项 Rust · 424 项前端测试</li>
+      <li class="pill">267 项 Rust 测试 · 451 项前端测试 · 80 项 E2E</li>
       <li class="pill">Windows 10/11</li>
-      <li class="pill">无服务器</li>
+      <li class="pill">默认本地存储</li>
       <li class="pill">无遥测</li>
     </ul>
 
@@ -124,9 +124,9 @@
 <div class="new-band">
   <div class="wrap">
     <div class="item"><strong>0.2.2 新增</strong>家人执行清单、多继承人与执行人、界面内 SMTP 配置、可选自配密钥助手。</div>
-    <div class="item"><strong>0.2.2 新增</strong>AI 初审 + 人工终审的审核管线；四个场景，法律文书走严格模式。</div>
-    <div class="item"><strong>已加固</strong>备份 v4、导入前快照与默认合并、政策溯源门禁、四维完成度指标。</div>
-    <div class="item"><strong>已验证</strong>204 项 Rust + 424 项前端 + 80 项 E2E 测试，已知漏洞 0。</div>
+      <div class="item"><strong>0.2.2 新增</strong>AI 初审 + 人工终审的审核管线；五个场景，法律文书走严格模式。</div>
+      <div class="item"><strong>已加固</strong>备份 v5、导入前快照与默认合并、政策溯源门禁、四维完成度指标。</div>
+      <div class="item"><strong>源码清单</strong>267 项 Rust 测试、451 项前端测试与 80 项浏览器 E2E。</div>
   </div>
 </div>
 
@@ -182,7 +182,7 @@
       <div class="card">
         <span class="num">05</span>
         <h3>安心传承（Dead Man's Switch）</h3>
-        <p>定期确认安全，超期后按<strong>三级确认链</strong>推进：提醒你本人 → 通知紧急联系人 → 向遗产执行人发送继承指引。应用驻留托盘，每 30 分钟复评一次；可选零内容云端心跳。</p>
+        <p>定期确认安全，超期后按<strong>三级确认链</strong>推进：提醒你本人 → 通知紧急联系人 → 向遗产执行人发送继承指引。应用驻留托盘，每 30 分钟复评一次；可选零内容心跳只向用户配置的端点发送令牌。</p>
       </div>
       <div class="card">
         <span class="num">06</span>
@@ -206,7 +206,7 @@
 <section id="screenshots">
   <div class="wrap">
     <h2>截图 — 看看程序长什么样</h2>
-    <p class="sub">原生桌面应用，安装约 3.5 MB，窗口 1200×800。界面提供简体中文与英文，可在标题栏切换。点击任意截图可看原图。</p>
+    <p class="sub">Windows 10/11 原生桌面应用，安装包大小随版本构建变化，默认窗口 1200×800。界面提供简体中文与英文，可在标题栏切换。点击任意截图可看原图。</p>
     <figure style="margin-bottom:26px">
       <video class="walkthrough" controls preload="metadata" poster="../screenshots/01-dashboard.png">
         <source src="../media/demo-walkthrough.mp4" type="video/mp4">
@@ -266,19 +266,19 @@
     <div class="grid g2">
       <div class="card">
         <h3>AES-256-GCM 字段级加密</h3>
-        <p><strong>零知识、本地优先的设计</strong>：设置主密码后，账号标识、凭据、档案字段与继承人联系方式在写入数据库<em>之前</em>就已加密。密钥用 PBKDF2-SHA256（60 万次迭代）派生，只驻留内存——锁定应用即抹除。</p>
+        <p>本地优先设计：设置主密码后，账号标识、凭据、档案字段与继承人联系方式在写入数据库<em>之前</em>就已加密。新保险库使用 Argon2id 派生密钥；旧版 PBKDF2 格式仍可读取。密钥只驻留内存，锁定应用即清除。</p>
       </div>
       <div class="card">
         <h3>恢复密钥，不是死路</h3>
         <p>设置主密码时生成一次性 24 位恢复密钥。忘记密码仍可重设并找回全部数据；每次修改主密码都会自动轮换恢复密钥。</p>
       </div>
       <div class="card">
-        <h3>无服务器、无遥测</h3>
-        <p>没有后端。数据就是一个本地 SQLite 文件，你可以复制、备份或删除。应用不发任何网络请求；「打开平台官网」只是把 URL 交给系统浏览器。</p>
+        <h3>默认本地存储、无遥测</h3>
+        <p>没有 DigiLegacy 托管后端或账号体系。数据就是一个本地 SQLite 文件，你可以复制、备份或删除。可选的心跳、SMTP/IMAP 与 BYOK 助手在配置端点前不会建立外部连接。</p>
       </div>
       <div class="card">
-        <h3>零内容云端心跳（可选）</h3>
-        <p>希望关机时也能收到提醒，心跳也只发送一个令牌。服务器只知道「这个令牌还活着」，永远看不到资产、凭据或姓名。仓库内含参考实现（<code>server/heartbeat-server.mjs</code>）。</p>
+        <h3>可选零内容心跳</h3>
+        <p>如果你配置了心跳端点，它只会收到你提供的令牌，不会收到资产、凭据或姓名，也不是 DigiLegacy 托管的服务。仓库内含参考实现（<code>server/heartbeat-server.mjs</code>）。</p>
       </div>
     </div>
     <p class="warn" style="margin-top:22px">
@@ -296,7 +296,7 @@
         <tr><th>工具</th><th>覆盖范围</th><th>缺什么</th></tr>
       </thead>
       <tbody>
-        <tr><td><strong>归零 DigiLegacy</strong></td><td class="yes">全部六个阶段</td><td class="no">—</td></tr>
+        <tr><td><strong>归零 DigiLegacy</strong></td><td class="yes">覆盖六段规划链路</td><td class="no">平台执行与法律效力仍需人工跟进</td></tr>
         <tr><td>Google 不活跃账户管理器</td><td>只覆盖 Google 账号</td><td class="no">任何非 Google 平台；没有资产清单；没有规划流程</td></tr>
         <tr><td>Apple 数字遗产计划</td><td>遗产联系人访问 Apple ID</td><td class="no">没有清单、没有逐平台流程、没有处置规划</td></tr>
         <tr><td>Meta 纪念账号</td><td>Facebook / Instagram</td><td class="no">只是被动标记，没有主动规划</td></tr>
@@ -314,7 +314,7 @@
     <div class="grid g2">
       <div>
         <h3>使用应用</h3>
-        <p style="color:var(--muted);font-size:14.5px">从 Releases 下载安装包或 MSI。Windows 10/11，约 3.5 MB，无需注册、无需联网。</p>
+        <p style="color:var(--muted);font-size:14.5px">从 Releases 下载安装包或 MSI。Windows 10/11，大小随版本变化，无需注册、无需账号。本地规划与导出可离线完成；可选外部连接需要用户自行配置。</p>
         <pre><code># 1. 从 GitHub Releases 下载
 #    DigiLegacy_*_x64-setup.exe    （安装版）
 #    DigiLegacy_*_x64_zh-CN.msi    （MSI，适合批量部署）
@@ -337,7 +337,7 @@ npm run dev            # http://localhost:1420
 
 # 测试
 cd src-tauri &amp;&amp; cargo test</code></pre>
-        <p class="note">技术栈：<strong>Tauri 2（Rust）</strong> + <strong>Vue 3 + TypeScript</strong> + <strong>SQLite</strong>。Rust 测试源码声明 204 项（Windows 本机 202 通过、1 项 ignored、1 项仅 Unix 编译），前端 424 项，端到端 80 项。</p>
+        <p class="note">技术栈：<strong>Tauri 2（Rust）</strong> + <strong>Vue 3 + TypeScript</strong> + <strong>SQLite</strong>。源码清单为 267 项 Rust 测试、451 项前端测试与 80 项浏览器 E2E。</p>
       </div>
     </div>
   </div>
@@ -347,7 +347,7 @@ cd src-tauri &amp;&amp; cargo test</code></pre>
   <div class="wrap">
     <h2>路线图</h2>
     <div class="grid g3">
-      <div class="card"><h3>已完成</h3><p>资产发现、加密保险库、处置规划、报告与工具包导出、托盘常驻的安心传承、恢复密钥、新手引导、帮助中心、零内容心跳客户端与参考服务器、<strong>离线政策补丁通道</strong>、资产搜索与排序、构成图、<strong>可交互浏览器演示</strong>、备份 v4、家人执行清单与离线 FAQ、多继承人与执行人、界面内 SMTP 配置、保管位置、<strong>AI 初审 + 人工终审的审核管线</strong>（四个场景，法律文书走严格模式），以及默认关闭、无内置端点的可选自配密钥助手。</p></div>
+      <div class="card"><h3>已完成</h3><p>资产发现、加密保险库、处置规划、报告与工具包导出、托盘常驻的安心传承、恢复密钥、新手引导、帮助中心、零内容心跳客户端与参考服务器、<strong>离线政策补丁通道</strong>、资产搜索与排序、构成图、<strong>可交互浏览器演示</strong>、备份 v5、家人执行清单与离线 FAQ、多继承人与执行人、界面内 SMTP/IMAP 配置、保管位置、<strong>AI 初审 + 人工终审的审核管线</strong>（五个场景，法律文书走严格模式），以及默认关闭、无内置端点的可选自配助手/Agent。</p></div>
       <div class="card"><h3>下一步</h3><p>更多界面语言（简体中文与英文已内置）、加密云备份（需要你自建或信任的服务器）、手机端安全确认（独立代码库）、通知动作按钮（原生通知操作）、macOS / Linux 安装包。<strong>这些均未开始。</strong></p></div>
       <div class="card"><h3>更远</h3><p>逐条核实政策库——152 条中有 147 条明确标注「未核实」，只能人工核对；50 个高频平台的深度可执行指引；作者期 AI 生成个性化家人 FAQ，由持有者审校后冻结进工具包。约束与验收标准见<a href="https://github.com/badhope/digilegacy/blob/main/docs/ROADMAP.md">路线图</a>。另有机构对接、专利申请、社区共建政策库。</p></div>
     </div>
@@ -360,12 +360,12 @@ cd src-tauri &amp;&amp; cargo test</code></pre>
 
     <details open>
       <summary>真的免费吗？</summary>
-      <p>是。桌面应用采用 MIT 许可，永久免费，全部源码开放。可选的云端便利功能（加密备份、代配置服务）计划作为付费服务，本地应用始终免费。</p>
+      <p>是。桌面应用采用 MIT 许可，可免费使用。它不包含 DigiLegacy 托管账号或云服务；可选功能使用的外部端点或邮箱由用户自行配置并承担费用。</p>
     </details>
 
     <details>
       <summary>如果项目停止维护，我的数据怎么办？</summary>
-      <p>什么都不会坏——这正是本地优先、零知识设计的用意。没有服务器需要关停：你的数据是一个本地 SQLite 文件，导出物是开放格式，代码是公开的，任何人都可以 fork 继续维护。架构就是这么选的。</p>
+      <p>本地数据和导出物仍保存在你控制的设备上。没有 DigiLegacy 托管账号需要关闭；可选连接仍取决于你配置的端点或邮箱。代码与导出格式公开，可以独立继续使用或维护。</p>
     </details>
 
     <details>
@@ -380,7 +380,7 @@ cd src-tauri &amp;&amp; cargo test</code></pre>
 
     <details>
       <summary>应用关掉后提醒还会生效吗？</summary>
-      <p>托盘常驻（默认）时，应用每 30 分钟复评一次，并可设置开机自启。机器关机期间想继续提醒，可启用可选的零内容云端心跳——服务器只看得到一个令牌。</p>
+      <p>托盘常驻（默认）时，应用每 30 分钟复评一次，并可设置开机自启。应用关闭后如需令牌级检查，请自行配置零内容心跳；它只向你提供的端点发送令牌，不是托管监护服务。</p>
     </details>
 
     <details>
@@ -437,7 +437,7 @@ cd src-tauri &amp;&amp; cargo test</code></pre>
     </div>
   </div>
   <div class="wrap" style="margin-top:26px;padding-top:18px;border-top:1px solid rgba(255,255,255,.12);font-size:13px">
-    MIT 许可 · 无服务器 · 无遥测 · 你的数据永不离开你的设备。
+    MIT 许可 · 默认本地存储 · 无遥测 · 可选连接使用用户配置的端点。
   </div>
 </footer>
 

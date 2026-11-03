@@ -13,6 +13,10 @@ const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z
 const OUT = path.join(HERE, '.coverage');
 const enabled = process.env.E2E_COVERAGE === '1';
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export const test = base.extend({
   page: async ({ page }, use, testInfo) => {
     await use(page);
@@ -20,12 +24,17 @@ export const test = base.extend({
     if (!enabled) return;
     try {
       const coverage = await page.evaluate(() => (window as unknown as { __coverage__?: unknown }).__coverage__);
-      if (!coverage) return;
+      if (!coverage || typeof coverage !== 'object' || Array.isArray(coverage) || Object.keys(coverage).length === 0) {
+        throw new Error('window.__coverage__ 未提供有效覆盖率数据');
+      }
       await mkdir(OUT, { recursive: true });
       const name = `${testInfo.testId}-${testInfo.title.replace(/[^\w\u4e00-\u9fa5]+/g, '_').slice(0, 40)}.json`;
-      await writeFile(path.join(OUT, name), JSON.stringify(coverage));
-    } catch {
-      // 页面已关闭或未插桩：静默跳过，不影响测试结果
+      const serialized = JSON.stringify(coverage);
+      if (!serialized) throw new Error('覆盖率数据无法序列化');
+      await writeFile(path.join(OUT, name), serialized);
+    } catch (error) {
+      console.error(`[e2e-coverage] ${testInfo.title}: ${errorMessage(error)}`);
+      throw error;
     }
   },
 });

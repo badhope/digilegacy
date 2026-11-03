@@ -1,7 +1,7 @@
 [package]
 name = "digilegacy"
-version = "0.2.2"
-description = "归零 - 数字遗产管理系统"
+version = "0.3.0"
+description = "DigiLegacy - local-first digital legacy planning desktop app"
 authors = ["DigiLegacy Team"]
 edition = "2021"
 license = "MIT"
@@ -34,6 +34,26 @@ once_cell = "1.20"
 pbkdf2 = { version = "0.13", features = ["hmac"] }
 sha2 = "0.11"
 zeroize = "1.8"
+sharks = "0.5.0"
+argon2 = "0.6.0"
+lettre = { version = "0.11.23", features = ["smtp-transport", "rustls-tls", "builder"] }
+ureq = { version = "3.5.0", features = ["rustls", "json"] }
+tauri-plugin-single-instance = "2.5.5"
+data-encoding = "2.11.1"
+keepass = { version = "0.17.0", features = ["save_kdbx4"] }
+hkdf = "0.13.0"
+imap = { version = "2.4.1", features = ["native-tls"] }
+native-tls = "0.2.18"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+
+# 本机 Windows + rustc 1.99 编译 windows 0.62.2 时，默认 opt-level=3 会让 rustc
+# 自身以 STATUS_STACK_BUFFER_OVERRUN 崩溃（与业务代码无关）。opt-level=1 +
+# codegen-units=16 + debug=0 实测可稳定完成 release 构建；桌面 CRUD 应用性能足够。
+[profile.release]
+opt-level = 1
+codegen-units = 16
+debug = 0
+lto = false
+incremental = false

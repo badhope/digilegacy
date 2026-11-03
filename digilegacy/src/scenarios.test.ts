@@ -348,6 +348,7 @@ describe('真实 mock 后端 × 资产生命周期 矩阵（80 场景）', () =>
           category: cat,
           estimated_value: round * 100,
           disposal_method: disp,
+          heir_name: disp === 'inherit' ? `继承人-${round}` : undefined,
           notes: '',
         },
       })) as { success: boolean; data: number };

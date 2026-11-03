@@ -316,3 +316,36 @@ describe('空库状态（0 资产时不该显示 0%）', () => {
     expect(w.text()).not.toContain('尚未开始');
   });
 });
+
+describe('家人交付视角', () => {
+  it('空库时首屏说明从第一项资产开始，而不是显示完成度', async () => {
+    const w = await mountDash({ stats: { total_assets: 0 } });
+    expect(w.text()).toContain('从盘点第一项资产开始');
+    expect(w.text()).not.toContain('工具包已可交付');
+  });
+
+  it('有待办时说明还差几步，并保留可点击卡片', async () => {
+    const w = await mountDash({
+      stats: {
+        total_assets: 3,
+        issues: [{ key: 'missing_heir', severity: 'blocker', count: 2, target: '/assets' }],
+      },
+    });
+    expect(w.text()).toContain('还差 1 步就能交给家人');
+    expect(w.findAll('.issue-card').length).toBe(1);
+  });
+
+  it('无待办且已有资产时说明工具包可交付，并指向报告与向导', async () => {
+    const w = await mountDash({ stats: { total_assets: 2, issues: [], trigger_ready: true } });
+    expect(w.text()).toContain('工具包已可交付给家人');
+    const hrefs = w.findAll('a').map(a => a.attributes('href'));
+    expect(hrefs).toContain('/report');
+    expect(hrefs).toContain('/heir');
+  });
+
+  it('家人会看到什么卡片三项都在，触发链未就绪时如实显示还不能', async () => {
+    const w = await mountDash({ stats: { total_assets: 2, heir_assigned_count: 1, trigger_ready: false } });
+    expect(w.text()).toContain('家人会看到什么');
+    expect(w.text()).toContain('还不能');
+  });
+});

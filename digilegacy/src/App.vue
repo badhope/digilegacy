@@ -1,6 +1,4 @@
 <template>
-  <n-config-provider :theme="naiveTheme" :locale="naiveLocale" :theme-overrides="themeOverrides">
-  <n-global-style />
   <div class="app-container">
     <!-- 侧边栏 -->
     <aside class="sidebar">
@@ -27,17 +25,21 @@
       </div>
       
       <nav class="sidebar-nav">
-        <router-link 
-          v-for="route in navRoutes" 
-          :key="route.path"
-          :to="route.path"
-          class="nav-item"
-          :class="{ active: currentRoute === route.path }"
-          :data-tour="'nav-' + route.path.slice(1)"
-        >
-          <span class="nav-icon" aria-hidden="true"><component :is="route.icon" /></span>
-          <span>{{ t(route.titleKey) }}</span>
-        </router-link>
+        <!-- 按「家人交付旅程」分组：用户不需要先理解 9 个功能，只需要知道自己在哪一段 -->
+        <div v-for="group in navGroups" :key="group.id" class="nav-group">
+          <div class="nav-group-label">{{ t(group.labelKey) }}</div>
+          <router-link
+            v-for="route in group.routes"
+            :key="route.path"
+            :to="route.path"
+            class="nav-item"
+            :class="{ active: currentRoute === route.path }"
+            :data-tour="'nav-' + route.path.slice(1)"
+          >
+            <span class="nav-icon" aria-hidden="true"><component :is="route.icon" /></span>
+            <span>{{ t(route.titleKey) }}</span>
+          </router-link>
+        </div>
       </nav>
       
       <div class="sidebar-footer">
@@ -56,7 +58,20 @@
       <header class="main-header">
         <div class="header-title">{{ currentPageTitle }}</div>
         <div class="header-actions">
-          <button class="btn btn-sm btn-secondary" :aria-label="themeLabel" :title="themeLabel" @click="toggleTheme">
+          <!-- 命令面板入口：把 ⌘K 这条隐形快捷键变成可见入口，
+               否则只有读过文档的用户才知道它存在。 -->
+          <button
+            class="btn btn-sm btn-secondary cmdk-trigger"
+            data-testid="cmdk-open"
+            :aria-label="t('cmdk.openHint')"
+            :title="t('cmdk.openHint')"
+            @click="showPalette = true"
+          >
+            <component :is="SearchOutline" aria-hidden="true" />
+            <span class="cmdk-trigger-text">{{ t('cmdk.placeholder') }}</span>
+            <kbd class="cmdk-kbd cmdk-trigger-kbd">{{ isMac ? '⌘' : 'Ctrl' }}K</kbd>
+          </button>
+          <button class="btn btn-sm btn-secondary" data-testid="theme-switch" :aria-label="themeLabel" :title="themeLabel" @click="toggleTheme">
             <component :is="themeIcon" aria-hidden="true" />
           </button>
           <button class="btn btn-sm btn-secondary" data-testid="lang-switch" :title="locale === 'zh-CN' ? 'Switch to English' : '切换到中文'" @click="toggleLocale">
@@ -99,7 +114,8 @@
           <input class="form-input" type="password" v-model="unlockPassword" :aria-label="t('lock.passwordLabel')" :placeholder="t('lock.passwordPlaceholder')" style="margin-top: 16px;" @keyup.enter="handleUnlock" />
           <p v-if="unlockError" role="alert" style="color: var(--danger); font-size: 13px; margin-top: 8px;">{{ unlockError }}</p>
           <button class="btn btn-primary" style="margin-top: 16px; width: 100%;" :disabled="security.busy" @click="handleUnlock">{{ security.busy ? t('lock.verifying') : t('app.unlock') }}</button>
-          <button class="btn btn-secondary btn-sm" style="margin-top: 10px; width: 100%;" @click="recoveryMode = true">{{ t('lock.forgot') }}</button>
+          <button v-if="!demoMode" class="btn btn-secondary btn-sm" style="margin-top: 10px; width: 100%;" @click="recoveryMode = true">{{ t('lock.forgot') }}</button>
+          <button v-if="!demoMode" class="btn btn-secondary btn-sm" style="margin-top: 8px; width: 100%;" @click="shareMode = true; recoveryMode = false">{{ t('kit.lockEntry') }}</button>
           <p class="text-muted" style="font-size: 12px; margin-top: 12px;">{{ t('lock.hint') }}</p>
         </template>
         <template v-else>
@@ -135,6 +151,29 @@
                用户点一下就把唯一一份新码永久丢掉。只能用下方的显式确认按钮退出。 -->
           <button v-if="!recoveryNewCode" class="btn btn-secondary btn-sm" style="margin-top: 10px; width: 100%;" @click="backToUnlock">{{ t('recovery.backToUnlock') }}</button>
         </template>
+
+        <!-- 继承人恢复份额解锁：失能场景下家人走这条路径 -->
+        <template v-if="shareMode">
+          <div class="lock-hero-icon" aria-hidden="true"><component :is="KeyOutline" /></div>
+          <h2 id="lock-title" style="font-size: 18px; font-weight: 700; margin-top: 8px;">{{ t('kit.lockTitle') }}</h2>
+          <p class="text-muted" style="font-size: 13px; margin-top: 8px;">{{ t('kit.lockDesc') }}</p>
+          <textarea
+            v-for="(_, i) in shareInputs"
+            :key="i"
+            class="form-input"
+            rows="2"
+            v-model="shareInputs[i]"
+            :aria-label="t('kit.lockPlaceholder')"
+            :placeholder="t('kit.lockPlaceholder')"
+            style="margin-top: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 12px;"
+          ></textarea>
+          <button class="btn btn-secondary btn-sm" style="margin-top: 8px; width: 100%;" @click="shareInputs.push('')">{{ t('kit.addShare') }}</button>
+          <input class="form-input" type="password" v-model="sharePassphrase" :placeholder="t('kit.passphrase')" style="margin-top: 10px;" autocomplete="off" />
+          <p v-if="shareError" role="alert" style="color: var(--danger); font-size: 13px; margin-top: 8px;">{{ shareError }}</p>
+          <p v-if="shareMessage" role="status" style="color: var(--success); font-size: 13px; margin-top: 8px;">{{ shareMessage }}</p>
+          <button class="btn btn-primary" style="margin-top: 12px; width: 100%;" :disabled="shareBusy" @click="handleShareUnlock">{{ shareBusy ? t('kit.unlocking') : t('kit.unlockShare') }}</button>
+          <button class="btn btn-secondary btn-sm" style="margin-top: 10px; width: 100%;" @click="shareMode = false; shareError = ''">{{ t('recovery.backToUnlock') }}</button>
+        </template>
       </div>
     </div>
 
@@ -144,13 +183,12 @@
 
     <!-- 全局反馈层：Toast + 确认框（替代原生 alert/confirm） -->
     <FeedbackLayer />
+    <CommandPalette v-model:open="showPalette" />
   </div>
-  </n-config-provider>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { NConfigProvider, NGlobalStyle, darkTheme, zhCN, enUS } from 'naive-ui';
 import BookOutline from '@vicons/ionicons5/es/BookOutline';
 import CheckmarkOutline from '@vicons/ionicons5/es/CheckmarkOutline';
 import DiamondOutline from '@vicons/ionicons5/es/DiamondOutline';
@@ -171,7 +209,6 @@ import WarningOutline from '@vicons/ionicons5/es/WarningOutline';
 import type { Component } from 'vue';
 import { useRoute } from 'vue-router';
 import { invoke, isTauriEnv } from './api/invoke';
-import { themeOverrides } from './ui/naiveTheme';
 
 import { useDashboardStore } from './stores/dashboard';
 import { useSecurityStore } from './stores/security';
@@ -181,6 +218,7 @@ import { initTheme, toggleTheme, useTheme } from './composables/theme';
 import { useI18n } from './i18n';
 import OnboardingTour from './components/OnboardingTour.vue';
 import HelpDrawer from './components/HelpDrawer.vue';
+import CommandPalette from './components/CommandPalette.vue';
 import FeedbackLayer from './components/FeedbackLayer.vue';
 import type { ApiResponse, SecurityStatus } from './types';
 
@@ -188,6 +226,13 @@ interface NavRoute {
   path: string;
   titleKey: string;
   icon: Component;
+}
+
+interface NavGroup {
+  id: string;
+  labelKey: string;
+  /** 一句话说明这一段在做什么；侧栏空间有限，只在 tooltip 里给出 */
+  routes: NavRoute[];
 }
 
 const route = useRoute();
@@ -204,6 +249,10 @@ const unlockPassword = ref('');
 const unlockError = ref('');
 const showTour = ref(false);
 const showHelp = ref(false);
+const showPalette = ref(false);
+
+/** 快捷键提示用哪个修饰键：macOS 显示 ⌘，其余显示 Ctrl。 */
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
 const { resolved: themeResolved } = useTheme();
 const themeIcon = computed(() => (themeResolved.value === 'dark' ? SunnyOutline : MoonOutline));
 const themeLabel = computed(() => (themeResolved.value === 'dark' ? t('app.themeToLight') : t('app.themeToDark')));
@@ -315,6 +364,49 @@ const recoveryBusy = ref(false);
 const recoveryNewCode = ref('');
 const recoveryNewCodeAck = ref(false);
 
+// ── 继承人恢复份额解锁 ──
+const shareMode = ref(false);
+const shareInputs = ref<string[]>(['']);
+const sharePassphrase = ref('');
+const shareError = ref('');
+const shareMessage = ref('');
+const shareBusy = ref(false);
+
+async function handleShareUnlock() {
+  shareError.value = '';
+  shareMessage.value = '';
+  const shares = shareInputs.value.map(s => s.trim()).filter(Boolean);
+  if (shares.length === 0) {
+    shareError.value = t('kit.shareRequired');
+    return;
+  }
+  shareBusy.value = true;
+  try {
+    const res = await invoke<ApiResponse<{ has_master_password: boolean; unlocked: boolean }>>(
+      'unlock_with_recovery_shares',
+      { shares, passphrase: sharePassphrase.value.trim() ? sharePassphrase.value : null },
+    );
+    if (res.success) {
+      shareMessage.value = t('kit.unlocked');
+      shareInputs.value = [''];
+      sharePassphrase.value = '';
+      shareMode.value = false;
+      await security.refresh();
+      // 份额解出的是旧密钥；数据已可读，但必须让用户立刻设新密码
+      recoveryMode.value = true;
+      recoveryUnlocked.value = true;
+      recoveryMessage.value = t('kit.unlocked');
+      recoveryOk.value = true;
+    } else {
+      shareError.value = res.message;
+    }
+  } catch (e) {
+    shareError.value = String(e);
+  } finally {
+    shareBusy.value = false;
+  }
+}
+
 /** 用户确认已抄写新恢复密钥后才关闭恢复流程。 */
 function finishRecovery() {
   if (!recoveryNewCodeAck.value) return;
@@ -403,23 +495,60 @@ function backToUnlock() {
   recoveryMessage.value = '';
 }
 
-const navRoutes: NavRoute[] = [
-  { path: '/dashboard', titleKey: 'nav.dashboard', icon: GridOutline },
-  { path: '/discover', titleKey: 'nav.discover', icon: SearchOutline },
-  { path: '/assets', titleKey: 'nav.assets', icon: DiamondOutline },
-  { path: '/profile', titleKey: 'nav.profile', icon: PersonOutline },
-  { path: '/dms', titleKey: 'nav.dms', icon: TimeOutline },
-  { path: '/report', titleKey: 'nav.report', icon: DocumentTextOutline },
-  { path: '/heir', titleKey: 'nav.heir', icon: PeopleOutline },
-  { path: '/review', titleKey: 'nav.review', icon: CheckmarkOutline },
-  { path: '/legal', titleKey: 'nav.legal', icon: BookOutline },
+/**
+ * 导航按「你现在要完成什么」分组，而不是按功能模块平铺。
+ * 定位是「给家人留下能照着做的工具包」：持有者先盘点、再规划、再交付、最后维护。
+ * 旧路由全部保留（深链与测试不受影响），只是不再平铺成 9 项。
+ */
+const navGroups: NavGroup[] = [
+  {
+    id: 'start',
+    labelKey: 'nav.groupStart',
+    routes: [{ path: '/dashboard', titleKey: 'nav.dashboard', icon: GridOutline }],
+  },
+  {
+    id: 'inventory',
+    labelKey: 'nav.groupInventory',
+    routes: [
+      { path: '/discover', titleKey: 'nav.discover', icon: SearchOutline },
+      { path: '/assets', titleKey: 'nav.assets', icon: DiamondOutline },
+    ],
+  },
+  {
+    id: 'plan',
+    labelKey: 'nav.groupPlan',
+    routes: [
+      { path: '/profile', titleKey: 'nav.profile', icon: PersonOutline },
+      { path: '/dms', titleKey: 'nav.dms', icon: TimeOutline },
+      { path: '/legal', titleKey: 'nav.legal', icon: BookOutline },
+    ],
+  },
+  {
+    id: 'deliver',
+    labelKey: 'nav.groupDeliver',
+    // 家人真正会打开的两页：报告（拿到清单）与继承人向导（照着办）。
+    routes: [
+      { path: '/report', titleKey: 'nav.report', icon: DocumentTextOutline },
+      { path: '/heir', titleKey: 'nav.heir', icon: PeopleOutline },
+    ],
+  },
+  {
+    id: 'check',
+    labelKey: 'nav.groupCheck',
+    routes: [{ path: '/review', titleKey: 'nav.review', icon: CheckmarkOutline }],
+  },
 ];
+
+const navRoutes: NavRoute[] = navGroups.flatMap(g => g.routes);
 
 const currentRoute = computed(() => route.path);
 const currentPageTitle = computed(() => {
-  return navRoutes.find(r => r.path === route.path)?.titleKey
-    ? t(navRoutes.find(r => r.path === route.path)!.titleKey)
-    : ((route.meta?.titleKey as string) ? t(route.meta.titleKey as string) : t('common.appName'));
+  // 优先用 route.meta：路由解析完成后它一定存在；用 path 反查 navRoutes 在
+  // 首帧/高并发下会拿到尚未重定向的 `/`，标题闪烁成 appName（E2E 已抓到）。
+  const metaKey = route.meta?.titleKey as string | undefined;
+  if (metaKey) return t(metaKey);
+  const navKey = navRoutes.find(r => r.path === route.path)?.titleKey;
+  return navKey ? t(navKey) : t('common.appName');
 });
 
 const checkBtnText = computed(() => {
@@ -483,8 +612,6 @@ async function bindTrayEvents(): Promise<() => void> {
   }
 }
 
-const naiveTheme = computed(() => (themeResolved.value === 'dark' ? darkTheme : null));
-const naiveLocale = computed(() => (locale.value === 'zh-CN' ? zhCN : enUS));
 
 initTheme();
 

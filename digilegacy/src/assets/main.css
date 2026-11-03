@@ -79,6 +79,10 @@
 html, body {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  /* 家人里包含中老年读者：正文 15px / 1.7 行高是「能读」的下限，
+     而不是后台系统常见的 13px / 1.4。标题仍按层级递减。 */
+  font-size: 15px;
+  line-height: 1.7;
   background: var(--gray-50);
   color: var(--gray-800);
   -webkit-font-smoothing: antialiased;
@@ -120,8 +124,21 @@ html, body {
 
 .sidebar-nav {
   flex: 1;
-  padding: 12px 0;
+  padding: 8px 0 16px;
   overflow-y: auto;
+}
+
+/* 分组导航：每组一个不抢眼的标签，避免 9 个平级项看起来像后台管理菜单 */
+.nav-group { margin-bottom: 4px; }
+
+.nav-group-label {
+  padding: 12px 24px 6px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--sidebar-muted);
+  font-weight: 600;
+  user-select: none;
 }
 
 .nav-item {
@@ -237,13 +254,15 @@ html, body {
 }
 
 .card-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--gray-900);
+  line-height: 1.45;
 }
 
 .card-subtitle {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 1.65;
   color: var(--gray-600);
   margin-top: 4px;
 }
@@ -1232,6 +1251,11 @@ body {
 /* 分类卡图标容器 */
 .category-icon svg { width: 34px; height: 34px; }
 .platform-icon svg { width: 26px; height: 26px; }
+/* 内联图标默认尺寸：@vicons 的 SVG 只有 viewBox、没有 width/height，
+   在普通流式容器里会按 SVG 默认 300x150 撑满父容器（法律模板页的警告图标
+   曾因此占满整屏）。这里给一个全局兜底，再用具体容器的规则覆盖。 */
+.inline-icon svg,
+p > svg { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; }
 /* 通用按钮/头部图标尺寸 */
 .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
 .sidebar-security svg { width: 14px; height: 14px; vertical-align: -2px; }

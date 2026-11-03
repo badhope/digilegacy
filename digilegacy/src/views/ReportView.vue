@@ -88,7 +88,7 @@
           <strong>{{ idx + 1 }}. {{ asset.platform_name }}</strong>
           <p style="font-size: 13px; color: var(--gray-600); margin-top: 4px;">
             {{ t('report.disposalMethod', { method: disposalLabel(asset.disposal_method) }) }} |
-            <span v-if="asset.heir_name">{{ t('report.heirInfo', { name: asset.heir_name, contact: asset.heir_contact }) }}</span>
+            <span v-if="asset.heir_name">{{ heirInfoText(asset) }}</span>
           </p>
         </div>
       </div>
@@ -196,6 +196,32 @@
       <button class="btn btn-secondary btn-lg ml-12" @click="handlePrint"><PrintOutline /> {{ t('report.print') }}</button>
     </div>
 
+    <!-- 内置 Agent：多轮本地工具检索，步骤可见，最终仍是草稿/建议。 -->
+    <div class="card mt-24" v-if="assistantAvailable" data-testid="agent-card">
+      <div class="card-title mb-8">{{ t('agent.title') }}</div>
+      <p class="text-muted" style="font-size: 13px;">{{ t('agent.desc') }}</p>
+      <div class="form-group" style="margin-top: 12px;">
+        <label class="form-label" for="agent-task">{{ t('agent.taskLabel') }}</label>
+        <textarea class="form-textarea" id="agent-task" v-model="agentTask" :placeholder="t('agent.taskPlaceholder')"></textarea>
+      </div>
+      <button class="btn btn-primary btn-sm" :disabled="agentBusy || !agentTask.trim()" data-testid="agent-run" @click="runAgent">
+        {{ agentBusy ? t('agent.running') : t('agent.run') }}
+      </button>
+      <div v-if="agentSteps.length > 0" class="agent-timeline" style="margin-top: 12px;">
+        <div v-for="(step, i) in agentSteps" :key="i" class="agent-step" style="padding: 8px; margin-top: 6px; background: var(--gray-50); border-radius: 6px; font-size: 12px;">
+          <strong>{{ step.kind === 'tool_start' ? t('agent.toolStarting') : step.kind === 'tool_end' ? t('agent.toolFinished') : step.kind === 'started' ? t('agent.started') : t('agent.finished') }}</strong>
+          <span v-if="step.tool"> · {{ step.tool }}</span>
+          <span v-if="step.result" class="form-hint" style="display: block; margin-top: 3px; white-space: pre-wrap;">{{ step.result }}</span>
+        </div>
+      </div>
+      <div v-if="agentAnswer" style="margin-top: 12px; padding: 12px; background: var(--primary-light); border-radius: 8px;">
+        <strong style="font-size: 13px;">{{ t('agent.resultTitle') }}</strong>
+        <pre style="white-space: pre-wrap; font-size: 13px; margin-top: 6px; font-family: inherit;">{{ agentAnswer }}</pre>
+        <p class="form-hint">{{ t('agent.draftNotice') }}</p>
+      </div>
+      <p v-if="agentError" role="alert" style="font-size: 13px; color: var(--danger-strong); margin-top: 8px;">{{ agentError }}</p>
+    </div>
+
     <!-- AI 助手（可选）：默认关闭，不内置任何端点。提问前必须先看「将发送什么」。 -->
     <div class="card mt-24" v-if="assistantAvailable">
       <div class="card-title mb-8">{{ t('ai.askTitle') }}</div>
@@ -220,7 +246,21 @@
         <pre style="white-space: pre-wrap; font-size: 13px; margin-top: 6px; font-family: inherit;">{{ aiAnswer }}</pre>
         <p class="form-hint">{{ t('ai.unreviewed') }}</p>
       </div>
+
       <p v-if="aiError" role="alert" style="font-size: 13px; color: var(--danger-strong); margin-top: 8px;">{{ aiError }}</p>
+    </div>
+
+    <!-- 本地问答历史：与助手开关无关——历史是本地留痕，助手未启用也能回看与清除 -->
+    <div class="card mt-24" v-if="chatHistory.length > 0">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="card-title mb-8">{{ t('ai.historyTitle') }}</div>
+        <button class="btn btn-secondary btn-sm" data-testid="ai-history-clear" @click="clearChatHistory">{{ t('ai.historyClear') }}</button>
+      </div>
+      <div v-for="h in chatHistory" :key="h.id" style="margin-top: 10px; padding: 10px; background: var(--gray-50); border-radius: 8px;">
+        <div style="font-size: 13px; font-weight: 500;">Q: {{ h.question }}</div>
+        <pre style="white-space: pre-wrap; font-size: 12px; margin: 6px 0 0; font-family: inherit; color: var(--gray-600);">A: {{ h.answer }}</pre>
+        <div style="font-size: 11px; color: var(--gray-400); margin-top: 4px;">{{ h.model }} · {{ h.created_at }}</div>
+      </div>
     </div>
 
     <!-- 家人演练：只用元数据检查「家人拿到后会卡在哪」，不读取任何凭据 -->
@@ -253,7 +293,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { invoke } from '../api/invoke';
+import { Channel } from '@tauri-apps/api/core';
+import { invoke, isTauriEnv } from '../api/invoke';
 
 import { useI18n } from '../i18n';
 import { formatMoney, categoryLabel, disposalLabel } from '../utils/format';
@@ -261,7 +302,7 @@ import ArchiveOutline from '@vicons/ionicons5/es/ArchiveOutline';
 import DownloadOutline from '@vicons/ionicons5/es/DownloadOutline';
 import PrintOutline from '@vicons/ionicons5/es/PrintOutline';
 import ListOutline from '@vicons/ionicons5/es/ListOutline';
-import { toast } from '../composables/feedback';
+import { toast, confirmDialog } from '../composables/feedback';
 import type {
   ApiResponse, AssistantConfig, Authority, DigitalAsset, DrillReport, OutboundPreview,
   PlatformPolicyBrief,
@@ -292,9 +333,24 @@ const report = ref<InheritanceReportData | null>(null);
 const exportPath = ref('');
 const exportError = ref('');
 const assistantAvailable = ref(false);
+interface ChatHistoryEntry {
+  id: number;
+  question: string;
+  answer: string;
+  model: string;
+  created_at: string;
+}
+
 const aiQuestion = ref('');
 const aiPreview = ref<OutboundPreview | null>(null);
 const aiAnswer = ref('');
+const chatHistory = ref<ChatHistoryEntry[]>([]);
+interface AgentStepView { kind: string; round: number; tool?: string; args?: string; result?: string }
+const agentTask = ref('');
+const agentSteps = ref<AgentStepView[]>([]);
+const agentAnswer = ref('');
+const agentError = ref('');
+const agentBusy = ref(false);
 const aiError = ref('');
 const aiBusy = ref(false);
 
@@ -305,6 +361,17 @@ const loadError = ref('');
 const loading = ref(true);
 /** 浏览器预览模式没有 `reveal_exported_file`，按钮不该出现。 */
 const canReveal = computed(() => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
+
+/** 继承人一行文案：联系方式可能为空（只填了姓名），此时不能渲染成 "(null)"。
+ *  历史上 `report.heirInfo` 直接把 null 插值进模板，英文界面会出现
+ *  「Heir: 演示继承人 (null)」这种半成品。 */
+function heirInfoText(asset: { heir_name?: string | null; heir_contact?: string | null }): string {
+  const name = (asset.heir_name || '').trim();
+  const contact = (asset.heir_contact || '').trim();
+  return contact
+    ? t('report.heirInfo', { name, contact })
+    : t('report.heirInfoNoContact', { name });
+}
 
 const inheritableAssets = computed(() =>
   (report.value?.assets || []).filter(a => a.disposal_method !== 'no_action')
@@ -398,17 +465,101 @@ async function askAi() {
   if (!aiPreview.value) return;
   aiBusy.value = true;
   aiError.value = '';
+  aiAnswer.value = '';
   try {
-    const res = await invoke<ApiResponse<string>>('ask_assistant', {
-      question: aiQuestion.value,
-      locale: locale.value,
-    });
-    if (res.success && res.data) aiAnswer.value = res.data;
-    else aiError.value = res.message;
+    // 流式优先：回答逐字推送（模型支持 stream 时前端立即可读）。
+    // 非 Tauri 环境（演示站/单测 jsdom）没有 Channel，直接走非流式；
+    // Tauri 环境里老后端不认识该命令时同样回退。
+    let streamedError = '';
+    if (isTauriEnv()) {
+      try {
+        const channel = new Channel<string>();
+        channel.onmessage = (delta: string) => {
+          aiAnswer.value += delta;
+        };
+        const res = await invoke<ApiResponse<string>>('ask_assistant_streaming', {
+          question: aiQuestion.value,
+          locale: locale.value,
+          onDelta: channel,
+        });
+        if (res.success && res.data) {
+          aiAnswer.value = res.data;
+        } else {
+          streamedError = res.message;
+        }
+      } catch {
+        // 老后端没有流式命令 → 回退
+      }
+    }
+    if (!aiAnswer.value) {
+      const res = await invoke<ApiResponse<string>>('ask_assistant', {
+        question: aiQuestion.value,
+        locale: locale.value,
+      });
+      if (res.success && res.data) aiAnswer.value = res.data;
+      else if (!streamedError) streamedError = res.message;
+      else streamedError = streamedError || res.message;
+    }
+    if (!aiAnswer.value && streamedError) aiError.value = streamedError;
+    await loadChatHistory();
   } catch (e) {
     aiError.value = String(e);
   } finally {
     aiBusy.value = false;
+  }
+}
+
+async function runAgent() {
+  agentBusy.value = true;
+  agentError.value = '';
+  agentAnswer.value = '';
+  agentSteps.value = [];
+  try {
+    if (isTauriEnv()) {
+      const channel = new Channel<AgentStepView>();
+      channel.onmessage = (event: AgentStepView) => agentSteps.value.push(event);
+      const res = await invoke<ApiResponse<{ steps: AgentStepView[]; final_text: string; truncated: boolean }>>(
+        'run_agent_task_streaming',
+        { task: agentTask.value.trim(), onEvent: channel },
+      );
+      if (res.success && res.data) {
+        agentSteps.value = res.data.steps ?? agentSteps.value;
+        agentAnswer.value = res.data.final_text;
+      } else {
+        agentError.value = res.message;
+      }
+    } else {
+      agentError.value = t('agent.desktopOnly');
+    }
+  } catch (e) {
+    agentError.value = String(e);
+  } finally {
+    agentBusy.value = false;
+  }
+}
+
+/** 本地问答历史（来自 ai_chat_log）。 */
+async function loadChatHistory() {
+  try {
+    const res = await invoke<ApiResponse<ChatHistoryEntry[]>>('list_ai_chat', { limit: 20 });
+    if (res.success && res.data) chatHistory.value = res.data;
+  } catch {
+    chatHistory.value = [];
+  }
+}
+
+async function clearChatHistory() {
+  const ok = await confirmDialog({
+    title: t('ai.historyClearTitle'),
+    message: t('ai.historyClearMessage'),
+    danger: true,
+  });
+  if (!ok) return;
+  try {
+    await invoke<ApiResponse<null>>('clear_ai_chat');
+    chatHistory.value = [];
+  } catch (e) {
+    aiError.value = String(e);
   }
 }
 
@@ -561,7 +712,7 @@ function handlePrint() { window.print(); }
 onMounted(async () => {
   // 报告页不再依赖前端平台库：政策文案由后端 `report.policies` 提供，
   // 预览与导出读同一份，避免两处各拼一条政策而漂移。
-  await Promise.all([loadReport(), loadAssistantState()]);
+  await Promise.all([loadReport(), loadAssistantState(), loadChatHistory()]);
 });
 </script>
 

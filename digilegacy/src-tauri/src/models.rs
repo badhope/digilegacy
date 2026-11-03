@@ -124,7 +124,7 @@ pub struct PlatformExtended {
 }
 
 /// 数字资产
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DigitalAsset {
     pub id: Option<i64>,
     pub platform_id: i64,
@@ -279,7 +279,7 @@ pub struct PlatformPolicyBrief {
 }
 
 /// 继承报告
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Default)]
 pub struct InheritanceReport {
     pub user: UserProfile,
     pub assets: Vec<DigitalAsset>,

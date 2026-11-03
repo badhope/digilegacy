@@ -568,3 +568,30 @@ describe('解锁与恢复边界', () => {
     expect(w.find('input[aria-label="主密码"]').exists(), '关闭后回到主密码解锁表单').toBe(true);
   });
 });
+
+describe('导航分组（按家人交付旅程，不按功能平铺）', () => {
+  it('分组标签与顺序符合持有者→家人的动线', async () => {
+    const w = await mountApp();
+    const labels = w.findAll('.nav-group-label').map(n => n.text());
+    expect(labels).toEqual(['开始', '盘点资产', '安排身后事', '交给家人', '发出前核对']);
+  });
+
+  it('继承人向导归入「交给家人」，法律模板归入「安排身后事」', async () => {
+    const w = await mountApp();
+    const groups = w.findAll('.nav-group');
+    const textOf = (i: number) => groups[i].text();
+    expect(textOf(2), '安排身后事应含法律模板，不含继承人向导')
+      .toContain('法律模板');
+    expect(textOf(2)).not.toContain('继承人向导');
+    expect(textOf(3), '交给家人应含继承人向导')
+      .toContain('继承人向导');
+  });
+
+  it('九个旧路由仍全部可达（深链/测试不被破坏）', async () => {
+    const w = await mountApp();
+    const hrefs = w.findAll('.nav-item').map(a => a.attributes('href'));
+    for (const p of ['/dashboard', '/discover', '/assets', '/profile', '/dms', '/report', '/heir', '/review', '/legal']) {
+      expect(hrefs.some(h => h?.endsWith(p)), `缺少路由 ${p}`).toBe(true);
+    }
+  });
+});

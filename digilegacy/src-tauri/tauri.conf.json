@@ -1,6 +1,6 @@
 {
   "productName": "DigiLegacy",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "identifier": "com.digilegacy.app",
   "build": {
     "beforeDevCommand": "npm run dev",

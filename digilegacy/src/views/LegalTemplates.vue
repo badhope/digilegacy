@@ -5,7 +5,7 @@
       {{ t('legal.subtitle') }}
     </p>
     <div v-if="isEn" class="card mb-24" style="background: var(--warning-light); border-color: var(--warning);">
-      <p style="font-size: 13px; color: var(--warning-strong);"><WarningOutline /> {{ t('legal.enNotice') }}</p>
+      <p class="legal-notice" style="font-size: 13px; color: var(--warning-strong);"><WarningOutline /> {{ t('legal.enNotice') }}</p>
     </div>
 
     <!-- 分类筛选 -->
@@ -167,6 +167,19 @@ function downloadTemplate(tmpl: LegalTemplate) {
 </script>
 
 <style scoped>
+.legal-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.6;
+}
+.legal-notice svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;

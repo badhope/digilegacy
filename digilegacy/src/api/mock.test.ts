@@ -56,7 +56,7 @@ describe('资产增改', () => {
     }
     // 合法值仍应成功（防止校验过严）
     const good = await mockInvoke<{ success: boolean }>('add_asset', {
-      req: { platform_id: 1, category: 'property', disposal_method: 'inherit', estimated_value: 0 },
+      req: { platform_id: 1, category: 'property', disposal_method: 'inherit', heir_name: '继承人', estimated_value: 0 },
     });
     expect(good.success).toBe(true);
   });
@@ -91,9 +91,10 @@ describe('主密码生命周期', () => {
   });
 
   it('重复设置拒绝；解锁成败分支；锁定清除解锁态', async () => {
-    await mockInvoke('set_master_password', { password: 'master-pass-1' });
+    const enabled = await mockInvoke<{ success: boolean; message: string }>('set_master_password', { password: 'master-pass-1' });
+    expect(enabled.message).toContain('演示模式未加密/仅用于展示');
 
-    const dup = await mockInvoke<{ success: boolean }>('set_master_password', { password: 'master-pass-2' });
+    const dup = await mockInvoke<{ success: boolean; message: string }>('set_master_password', { password: 'master-pass-2' });
     expect(dup.success).toBe(false);
 
     const wrong = await mockInvoke<{ success: boolean; message: string }>('unlock', { password: 'nope' });
@@ -110,6 +111,62 @@ describe('主密码生命周期', () => {
   });
 });
 
+describe('演示模式安全与档案契约', () => {
+  it('set_user_profile 按 profile 参数保存并可完整读回', async () => {
+    const current = await mockInvoke<{ data: Record<string, unknown> }>('get_user_profile');
+    const profile = { ...current.data, full_name: '回读测试用户' };
+
+    const saved = await mockInvoke<{ success: boolean }>('set_user_profile', { profile });
+    expect(saved.success).toBe(true);
+
+    const loaded = await mockInvoke<{ data: Record<string, unknown> }>('get_user_profile');
+    expect(loaded.data.full_name).toBe('回读测试用户');
+    expect(loaded.data.profile).toBeUndefined();
+  });
+
+  it('演示模式拒绝恢复密钥验证且不创建恢复解锁态', async () => {
+    await mockInvoke('set_master_password', { password: 'master-pass-1' });
+
+    const started = await mockInvoke<{ success: boolean; message: string }>('start_recovery', {
+      recoveryCode: '任意恢复码',
+    });
+    expect(started.success).toBe(false);
+    expect(started.message).toContain('在线演示不提供');
+    expect(sessionStorage.getItem('digilegacy-web-preview-recovery')).toBeNull();
+
+    const completed = await mockInvoke<{ success: boolean; message: string }>('complete_recovery', {
+      newPassword: 'new-master-pass',
+      confirmPassword: 'new-master-pass',
+    });
+    expect(completed.success).toBe(false);
+    expect(completed.message).toContain('在线演示不提供');
+  });
+
+  it('演示模式的更新、处置和触发间隔拒绝桌面端同样的非法边界', async () => {
+    const added = await mockInvoke<{ data: number }>('add_asset', {
+      req: { platform_id: 1, category: 'property', disposal_method: 'no_action' },
+    });
+    const invalidUpdate = await mockInvoke<{ success: boolean }>('update_asset', {
+      id: added.data,
+      req: { platform_id: 1, category: 'invalid', disposal_method: 'no_action' },
+    });
+    expect(invalidUpdate.success).toBe(false);
+
+    const invalidDisposal = await mockInvoke<{ success: boolean }>('set_disposal_wish', {
+      asset_id: added.data,
+      disposal_method: 'inherit',
+      heir_name: '',
+    });
+    expect(invalidDisposal.success).toBe(false);
+
+    const invalidInterval = await mockInvoke<{ success: boolean }>('set_dead_mans_switch', {
+      enabled: true,
+      intervalDays: 0,
+    });
+    expect(invalidInterval.success).toBe(false);
+  });
+});
+
 describe('凭据门禁', () => {
   it('已设主密码但锁定时拒绝保存凭据', async () => {
     await mockInvoke('set_master_password', { password: 'master-pass-1' });
@@ -123,7 +180,8 @@ describe('凭据门禁', () => {
     const added = await mockInvoke<{ data: number }>('add_asset', { req: { platform_id: 1, category: 'property' } });
     const id = added.data;
 
-    await mockInvoke('set_asset_credential', { id, credential: 'abc' });
+    const saved = await mockInvoke<{ success: boolean; message: string }>('set_asset_credential', { id, credential: 'abc' });
+    expect(saved.message).toContain('演示模式未加密/仅用于展示');
     let detail = await mockInvoke<{ data: { has_credential: boolean } }>('get_asset_by_id', { id });
     expect(detail.data.has_credential).toBe(true);
 

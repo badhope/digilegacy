@@ -19,9 +19,12 @@ static CONN: Lazy<Mutex<Option<Connection>>> = Lazy::new(|| Mutex::new(None));
 /// 只能靠 PRAGMA table_info 逐列猜；版本号是后续升级的安全阀。
 /// v3：新增 `smtp_config` 与 `custody_config`。
 /// v4：新增 `heirs` 与 `assistant_config`。
+/// v5：新增 `heir_recovery`（Shamir 继承人恢复包元数据）。
+/// v6：新增 `imap_config` / `imap_seen`（入站签到）。
+/// v7：新增 `ai_chat_log`（AI 助手会话历史）。
 /// 这些表都用 `CREATE TABLE IF NOT EXISTS` 建，存量库无需逐列迁移；
 /// 版本号仍然递增，让未来任何破坏性迁移能按数字分支而不是靠猜。
-const SCHEMA_VERSION: i64 = 4;
+const SCHEMA_VERSION: i64 = 7;
 
 /// 初始化数据库
 pub fn init_database(app_handle: &AppHandle) -> Result<(), String> {
@@ -50,6 +53,21 @@ pub(crate) fn init_database_at(db_path: PathBuf) -> Result<(), String> {
         .map_err(|e| format!("设置 busy_timeout 失败: {}", e))?;
     conn.pragma_update(None, "foreign_keys", "ON")
         .map_err(|e| format!("启用外键约束失败: {}", e))?;
+    // WAL 下 synchronous=NORMAL 已能保证崩溃一致性（只可能丢最后一个事务），
+    // 换来数倍写入吞吐；每日快照 + 事务日志覆盖了极端断电场景。
+    conn.pragma_update(None, "synchronous", "NORMAL")
+        .map_err(|e| format!("设置 synchronous 失败: {}", e))?;
+    // 页缓存 64MB：资产/政策查询以内存命中为主，默认 2MB 在 152 平台同步时会反复读盘
+    conn.pragma_update(None, "cache_size", "-65536")
+        .map_err(|e| format!("设置 cache_size 失败: {}", e))?;
+    // 临时表放内存，排序（资产按价值/时间）不再落盘
+    conn.pragma_update(None, "temp_store", "MEMORY")
+        .map_err(|e| format!("设置 temp_store 失败: {}", e))?;
+    // 256MB 内存映射：读取路径绕过 read() 系统调用
+    conn.pragma_update(None, "mmap_size", "268435456").ok();
+    // 启动自检：损坏的库必须在启动时暴露，而不是等用户点保存时才报错
+    conn.query_row("PRAGMA quick_check", [], |r| r.get::<_, String>(0))
+        .map_err(|e| format!("数据库自检失败: {}", e))?;
 
     create_tables(&conn).map_err(|e| format!("创建表失败: {}", e))?;
     migrate_schema(&conn).map_err(|e| format!("数据库迁移失败: {}", e))?;
@@ -115,7 +133,10 @@ fn create_tables(conn: &Connection) -> rusqlite::Result<()> {
             kdf_salt TEXT NOT NULL,
             verifier TEXT NOT NULL,
             recovery_seal TEXT DEFAULT '',
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            -- 两层密钥：随机 DEK 被密码派生 KEK 包裹后存这里。
+            -- 空串 = legacy 旧库（密码派生密钥即数据密钥），下次改密时自动迁移。
+            wrapped_dek TEXT DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS user_profile (
@@ -219,6 +240,49 @@ fn create_tables(conn: &Connection) -> rusqlite::Result<()> {
             updated_at TEXT NOT NULL
         );
 
+        -- 继承人恢复包元数据（Shamir 份额本身绝不落库，只存门限/份数/指纹/盐）。
+        -- 主密码轮换时必须清空：旧份额解不开新数据密钥。
+        -- AI 助手会话历史：本地留痕，用户可见可清除。
+        -- 问题原文由用户输入（不含凭据——出境白名单在 ai_assist 保证），
+        -- 回答是模型输出，两者都只是文本；不存任何敏感数据快照。
+        CREATE TABLE IF NOT EXISTS ai_chat_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            model TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_ai_chat_created ON ai_chat_log(created_at DESC);
+
+        -- IMAP 入站签到：回一封邮件 = 我还安好。密码走 vault 加密，不明文落库。
+        CREATE TABLE IF NOT EXISTS imap_config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            enabled INTEGER DEFAULT 0,
+            host TEXT DEFAULT '',
+            port INTEGER DEFAULT 993,
+            username TEXT DEFAULT '',
+            password_enc TEXT DEFAULT '',
+            allowed_senders TEXT DEFAULT '',
+            lookback_days INTEGER DEFAULT 14,
+            updated_at TEXT
+        );
+        -- 去重记录：同一条邮件只结算一次
+        CREATE TABLE IF NOT EXISTS imap_seen (
+            uid INTEGER PRIMARY KEY,
+            sender TEXT DEFAULT '',
+            seen_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS heir_recovery (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            threshold INTEGER NOT NULL,
+            total INTEGER NOT NULL,
+            fingerprint TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            passphrase_protected INTEGER DEFAULT 0,
+            kdf_salt TEXT DEFAULT ''
+        );
+
         CREATE TABLE IF NOT EXISTS smtp_config (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             host TEXT DEFAULT '',
@@ -253,6 +317,12 @@ fn create_tables(conn: &Connection) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_assets_category ON digital_assets(category);
         CREATE INDEX IF NOT EXISTS idx_assets_platform ON digital_assets(platform_id);
         CREATE INDEX IF NOT EXISTS idx_assets_disposal ON digital_assets(disposal_method);
+        -- 资产列表默认按 created_at DESC 排序，无索引时全表扫描 + 临时 B 树排序
+        CREATE INDEX IF NOT EXISTS idx_assets_created ON digital_assets(created_at DESC);
+        -- 仪表板按「未解密占位符」筛账号标识，前缀匹配可用索引
+        CREATE INDEX IF NOT EXISTS idx_assets_identifier ON digital_assets(account_identifier);
+        CREATE INDEX IF NOT EXISTS idx_checkin_checked_at ON check_in_log(checked_at);
+        CREATE INDEX IF NOT EXISTS idx_heirs_order ON heirs(sort_order, id);
     ",
     )
 }
@@ -277,6 +347,15 @@ fn migrate_schema(conn: &Connection) -> rusqlite::Result<()> {
 
     if !has_recovery {
         conn.execute_batch("ALTER TABLE security_config ADD COLUMN recovery_seal TEXT DEFAULT ''")?;
+    }
+
+    let has_wrapped_dek = conn
+        .prepare("PRAGMA table_info(security_config)")?
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .any(|name| name == "wrapped_dek");
+    if !has_wrapped_dek {
+        conn.execute_batch("ALTER TABLE security_config ADD COLUMN wrapped_dek TEXT DEFAULT ''")?;
     }
 
     let profile_columns: Vec<String> = conn
@@ -375,7 +454,7 @@ fn row_to_platform(row: &rusqlite::Row) -> rusqlite::Result<Platform> {
 }
 
 /// 辅助函数：解析 rusqlite 行到 DigitalAsset（敏感字段自动解密）
-fn row_to_asset(row: &rusqlite::Row) -> rusqlite::Result<DigitalAsset> {
+pub(crate) fn row_to_asset(row: &rusqlite::Row) -> rusqlite::Result<DigitalAsset> {
     let dec = |idx: usize| -> rusqlite::Result<String> {
         let raw: String = row.get::<_, Option<String>>(idx)?.unwrap_or_default();
         Ok(crate::vault::decrypt_or_placeholder(&raw))
@@ -486,59 +565,47 @@ pub fn get_policy_briefs_db(platform_ids: &[i64]) -> Result<Vec<PlatformPolicyBr
 /// 此时 vault::encrypt_if_needed 会静默明文直通，用户以为已加密实则明文落库——
 /// 这是历史缺陷，必须在此处拦截。尚未启用加密（无 security_config）时放行：
 /// 存量明文模式由 encrypt_existing_data_db 在启用加密后统一收编。
-/// 把 heirs 表的敏感列用新密钥重加密（改密 / 恢复重设）。
-fn reencrypt_heirs(
-    conn: &Connection,
-    old_key: &[u8; 32],
-    new_key: &[u8; 32],
-) -> Result<(), String> {
-    let rows: Vec<(i64, String, String, String, String, String)> = conn
-        .prepare(
-            "SELECT id, COALESCE(name,''), COALESCE(relation,''), COALESCE(phone,''),
-                    COALESCE(email,''), COALESCE(share_note,'') FROM heirs",
-        )
-        .map_err(|e| format!("查询继承人失败: {}", e))?
-        .query_map([], |r| {
-            Ok((
-                r.get(0)?,
-                r.get(1)?,
-                r.get(2)?,
-                r.get(3)?,
-                r.get(4)?,
-                r.get(5)?,
-            ))
-        })
-        .map_err(|e| format!("读取继承人失败: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("收集继承人失败: {}", e))?;
-    for (id, name, relation, phone, email, share_note) in rows {
-        conn.execute(
-            "UPDATE heirs SET name=?1, relation=?2, phone=?3, email=?4, share_note=?5 WHERE id=?6",
-            params![
-                crate::vault::rekey_value(&name, old_key, new_key)?,
-                crate::vault::rekey_value(&relation, old_key, new_key)?,
-                crate::vault::rekey_value(&phone, old_key, new_key)?,
-                crate::vault::rekey_value(&email, old_key, new_key)?,
-                crate::vault::rekey_value(&share_note, old_key, new_key)?,
-                id,
-            ],
-        )
-        .map_err(|e| format!("重加密继承人失败: {}", e))?;
-    }
-    Ok(())
-}
-
 /// 供其他 db 子模块复用的写入门禁（锁定态一律拒绝）。
 pub(crate) fn ensure_vault_writable_pub(conn: &Connection) -> Result<(), String> {
     ensure_vault_writable(conn)
 }
 
-fn ensure_vault_writable(conn: &Connection) -> Result<(), String> {
+pub(crate) fn ensure_vault_readable_pub(conn: &Connection) -> Result<(), String> {
+    ensure_vault_readable(conn)
+}
+
+pub(crate) fn ensure_vault_readable_db() -> Result<(), String> {
+    let guard = get_conn()?;
+    ensure_vault_readable(guard.as_ref().unwrap())
+}
+
+pub(crate) fn ensure_vault_writable_db() -> Result<(), String> {
+    let guard = get_conn()?;
+    ensure_vault_writable(guard.as_ref().unwrap())
+}
+
+fn ensure_vault_readable(conn: &Connection) -> Result<(), String> {
     let configured: i64 = conn
         .query_row("SELECT COUNT(*) FROM security_config WHERE id=1", [], |r| {
             r.get(0)
         })
-        .unwrap_or(0);
+        .map_err(|e| format!("查询保险库配置失败: {}", e))?;
+    if configured == 0 {
+        return Ok(());
+    }
+    if vault_key_matches_config(conn) {
+        Ok(())
+    } else {
+        Err("主密码已设置但处于锁定状态，请先解锁后再读取敏感历史".to_string())
+    }
+}
+
+pub(crate) fn ensure_vault_writable(conn: &Connection) -> Result<(), String> {
+    let configured: i64 = conn
+        .query_row("SELECT COUNT(*) FROM security_config WHERE id=1", [], |r| {
+            r.get(0)
+        })
+        .map_err(|e| format!("查询保险库配置失败: {}", e))?;
     if configured == 0 {
         // 尚未启用主密码：明文模式，放行
         return Ok(());
@@ -587,350 +654,13 @@ fn read_security_config(conn: &Connection) -> Result<Option<(String, String)>, S
 /// 背景：`decrypt_or_placeholder` 在锁定/错钥匙时返回占位符，界面会把它渲染到表单里；
 /// 用户点保存时整张表单原样提交，占位符就被当成明文重新加密，原始数据永久丢失。
 /// 只拦截占位符本身，不影响用户真的想把字段清空（空串）或手动输入同款文本之外的内容。
-fn reject_placeholder(field: &str, value: &str) -> Result<(), String> {
+pub(crate) fn reject_placeholder(field: &str, value: &str) -> Result<(), String> {
     if crate::vault::is_placeholder(value) {
         return Err(format!(
             "{}当前处于加密锁定状态，无法保存。请先解锁后重试（本次未写入任何数据）",
             field
         ));
     }
-    Ok(())
-}
-
-pub fn add_asset_db(req: &AssetRequest) -> Result<i64, String> {
-    validate_category(&req.category)?;
-    validate_disposal(&req.disposal_method)?;
-    validate_disposal_heir(&req.disposal_method, req.heir_name.as_deref())?;
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-    ensure_vault_writable(conn)?;
-    let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-    let account_identifier = crate::vault::encrypt_if_needed(&req.account_identifier)?;
-    let account_description = crate::vault::encrypt_if_needed(&req.account_description)?;
-    let heir_name = crate::vault::encrypt_if_needed(req.heir_name.as_deref().unwrap_or(""))?;
-    let heir_contact = crate::vault::encrypt_if_needed(req.heir_contact.as_deref().unwrap_or(""))?;
-    let notes = crate::vault::encrypt_if_needed(&req.notes)?;
-
-    conn.execute(
-        "INSERT INTO digital_assets (platform_id, account_identifier, account_description, category, estimated_value, value_currency, disposal_method, heir_name, heir_contact, notes, is_confirmed, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, 'CNY', ?6, ?7, ?8, ?9, 1, ?10, ?10)",
-        params![
-            req.platform_id,
-            account_identifier,
-            account_description,
-            req.category,
-            req.estimated_value.unwrap_or(0.0),
-            req.disposal_method,
-            heir_name,
-            heir_contact,
-            notes,
-            now,
-        ],
-    ).map_err(|e| format!("添加资产失败: {}", e))?;
-
-    Ok(conn.last_insert_rowid())
-}
-
-pub fn update_asset_db(id: i64, req: &AssetRequest) -> Result<(), String> {
-    validate_category(&req.category)?;
-    validate_disposal(&req.disposal_method)?;
-    validate_disposal_heir(&req.disposal_method, req.heir_name.as_deref())?;
-    // 占位符检查必须在任何写操作之前：这是「数据被覆盖」而非「写入失败」的风险。
-    reject_placeholder("账号标识", &req.account_identifier)?;
-    reject_placeholder("账号描述", &req.account_description)?;
-    reject_placeholder("备注", &req.notes)?;
-    if let Some(v) = req.heir_name.as_deref() {
-        reject_placeholder("继承人姓名", v)?;
-    }
-    if let Some(v) = req.heir_contact.as_deref() {
-        reject_placeholder("继承人联系方式", v)?;
-    }
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-    ensure_vault_writable(conn)?;
-    let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-    let account_identifier = crate::vault::encrypt_if_needed(&req.account_identifier)?;
-    let account_description = crate::vault::encrypt_if_needed(&req.account_description)?;
-    let heir_name = crate::vault::encrypt_if_needed(req.heir_name.as_deref().unwrap_or(""))?;
-    let heir_contact = crate::vault::encrypt_if_needed(req.heir_contact.as_deref().unwrap_or(""))?;
-    let notes = crate::vault::encrypt_if_needed(&req.notes)?;
-
-    conn.execute(
-        "UPDATE digital_assets SET platform_id=?1, account_identifier=?2, account_description=?3, category=?4, estimated_value=?5, disposal_method=?6, heir_name=?7, heir_contact=?8, notes=?9, is_confirmed=1, updated_at=?10 WHERE id=?11",
-        params![
-            req.platform_id,
-            account_identifier,
-            account_description,
-            req.category,
-            req.estimated_value.unwrap_or(0.0),
-            req.disposal_method,
-            heir_name,
-            heir_contact,
-            notes,
-            now,
-            id,
-        ],
-    ).map_err(|e| format!("更新资产失败: {}", e))?;
-
-    Ok(())
-}
-
-pub fn delete_asset_db(id: i64) -> Result<(), String> {
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-    // 删除同样是写操作：已设主密码的库在锁定态不得删除，
-    // 否则「锁定」只挡住了读取，没挡住破坏。
-    ensure_vault_writable(conn)?;
-    conn.execute("DELETE FROM digital_assets WHERE id=?1", params![id])
-        .map_err(|e| format!("删除资产失败: {}", e))?;
-    Ok(())
-}
-
-pub fn get_all_assets_db() -> Result<Vec<DigitalAsset>, String> {
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT a.id, a.platform_id, COALESCE(o.name, p.name) AS platform_name, a.account_identifier, a.account_description, a.category, a.estimated_value, a.value_currency, a.disposal_method, a.heir_name, a.heir_contact, a.notes, a.is_confirmed, a.created_at, a.updated_at, CASE WHEN a.credential_enc IS NOT NULL AND a.credential_enc != '' THEN 1 ELSE 0 END AS has_cred
-         FROM digital_assets a
-         LEFT JOIN platforms p ON a.platform_id = p.id
-         LEFT JOIN platform_overrides o ON a.platform_id = o.id ORDER BY a.created_at DESC"
-    ).map_err(|e| format!("查询资产失败: {}", e))?;
-
-    let assets = stmt
-        .query_map([], row_to_asset)
-        .map_err(|e| format!("解析资产数据失败: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("收集资产失败: {}", e))?;
-
-    Ok(assets)
-}
-
-pub fn get_asset_by_id_db(id: i64) -> Result<Option<DigitalAsset>, String> {
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT a.id, a.platform_id, COALESCE(o.name, p.name) AS platform_name, a.account_identifier, a.account_description, a.category, a.estimated_value, a.value_currency, a.disposal_method, a.heir_name, a.heir_contact, a.notes, a.is_confirmed, a.created_at, a.updated_at, CASE WHEN a.credential_enc IS NOT NULL AND a.credential_enc != '' THEN 1 ELSE 0 END AS has_cred
-         FROM digital_assets a
-         LEFT JOIN platforms p ON a.platform_id = p.id
-         LEFT JOIN platform_overrides o ON a.platform_id = o.id WHERE a.id = ?1"
-    ).map_err(|e| format!("查询资产失败: {}", e))?;
-
-    let mut rows = stmt
-        .query(params![id])
-        .map_err(|e| format!("查询执行失败: {}", e))?;
-
-    if let Some(row) = rows.next().map_err(|e| format!("读取行失败: {}", e))? {
-        Ok(Some(
-            row_to_asset(row).map_err(|e| format!("解析资产失败: {}", e))?,
-        ))
-    } else {
-        Ok(None)
-    }
-}
-
-pub fn get_assets_by_category_db(category: &str) -> Result<Vec<DigitalAsset>, String> {
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-    let mut stmt = conn.prepare(
-        "SELECT a.id, a.platform_id, COALESCE(o.name, p.name) AS platform_name, a.account_identifier, a.account_description, a.category, a.estimated_value, a.value_currency, a.disposal_method, a.heir_name, a.heir_contact, a.notes, a.is_confirmed, a.created_at, a.updated_at, CASE WHEN a.credential_enc IS NOT NULL AND a.credential_enc != '' THEN 1 ELSE 0 END AS has_cred
-         FROM digital_assets a
-         LEFT JOIN platforms p ON a.platform_id = p.id
-         LEFT JOIN platform_overrides o ON a.platform_id = o.id WHERE a.category = ?1 ORDER BY a.estimated_value DESC"
-    ).map_err(|e| format!("按类别查询失败: {}", e))?;
-
-    let assets = stmt
-        .query_map(params![category], row_to_asset)
-        .map_err(|e| format!("解析失败: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("收集失败: {}", e))?;
-
-    Ok(assets)
-}
-
-// ========== 用户档案 ==========
-
-/// 档案中需要加密的字段，顺序即 SELECT / UPDATE 的参数顺序。
-/// 「启用加密」「改密」「恢复重设」三条重加密路径共用同一份列清单：
-/// 历史缺陷是 `encrypt_existing_data_db` 自持一份少了一列的副本，导致索引越界 panic。
-const PROFILE_SENSITIVE_COLUMNS: [&str; 12] = [
-    "full_name",
-    "phone",
-    "email",
-    "id_last4",
-    "emergency_contact_name",
-    "emergency_contact_phone",
-    "emergency_contact_relation",
-    "emergency_contact_email",
-    "heir_primary_name",
-    "heir_primary_phone",
-    "heir_primary_relation",
-    "heir_primary_email",
-];
-
-/// 读取最新一条档案的 (id, 敏感字段原文)。无档案返回 None。
-fn select_profile_sensitive(conn: &Connection) -> Result<Option<(i64, Vec<String>)>, String> {
-    let sql = format!(
-        "SELECT id, {} FROM user_profile ORDER BY id DESC LIMIT 1",
-        PROFILE_SENSITIVE_COLUMNS.join(", ")
-    );
-    let mut stmt = conn
-        .prepare(&sql)
-        .map_err(|e| format!("查询档案失败: {}", e))?;
-    let row = stmt
-        .query_map([], |row| {
-            let id: i64 = row.get(0)?;
-            let mut vals = Vec::with_capacity(PROFILE_SENSITIVE_COLUMNS.len());
-            for i in 1..=PROFILE_SENSITIVE_COLUMNS.len() {
-                vals.push(row.get::<_, Option<String>>(i)?.unwrap_or_default());
-            }
-            Ok((id, vals))
-        })
-        .map_err(|e| format!("读取档案失败: {}", e))?
-        .next()
-        .transpose()
-        .map_err(|e| format!("收集档案失败: {}", e))?;
-    Ok(row)
-}
-
-/// 按下标顺序写回档案敏感字段，参数个数由列清单决定，不会与 UPDATE 占位符错位。
-fn update_profile_sensitive(conn: &Connection, id: i64, vals: &[String]) -> Result<(), String> {
-    if vals.len() != PROFILE_SENSITIVE_COLUMNS.len() {
-        return Err(format!(
-            "档案字段数量不一致：期望 {}，实际 {}",
-            PROFILE_SENSITIVE_COLUMNS.len(),
-            vals.len()
-        ));
-    }
-    let sql = format!(
-        "UPDATE user_profile SET {} WHERE id=?{}",
-        PROFILE_SENSITIVE_COLUMNS
-            .iter()
-            .enumerate()
-            .map(|(i, col)| format!("{}=?{}", col, i + 1))
-            .collect::<Vec<_>>()
-            .join(", "),
-        PROFILE_SENSITIVE_COLUMNS.len() + 1
-    );
-    let mut params_vec: Vec<&dyn rusqlite::ToSql> =
-        vals.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
-    params_vec.push(&id);
-    conn.execute(&sql, params_vec.as_slice())
-        .map_err(|e| format!("写入档案失败: {}", e))?;
-    Ok(())
-}
-
-pub fn get_user_profile_db() -> Result<Option<UserProfile>, String> {
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-    let mut stmt = conn.prepare("SELECT id, full_name, phone, email, id_last4, emergency_contact_name, emergency_contact_phone, emergency_contact_relation, emergency_contact_email, heir_primary_name, heir_primary_phone, heir_primary_relation, heir_primary_email, check_in_interval_days, last_check_in, dms_enabled, created_at, updated_at FROM user_profile ORDER BY id DESC LIMIT 1")
-        .map_err(|e| format!("查询用户档案失败: {}", e))?;
-
-    let mut rows = stmt.query([]).map_err(|e| format!("查询执行失败: {}", e))?;
-
-    if let Some(row) = rows.next().map_err(|e| format!("读取失败: {}", e))? {
-        let dec = |idx: usize| -> String {
-            let raw: String = row
-                .get::<_, Option<String>>(idx)
-                .ok()
-                .flatten()
-                .unwrap_or_default();
-            crate::vault::decrypt_or_placeholder(&raw)
-        };
-        Ok(Some(UserProfile {
-            id: row.get(0).map_err(|e| format!("{}", e))?,
-            full_name: dec(1),
-            phone: dec(2),
-            email: dec(3),
-            id_last4: dec(4),
-            emergency_contact_name: dec(5),
-            emergency_contact_phone: dec(6),
-            emergency_contact_relation: dec(7),
-            emergency_contact_email: dec(8),
-            heir_primary_name: dec(9),
-            heir_primary_phone: dec(10),
-            heir_primary_relation: dec(11),
-            heir_primary_email: dec(12),
-            check_in_interval_days: row.get(13).map_err(|e| format!("{}", e))?,
-            last_check_in: row.get(14).ok(),
-            dms_enabled: row.get::<_, i64>(15).map_err(|e| format!("{}", e))? != 0,
-            created_at: row.get(16).map_err(|e| format!("{}", e))?,
-            updated_at: row.get(17).map_err(|e| format!("{}", e))?,
-        }))
-    } else {
-        Ok(None)
-    }
-}
-
-pub fn save_user_profile_db(profile: &UserProfile) -> Result<(), String> {
-    for (name, value) in [
-        ("姓名", profile.full_name.as_str()),
-        ("手机号", profile.phone.as_str()),
-        ("邮箱", profile.email.as_str()),
-        ("身份证后四位", profile.id_last4.as_str()),
-        ("紧急联系人姓名", profile.emergency_contact_name.as_str()),
-        ("紧急联系人电话", profile.emergency_contact_phone.as_str()),
-        (
-            "紧急联系人关系",
-            profile.emergency_contact_relation.as_str(),
-        ),
-        ("紧急联系人邮箱", profile.emergency_contact_email.as_str()),
-        ("继承人姓名", profile.heir_primary_name.as_str()),
-        ("继承人电话", profile.heir_primary_phone.as_str()),
-        ("继承人关系", profile.heir_primary_relation.as_str()),
-        ("继承人邮箱", profile.heir_primary_email.as_str()),
-    ] {
-        reject_placeholder(name, value)?;
-    }
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-    ensure_vault_writable(conn)?;
-    let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-    let full_name = crate::vault::encrypt_if_needed(&profile.full_name)?;
-    let phone = crate::vault::encrypt_if_needed(&profile.phone)?;
-    let email = crate::vault::encrypt_if_needed(&profile.email)?;
-    let id_last4 = crate::vault::encrypt_if_needed(&profile.id_last4)?;
-    let ec_name = crate::vault::encrypt_if_needed(&profile.emergency_contact_name)?;
-    let ec_phone = crate::vault::encrypt_if_needed(&profile.emergency_contact_phone)?;
-    let ec_rel = crate::vault::encrypt_if_needed(&profile.emergency_contact_relation)?;
-    let ec_email = crate::vault::encrypt_if_needed(&profile.emergency_contact_email)?;
-    let h_name = crate::vault::encrypt_if_needed(&profile.heir_primary_name)?;
-    let h_phone = crate::vault::encrypt_if_needed(&profile.heir_primary_phone)?;
-    let h_rel = crate::vault::encrypt_if_needed(&profile.heir_primary_relation)?;
-    let h_email = crate::vault::encrypt_if_needed(&profile.heir_primary_email)?;
-
-    match profile.id {
-        Some(id) => {
-            conn.execute(
-                "UPDATE user_profile SET full_name=?1, phone=?2, email=?3, id_last4=?4, emergency_contact_name=?5, emergency_contact_phone=?6, emergency_contact_relation=?7, emergency_contact_email=?8, heir_primary_name=?9, heir_primary_phone=?10, heir_primary_relation=?11, heir_primary_email=?12, check_in_interval_days=?13, dms_enabled=?14, updated_at=?15 WHERE id=?16",
-                params![
-                    full_name, phone, email, id_last4,
-                    ec_name, ec_phone, ec_rel, ec_email,
-                    h_name, h_phone, h_rel, h_email,
-                    profile.check_in_interval_days,
-                    if profile.dms_enabled { 1 } else { 0 },
-                    now, id,
-                ],
-            ).map_err(|e| format!("更新档案失败: {}", e))?;
-        }
-        None => {
-            conn.execute(
-                "INSERT INTO user_profile (full_name, phone, email, id_last4, emergency_contact_name, emergency_contact_phone, emergency_contact_relation, emergency_contact_email, heir_primary_name, heir_primary_phone, heir_primary_relation, heir_primary_email, check_in_interval_days, dms_enabled, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)",
-                params![
-                    full_name, phone, email, id_last4,
-                    ec_name, ec_phone, ec_rel, ec_email,
-                    h_name, h_phone, h_rel, h_email,
-                    profile.check_in_interval_days,
-                    if profile.dms_enabled { 1 } else { 0 },
-                    now,
-                ],
-            ).map_err(|e| format!("保存档案失败: {}", e))?;
-        }
-    }
-
     Ok(())
 }
 
@@ -988,20 +718,57 @@ pub fn get_heartbeat_config_db() -> Result<(bool, String, String), String> {
         [],
         |r| Ok((r.get::<_, i64>(0)? != 0, r.get::<_, String>(1)?, r.get::<_, String>(2)?)),
     );
-    match row {
-        Ok(v) => Ok(v),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok((false, String::new(), String::new())),
-        Err(e) => Err(format!("读取心跳配置失败: {}", e)),
+    let (enabled, raw_token, endpoint) = match row {
+        Ok(v) => v,
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            return Ok((false, String::new(), String::new()))
+        }
+        Err(e) => return Err(format!("读取心跳配置失败: {}", e)),
+    };
+    if raw_token.is_empty() {
+        return Ok((enabled, String::new(), endpoint));
     }
+    if crate::vault::is_encrypted(&raw_token) {
+        let token = crate::vault::decrypt_if_needed(&raw_token)
+            .map_err(|_| "心跳令牌已加密，请先解锁后重试".to_string())?;
+        return Ok((enabled, token, endpoint));
+    }
+    if read_security_config(conn)?.is_none() {
+        return Err("心跳令牌必须保存在已启用主密码的保险库中".to_string());
+    }
+    ensure_vault_writable(conn)?;
+    let encrypted = crate::vault::encrypt_field_v2(
+        &raw_token,
+        &*crate::vault::get_key().ok_or("请先解锁后迁移心跳令牌")?,
+    )?;
+    conn.execute(
+        "UPDATE heartbeat_config SET token=?1 WHERE id=1",
+        params![encrypted],
+    )
+    .map_err(|e| format!("迁移心跳令牌失败: {}", e))?;
+    Ok((enabled, raw_token, endpoint))
 }
 
 pub fn set_heartbeat_config_db(enabled: bool, token: &str, endpoint: &str) -> Result<(), String> {
+    if !endpoint.trim().is_empty() {
+        crate::heartbeat::validate_heartbeat_endpoint(endpoint)?;
+    }
+    ensure_vault_writable_db()?;
     let guard = get_conn()?;
     let conn = guard.as_ref().unwrap();
+    if !token.is_empty() && read_security_config(conn)?.is_none() {
+        return Err("心跳令牌必须保存在已启用主密码的保险库中".to_string());
+    }
+    let stored_token = if token.is_empty() {
+        String::new()
+    } else {
+        let key = crate::vault::get_key().ok_or("请先解锁后保存心跳令牌")?;
+        crate::vault::encrypt_field_v2(token, &key)?
+    };
     conn.execute(
         "INSERT INTO heartbeat_config (id, enabled, token, endpoint) VALUES (1, ?1, ?2, ?3)
          ON CONFLICT(id) DO UPDATE SET enabled=?1, token=?2, endpoint=?3",
-        params![enabled as i64, token, endpoint],
+        params![enabled as i64, stored_token, endpoint.trim()],
     )
     .map_err(|e| format!("保存心跳配置失败: {}", e))?;
     Ok(())
@@ -1180,17 +947,36 @@ pub fn get_smtp_password_plain() -> Result<Option<String>, String> {
     crate::vault::decrypt_if_needed(&enc).map(Some)
 }
 
-pub fn set_security_config_db(kdf_salt: &str, verifier: &str) -> Result<(), String> {
+/// 保存安全配置（含被包裹的数据密钥）。
+pub fn set_security_config_with_dek_db(
+    kdf_salt: &str,
+    verifier: &str,
+    wrapped_dek: &str,
+) -> Result<(), String> {
     let guard = get_conn()?;
     let conn = guard.as_ref().unwrap();
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
     conn.execute(
-        "INSERT INTO security_config (id, kdf_salt, verifier, created_at) VALUES (1, ?1, ?2, ?3)
-         ON CONFLICT(id) DO UPDATE SET kdf_salt=?1, verifier=?2",
-        params![kdf_salt, verifier, now],
+        "INSERT INTO security_config (id, kdf_salt, verifier, wrapped_dek, created_at) VALUES (1, ?1, ?2, ?3, ?4)
+         ON CONFLICT(id) DO UPDATE SET kdf_salt=?1, verifier=?2, wrapped_dek=?3",
+        params![kdf_salt, verifier, wrapped_dek, now],
     )
     .map_err(|e| format!("保存安全配置失败: {}", e))?;
     Ok(())
+}
+
+/// 读取被包裹的数据密钥（空串 = legacy 库）。
+pub fn get_wrapped_dek_db() -> Result<String, String> {
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    let value: String = conn
+        .query_row(
+            "SELECT COALESCE(wrapped_dek, '') FROM security_config WHERE id=1",
+            [],
+            |r| r.get(0),
+        )
+        .map_err(|e| format!("读取数据密钥失败: {}", e))?;
+    Ok(value)
 }
 
 /// 保存资产凭据（非空时需解锁；空字符串表示清除）
@@ -1249,179 +1035,65 @@ pub fn change_master_password_db(
     let Some((salt_b64, verifier)) = get_security_config_db()? else {
         return Err("尚未设置主密码".to_string());
     };
-    // 兼容 v1/v2 盐前缀选择迭代数
-    let (salt_old_bytes, old_iterations) = crate::crypto::resolve_salt(&salt_b64)?;
-    let key_old = crate::crypto::derive_key_bytes_v(old_password, &salt_old_bytes, old_iterations);
-    if !crate::vault::verify_key(&verifier, &key_old) {
-        return Err("当前主密码错误".to_string());
-    }
+    // 兼容 v1/v2/v3 盐前缀（v3 为 Argon2id，参数随盐串存储）
+    let kek_old = crate::crypto::derive_from_salt(old_password, &salt_b64)?;
+    let wrapped_old = get_wrapped_dek_db()?;
 
-    // 新配置一律写 v2（60 万次迭代）
-    let salt_new = crate::crypto::generate_salt_v2();
-    let (salt_new_bytes, new_iterations) = crate::crypto::resolve_salt(&salt_new)?;
-    let key_new = crate::crypto::derive_key_bytes_v(new_password, &salt_new_bytes, new_iterations);
-    let verifier_new = crate::vault::make_verifier(&key_new)?;
-    let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-
-    // 事务块：guard 在块尾释放后再切换会话密钥
-    let recovery_code_new = {
-        let guard = get_conn()?;
-        let conn = guard.as_ref().unwrap();
-        conn.execute_batch("BEGIN IMMEDIATE")
-            .map_err(|e| format!("开启事务失败: {}", e))?;
-
-        let txn_result = (|| -> Result<String, String> {
-            let mut stmt = conn.prepare(
-                "SELECT id, account_identifier, account_description, heir_name, heir_contact, notes, credential_enc FROM digital_assets",
-            ).map_err(|e| format!("查询资产失败: {}", e))?;
-            let rows: Vec<(i64, String, String, String, String, String, String)> = stmt
-                .query_map([], |row| {
-                    Ok((
-                        row.get(0)?,
-                        row.get::<_, Option<String>>(1)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(3)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(4)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(5)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(6)?.unwrap_or_default(),
-                    ))
-                })
-                .map_err(|e| format!("读取资产失败: {}", e))?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| format!("收集资产失败: {}", e))?;
-
-            for (id, ai, ad, hn, hc, nt, cr) in rows {
-                conn.execute(
-                    "UPDATE digital_assets SET account_identifier=?1, account_description=?2, heir_name=?3, heir_contact=?4, notes=?5, credential_enc=?6 WHERE id=?7",
-                    params![
-                        crate::vault::rekey_value(&ai, &key_old, &key_new)?,
-                        crate::vault::rekey_value(&ad, &key_old, &key_new)?,
-                        crate::vault::rekey_value(&hn, &key_old, &key_new)?,
-                        crate::vault::rekey_value(&hc, &key_old, &key_new)?,
-                        crate::vault::rekey_value(&nt, &key_old, &key_new)?,
-                        crate::vault::rekey_value(&cr, &key_old, &key_new)?,
-                        id,
-                    ],
-                ).map_err(|e| format!("重加密资产失败: {}", e))?;
-            }
-
-            // 继承人名单同样是加密数据：漏掉这一块，改密后名单会永久读不出来。
-            reencrypt_heirs(conn, &key_old, &key_new)?;
-
-            if let Some((pid, vals)) = select_profile_sensitive(conn)? {
-                let mut new_vals = Vec::with_capacity(vals.len());
-                for v in &vals {
-                    new_vals.push(crate::vault::rekey_value(v, &key_old, &key_new)?);
-                }
-                update_profile_sensitive(conn, pid, &new_vals)
-                    .map_err(|e| format!("重加密档案失败: {}", e))?;
-            }
-
-            let (recovery_code_new, recovery_seal_new) =
-                crate::recovery::create_recovery_seal(&key_new)
-                    .map_err(|e| format!("轮换恢复密钥失败: {}", e))?;
-            conn.execute(
-                "INSERT INTO security_config (id, kdf_salt, verifier, recovery_seal, created_at) VALUES (1, ?1, ?2, ?3, ?4)
-                 ON CONFLICT(id) DO UPDATE SET kdf_salt=?1, verifier=?2, recovery_seal=?3",
-                params![salt_new, verifier_new, recovery_seal_new, now],
-            ).map_err(|e| format!("更新安全配置失败: {}", e))?;
-
-            Ok(recovery_code_new)
-        })();
-
-        match txn_result {
-            Ok(code) => {
-                conn.execute_batch("COMMIT")
-                    .map_err(|e| format!("提交事务失败: {}", e))?;
-                code
-            }
-            Err(e) => {
-                let _ = conn.execute_batch("ROLLBACK");
-                return Err(e);
-            }
+    // 数据密钥的来源有两种：
+    // - 新库：wrapped_dek 非空 → 用旧 KEK 解出 DEK；
+    // - legacy 库：wrapped_dek 为空 → 密码派生密钥本身就是数据密钥。
+    // 两种情况都正确，且都在下方统一迁到「DEK + wrapped_dek」结构。
+    let (dek, migrated_from_legacy) = if wrapped_old.is_empty() {
+        if !crate::vault::verify_key(&verifier, &kek_old) {
+            return Err("当前主密码错误".to_string());
         }
+        (
+            crate::vault::get_key().ok_or("请先解锁后再修改主密码")?,
+            true,
+        )
+    } else {
+        let dek = crate::vault::unwrap_data_key(&wrapped_old, &kek_old)
+            .map_err(|_| "当前主密码错误".to_string())?;
+        if !crate::vault::verify_key(&verifier, &dek) {
+            return Err("当前主密码错误".to_string());
+        }
+        (dek, false)
     };
 
-    crate::vault::set_key(key_new);
-    Ok(recovery_code_new)
-}
+    // 新 KEK + 新恢复封印 + 用新 KEK 重新包裹同一把 DEK。
+    let salt_new = crate::crypto::generate_salt_v3();
+    let kek_new = crate::crypto::derive_from_salt(new_password, &salt_new)?;
+    let verifier_new = crate::vault::make_verifier(&dek)?;
+    let wrapped_new = crate::vault::wrap_data_key(&dek, &kek_new)?;
+    let (recovery_code_new, recovery_seal_new) = crate::recovery::create_recovery_seal(&dek)?;
 
-/// 恢复流程落库：重写安全配置（验证器+恢复封印）并把全库字段重加密到主密钥对应的新密码密钥
-pub fn reset_security_config_db(
-    kdf_salt: &str,
-    verifier: &str,
-    recovery_seal: &str,
-    master_key: &[u8; 32],
-    new_key: &[u8; 32],
-) -> Result<(), String> {
     {
         let guard = get_conn()?;
         let conn = guard.as_ref().unwrap();
         conn.execute_batch("BEGIN IMMEDIATE")
             .map_err(|e| format!("开启事务失败: {}", e))?;
-
         let result = (|| -> Result<(), String> {
-            let mut stmt = conn.prepare(
-                "SELECT id, account_identifier, account_description, heir_name, heir_contact, notes, credential_enc FROM digital_assets",
-            ).map_err(|e| format!("查询资产失败: {}", e))?;
-            let rows: Vec<(i64, String, String, String, String, String, String)> = stmt
-                .query_map([], |row| {
-                    Ok((
-                        row.get(0)?,
-                        row.get::<_, Option<String>>(1)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(3)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(4)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(5)?.unwrap_or_default(),
-                        row.get::<_, Option<String>>(6)?.unwrap_or_default(),
-                    ))
-                })
-                .map_err(|e| format!("读取资产失败: {}", e))?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| format!("收集资产失败: {}", e))?;
-
-            for (id, ai, ad, hn, hc, nt, cr) in rows {
-                let dec = |v: &String| -> Result<String, String> {
-                    if v.is_empty() {
-                        Ok(String::new())
-                    } else {
-                        crate::vault::decrypt_field(v, master_key)
-                    }
-                };
-                let re = |v: &String| -> Result<String, String> {
-                    let plain = dec(v)?;
-                    if plain.is_empty() {
-                        Ok(String::new())
-                    } else {
-                        crate::vault::encrypt_field(&plain, new_key)
-                    }
-                };
-                conn.execute(
-                    "UPDATE digital_assets SET account_identifier=?1, account_description=?2, heir_name=?3, heir_contact=?4, notes=?5, credential_enc=?6 WHERE id=?7",
-                    params![re(&ai)?, re(&ad)?, re(&hn)?, re(&hc)?, re(&nt)?, re(&cr)?, id],
-                ).map_err(|e| format!("重加密资产失败: {}", e))?;
+            // legacy 库：字段是 v1 格式（裸密钥），一次性升级到 v2（HKDF 域分离）。
+            // 新库已经全部是 v2，这里不做任何逐字段操作 —— 改密是 O(1)。
+            if migrated_from_legacy {
+                crate::db::reencrypt_all_to_v2(conn, &dek)?;
             }
-
-            if let Some((pid, vals)) = select_profile_sensitive(conn)? {
-                let mut new_vals = Vec::with_capacity(vals.len());
-                for v in &vals {
-                    // 历史明文（如从旧版/未加密实例导入的备份）直接以新密钥加密，
-                    // 不能按密文解密——否则整条恢复链路会因一条明文记录而失败。
-                    new_vals.push(crate::vault::rekey_value(v, master_key, new_key)?);
-                }
-                update_profile_sensitive(conn, pid, &new_vals)
-                    .map_err(|e| format!("重加密档案失败: {}", e))?;
-            }
-
             conn.execute(
-                "UPDATE security_config SET kdf_salt=?1, verifier=?2, recovery_seal=?3 WHERE id=1",
-                params![kdf_salt, verifier, recovery_seal],
+                "INSERT INTO security_config (id, kdf_salt, verifier, recovery_seal, wrapped_dek, created_at)
+                 VALUES (1, ?1, ?2, ?3, ?4, ?5)
+                 ON CONFLICT(id) DO UPDATE SET kdf_salt=?1, verifier=?2, recovery_seal=?3, wrapped_dek=?4",
+                params![
+                    salt_new,
+                    verifier_new,
+                    recovery_seal_new,
+                    wrapped_new,
+                    Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+                ],
             )
             .map_err(|e| format!("更新安全配置失败: {}", e))?;
-
+            // DEK 未变 → 已发出的继承人份额继续有效，不得作废元数据。
             Ok(())
         })();
-
         match result {
             Ok(()) => conn
                 .execute_batch("COMMIT")
@@ -1432,836 +1104,18 @@ pub fn reset_security_config_db(
             }
         }
     }
-    crate::vault::set_key(zeroize::Zeroizing::new(*new_key));
-    Ok(())
+
+    crate::vault::set_key(dek);
+    Ok(recovery_code_new)
 }
 
-/// 导出备份 JSON：密文原样 + 盐/验证器，可在同密码下恢复到其他设备
-pub fn export_backup_json_db() -> Result<String, String> {
-    use serde_json::{json, Value};
-
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-
-    let mut assets: Vec<Value> = Vec::new();
-    {
-        let mut stmt = conn.prepare(
-            "SELECT id, platform_id, account_identifier, account_description, category, estimated_value, value_currency, disposal_method, heir_name, heir_contact, notes, credential_enc, is_confirmed, created_at, updated_at FROM digital_assets",
-        ).map_err(|e| format!("查询资产失败: {}", e))?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok(json!({
-                    "id": row.get::<_, i64>(0)?,
-                    "platform_id": row.get::<_, i64>(1)?,
-                    "account_identifier": row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-                    "account_description": row.get::<_, Option<String>>(3)?.unwrap_or_default(),
-                    "category": row.get::<_, String>(4)?,
-                    "estimated_value": row.get::<_, Option<f64>>(5)?.unwrap_or(0.0),
-                    "value_currency": row.get::<_, Option<String>>(6)?.unwrap_or_else(|| "CNY".to_string()),
-                    "disposal_method": row.get::<_, String>(7)?,
-                    "heir_name": row.get::<_, Option<String>>(8)?.unwrap_or_default(),
-                    "heir_contact": row.get::<_, Option<String>>(9)?.unwrap_or_default(),
-                    "notes": row.get::<_, Option<String>>(10)?.unwrap_or_default(),
-                    "credential_enc": row.get::<_, Option<String>>(11)?.unwrap_or_default(),
-                    "is_confirmed": row.get::<_, i64>(12)?,
-                    "created_at": row.get::<_, String>(13)?,
-                    "updated_at": row.get::<_, String>(14)?,
-                }))
-            })
-            .map_err(|e| format!("读取资产失败: {}", e))?;
-        for r in rows {
-            assets.push(r.map_err(|e| format!("资产解析失败: {}", e))?);
-        }
-    }
-
-    let mut profiles: Vec<Value> = Vec::new();
-    {
-        let mut stmt = conn.prepare(
-            "SELECT id, full_name, phone, email, id_last4, emergency_contact_name, emergency_contact_phone, emergency_contact_relation, emergency_contact_email, heir_primary_name, heir_primary_phone, heir_primary_relation, heir_primary_email, check_in_interval_days, last_check_in, dms_enabled, created_at, updated_at FROM user_profile",
-        ).map_err(|e| format!("查询档案失败: {}", e))?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok(json!({
-                    "id": row.get::<_, i64>(0)?,
-                    "full_name": row.get::<_, Option<String>>(1)?.unwrap_or_default(),
-                    "phone": row.get::<_, Option<String>>(2)?.unwrap_or_default(),
-                    "email": row.get::<_, Option<String>>(3)?.unwrap_or_default(),
-                    "id_last4": row.get::<_, Option<String>>(4)?.unwrap_or_default(),
-                    "emergency_contact_name": row.get::<_, Option<String>>(5)?.unwrap_or_default(),
-                    "emergency_contact_phone": row.get::<_, Option<String>>(6)?.unwrap_or_default(),
-                    "emergency_contact_relation": row.get::<_, Option<String>>(7)?.unwrap_or_default(),
-                    "emergency_contact_email": row.get::<_, Option<String>>(8)?.unwrap_or_default(),
-                    "heir_primary_name": row.get::<_, Option<String>>(9)?.unwrap_or_default(),
-                    "heir_primary_phone": row.get::<_, Option<String>>(10)?.unwrap_or_default(),
-                    "heir_primary_relation": row.get::<_, Option<String>>(11)?.unwrap_or_default(),
-                    "heir_primary_email": row.get::<_, Option<String>>(12)?.unwrap_or_default(),
-                    "check_in_interval_days": row.get::<_, i64>(13)?,
-                    "last_check_in": row.get::<_, Option<String>>(14)?,
-                    "dms_enabled": row.get::<_, i64>(15)?,
-                    "created_at": row.get::<_, String>(16)?,
-                    "updated_at": row.get::<_, String>(17)?,
-                }))
-            })
-            .map_err(|e| format!("读取档案失败: {}", e))?;
-        for r in rows {
-            profiles.push(r.map_err(|e| format!("档案解析失败: {}", e))?);
-        }
-    }
-
-    let mut check_ins: Vec<Value> = Vec::new();
-    {
-        let mut stmt = conn
-            .prepare("SELECT id, checked_at, status, note FROM check_in_log ORDER BY id")
-            .map_err(|e| format!("查询记录失败: {}", e))?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok(json!({
-                    "id": row.get::<_, i64>(0)?,
-                    "checked_at": row.get::<_, String>(1)?,
-                    "status": row.get::<_, String>(2)?,
-                    "note": row.get::<_, Option<String>>(3)?.unwrap_or_default(),
-                }))
-            })
-            .map_err(|e| format!("读取记录失败: {}", e))?;
-        for r in rows {
-            check_ins.push(r.map_err(|e| format!("记录解析失败: {}", e))?);
-        }
-    }
-
-    let dms: Option<Value> = conn
-        .query_row(
-            "SELECT id, enabled, check_in_interval_days, stage1_wait_days, stage2_wait_days, stage3_wait_days, last_check_in FROM dms_config WHERE id=1",
-            [],
-            |row| {
-                Ok(json!({
-                    "id": row.get::<_, i64>(0)?,
-                    "enabled": row.get::<_, i64>(1)?,
-                    "check_in_interval_days": row.get::<_, i64>(2)?,
-                    "stage1_wait_days": row.get::<_, i64>(3)?,
-                    "stage2_wait_days": row.get::<_, i64>(4)?,
-                    // 保留字段仅为兼容旧备份格式；应用内已不使用（见 notify.rs 注释）
-                    "stage3_wait_days": row.get::<_, i64>(5)?,
-                    "last_check_in": row.get::<_, Option<String>>(6)?,
-                }))
-            },
-        )
-        .ok();
-
-    let security: Option<Value> = conn
-        .query_row(
-            "SELECT kdf_salt, verifier, COALESCE(recovery_seal, '') FROM security_config WHERE id = 1",
-            [],
-            |row| {
-                Ok(json!({
-                    "kdf_salt": row.get::<_, String>(0)?,
-                    "verifier": row.get::<_, String>(1)?,
-                    // v3：带上恢复封印。旧版备份不含封印，换机恢复后即使记得恢复码
-                    // 也无法再解出主密钥——恢复链路在「换电脑」这一最常见场景下断掉。
-                    "recovery_seal": row.get::<_, String>(2)?,
-                }))
-            },
-        )
-        .ok();
-
-    // 心跳配置与政策补丁也必须进备份：
-    // 旧版只备份 5 张表，换机恢复后用户会发现「心跳令牌没了、自己导入的政策补丁也没了」，
-    // 而这两项都是用户手工配置、无法从内置库重建的数据。
-    let heartbeat: Option<Value> = conn
-        .query_row(
-            "SELECT enabled, COALESCE(token,''), COALESCE(endpoint,'') FROM heartbeat_config WHERE id=1",
-            [],
-            |row| {
-                Ok(json!({
-                    "enabled": row.get::<_, i64>(0)?,
-                    "token": row.get::<_, String>(1)?,
-                    "endpoint": row.get::<_, String>(2)?,
-                }))
-            },
-        )
-        .ok();
-
-    let mut platform_overrides: Vec<Value> = Vec::new();
-    {
-        let mut stmt = conn
-            .prepare("SELECT id, name, name_en, category, subtype, has_property, has_personality, inheritable, required_documents, process_description, estimated_difficulty, official_policy_url, estimated_time_days, notes FROM platform_overrides ORDER BY id")
-            .map_err(|e| format!("查询政策补丁失败: {}", e))?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok(json!({
-                    "id": row.get::<_, i64>(0)?,
-                    "name": row.get::<_, String>(1)?,
-                    "name_en": row.get::<_, String>(2)?,
-                    "category": row.get::<_, String>(3)?,
-                    "subtype": row.get::<_, String>(4)?,
-                    "has_property": row.get::<_, i64>(5)? != 0,
-                    "has_personality": row.get::<_, i64>(6)? != 0,
-                    "inheritable": row.get::<_, i64>(7)? != 0,
-                    "required_documents": row.get::<_, String>(8)?,
-                    "process_description": row.get::<_, String>(9)?,
-                    "estimated_difficulty": row.get::<_, String>(10)?,
-                    "official_policy_url": row.get::<_, String>(11)?,
-                    "estimated_time_days": row.get::<_, String>(12)?,
-                    "notes": row.get::<_, String>(13)?,
-                }))
-            })
-            .map_err(|e| format!("读取政策补丁失败: {}", e))?;
-        for r in rows {
-            platform_overrides.push(r.map_err(|e| format!("政策补丁解析失败: {}", e))?);
-        }
-    }
-
-    // v4：新增继承人名单、SMTP、保管位置、助手配置。
-    // 都是「换机后必须带走」的配置，否则用户在新机器上要重新配一遍。
-    let heirs = export_heirs_json(conn)?;
-    // 审核留痕也是「换机后必须带走」的证据：只留本机就等于换台电脑审核作废。
-    let review_records = export_review_records_json(conn)?;
-    let smtp = export_smtp_json(conn)?;
-    let custody = export_custody_json(conn)?;
-    let assistant = export_assistant_json(conn)?;
-
-    let backup = json!({
-        "app": "digilegacy",
-        "version": 4,
-        "created_at": Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-        "tables": {
-            "digital_assets": assets,
-            "user_profile": profiles,
-            "heirs": heirs,
-            "review_records": review_records,
-            "check_in_log": check_ins,
-            "dms_config": dms,
-            "security_config": security,
-            "heartbeat_config": heartbeat,
-            "platform_overrides": platform_overrides,
-            "smtp_config": smtp,
-            "custody_config": custody,
-            "assistant_config": assistant,
-        }
-    });
-
-    serde_json::to_string_pretty(&backup).map_err(|e| format!("生成备份失败: {}", e))
-}
-
-/// 导出辅助：继承人名单（含密文原样导出，导入方用同一主密码即可解密）。
-fn export_heirs_json(conn: &Connection) -> Result<serde_json::Value, String> {
-    use serde_json::json;
-    let mut out = Vec::new();
+/// 把全库 v1 字段一次性升级为 v2（HKDF 域分离）。仅 legacy 库改密时调用一次。
+fn reencrypt_all_to_v2(conn: &Connection, dek: &[u8; 32]) -> Result<(), String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, COALESCE(name,''), COALESCE(relation,''), COALESCE(phone,''),
-                    COALESCE(email,''), COALESCE(share_note,''), is_executor, sort_order FROM heirs ORDER BY sort_order, id",
+            "SELECT id, account_identifier, account_description, heir_name, heir_contact, notes, credential_enc FROM digital_assets",
         )
-        .map_err(|e| format!("查询继承人失败: {}", e))?;
-    let rows = stmt
-        .query_map([], |r| {
-            Ok(json!({
-                "id": r.get::<_, i64>(0)?,
-                "name": r.get::<_, String>(1)?,
-                "relation": r.get::<_, String>(2)?,
-                "phone": r.get::<_, String>(3)?,
-                "email": r.get::<_, String>(4)?,
-                "share_note": r.get::<_, String>(5)?,
-                "is_executor": r.get::<_, i64>(6)?,
-                "sort_order": r.get::<_, i64>(7)?,
-            }))
-        })
-        .map_err(|e| format!("读取继承人失败: {}", e))?;
-    for r in rows {
-        out.push(r.map_err(|e| format!("继承人解析失败: {}", e))?);
-    }
-    Ok(serde_json::Value::Array(out))
-}
-
-/// 导出审核留痕（含 AI 结论与人工结论）。备份是证据链的一部分，不能只留本机。
-fn export_review_records_json(conn: &Connection) -> Result<serde_json::Value, String> {
-    use serde_json::json;
-    let mut out = Vec::new();
-    let mut stmt = conn
-        .prepare(
-            "SELECT profile_id, item_key, fingerprint, ai_verdict, ai_note,
-                    human_verdict, human_note, decided_by, created_at
-             FROM review_records ORDER BY id",
-        )
-        .map_err(|e| format!("查询审核记录失败: {}", e))?;
-    let rows = stmt
-        .query_map([], |r| {
-            Ok(json!({
-                "profile_id": r.get::<_, String>(0)?,
-                "item_key": r.get::<_, String>(1)?,
-                "fingerprint": r.get::<_, String>(2)?,
-                "ai_verdict": r.get::<_, String>(3)?,
-                "ai_note": r.get::<_, String>(4)?,
-                "human_verdict": r.get::<_, Option<String>>(5)?,
-                "human_note": r.get::<_, String>(6)?,
-                "decided_by": r.get::<_, String>(7)?,
-                "created_at": r.get::<_, String>(8)?,
-            }))
-        })
-        .map_err(|e| format!("读取审核记录失败: {}", e))?;
-    for r in rows {
-        out.push(r.map_err(|e| format!("审核记录解析失败: {}", e))?);
-    }
-    Ok(serde_json::Value::Array(out))
-}
-
-fn export_smtp_json(conn: &Connection) -> Result<serde_json::Value, String> {
-    use serde_json::json;
-    conn.query_row(
-        "SELECT COALESCE(host,''), port, COALESCE(from_addr,''), COALESCE(username,''), COALESCE(password_enc,''), allow_insecure FROM smtp_config WHERE id=1",
-        [],
-        |r| {
-            Ok(json!({
-                "host": r.get::<_, String>(0)?,
-                "port": r.get::<_, i64>(1)?,
-                "from_addr": r.get::<_, String>(2)?,
-                "username": r.get::<_, String>(3)?,
-                "password_enc": r.get::<_, String>(4)?,
-                "allow_insecure": r.get::<_, i64>(5)?,
-            }))
-        },
-    )
-    .or_else(|e| match e {
-        rusqlite::Error::QueryReturnedNoRows => Ok(serde_json::Value::Null),
-        other => Err(format!("读取 SMTP 配置失败: {}", other)),
-    })
-}
-
-fn export_custody_json(conn: &Connection) -> Result<serde_json::Value, String> {
-    use serde_json::json;
-    conn.query_row(
-        "SELECT COALESCE(backup_location_enc,''), COALESCE(recovery_code_location_enc,'') FROM custody_config WHERE id=1",
-        [],
-        |r| {
-            Ok(json!({
-                "backup_location_enc": r.get::<_, String>(0)?,
-                "recovery_code_location_enc": r.get::<_, String>(1)?,
-            }))
-        },
-    )
-    .or_else(|e| match e {
-        rusqlite::Error::QueryReturnedNoRows => Ok(serde_json::Value::Null),
-        other => Err(format!("读取保管位置失败: {}", other)),
-    })
-}
-
-fn export_assistant_json(conn: &Connection) -> Result<serde_json::Value, String> {
-    use serde_json::json;
-    conn.query_row(
-        "SELECT enabled, COALESCE(endpoint,''), COALESCE(model,''), COALESCE(api_key_enc,'') FROM assistant_config WHERE id=1",
-        [],
-        |r| {
-            Ok(json!({
-                "enabled": r.get::<_, i64>(0)?,
-                "endpoint": r.get::<_, String>(1)?,
-                "model": r.get::<_, String>(2)?,
-                "api_key_enc": r.get::<_, String>(3)?,
-            }))
-        },
-    )
-    .or_else(|e| match e {
-        rusqlite::Error::QueryReturnedNoRows => Ok(serde_json::Value::Null),
-        other => Err(format!("读取助手配置失败: {}", other)),
-    })
-}
-
-/// 备份导入模式。
-///
-/// 覆盖是历史行为，会先清空资产/档案/签到记录；导入前没有快照时，
-/// 一次误操作就永久丢数据。默认改为合并，覆盖必须显式选择。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ImportMode {
-    /// 保留现有数据，只追加备份里的资产（id 冲突时分配新 id）。
-    Merge,
-    /// 清空资产/档案/签到后写入备份内容（原行为）。
-    Replace,
-}
-
-impl ImportMode {
-    pub fn parse(raw: &str) -> Self {
-        match raw.trim().to_ascii_lowercase().as_str() {
-            "replace" => Self::Replace,
-            _ => Self::Merge,
-        }
-    }
-}
-
-/// 导入备份：覆盖模式（历史行为，保留给既有调用方与回归测试）。
-///
-/// 新代码应使用 `import_backup_json_db_with_mode`，由命令层按用户选择决定模式。
-/// 生产路径已全部切到带模式的版本，这里只被测试与场景矩阵调用。
-#[allow(dead_code)]
-pub fn import_backup_json_db(content: &str) -> Result<i64, String> {
-    import_backup_json_db_with_mode(content, ImportMode::Replace)
-}
-
-/// 导入备份：按 `mode` 合并或覆盖用户数据与安全配置；导入后强制重新解锁。
-///
-/// 调用方（命令层）负责在覆盖模式下先写一份当前数据快照。
-pub fn import_backup_json_db_with_mode(content: &str, mode: ImportMode) -> Result<i64, String> {
-    use serde_json::Value;
-
-    let v: Value = serde_json::from_str(content).map_err(|e| format!("备份文件解析失败: {}", e))?;
-    if v.get("app").and_then(|x| x.as_str()) != Some("digilegacy") {
-        return Err("不是有效的归零备份文件".to_string());
-    }
-    // v1 备份仍然可导入（向后兼容）：新表缺失时保持本地现状，
-    // 旧备份里没有的 heartbeat/platform_overrides 按「未提供」处理。
-    let version = v.get("version").and_then(|x| x.as_i64()).unwrap_or(0);
-    if !(1..=4).contains(&version) {
-        return Err("备份版本不受支持".to_string());
-    }
-    let tables = v.get("tables").ok_or("备份缺少数据表")?;
-
-    // 加密边界：把「无 security_config 的备份」导进已启用的加密库，
-    // 会把明文写进本应只有密文的列——这是不可接受的静默降级。
-    // 锁定态直接拒绝；解锁态则用当前密钥把这些字段加密后再落库。
-    let local_has_vault = get_security_config_db()?.is_some();
-    let local_unlocked = crate::vault::is_unlocked();
-    let backup_has_security = tables
-        .get("security_config")
-        .map(|x| x.is_object())
-        .unwrap_or(false);
-    let encrypt_plaintext_on_import = local_has_vault && !backup_has_security;
-    if encrypt_plaintext_on_import && !local_unlocked {
-        return Err(
-            "该备份不含加密配置，而当前库已加密且处于锁定状态。请先解锁再导入，否则明文数据会绕过加密"
-                .to_string(),
-        );
-    }
-    let protect = |value: String| -> Result<String, String> {
-        if !encrypt_plaintext_on_import || value.is_empty() {
-            return Ok(value);
-        }
-        crate::vault::encrypt_if_needed(&value)
-    };
-
-    let sval = |val: &Value, k: &str| -> String {
-        val.get(k)
-            .and_then(|x| x.as_str())
-            .unwrap_or("")
-            .to_string()
-    };
-    let ival = |val: &Value, k: &str| -> i64 { val.get(k).and_then(|x| x.as_i64()).unwrap_or(0) };
-    let fval = |val: &Value, k: &str| -> f64 { val.get(k).and_then(|x| x.as_f64()).unwrap_or(0.0) };
-    let oval = |val: &Value, k: &str| -> Option<String> {
-        val.get(k).and_then(|x| x.as_str()).map(|s| s.to_string())
-    };
-
-    let assets = tables
-        .get("digital_assets")
-        .and_then(|x| x.as_array())
-        .ok_or("备份缺少资产数据")?;
-    // 缺失 = 旧格式，允许为空；**存在但不是数组 = 损坏，必须拒绝**。
-    // 旧写法用 `and_then(as_array).unwrap_or_default()`，一个手改过的
-    // `"user_profile": "x"` 会被静默当成空数组，导入"成功"却把档案清空了。
-    let array_or_missing = |key: &str| -> Result<Vec<Value>, String> {
-        match tables.get(key) {
-            None | Some(Value::Null) => Ok(Vec::new()),
-            Some(Value::Array(items)) => Ok(items.clone()),
-            Some(_) => Err(format!("备份字段 {} 必须是数组", key)),
-        }
-    };
-    let profiles = array_or_missing("user_profile")?;
-    let check_ins = array_or_missing("check_in_log")?;
-
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-
-    conn.execute_batch("BEGIN IMMEDIATE")
-        .map_err(|e| format!("开启事务失败: {}", e))?;
-    let result = (|| -> Result<i64, String> {
-        if mode == ImportMode::Replace {
-            conn.execute("DELETE FROM digital_assets", [])
-                .map_err(|e| format!("清空资产失败: {}", e))?;
-            conn.execute("DELETE FROM user_profile", [])
-                .map_err(|e| format!("清空档案失败: {}", e))?;
-            conn.execute("DELETE FROM check_in_log", [])
-                .map_err(|e| format!("清空记录失败: {}", e))?;
-        }
-
-        let mut count = 0i64;
-        for (idx, a) in assets.iter().enumerate() {
-            // 备份文件是外部输入：类别/处置/金额必须与命令层同样校验，
-            // 否则一个手改过的 JSON 就能把非法枚举和负金额写进统计与报告。
-            let category = sval(a, "category");
-            validate_category(&category)
-                .map_err(|e| format!("备份第 {} 条资产类别非法: {}", idx + 1, e))?;
-            let disposal = sval(a, "disposal_method");
-            validate_disposal(&disposal)
-                .map_err(|e| format!("备份第 {} 条资产处置非法: {}", idx + 1, e))?;
-            let value = fval(a, "estimated_value");
-            if !value.is_finite() || value < 0.0 || value > 1e12 {
-                return Err(format!(
-                    "备份第 {} 条资产估值非法（要求 0..1e12 的有限数值，实际 {}）",
-                    idx + 1,
-                    value
-                ));
-            }
-            // 合并模式不能复用备份里的 id：本地可能已有同 id 资产，
-            // 直接 INSERT 会撞主键并把整个导入回滚。让 SQLite 分配新 id。
-            let backup_id = ival(a, "id");
-            let target_id = if mode == ImportMode::Replace {
-                backup_id
-            } else {
-                let taken: i64 = conn
-                    .query_row(
-                        "SELECT COUNT(*) FROM digital_assets WHERE id=?1",
-                        params![backup_id],
-                        |r| r.get(0),
-                    )
-                    .unwrap_or(0);
-                if taken == 0 && backup_id > 0 {
-                    backup_id
-                } else {
-                    0
-                }
-            };
-            conn.execute(
-                "INSERT INTO digital_assets (id, platform_id, account_identifier, account_description, category, estimated_value, value_currency, disposal_method, heir_name, heir_contact, notes, credential_enc, is_confirmed, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
-                params![
-                    if target_id > 0 { Some(target_id) } else { None },
-                    ival(a, "platform_id"),
-                    protect(sval(a, "account_identifier"))?,
-                    protect(sval(a, "account_description"))?,
-                    category,
-                    value,
-                    { let c = sval(a, "value_currency"); if c.is_empty() { "CNY".to_string() } else { c } },
-                    disposal,
-                    protect(sval(a, "heir_name"))?,
-                    protect(sval(a, "heir_contact"))?,
-                    protect(sval(a, "notes"))?,
-                    protect(sval(a, "credential_enc"))?,
-                    ival(a, "is_confirmed"),
-                    sval(a, "created_at"),
-                    sval(a, "updated_at"),
-                ],
-            ).map_err(|e| format!("写入资产失败: {}", e))?;
-            count += 1;
-        }
-
-        // 合并模式不清空档案/签到：只补「本地还没有」的档案行，
-        // 已有档案保持现状（否则一次合并导入会把当前联系人信息换掉）。
-        let profile_id = |p: &Value| ival(p, "id");
-        for p in &profiles {
-            let pid = profile_id(p);
-            if mode == ImportMode::Merge {
-                let taken: i64 = conn
-                    .query_row(
-                        "SELECT COUNT(*) FROM user_profile WHERE id=?1",
-                        params![pid],
-                        |r| r.get(0),
-                    )
-                    .unwrap_or(0);
-                if taken > 0 {
-                    continue;
-                }
-            }
-            conn.execute(
-                "INSERT INTO user_profile (id, full_name, phone, email, id_last4, emergency_contact_name, emergency_contact_phone, emergency_contact_relation, emergency_contact_email, heir_primary_name, heir_primary_phone, heir_primary_relation, heir_primary_email, check_in_interval_days, last_check_in, dms_enabled, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
-                params![
-                    pid,
-                    protect(sval(p, "full_name"))?,
-                    protect(sval(p, "phone"))?,
-                    protect(sval(p, "email"))?,
-                    protect(sval(p, "id_last4"))?,
-                    protect(sval(p, "emergency_contact_name"))?,
-                    protect(sval(p, "emergency_contact_phone"))?,
-                    protect(sval(p, "emergency_contact_relation"))?,
-                    protect(sval(p, "emergency_contact_email"))?,
-                    protect(sval(p, "heir_primary_name"))?,
-                    protect(sval(p, "heir_primary_phone"))?,
-                    protect(sval(p, "heir_primary_relation"))?,
-                    protect(sval(p, "heir_primary_email"))?,
-                    ival(p, "check_in_interval_days"),
-                    oval(p, "last_check_in"),
-                    ival(p, "dms_enabled"),
-                    sval(p, "created_at"),
-                    sval(p, "updated_at"),
-                ],
-            ).map_err(|e| format!("写入档案失败: {}", e))?;
-        }
-
-        // 合并模式只追加备份里比本地更新的确认记录（id 冲突跳过），
-        // 覆盖模式沿用原行为整表写入。
-        for c in &check_ins {
-            let cid = ival(c, "id");
-            if mode == ImportMode::Merge {
-                let taken: i64 = conn
-                    .query_row(
-                        "SELECT COUNT(*) FROM check_in_log WHERE id=?1",
-                        params![cid],
-                        |r| r.get(0),
-                    )
-                    .unwrap_or(0);
-                if taken > 0 {
-                    continue;
-                }
-            }
-            conn.execute(
-                "INSERT INTO check_in_log (id, checked_at, status, note) VALUES (?1, ?2, ?3, ?4)",
-                params![
-                    cid,
-                    sval(c, "checked_at"),
-                    sval(c, "status"),
-                    sval(c, "note")
-                ],
-            )
-            .map_err(|e| format!("写入记录失败: {}", e))?;
-        }
-
-        if let Some(d) = tables.get("dms_config").filter(|x| x.is_object()) {
-            conn.execute(
-                "UPDATE dms_config SET enabled=?1, check_in_interval_days=?2, stage1_wait_days=?3, stage2_wait_days=?4, stage3_wait_days=?5, last_check_in=?6 WHERE id=1",
-                params![
-                    ival(d, "enabled"),
-                    ival(d, "check_in_interval_days"),
-                    ival(d, "stage1_wait_days"),
-                    ival(d, "stage2_wait_days"),
-                    // 接收旧备份里的该值但不再使用，保证导入不因缺字段失败
-                    ival(d, "stage3_wait_days"),
-                    oval(d, "last_check_in"),
-                ],
-            ).map_err(|e| format!("写入DMS配置失败: {}", e))?;
-        }
-
-        if let Some(sec) = tables.get("security_config").filter(|x| x.is_object()) {
-            // v3 备份带恢复封印：与新主密钥（备份里的 kdf_salt/verifier）成套，
-            // 一起恢复才能保留「记得恢复码就能找回」的能力。
-            // v1/v2 备份不含封印：必须显式清空，否则本地旧封印指向旧设备的主密钥，
-            // 会让恢复码解出错误密钥，恢复链路静默断裂。
-            let seal = sval(sec, "recovery_seal");
-            conn.execute(
-                "INSERT INTO security_config (id, kdf_salt, verifier, created_at, recovery_seal) VALUES (1, ?1, ?2, ?3, ?4)
-                 ON CONFLICT(id) DO UPDATE SET kdf_salt=?1, verifier=?2, recovery_seal=?4",
-                params![
-                    sval(sec, "kdf_salt"),
-                    sval(sec, "verifier"),
-                    Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                    seal,
-                ],
-            ).map_err(|e| format!("写入安全配置失败: {}", e))?;
-        }
-
-        // v2：心跳配置与政策补丁。旧备份没有这两块 → 保持本地现状，
-        // 不主动清空（清空会让「导入旧备份」顺手删掉用户的令牌与补丁）。
-        if let Some(hb) = tables.get("heartbeat_config").filter(|x| x.is_object()) {
-            conn.execute(
-                "INSERT INTO heartbeat_config (id, enabled, token, endpoint) VALUES (1, ?1, ?2, ?3)
-                 ON CONFLICT(id) DO UPDATE SET enabled=?1, token=?2, endpoint=?3",
-                params![ival(hb, "enabled"), sval(hb, "token"), sval(hb, "endpoint")],
-            )
-            .map_err(|e| format!("写入心跳配置失败: {}", e))?;
-        }
-
-        // v4：继承人名单。Merge 模式下只追加「本地还没有的」那几条
-        // （按 name+relation 判重），Replace 模式整表替换。
-        if let Some(heirs) = tables.get("heirs") {
-            if !heirs.is_array() && !heirs.is_null() {
-                return Err("备份字段 heirs 必须是数组".to_string());
-            }
-            if let Some(list) = heirs.as_array() {
-                if mode == ImportMode::Replace {
-                    conn.execute("DELETE FROM heirs", [])
-                        .map_err(|e| format!("清空继承人失败: {}", e))?;
-                }
-                for (idx, h) in list.iter().enumerate() {
-                    let name = protect(sval(h, "name"))?;
-                    if name.trim().is_empty() {
-                        continue;
-                    }
-                    if mode == ImportMode::Merge {
-                        // 简单判重：同名同关系视为同一个人（密文比较不可用，
-                        // 因此比较解密后的明文；锁定态下 protect 已拒绝明文备份）
-                        let existing = get_heirs_db()?;
-                        if existing.iter().any(|e| e.name == name) {
-                            continue;
-                        }
-                    }
-                    conn.execute(
-                        "INSERT INTO heirs (name, relation, phone, email, share_note, is_executor, sort_order, created_at, updated_at)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
-                        params![
-                            name,
-                            protect(sval(h, "relation"))?,
-                            protect(sval(h, "phone"))?,
-                            protect(sval(h, "email"))?,
-                            protect(sval(h, "share_note"))?,
-                            ival(h, "is_executor"),
-                            idx as i64,
-                            Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                        ],
-                    )
-                    .map_err(|e| format!("写入继承人失败: {}", e))?;
-                }
-            }
-        }
-
-        // v4：审核留痕。Merge 模式跳过已存在的同指纹记录，避免重复堆积。
-        if let Some(records) = tables.get("review_records") {
-            if !records.is_array() && !records.is_null() {
-                return Err("备份字段 review_records 必须是数组".to_string());
-            }
-            if let Some(list) = records.as_array() {
-                if mode == ImportMode::Replace {
-                    conn.execute("DELETE FROM review_records", [])
-                        .map_err(|e| format!("清空审核记录失败: {}", e))?;
-                }
-                for r in list {
-                    let profile_id = sval(r, "profile_id");
-                    let item_key = sval(r, "item_key");
-                    let fingerprint = sval(r, "fingerprint");
-                    if profile_id.is_empty() || item_key.is_empty() {
-                        continue;
-                    }
-                    if mode == ImportMode::Merge {
-                        // 同一条目同一指纹的记录视为已经存在（留痕只增，不重复）
-                        let exists: i64 = conn
-                            .query_row(
-                                "SELECT COUNT(*) FROM review_records
-                                 WHERE profile_id=?1 AND item_key=?2 AND fingerprint=?3
-                                   AND ai_verdict=?4 AND COALESCE(human_verdict,'')=?5",
-                                params![
-                                    profile_id,
-                                    item_key,
-                                    fingerprint,
-                                    sval(r, "ai_verdict"),
-                                    sval(r, "human_verdict"),
-                                ],
-                                |x| x.get(0),
-                            )
-                            .unwrap_or(0);
-                        if exists > 0 {
-                            continue;
-                        }
-                    }
-                    conn.execute(
-                        "INSERT INTO review_records (profile_id, item_key, fingerprint, ai_verdict, ai_note, human_verdict, human_note, decided_by, created_at)
-                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-                        params![
-                            profile_id,
-                            item_key,
-                            fingerprint,
-                            sval(r, "ai_verdict"),
-                            sval(r, "ai_note"),
-                            { let h = sval(r, "human_verdict"); if h.is_empty() { None } else { Some(h) } },
-                            sval(r, "human_note"),
-                            sval(r, "decided_by"),
-                            sval(r, "created_at"),
-                        ],
-                    )
-                    .map_err(|e| format!("写入审核记录失败: {}", e))?;
-                }
-            }
-        }
-
-        // v4：SMTP / 保管位置 / 助手配置。旧备份没有这些块 → 保持本地现状。
-        if let Some(smtp) = tables.get("smtp_config").filter(|x| x.is_object()) {
-            conn.execute(
-                "INSERT INTO smtp_config (id, host, port, from_addr, username, password_enc, allow_insecure, updated_at)
-                 VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7)
-                 ON CONFLICT(id) DO UPDATE SET host=?1, port=?2, from_addr=?3, username=?4, password_enc=?5, allow_insecure=?6, updated_at=?7",
-                params![
-                    sval(smtp, "host"),
-                    ival(smtp, "port"),
-                    sval(smtp, "from_addr"),
-                    sval(smtp, "username"),
-                    protect(sval(smtp, "password_enc"))?,
-                    ival(smtp, "allow_insecure"),
-                    Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                ],
-            )
-            .map_err(|e| format!("写入 SMTP 配置失败: {}", e))?;
-        }
-
-        if let Some(c) = tables.get("custody_config").filter(|x| x.is_object()) {
-            conn.execute(
-                "INSERT INTO custody_config (id, backup_location_enc, recovery_code_location_enc, updated_at)
-                 VALUES (1, ?1, ?2, ?3)
-                 ON CONFLICT(id) DO UPDATE SET backup_location_enc=?1, recovery_code_location_enc=?2, updated_at=?3",
-                params![
-                    protect(sval(c, "backup_location_enc"))?,
-                    protect(sval(c, "recovery_code_location_enc"))?,
-                    Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                ],
-            )
-            .map_err(|e| format!("写入保管位置失败: {}", e))?;
-        }
-
-        if let Some(a) = tables.get("assistant_config").filter(|x| x.is_object()) {
-            conn.execute(
-                "INSERT INTO assistant_config (id, enabled, endpoint, model, api_key_enc, updated_at)
-                 VALUES (1, ?1, ?2, ?3, ?4, ?5)
-                 ON CONFLICT(id) DO UPDATE SET enabled=?1, endpoint=?2, model=?3, api_key_enc=?4, updated_at=?5",
-                params![
-                    ival(a, "enabled"),
-                    sval(a, "endpoint"),
-                    sval(a, "model"),
-                    protect(sval(a, "api_key_enc"))?,
-                    Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                ],
-            )
-            .map_err(|e| format!("写入助手配置失败: {}", e))?;
-        }
-
-        if let Some(overrides) = tables.get("platform_overrides").and_then(|x| x.as_array()) {
-            conn.execute("DELETE FROM platform_overrides", [])
-                .map_err(|e| format!("清空政策补丁失败: {}", e))?;
-            for o in overrides {
-                conn.execute(
-                    "INSERT INTO platform_overrides (id, name, name_en, category, subtype, has_property, has_personality, inheritable, required_documents, process_description, estimated_difficulty, official_policy_url, estimated_time_days, notes, updated_at)
-                     VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
-                    params![
-                        ival(o, "id"),
-                        sval(o, "name"),
-                        sval(o, "name_en"),
-                        sval(o, "category"),
-                        sval(o, "subtype"),
-                        ival(o, "has_property"),
-                        ival(o, "has_personality"),
-                        ival(o, "inheritable"),
-                        sval(o, "required_documents"),
-                        sval(o, "process_description"),
-                        sval(o, "estimated_difficulty"),
-                        sval(o, "official_policy_url"),
-                        sval(o, "estimated_time_days"),
-                        sval(o, "notes"),
-                        Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-                    ],
-                ).map_err(|e| format!("写入政策补丁失败: {}", e))?;
-            }
-        }
-
-        Ok(count)
-    })();
-
-    match result {
-        Ok(n) => {
-            conn.execute_batch("COMMIT")
-                .map_err(|e| format!("提交事务失败: {}", e))?;
-            crate::vault::clear_key();
-            Ok(n)
-        }
-        Err(e) => {
-            let _ = conn.execute_batch("ROLLBACK");
-            Err(e)
-        }
-    }
-}
-
-/// 将存量明文敏感字段加密（幂等；返回改动的资产行数）
-pub fn encrypt_existing_data_db() -> Result<i64, String> {
-    if !crate::vault::is_unlocked() {
-        return Err("请先解锁".to_string());
-    }
-    let guard = get_conn()?;
-    let conn = guard.as_ref().unwrap();
-    let mut changed: i64 = 0;
-
-    let mut stmt = conn.prepare(
-        "SELECT id, account_identifier, account_description, heir_name, heir_contact, notes, credential_enc FROM digital_assets",
-    ).map_err(|e| format!("查询资产失败: {}", e))?;
+        .map_err(|e| format!("查询资产失败: {}", e))?;
     let rows: Vec<(i64, String, String, String, String, String, String)> = stmt
         .query_map([], |row| {
             Ok((
@@ -2277,51 +1131,30 @@ pub fn encrypt_existing_data_db() -> Result<i64, String> {
         .map_err(|e| format!("读取资产失败: {}", e))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("收集资产失败: {}", e))?;
-
-    for (id, ai, ad, hn, hc, nt, cr) in rows {
-        let nai = crate::vault::encrypt_if_needed(&ai)?;
-        let nad = crate::vault::encrypt_if_needed(&ad)?;
-        let nhn = crate::vault::encrypt_if_needed(&hn)?;
-        let nhc = crate::vault::encrypt_if_needed(&hc)?;
-        let nnt = crate::vault::encrypt_if_needed(&nt)?;
-        let ncr = crate::vault::encrypt_if_needed(&cr)?;
-        if nai != ai || nad != ad || nhn != hn || nhc != hc || nnt != nt || ncr != cr {
-            conn.execute(
-                "UPDATE digital_assets SET account_identifier=?1, account_description=?2, heir_name=?3, heir_contact=?4, notes=?5, credential_enc=?6 WHERE id=?7",
-                params![nai, nad, nhn, nhc, nnt, ncr, id],
-            ).map_err(|e| format!("加密存量资产失败: {}", e))?;
-            changed += 1;
+    let upgrade = |v: &str| -> Result<String, String> {
+        if v.is_empty() {
+            return Ok(String::new());
         }
+        let plain = crate::vault::decrypt_field_any(v, dek)?;
+        crate::vault::encrypt_field_v2(&plain, dek)
+    };
+    for (id, ai, ad, hn, hc, nt, cr) in rows {
+        conn.execute(
+            "UPDATE digital_assets SET account_identifier=?1, account_description=?2, heir_name=?3, heir_contact=?4, notes=?5, credential_enc=?6 WHERE id=?7",
+            params![upgrade(&ai)?, upgrade(&ad)?, upgrade(&hn)?, upgrade(&hc)?, upgrade(&nt)?, upgrade(&cr)?, id],
+        )
+        .map_err(|e| format!("升级资产格式失败: {}", e))?;
     }
 
     if let Some((pid, vals)) = select_profile_sensitive(conn)? {
         let mut new_vals = Vec::with_capacity(vals.len());
-        let mut dirty = false;
         for v in &vals {
-            let nv = crate::vault::encrypt_if_needed(v)?;
-            if nv != *v {
-                dirty = true;
-            }
-            new_vals.push(nv);
+            new_vals.push(upgrade(v)?);
         }
-        if dirty {
-            update_profile_sensitive(conn, pid, &new_vals)
-                .map_err(|e| format!("加密存量档案失败: {}", e))?;
-            changed += 1;
-        }
+        update_profile_sensitive(conn, pid, &new_vals)?;
     }
 
-    // 继承人名单同样必须收编：否则开启加密后它仍是明文落库。
-    if encrypt_existing_heirs(conn)? {
-        changed += 1;
-    }
-
-    Ok(changed)
-}
-
-/// 把 heirs 表的明文值就地加密（启用加密时的存量收编）。
-fn encrypt_existing_heirs(conn: &Connection) -> Result<bool, String> {
-    let rows: Vec<(i64, String, String, String, String, String)> = conn
+    let heirs: Vec<(i64, String, String, String, String, String)> = conn
         .prepare(
             "SELECT id, COALESCE(name,''), COALESCE(relation,''), COALESCE(phone,''),
                     COALESCE(email,''), COALESCE(share_note,'') FROM heirs",
@@ -2340,33 +1173,66 @@ fn encrypt_existing_heirs(conn: &Connection) -> Result<bool, String> {
         .map_err(|e| format!("读取继承人失败: {}", e))?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("收集继承人失败: {}", e))?;
-    let mut dirty = false;
-    for (id, name, relation, phone, email, share_note) in rows {
-        let n_name = crate::vault::encrypt_if_needed(&name)?;
-        let n_rel = crate::vault::encrypt_if_needed(&relation)?;
-        let n_phone = crate::vault::encrypt_if_needed(&phone)?;
-        let n_email = crate::vault::encrypt_if_needed(&email)?;
-        let n_share = crate::vault::encrypt_if_needed(&share_note)?;
-        if n_name != name
-            || n_rel != relation
-            || n_phone != phone
-            || n_email != email
-            || n_share != share_note
-        {
-            conn.execute(
-                "UPDATE heirs SET name=?1, relation=?2, phone=?3, email=?4, share_note=?5 WHERE id=?6",
-                params![n_name, n_rel, n_phone, n_email, n_share, id],
-            )
-            .map_err(|e| format!("加密存量继承人失败: {}", e))?;
-            dirty = true;
+    for (id, name, relation, phone, email, share_note) in heirs {
+        conn.execute(
+            "UPDATE heirs SET name=?1, relation=?2, phone=?3, email=?4, share_note=?5 WHERE id=?6",
+            params![
+                upgrade(&name)?,
+                upgrade(&relation)?,
+                upgrade(&phone)?,
+                upgrade(&email)?,
+                upgrade(&share_note)?,
+                id
+            ],
+        )
+        .map_err(|e| format!("升级继承人格式失败: {}", e))?;
+    }
+    Ok(())
+}
+
+/// 恢复流程落库：重写安全配置（验证器+恢复封印）并把全库字段重加密到主密钥对应的新密码密钥
+pub fn reset_security_config_db(
+    kdf_salt: &str,
+    verifier: &str,
+    recovery_seal: &str,
+    data_key: &[u8; 32],
+    kek: &[u8; 32],
+) -> Result<(), String> {
+    // 恢复重设沿用同一把数据密钥：只需要用新 KEK 重新包裹它。
+    // 旧实现会逐字段重加密全库，资产多时是一次可感知的卡顿，且中途失败会留下
+    // 「部分字段用新钥、部分用旧钥」的半完成状态。现在整件事是一条 UPDATE。
+    let wrapped = crate::vault::wrap_data_key(data_key, kek)?;
+    {
+        let guard = get_conn()?;
+        let conn = guard.as_ref().unwrap();
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .map_err(|e| format!("开启事务失败: {}", e))?;
+        let result = conn.execute(
+            "UPDATE security_config SET kdf_salt=?1, verifier=?2, recovery_seal=?3, wrapped_dek=?4 WHERE id=1",
+            params![kdf_salt, verifier, recovery_seal, wrapped],
+        );
+        match result {
+            Ok(_) => conn
+                .execute_batch("COMMIT")
+                .map_err(|e| format!("提交事务失败: {}", e))?,
+            Err(e) => {
+                let _ = conn.execute_batch("ROLLBACK");
+                return Err(format!("更新安全配置失败: {}", e));
+            }
         }
     }
-    Ok(dirty)
+    crate::vault::set_key(zeroize::Zeroizing::new(*data_key));
+    Ok(())
 }
 
 // ========== Check-in / Dead Man's Switch ==========
 
 pub fn record_check_in_db() -> Result<(), String> {
+    ensure_vault_writable_db()?;
+    record_check_in_internal_db()
+}
+
+pub(crate) fn record_check_in_internal_db() -> Result<(), String> {
     let guard = get_conn()?;
     let conn = guard.as_ref().unwrap();
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -2467,6 +1333,11 @@ fn recent_check_ins_db(conn: &Connection, limit: usize) -> Result<Vec<String>, S
 }
 
 pub fn set_dms_config_db(enabled: bool, interval_days: i64) -> Result<(), String> {
+    ensure_vault_writable_db()?;
+    set_dms_config_internal_db(enabled, interval_days)
+}
+
+pub(crate) fn set_dms_config_internal_db(enabled: bool, interval_days: i64) -> Result<(), String> {
     let guard = get_conn()?;
     let conn = guard.as_ref().unwrap();
 
@@ -2501,6 +1372,17 @@ fn smtp_configured_in(conn: &Connection) -> bool {
     .unwrap_or(false)
 }
 
+/// 仪表板统计。
+///
+/// **不要合并成单条聚合查询**（已实测否决）：12 条独立 COUNT 中多数能命中
+/// `idx_assets_category` / `idx_assets_disposal` 覆盖索引，只读索引不读表；
+/// 而单条 SUM(CASE ...) 必须整表扫描并对每行求值 12 个分支。
+/// 实测（Python sqlite3，WAL + synchronous=NORMAL，300 次取均值）：
+///   20 行: 0.077ms vs 0.030ms（合并更快，但绝对值可忽略）
+///   500 行: 0.378ms vs 0.403ms
+///   2000 行: 1.365ms vs 1.663ms（合并慢 22%）
+///   20000 行: 28.6ms vs 18.5ms（只有到万级才反超）
+/// 个人数字资产量级（几十到几百条）下合并无收益且更慢，故保持逐项查询。
 pub fn get_dashboard_stats_db() -> Result<DashboardStats, String> {
     let guard = get_conn()?;
     let conn = guard.as_ref().unwrap();
@@ -2677,6 +1559,25 @@ pub fn get_dashboard_stats_db() -> Result<DashboardStats, String> {
         .unwrap_or(false);
     let custody_missing = if custody_filled { 0 } else { 1 };
 
+    // 继承人恢复包：主密码启用后，没有恢复包意味着「只有这台机器的主人能解密」。
+    // 这是本项目最核心的能力缺口，必须作为 blocker 出现在待办里。
+    let recovery_kit_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM heir_recovery WHERE id=1)",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+        .map(|v| v != 0)
+        .unwrap_or(false);
+    // 必须直接查库：本函数已持有连接锁，调用 get_security_config_db() 会二次加锁死锁
+    // （std Mutex 不可重入，历史上同类写法让整个测试套挂死）。
+    let vault_configured: bool = conn
+        .query_row("SELECT COUNT(*) FROM security_config WHERE id=1", [], |r| {
+            r.get::<_, i64>(0)
+        })
+        .map(|n| n > 0)
+        .unwrap_or(false);
+
     let mut issues: Vec<crate::models::CheckIssue> = Vec::new();
     if total > 0 && missing_disposal > 0 {
         issues.push(crate::models::CheckIssue {
@@ -2713,6 +1614,15 @@ pub fn get_dashboard_stats_db() -> Result<DashboardStats, String> {
     if custody_missing > 0 {
         issues.push(crate::models::CheckIssue {
             key: "custody_missing".into(),
+            severity: "blocker".into(),
+            count: 0,
+            target: "/profile".into(),
+        });
+    }
+    // 只有启用了主密码才需要恢复包；明文模式下没有可拆分的密钥。
+    if vault_configured && !recovery_kit_exists {
+        issues.push(crate::models::CheckIssue {
+            key: "recovery_kit_missing".into(),
             severity: "blocker".into(),
             count: 0,
             target: "/profile".into(),
@@ -2877,6 +1787,66 @@ pub fn get_inheritance_report_db() -> Result<InheritanceReport, String> {
     })
 }
 
+// ========== AI 助手会话历史 ==========
+
+/// 追加一条问答记录。
+pub fn append_ai_chat_db(question: &str, answer: &str, model: &str) -> Result<(), String> {
+    ensure_vault_writable_db()?;
+    if question.chars().count() > 2_000 || answer.chars().count() > 20_000 {
+        return Err("问答内容超出长度上限".to_string());
+    }
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    conn.execute(
+        "INSERT INTO ai_chat_log (question, answer, model, created_at) VALUES (?1, ?2, ?3, ?4)",
+        params![
+            question,
+            answer,
+            model,
+            Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
+        ],
+    )
+    .map_err(|e| format!("保存问答记录失败: {}", e))?;
+    Ok(())
+}
+
+/// 最近 N 条问答（新的在前）。
+pub fn list_ai_chat_db(limit: usize) -> Result<Vec<serde_json::Value>, String> {
+    ensure_vault_readable_db()?;
+    let limit = limit.clamp(1, 200) as i64;
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, question, answer, model, created_at FROM ai_chat_log ORDER BY id DESC LIMIT ?1",
+        )
+        .map_err(|e| format!("查询问答历史失败: {}", e))?;
+    let rows = stmt
+        .query_map(params![limit], |r| {
+            Ok(serde_json::json!({
+                "id": r.get::<_, i64>(0)?,
+                "question": r.get::<_, String>(1)?,
+                "answer": r.get::<_, String>(2)?,
+                "model": r.get::<_, String>(3)?,
+                "created_at": r.get::<_, String>(4)?,
+            }))
+        })
+        .map_err(|e| format!("读取问答历史失败: {}", e))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("收集问答历史失败: {}", e))?;
+    Ok(rows)
+}
+
+/// 清空问答历史。
+pub fn clear_ai_chat_db() -> Result<(), String> {
+    ensure_vault_writable_db()?;
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    conn.execute("DELETE FROM ai_chat_log", [])
+        .map_err(|e| format!("清空问答历史失败: {}", e))?;
+    Ok(())
+}
+
 #[cfg(test)]
 #[path = "db_tests.rs"]
 mod tests;
@@ -2896,3 +1866,15 @@ pub use heirs::*;
 #[path = "db_review.rs"]
 mod review_store;
 pub use review_store::*;
+
+#[path = "db_assets.rs"]
+mod assets_store;
+pub use assets_store::*;
+
+#[path = "db_profile.rs"]
+mod profile_store;
+pub use profile_store::*;
+
+#[path = "db_backup.rs"]
+mod backup_store;
+pub use backup_store::*;

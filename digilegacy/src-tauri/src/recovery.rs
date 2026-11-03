@@ -12,6 +12,8 @@ use zeroize::Zeroizing;
 use crate::crypto;
 
 const SPLIT_DASH_EVERY: usize = 4;
+/// v3 封印前缀：恢复码派生使用 Argon2id（参数随盐串自描述）
+const SEAL_PREFIX_V3: &str = "RS3.";
 /// v2 封印前缀：恢复码派生使用 PBKDF2 600k；无前缀 = v1 旧封印（100k，兼容读取）
 const SEAL_PREFIX_V2: &str = "RS2.";
 
@@ -56,45 +58,96 @@ pub fn normalize_recovery_code(input: &str) -> String {
         .collect()
 }
 
-/// 设置流程：以恢复码派生密钥（v2 迭代数）封装主密钥，返回 (恢复码, 带版本前缀的密文)
+/// 设置流程：以恢复码派生密钥（Argon2id）封装主密钥，返回 (恢复码, 带版本前缀的密文)
+///
+/// 封印格式（RS3）：`RS3.` + base64( kdf_salt_str_len(u8) || kdf_salt_str || sealed )
+/// 盐串自带算法与参数，将来再换 KDF 不需要再改封印结构。
 pub fn create_recovery_seal(master_key: &[u8; 32]) -> Result<(String, String), String> {
     let code = generate_recovery_code();
-    let salt = crypto::generate_salt();
-    let rec_key = crypto::derive_key_bytes_v(
-        &normalize_recovery_code(&code),
-        &salt,
-        crypto::PBKDF2_ITERATIONS_V2,
-    );
+    let kdf_salt = crypto::generate_salt_v3();
+    let rec_key = crypto::derive_from_salt(&normalize_recovery_code(&code), &kdf_salt)?;
     let sealed = crypto::encrypt_with_key(&BASE64.encode(master_key), &rec_key)?;
-    // 密文格式: RS2. + base64(salt(16) || sealed)
-    let mut combined = salt.to_vec();
-    combined.extend_from_slice(
-        &BASE64
-            .decode(&sealed)
-            .map_err(|e| format!("封装修理失败: {}", e))?,
-    );
+    let sealed_bytes = BASE64
+        .decode(&sealed)
+        .map_err(|e| format!("封装修理失败: {}", e))?;
+    let salt_bytes = kdf_salt.as_bytes();
+    if salt_bytes.len() > 255 {
+        return Err("内部错误：KDF 盐过长".to_string());
+    }
+    let mut combined = Vec::with_capacity(1 + salt_bytes.len() + sealed_bytes.len());
+    combined.push(salt_bytes.len() as u8);
+    combined.extend_from_slice(salt_bytes);
+    combined.extend_from_slice(&sealed_bytes);
     Ok((
         code,
-        format!("{}{}", SEAL_PREFIX_V2, BASE64.encode(&combined)),
+        format!("{}{}", SEAL_PREFIX_V3, BASE64.encode(&combined)),
     ))
 }
 
-/// 恢复流程：以恢复码解开主密钥；按封印前缀选择迭代数（v1 旧封印继续可解）
-pub fn unseal_with_recovery(code: &str, sealed_b64: &str) -> Result<Zeroizing<[u8; 32]>, String> {
-    let (iterations, body) = if let Some(rest) = sealed_b64.strip_prefix(SEAL_PREFIX_V2) {
-        (crypto::PBKDF2_ITERATIONS_V2, rest)
+pub fn validate_recovery_seal_structure(sealed_b64: &str) -> Result<(), String> {
+    if sealed_b64.trim().is_empty() {
+        return Err("恢复封印为空".to_string());
+    }
+    let (body, v3) = if let Some(rest) = sealed_b64.strip_prefix(SEAL_PREFIX_V3) {
+        (rest, true)
+    } else if let Some(rest) = sealed_b64.strip_prefix(SEAL_PREFIX_V2) {
+        (rest, false)
     } else {
-        (crypto::PBKDF2_ITERATIONS_V1, sealed_b64)
+        (sealed_b64, false)
     };
     let combined = BASE64
         .decode(body)
-        .map_err(|_| "恢复密钥数据损坏".to_string())?;
-    if combined.len() < 16 {
-        return Err("恢复密钥数据长度不合法".to_string());
+        .map_err(|_| "恢复封印不是有效 Base64".to_string())?;
+    if v3 {
+        let salt_len = *combined.first().ok_or("恢复封印长度不合法")? as usize;
+        if salt_len == 0 || combined.len() < 1 + salt_len + 13 {
+            return Err("恢复封印长度不合法".to_string());
+        }
+        let salt = std::str::from_utf8(&combined[1..1 + salt_len])
+            .map_err(|_| "恢复封印 KDF 盐损坏".to_string())?;
+        crypto::parse_kdf_params(salt).map_err(|_| "恢复封印 KDF 参数无效".to_string())?;
+    } else if combined.len() < 16 + 13 {
+        return Err("恢复封印长度不合法".to_string());
     }
-    let salt = &combined[0..16];
-    let sealed = BASE64.encode(&combined[16..]);
-    let rec_key = crypto::derive_key_bytes_v(&normalize_recovery_code(code), salt, iterations);
+    Ok(())
+}
+
+/// 恢复流程：以恢复码解开主密钥。
+///
+/// 三代封印并存：RS3 = Argon2id（盐串自描述）；RS2 = PBKDF2 600k；
+/// 无前缀 = v1 PBKDF2 100k。旧恢复码在升级后必须继续可用，否则等于让用户丢数据。
+pub fn unseal_with_recovery(code: &str, sealed_b64: &str) -> Result<Zeroizing<[u8; 32]>, String> {
+    let normalized = normalize_recovery_code(code);
+
+    let (rec_key, sealed) = if let Some(rest) = sealed_b64.strip_prefix(SEAL_PREFIX_V3) {
+        let combined = BASE64
+            .decode(rest)
+            .map_err(|_| "恢复密钥数据损坏".to_string())?;
+        let salt_len = *combined.first().ok_or("恢复密钥数据长度不合法")? as usize;
+        if salt_len == 0 || combined.len() < 1 + salt_len + 1 {
+            return Err("恢复密钥数据长度不合法".to_string());
+        }
+        let kdf_salt = std::str::from_utf8(&combined[1..1 + salt_len])
+            .map_err(|_| "恢复密钥数据损坏".to_string())?;
+        let key = crypto::derive_from_salt(&normalized, kdf_salt)?;
+        (key, BASE64.encode(&combined[1 + salt_len..]))
+    } else {
+        let (iterations, body) = if let Some(rest) = sealed_b64.strip_prefix(SEAL_PREFIX_V2) {
+            (crypto::PBKDF2_ITERATIONS_V2, rest)
+        } else {
+            (crypto::PBKDF2_ITERATIONS_V1, sealed_b64)
+        };
+        let combined = BASE64
+            .decode(body)
+            .map_err(|_| "恢复密钥数据损坏".to_string())?;
+        if combined.len() < 17 {
+            return Err("恢复密钥数据长度不合法".to_string());
+        }
+        let salt = &combined[0..16];
+        let key = crypto::derive_key_bytes_v(&normalized, salt, iterations);
+        (key, BASE64.encode(&combined[16..]))
+    };
+
     let master_b64 = crypto::decrypt_with_key(&sealed, &rec_key)?;
     let master = BASE64
         .decode(master_b64)
@@ -177,26 +230,53 @@ mod tests {
         assert_eq!(*opened, master);
     }
 
-    /// v1 与 v2 封印互不干扰：同一恢复码在两种格式下都能解出同一主密钥。
+    /// v1 / v2 / v3 三代封印互不干扰：同一恢复码在三种格式下都能解出同一主密钥。
     #[test]
-    fn v1_and_v2_seals_coexist() {
+    fn v1_v2_v3_seals_coexist() {
         let master = [9u8; 32];
-        let (code, v2_seal) = create_recovery_seal(&master).unwrap();
-        assert!(v2_seal.starts_with(SEAL_PREFIX_V2));
-        assert_eq!(*unseal_with_recovery(&code, &v2_seal).unwrap(), master);
+        let (code, v3_seal) = create_recovery_seal(&master).unwrap();
+        assert!(v3_seal.starts_with(SEAL_PREFIX_V3), "新封印必须是 RS3");
+        assert_eq!(*unseal_with_recovery(&code, &v3_seal).unwrap(), master);
 
-        // 同一个恢复码手工做成 v1 封印
+        // 同一个恢复码手工做成 v2 封印（PBKDF2 600k + RS2 前缀）
         let salt = crypto::generate_salt();
-        let rec_key = crypto::derive_key_bytes_v(
+        let rec_key_v2 = crypto::derive_key_bytes_v(
             &normalize_recovery_code(&code),
             &salt,
+            crypto::PBKDF2_ITERATIONS_V2,
+        );
+        let sealed_v2 = crypto::encrypt_with_key(&BASE64.encode(master), &rec_key_v2).unwrap();
+        let mut combined_v2 = salt.to_vec();
+        combined_v2.extend_from_slice(&BASE64.decode(&sealed_v2).unwrap());
+        let v2_seal = format!("{}{}", SEAL_PREFIX_V2, BASE64.encode(&combined_v2));
+        assert_eq!(*unseal_with_recovery(&code, &v2_seal).unwrap(), master);
+
+        // 同一个恢复码手工做成 v1 封印（无前缀 + PBKDF2 100k）
+        let salt1 = crypto::generate_salt();
+        let rec_key_v1 = crypto::derive_key_bytes_v(
+            &normalize_recovery_code(&code),
+            &salt1,
             crypto::PBKDF2_ITERATIONS_V1,
         );
-        let sealed = crypto::encrypt_with_key(&BASE64.encode(master), &rec_key).unwrap();
-        let mut combined = salt.to_vec();
-        combined.extend_from_slice(&BASE64.decode(&sealed).unwrap());
-        let v1_seal = BASE64.encode(&combined);
+        let sealed_v1 = crypto::encrypt_with_key(&BASE64.encode(master), &rec_key_v1).unwrap();
+        let mut combined_v1 = salt1.to_vec();
+        combined_v1.extend_from_slice(&BASE64.decode(&sealed_v1).unwrap());
+        let v1_seal = BASE64.encode(&combined_v1);
 
         assert_eq!(*unseal_with_recovery(&code, &v1_seal).unwrap(), master);
+    }
+
+    /// 损坏的 RS3 封印必须报错，而不是 panic 或静默返回错误密钥。
+    #[test]
+    fn corrupt_v3_seal_rejected() {
+        for bad in ["RS3.", "RS3.AAAA", "RS3."] {
+            assert!(unseal_with_recovery("ABCD-EFGH-JKLM-NPQR-STUV-WXYZ", bad).is_err());
+        }
+        // 合法 base64 但内部长度字段越界
+        let payload = BASE64.encode([200u8, 1, 2, 3]);
+        assert!(
+            unseal_with_recovery("ABCD-EFGH-JKLM-NPQR-STUV-WXYZ", &format!("RS3.{}", payload))
+                .is_err()
+        );
     }
 }

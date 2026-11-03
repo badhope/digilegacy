@@ -1,18 +1,25 @@
 mod action_guide;
+mod agent;
+mod agent_tools;
 mod ai_assist;
 mod backup;
+mod checkpoint;
 mod commands;
 mod crypto;
 mod db;
 mod family_faq;
 mod fsutil;
 mod heartbeat;
+mod heir_recovery;
+mod imap_checkin;
+mod kdbx_export;
 mod models;
 mod notify;
 mod platform_data;
 mod recovery;
 mod report;
 mod review;
+mod review_heir;
 mod review_profiles;
 #[cfg(test)]
 mod scenarios;
@@ -39,6 +46,11 @@ fn spawn_background_loop(app_handle: tauri::AppHandle) {
                 eprintln!("后台 DMS 评估失败: {}", e);
             }
             heartbeat::send_heartbeat();
+            // IMAP 入站签到：回信 = 我还安好。失败只记录，不影响其他轮次。
+            let r = imap_checkin::poll_once();
+            if r.enabled && !r.connected {
+                eprintln!("后台 IMAP 签到轮询失败: {}", r.message);
+            }
         }));
         if result.is_err() {
             // 单轮崩溃不应终止守护：记录后继续下一轮
@@ -112,6 +124,16 @@ fn build_tray(app: &tauri::App) -> tauri::Result<()> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // 单实例：双开会让两个进程同时跑后台 DMS 循环，
+        // 同一封「到期提醒」被投递两次，家人收到重复邮件；SQLite 也会争锁。
+        // 第二个实例把已有主窗口拉到前台后退出。
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.show();
+                let _ = win.unminimize();
+                let _ = win.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
@@ -198,6 +220,10 @@ pub fn run() {
             commands::complete_recovery,
             commands::get_recovery_seal_exists,
             commands::get_backup_status,
+            commands::create_checkpoint,
+            commands::list_checkpoints,
+            commands::restore_checkpoint,
+            commands::delete_checkpoint,
             commands::get_heartbeat_status,
             commands::get_smtp_config,
             commands::set_smtp_config,
@@ -205,6 +231,20 @@ pub fn run() {
             commands::get_heartbeat_config,
             commands::set_heartbeat_config,
             commands::send_heartbeat_now,
+            commands::generate_heir_recovery_kit,
+            commands::heir_recovery_status,
+            commands::clear_heir_recovery,
+            commands::run_recovery_drill,
+            commands::unlock_with_recovery_shares,
+            commands::get_imap_config,
+            commands::set_imap_config,
+            commands::poll_imap_checkin,
+            commands::run_agent_task,
+            commands::run_agent_task_streaming,
+            commands::export_kdbx_archive,
+            commands::ask_assistant_streaming,
+            commands::list_ai_chat,
+            commands::clear_ai_chat,
             commands::set_autostart,
             commands::hide_main_window,
             notify::evaluate_dms,

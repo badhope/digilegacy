@@ -4,7 +4,7 @@
 // 运行：node server/heartbeat-server.test.mjs
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +16,9 @@ const PORT = 18081;
 const BASE = `http://127.0.0.1:${PORT}`;
 
 const work = mkdtempSync(path.join(tmpdir(), 'hb-test-'));
+const serverSource = readFileSync(path.join(HERE, 'heartbeat-server.mjs'), 'utf8');
+const integrationGuide = readFileSync(path.join(HERE, '..', '..', 'docs', 'AI_INTEGRATION.md'), 'utf8');
+const serverOutput = [];
 
 function startServer() {
   const child = spawn(process.execPath, [path.join(HERE, 'heartbeat-server.mjs')], {
@@ -23,12 +26,14 @@ function startServer() {
       ...process.env,
       HEARTBEAT_PORT: String(PORT),
       HEARTBEAT_ADMIN_TOKEN: ADMIN,
+      HEARTBEAT_TEST_HTTP: '1',
       // 测试用独立的注册表与状态文件：把 server 目录下的文件复制过去太重，
       // 这里通过临时工作目录 + 环境变量覆盖（见下方 server 支持 HEARTBEAT_DATA_DIR）
       HEARTBEAT_DATA_DIR: work,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+  child.stdout.on('data', (chunk) => serverOutput.push(String(chunk)));
   return child;
 }
 
@@ -47,6 +52,11 @@ async function waitReady(timeoutMs = 8000) {
 }
 
 async function main() {
+  assert.match(serverSource, /https\.createServer/, 'reference server must provide an HTTPS product server');
+  assert.match(serverSource, /HEARTBEAT_TEST_HTTP/, 'HTTP must be explicitly limited to the test fixture');
+  assert.match(integrationGuide, /仅允许 HTTPS/, 'AI integration guide must state the heartbeat HTTPS contract');
+  assert.doesNotMatch(integrationGuide, /heartbeat[^\n]*http:\/\//i, 'product heartbeat guidance must not advertise HTTP');
+
   writeFileSync(
     path.join(work, 'registrations.json'),
     JSON.stringify({ 'my-token': { grace_days: 21, notify_webhook: 'https://example.org/hook' } }, null, 2),
