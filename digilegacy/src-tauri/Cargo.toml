@@ -34,7 +34,9 @@ once_cell = "1.20"
 pbkdf2 = { version = "0.13", features = ["hmac"] }
 sha2 = "0.11"
 zeroize = "1.8"
-sharks = "0.5.0"
+# sharks 0.5.0 有 RUSTSEC-2024-0398（多项式系数偏置，无上游修复）；
+# blahaj 是其官方认可的修复分叉，API 兼容。0.6.0 即修复版。
+blahaj = "0.6"
 argon2 = "0.6.0"
 lettre = { version = "0.11.23", features = ["smtp-transport", "rustls-tls", "builder"] }
 ureq = { version = "3.5.0", features = ["rustls", "json"] }
