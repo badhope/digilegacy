@@ -1,5 +1,6 @@
 //! 继承报告、ZIP 工具包与家人执行包 IPC 命令（从 commands.rs 拆出，纯移动，行为零变更）。
 
+#[cfg(target_os = "windows")]
 use super::win_shell;
 use crate::db;
 use crate::models::*;

@@ -22,6 +22,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- **CI was red on `main` after the 0.3.0 design work.** Three independent breakages: `commands_win_shell.rs` (Windows-only FFI) compiled without a `cfg` gate and failed on the ubuntu Rust job; `open_external` was gated `#[cfg(target_os = "windows")]` at the function level, so the non-Windows build lost the symbol that `generate_handler!` references unconditionally; and the win_shell imports tripped `unused_imports` under `-D warnings`. Windows behavior is unchanged — the command bodies already carried per-OS branches.
+- **Deleted files never disappeared from the API-mirrored repos.** The GitHub API sync script built the remote tree on top of the existing one (`base_tree`), so anything removed locally (e.g. the removed `naiveTheme.ts`, which still imported the undeclared `naive-ui` package and turned the remote typecheck and release build red) stayed forever. The tree is now built from scratch — remote content mirrors `git ls-files` exactly, and the script retries secondary rate limits with backoff and moves the release tag instead of skipping it.
+
 - **Metric ring label overlapped the percentage.** `place-items: center` stacked the two lines on top of each other; the ring now uses a column flow.
 - **Command palette footer was pushed outside the panel** when the list overflowed; the panel is now a bounded flex column and only the list scrolls.
 - **Checkpoints were invisible in the browser preview.** `loadCheckpoints()` sat inside the `if (isTauri)` guard, so the demo always showed the empty state even though the mock supports checkpoints.

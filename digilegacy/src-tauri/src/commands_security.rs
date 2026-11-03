@@ -8,6 +8,7 @@ use tauri::{command, AppHandle, Manager};
 use zeroize::Zeroize;
 
 use super::report::validate_backup_content;
+#[cfg(target_os = "windows")]
 use super::win_shell;
 
 // ========== 安全与凭据保管 ==========
@@ -565,7 +566,9 @@ pub fn hide_main_window(app_handle: AppHandle) -> Result<ApiResponse<()>, String
     Ok(ApiResponse::ok_with_msg((), "已隐藏到托盘"))
 }
 
-#[cfg(target_os = "windows")]
+// 不能把整个命令 cfg 在 windows 上：lib.rs 的 generate_handler 无条件引用
+// `commands::open_external`，非 Windows 编译会直接找不到符号（CI ubuntu 上爆过）。
+// 函数体内的 Windows 分支才走 win_shell，其余平台用 open/xdg-open 降级。
 #[command]
 pub fn open_external(url: String) -> Result<ApiResponse<()>, String> {
     let checked = crate::vault::validate_external_url(&url)?;

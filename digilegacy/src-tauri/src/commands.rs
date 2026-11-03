@@ -1210,6 +1210,7 @@ pub use security::*;
 mod custody;
 pub use custody::*;
 
+#[cfg(target_os = "windows")]
 #[path = "commands_win_shell.rs"]
 pub(crate) mod win_shell;
 

@@ -29,7 +29,7 @@ if (!TOKEN) {
 
 const API = 'https://api.github.com';
 
-async function gh(pathname, init = {}, token = TOKEN) {
+async function gh(pathname, init = {}, token = TOKEN, attempt = 0) {
   const res = await fetch(`${API}${pathname}`, {
     ...init,
     headers: {
@@ -40,6 +40,17 @@ async function gh(pathname, init = {}, token = TOKEN) {
       ...(init.headers ?? {}),
     },
   });
+  // 二级限流与 5xx 都值得重试：等待时间指数增长（2s, 4s, 8s, 16s, 32s）
+  if (
+    (res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) &&
+    attempt < 5
+  ) {
+    const waitMs = 2000 * 2 ** attempt;
+    console.log(`
+  ${res.status} 限流/瞬断，${waitMs / 1000}s 后重试（第 ${attempt + 1} 次）`);
+    await new Promise((r) => setTimeout(r, waitMs));
+    return gh(pathname, init, token, attempt + 1);
+  }
   const text = await res.text();
   let body = null;
   try {
@@ -96,7 +107,9 @@ async function syncRepo({ owner, tokenVar }) {
 
   // 并发上传 blob（8 路），避免串行太慢
   const entries = [];
-  const CONCURRENCY = 8;
+  // GitHub 的二级限流对「短时间大量写请求」很敏感。8 路并发会在 ~180 个
+  // blob 后触发 403；3 路 + 退避重试能稳定跑完，代价只是慢一点。
+  const CONCURRENCY = 3;
   for (let i = 0; i < files.length; i += CONCURRENCY) {
     const chunk = files.slice(i, i + CONCURRENCY);
     const results = await Promise.all(chunk.map((f) => uploadBlob(owner, token, f)));
@@ -105,11 +118,15 @@ async function syncRepo({ owner, tokenVar }) {
   }
   process.stdout.write('\n');
 
+  // 不带 base_tree：entries 覆盖整棵树。带 base_tree 的增量写法会让
+  // 「本地已删除的文件」永远留在远端——此前远端因此残留了 naiveTheme.ts
+  // （引用未声明的 naive-ui 依赖），导致远端 CI typecheck / Release 全红。
+  // 全量树能保证远端内容与 `git ls-files` 完全一致，删除也随之生效。
   const tree = await gh(
     `${repoPath}/git/trees`,
     {
       method: 'POST',
-      body: JSON.stringify({ base_tree: baseTreeSha, tree: entries }),
+      body: JSON.stringify({ tree: entries }),
     },
     token,
   );
@@ -134,22 +151,38 @@ async function syncRepo({ owner, tokenVar }) {
     token,
   );
 
-  // tag：走 refs API（annotated tag 需要先建 tag 对象）
+  // tag：优先移动（PATCH + force），标签已指向旧提交时直接搬到新提交；
+  // 不存在才创建。之前的「已存在，跳过」会让 v0.3.0 一直钉在失败的旧提交上。
+  const TAG = 'refs/tags/v0.3.0';
   try {
     await gh(
-      `${repoPath}/git/refs`,
-      { method: 'POST', body: JSON.stringify({ ref: 'refs/tags/v0.3.0', sha: commit.sha }) },
+      `${repoPath}/git/${TAG}`,
+      { method: 'PATCH', body: JSON.stringify({ sha: commit.sha, force: true }) },
       token,
     );
+    console.log(`[${owner}] tag v0.3.0 已移动到 ${commit.sha.slice(0, 7)}`);
   } catch (e) {
-    if (!String(e).includes('422')) throw e;
-    console.log(`[${owner}] tag v0.3.0 已存在，跳过`);
+    if (!String(e).includes('422') && !String(e).includes('404')) throw e;
+    // PATCH 不接受时（旧实现创建的轻量标签等）退回「删除再建」
+    await gh(`${repoPath}/git/${TAG}`, { method: 'DELETE' }, token).catch(() => {});
+    await gh(
+      `${repoPath}/git/refs`,
+      { method: 'POST', body: JSON.stringify({ ref: TAG, sha: commit.sha }) },
+      token,
+    );
+    console.log(`[${owner}] tag v0.3.0 已重建 → ${commit.sha.slice(0, 7)}`);
   }
 
   console.log(`[${owner}] 完成 → ${commit.sha.slice(0, 7)}`);
   return commit.sha;
 }
 
-for (const repo of REPOS) {
+const only = process.env.ONLY_OWNER;
+const targets = only ? REPOS.filter((r) => r.owner === only) : REPOS;
+if (only && targets.length === 0) {
+  console.error(`ONLY_OWNER=${only} 没有匹配的仓库`);
+  process.exit(1);
+}
+for (const repo of targets) {
   await syncRepo(repo);
 }
