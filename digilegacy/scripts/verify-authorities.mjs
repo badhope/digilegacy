@@ -101,7 +101,8 @@ async function main() {
     const matched =
       needles.length > 0 && !looksLikeErrorPage(r.title, r.text) && needles.every(n => r.text.includes(n));
     results.push({ id: a.id, ok, matched, needles, ...r });
-    if (write) {
+    // 写回只发生在 --write 时且拿到 HTTP 结论的条目；网络层失败不覆盖旧值
+    if (write && r.status !== 0) {
       a.reachable = ok;
       a.content_matched = matched;
       a.last_checked = new Date().toISOString().slice(0, 10);
@@ -112,6 +113,11 @@ async function main() {
 
   const okCount = results.filter(r => r.ok).length;
   const matchedCount = results.filter(r => r.matched).length;
+  // 网络层失败（status 0：连接被拒/超时/重置）与 HTTP 层失败必须分开：
+  // mca.gov.cn 等政务站点会拒绝海外数据中心 IP，GitHub runner 上永远连不上，
+  // 但这不构成「链接已死」的证据——死链判据是 HTTP 层面的 404/500/错误页。
+  const netUnverified = results.filter(r => !r.ok && r.status === 0);
+  const httpDead = results.filter(r => !r.ok && r.status !== 0);
   // 全部不可达通常意味着本机没网，而不是所有来源同时下线。
   // 这时必须说清楚，否则用户会去逐个怀疑来源。
   const allDown = okCount === 0;
@@ -122,9 +128,12 @@ async function main() {
   }
   console.log(`权威来源核验：可达 ${okCount}/${results.length} · 内容匹配 ${matchedCount}/${results.length}`);
   for (const r of results) {
-    const reach = r.ok ? 'OK  ' : 'FAIL';
+    const reach = r.ok ? 'OK  ' : r.status === 0 ? 'NET?' : 'FAIL';
     const match = r.matched ? '内容匹配' : `内容未匹配(需人工核对)`;
     console.log(`  ${reach} ${String(r.status).padStart(3)} ${r.id.padEnd(20)} ${match}  ${r.title || r.error || ''}`);
+  }
+  for (const r of netUnverified) {
+    console.log(`  ⚠ ${r.id} 在当前网络无法核验（连接失败），非「来源失效」结论；需人工或换网络重跑。`);
   }
 
   if (write) {
@@ -132,8 +141,9 @@ async function main() {
     console.log('\n已写回 authorities.json');
   }
 
-  // 只把「不可达」当失败；「内容未匹配」不算失败，但会打印出来要求人工确认。
-  process.exit(okCount === results.length ? 0 : 1);
+  // HTTP 层死链（404/500/错误页）才是失败；「内容未匹配」要求人工确认；
+  // 网络层不可核验在「至少一条可达」的前提下放行——本地有网时自然会复核。
+  process.exit(httpDead.length === 0 ? 0 : 1);
 }
 
 main();

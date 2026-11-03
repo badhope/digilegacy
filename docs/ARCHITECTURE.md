@@ -128,7 +128,8 @@ A single-machine app has exactly one decryption path: the owner's master passwor
 If the owner is incapacitated, the family cannot open the database even with the file.
 The recovery kit closes that gap without a server:
 
-- **Threshold split.** `sharks` (GF(256) Shamir) splits either the master key
+- **Threshold split.** `blahaj` (GF(256) Shamir; the maintained fork of `sharks`
+  after RUSTSEC-2024-0398) splits either the master key
   (default) or its ciphertext (passphrase mode) into `n` shares; any `threshold`
   of them rebuild the key. Defaults are 3-of-5, bounded to 2..=10.
 - **Shares are never stored.** Only metadata (threshold, total, key fingerprint,

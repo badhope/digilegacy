@@ -17,9 +17,9 @@
 //!    不会静默重建出错误密钥。
 
 use base64::Engine;
+use blahaj::{Share, Sharks};
 use data_encoding::BASE32_NOPAD;
 use serde::{Deserialize, Serialize};
-use sharks::{Share, Sharks};
 use std::convert::TryFrom;
 
 use crate::crypto;
