@@ -43,5 +43,5 @@
 ## 已知技术债（如实列出）
 
 1. `imap-proto 0.10` 有 future-incompat 警告（上游未发新版），等待上游升级。
-2. MCP 服务器读数据库走读写连接（与应用同一 trust boundary）；若未来要给第三方 agent 用，应加 `SQLITE_OPEN_READ_ONLY`。
-3. `agent.rs` 的任务循环无持久化日志（见 AI_INTEGRATION.md「已知边界」）。
+2. ~~MCP 服务器读数据库走读写连接~~ **已解决（2026-11-04）**：`init_database_readonly_at` 以 `SQLITE_OPEN_READ_ONLY` 打开，不迁移不建表；WAL 残留时明确报错而不是降级读写。
+3. ~~Agent 任务循环无持久化日志~~ **已解决（2026-11-04）**：`agent_run_log` 表（任务/结果摘要/轮数/工具名清单，90 天保留 + 手动清空，参数与结果全文不落库）。

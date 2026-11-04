@@ -204,9 +204,14 @@
         <label class="form-label" for="agent-task">{{ t('agent.taskLabel') }}</label>
         <textarea class="form-textarea" id="agent-task" v-model="agentTask" :placeholder="t('agent.taskPlaceholder')"></textarea>
       </div>
-      <button class="btn btn-primary btn-sm" :disabled="agentBusy || !agentTask.trim()" data-testid="agent-run" @click="runAgent">
-        {{ agentBusy ? t('agent.running') : t('agent.run') }}
-      </button>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <button class="btn btn-primary btn-sm" :disabled="agentBusy || !agentTask.trim()" data-testid="agent-run" @click="runAgent">
+          {{ agentBusy ? t('agent.running') : t('agent.run') }}
+        </button>
+        <button v-if="agentBusy" class="btn btn-secondary btn-sm" data-testid="agent-cancel" @click="cancelAgent">
+          {{ t('agent.cancel') }}
+        </button>
+      </div>
       <div v-if="agentSteps.length > 0" class="agent-timeline" style="margin-top: 12px;">
         <div v-for="(step, i) in agentSteps" :key="i" class="agent-step" style="padding: 8px; margin-top: 6px; background: var(--gray-50); border-radius: 6px; font-size: 12px;">
           <strong>{{ step.kind === 'tool_start' ? t('agent.toolStarting') : step.kind === 'tool_end' ? t('agent.toolFinished') : step.kind === 'started' ? t('agent.started') : t('agent.finished') }}</strong>
@@ -220,6 +225,27 @@
         <p class="form-hint">{{ t('agent.draftNotice') }}</p>
       </div>
       <p v-if="agentError" role="alert" style="font-size: 13px; color: var(--danger-strong); margin-top: 8px;">{{ agentError }}</p>
+
+      <!-- 运行审计：最近 10 条摘要。只存任务描述与工具名，参数与结果全文不落库。 -->
+      <div style="margin-top: 16px; border-top: 1px solid var(--gray-100); padding-top: 12px;">
+        <div class="flex items-center gap-12">
+          <strong style="font-size: 13px;">{{ t('agent.historyTitle') }}</strong>
+          <button class="btn btn-secondary btn-sm" style="margin-left: auto;" :disabled="agentRuns.length === 0" @click="clearAgentRuns">
+            {{ t('agent.historyClear') }}
+          </button>
+        </div>
+        <p v-if="agentRuns.length === 0" class="form-hint" style="margin-top: 6px;">{{ t('agent.historyEmpty') }}</p>
+        <ul v-else style="list-style: none; padding: 0; margin: 8px 0 0 0;">
+          <li v-for="r in agentRuns" :key="r.id" style="padding: 6px 0; border-bottom: 1px solid var(--gray-50); font-size: 12px;">
+            <span :style="{ color: r.outcome === 'error' ? 'var(--danger-strong)' : r.outcome === 'truncated' ? 'var(--warning-strong)' : 'var(--success-strong)' }">
+              {{ t(`agent.outcome.${r.outcome}`) }}
+            </span>
+            · {{ r.started_at }}
+            · {{ r.task.length > 40 ? r.task.slice(0, 40) + '…' : r.task }}
+            <span class="form-hint">（{{ r.rounds }} 轮 / {{ r.tools_used || '—' }}）</span>
+          </li>
+        </ul>
+      </div>
     </div>
 
     <!-- AI 助手（可选）：默认关闭，不内置任何端点。提问前必须先看「将发送什么」。 -->
@@ -509,6 +535,31 @@ async function askAi() {
   }
 }
 
+/** Agent 运行审计（最近 10 条）。 */
+const agentRuns = ref<Array<{ id: number; started_at: string; task: string; outcome: string; rounds: number; tools_used: string }>>([]);
+
+async function loadAgentRuns() {
+  try {
+    const res = await invoke<ApiResponse<typeof agentRuns.value>>('list_agent_run_log', { limit: 10 });
+    if (res.success && res.data) agentRuns.value = res.data;
+  } catch {
+    /* 审计是旁路：加载失败不影响主功能 */
+  }
+}
+
+async function clearAgentRuns() {
+  const res = await invoke<ApiResponse<void>>('clear_agent_run_log');
+  if (res.success) {
+    agentRuns.value = [];
+    toast(t('agent.historyCleared'));
+  }
+}
+
+/** 协作式取消：后端在当前模型轮次结束后生效。 */
+async function cancelAgent() {
+  await invoke('cancel_agent_task');
+}
+
 async function runAgent() {
   agentBusy.value = true;
   agentError.value = '';
@@ -535,6 +586,7 @@ async function runAgent() {
     agentError.value = String(e);
   } finally {
     agentBusy.value = false;
+    void loadAgentRuns();
   }
 }
 

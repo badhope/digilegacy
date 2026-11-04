@@ -74,6 +74,27 @@ pub struct ToolCall {
     pub arguments: String,
 }
 
+// ── 取消句柄 ─────────────────────────────────────────────
+// 取消是协作式的：每轮模型调用前检查一次。模型调用本身（一次 HTTP 请求）
+// 无法安全中断，取消最多延迟到当前轮结束生效——这比让半截的 HTTP 连接
+// 悬着更可预期。
+
+static AGENT_CANCEL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// 请求取消当前或下一次 Agent 任务。对已经在跑的 HTTP 轮次，取消在轮末生效。
+pub fn request_cancel() {
+    AGENT_CANCEL.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// 清除取消标志（每次任务开始前调用，避免上一次的取消泄进这一次）。
+pub fn reset_cancel() {
+    AGENT_CANCEL.store(false, std::sync::atomic::Ordering::SeqCst);
+}
+
+fn is_cancelled() -> bool {
+    AGENT_CANCEL.load(std::sync::atomic::Ordering::SeqCst)
+}
+
 /// 从一次模型响应里提取 tool_calls；没有则返回空（视为最终回答）。
 pub fn parse_tool_calls(response_text: &str) -> Vec<ToolCall> {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(response_text) else {
@@ -281,6 +302,10 @@ where
 
     // 留出最后一轮给模型基于工具结果收敛回答；MAX_ROUNDS 是总模型调用上限。
     for round in 1..MAX_ROUNDS {
+        // 协作式取消：只在本进程内设置标志的线程与运行线程共享此检查点。
+        if is_cancelled() {
+            return Err("任务已被用户取消".to_string());
+        }
         let v = call_model(endpoint, api_key, model, task_trimmed, &history)?;
         let calls = parse_tool_calls(&serde_json::to_string(&v).unwrap_or_default());
 
@@ -391,6 +416,21 @@ where
         final_text,
         truncated: true,
     })
+}
+
+#[cfg(test)]
+mod cancel_tests {
+    use super::*;
+
+    /// 取消标志必须在任何网络调用之前生效——端点指向不存在的地址，
+    /// 若实现错误地先发起请求，测试会因连接失败给出不同错误而暴露。
+    #[test]
+    fn cancelled_task_fails_before_any_network_call() {
+        request_cancel();
+        let err = run_task("查一下规划进度", "http://127.0.0.1:9/v1", "k", "m").unwrap_err();
+        reset_cancel();
+        assert!(err.contains("取消"), "错误信息应说明是用户取消: {err}");
+    }
 }
 
 #[cfg(test)]

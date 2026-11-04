@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-04
+
+### Added
+
+- **Agent runs are now auditable.** Every run writes a summary row to `agent_run_log` — task, outcome (done / round-capped / failed), rounds used and which tools were invoked. Tool arguments and results are deliberately *not* stored: the audit must be reviewable without becoming a second copy of sensitive data. Rows expire after 90 days (cleaned lazily on write), and the Agent panel lists the last 10 with a one-click clear (`list_agent_run_log` / `clear_agent_run_log`).
+- **Agent tasks can be cancelled.** `cancel_agent_task` sets an atomic flag checked before each model round; the in-flight HTTP round finishes but nothing new starts. The cancel button appears only while a task is running, and the flag is reset at the start of every task so one cancellation can never leak into the next run.
+
+### Changed
+
+- The MCP server now opens the database with `SQLITE_OPEN_READ_ONLY` (`init_database_readonly_at`): no migrations, no table creation, no platform sync — even a malicious MCP client has no write path. If the main app crashed and left a hot WAL, the server fails with guidance instead of silently downgrading to read-write.
+- Schema version 8 (`agent_run_log`).
+
 ## [0.3.1] - 2026-11-04
 
 ### Added
