@@ -764,7 +764,7 @@ function handlePrint() { window.print(); }
 onMounted(async () => {
   // 报告页不再依赖前端平台库：政策文案由后端 `report.policies` 提供，
   // 预览与导出读同一份，避免两处各拼一条政策而漂移。
-  await Promise.all([loadReport(), loadAssistantState(), loadChatHistory()]);
+  await Promise.all([loadReport(), loadAssistantState(), loadChatHistory(), loadAgentRuns()]);
 });
 </script>
 
