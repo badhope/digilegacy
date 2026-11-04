@@ -150,7 +150,6 @@ struct DmsConfig {
     stage2_wait_days: i64,
     /// 外出模式：暂停到该日期（YYYY-MM-DD）；None = 未暂停。
     paused_until: Option<String>,
-    #[allow(dead_code)]
     last_check_in: Option<String>,
 }
 

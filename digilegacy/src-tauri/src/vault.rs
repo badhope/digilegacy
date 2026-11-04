@@ -29,9 +29,10 @@ const VERIFIER_PLAINTEXT: &str = "digilegacy-verifier-v1";
 pub const DOMAIN_FIELD: &[u8] = b"digilegacy/field/v2";
 // 备份加密与恢复包口令包裹将迁移到这两个域（BENCHMARK P1-2 落地时启用）；
 // 域分离测试已锁定三域互斥，先保留常量防止实现时域标签漂移。
-#[allow(dead_code)]
+// 生产路径暂不引用——这正是「域标签先于实现固定」的防漂移设计。
+#[cfg_attr(not(test), allow(dead_code))]
 pub const DOMAIN_BACKUP: &[u8] = b"digilegacy/backup/v2";
-#[allow(dead_code)]
+#[cfg_attr(not(test), allow(dead_code))]
 pub const DOMAIN_KIT: &[u8] = b"digilegacy/kit/v2";
 
 static MASTER_KEY: Lazy<Mutex<Option<Zeroizing<[u8; 32]>>>> = Lazy::new(|| Mutex::new(None));
@@ -205,8 +206,8 @@ pub fn make_verifier(key: &[u8; 32]) -> Result<String, String> {
 /// 重加密单值：密文用旧钥解开后以新钥加密；历史明文直接以新钥加密；空值原样。
 ///
 /// 输出统一为 v2（域分离）格式，因此这条路径同时完成「换钥」与「格式升级」。
-/// 两层密钥落地后生产路径不再调用（改密 = 重包裹 DEK，O(1)）；保留供
-/// legacy 全库升级（`reencrypt_all_to_v2`）与测试使用。
+/// 当前生产路径不调用（`reencrypt_all_to_v2` 有自己的批量实现）；保留供
+/// legacy 升级回归测试锁定行为语义——删掉它，v1→v2 的换钥正确性就没有规格了。
 #[cfg_attr(not(test), allow(dead_code))]
 pub fn rekey_value(raw: &str, old_key: &[u8; 32], new_key: &[u8; 32]) -> Result<String, String> {
     if raw.is_empty() {

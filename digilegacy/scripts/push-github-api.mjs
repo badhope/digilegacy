@@ -183,7 +183,7 @@ async function syncRepo({ owner, tokenVar }) {
 
   // tag：优先移动（PATCH + force），标签已指向旧提交时直接搬到新提交；
   // 不存在才创建。标签名随版本走（v0.3.1 起），由环境变量或默认值决定。
-  const TAG = `refs/tags/${process.env.RELEASE_TAG ?? 'v0.3.2'}`;
+  const TAG = `refs/tags/${process.env.RELEASE_TAG ?? 'v0.3.3'}`;
   try {
     await gh(
       `${repoPath}/git/${TAG}`,

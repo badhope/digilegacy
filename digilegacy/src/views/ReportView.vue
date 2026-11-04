@@ -691,10 +691,11 @@ async function exportZip() {
 
 async function buildAndSaveZip() {
   if (!report.value) return;
-  // @ts-ignore - jszip 需要 new 实例
-  const j = new (await import('jszip').then(m => m.default || m));
-  // @ts-ignore - 避免类型推断问题
-  const zip: any = j;
+  // jszip 自带类型声明（index.d.ts）；动态导入返回模块命名空间，
+  // default 即构造器。此前这里的 @ts-ignore 与 any 是不必要的——
+  // 类型安全不该靠跳过检查来获得。
+  const { default: JSZip } = await import('jszip');
+  const zip = new JSZip();
   // 报告 HTML 与单文件导出同源（后端渲染），ZIP 里不会出现裸片段。
   const htmlContent = await fetchStandaloneHtml();
   zip.file('01-继承报告.html', htmlContent);

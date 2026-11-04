@@ -18,13 +18,6 @@ pub struct HeartbeatStatus {
     pub last_result: String, // "ok" | "failed" | "never"
 }
 
-impl HeartbeatStatus {
-    #[allow(dead_code)]
-    pub fn last_seen_ok(&self) -> bool {
-        self.last_result == "ok"
-    }
-}
-
 #[derive(Default)]
 pub(crate) struct HeartbeatConfig {
     enabled: bool,
