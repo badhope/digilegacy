@@ -2703,6 +2703,8 @@ fn ai_chat_log_rejects_oversized() {
 
 /// 明文库 → 加密 → 数据一致 → 解密 → 数据一致。
 /// 这是整库加密核心承诺的可执行规格：迁移不丢数据，两种形态都真实落盘。
+/// DPAPI 是 Windows 设施，Linux CI 上整库加密不可用（fallback 恒明文）。
+#[cfg(windows)]
 #[test]
 fn sqlcipher_encrypt_decrypt_roundtrip_preserves_data() {
     let _lock = vault::test_lock();
@@ -2784,6 +2786,7 @@ fn sqlcipher_encrypt_decrypt_roundtrip_preserves_data() {
 }
 
 /// 错误 key 不能打开加密库——「key 正确性可验证」是整库加密的安全前提。
+#[cfg(windows)]
 #[test]
 fn sqlcipher_wrong_key_fails_closed() {
     let _lock = vault::test_lock();

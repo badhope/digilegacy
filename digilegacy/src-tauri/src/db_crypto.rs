@@ -179,6 +179,42 @@ fn dpapi_unprotect(data: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
+/// 非 Windows 平台的降级实现：整库加密不可用（DPAPI 是 Windows 设施）。
+/// load 返回 Ok(None)——「未启用」语义，启动走明文路径，其余功能零影响；
+/// 启用/删除显式报错，绝不假装成功。应用的目标平台是 Windows 安装包，
+/// 该分支主要保证 Linux CI 的 clippy/test 可编译、可运行。
+#[cfg(not(windows))]
+mod fallback {
+    use std::path::Path;
+
+    pub const KEY_FILE_NAME: &str = super::KEY_FILE_NAME;
+
+    #[derive(Debug, serde::Serialize)]
+    pub struct DbEncryptionStatus {
+        pub enabled: bool,
+    }
+
+    pub fn create_db_key(_app_dir: &Path) -> Result<[u8; 32], String> {
+        Err("整库加密目前仅支持 Windows（依赖 DPAPI）".to_string())
+    }
+
+    pub fn load_db_key(_app_dir: &Path) -> Result<Option<[u8; 32]>, String> {
+        // 非 Windows 平台恒为「未启用」：启动路径据此走明文库，功能完整可用
+        Ok(None)
+    }
+
+    pub fn delete_db_key(_app_dir: &Path) -> Result<(), String> {
+        Err("整库加密目前仅支持 Windows（依赖 DPAPI）".to_string())
+    }
+
+    pub fn is_db_encryption_enabled(_app_dir: &Path) -> bool {
+        false
+    }
+}
+
+#[cfg(not(windows))]
+pub use fallback::*;
+
 #[cfg(all(windows, test))]
 mod tests {
     use super::*;
