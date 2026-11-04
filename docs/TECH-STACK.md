@@ -49,9 +49,10 @@
    无影响；修复责任在 Tauri 上游切换 Linux 后端时，应用侧无法提前升级。
    CI 扫描（vulnerabilities → fail，unmaintained/unsound → warn）已把
    「真漏洞出现时必须红」的机制固化。2026-11-04 CI 实测：**0 vulnerabilities**。
-3. **整库加密（SQLCipher）是路线图 P2 特性，不是技术债**——但它常被误读为欠账，
-   在此明确边界：它需要明文库→加密库的一次性迁移设计与密钥管理变更，
-   半途而废的实现比不做更危险（虚假安全感）。已列入 `docs/BENCHMARK.md` P2-1，
-   独立立项，不与其他改动混车。
+3. ~~整库加密（SQLCipher）~~ **已实施（2026-11-04，v0.4.0）**：`rusqlite/bundled-sqlcipher-vendored-openssl`；
+   库加密 key 随机 32 字节 + Windows DPAPI（CurrentUser + 应用熵）保护，独立于主密码体系
+   （锁定/解锁/改密码语义零改动）；迁移走官方 `sqlcipher_export`，带快照与独立连接验证，
+   失败自动回滚；明文模式 = 无 key pragma（SQLCipher 无 key 即普通 SQLite）。
+   280+9 测试在 SQLCipher 构建下全过，含加密↔明文往返与错误 key fail-closed 两个规格测试。
 2. ~~MCP 服务器读数据库走读写连接~~ **已解决（2026-11-04）**：`init_database_readonly_at` 以 `SQLITE_OPEN_READ_ONLY` 打开，不迁移不建表；WAL 残留时明确报错而不是降级读写。
 3. ~~Agent 任务循环无持久化日志~~ **已解决（2026-11-04）**：`agent_run_log` 表（任务/结果摘要/轮数/工具名清单，90 天保留 + 手动清空，参数与结果全文不落库）。

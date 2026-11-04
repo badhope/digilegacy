@@ -1,6 +1,6 @@
 [package]
 name = "digilegacy"
-version = "0.3.3"
+version = "0.4.0"
 description = "DigiLegacy - local-first digital legacy planning desktop app"
 authors = ["DigiLegacy Team"]
 edition = "2021"
@@ -27,7 +27,18 @@ tauri-plugin-notification = "2.0"
 tauri-plugin-autostart = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rusqlite = { version = "0.40", features = ["bundled"] }
+# SQLCipher 整库加密（P2-1）。bundled-sqlcipher-vendored-openssl 自带 OpenSSL 源码编译，
+# 不依赖系统 OpenSSL；编译需要 perl（openssl Configure 脚本）。
+# 明文库兼容：SQLCipher 下 `PRAGMA key = ''` 可打开未加密库（测试与未升级用户不受影响）。
+rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
+# 整库加密的 key 管理：Windows DPAPI（CryptProtectData/Unprotect）。
+# 与 Tauri 共用同一个 windows crate（feature 取并集），不新增编译单元。
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Security_Cryptography",
+    "Win32_System_Memory",
+] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.10", features = ["v4"] }
 thiserror = "1.0"

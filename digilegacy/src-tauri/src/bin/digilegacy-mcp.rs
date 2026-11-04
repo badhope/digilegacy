@@ -196,11 +196,32 @@ fn main() {
         std::process::exit(1);
     }
     // 只读打开：MCP 进程没有任何写库路径（连迁移都不跑）。
-    // 副作用是主程序崩溃遗留 WAL 时打不开——报错并提示先跑一次主程序，
-    // 这比静默降级成读写更符合「宁可少给」的边界。
-    if let Err(e) = digilegacy_lib::db::init_database_readonly_at(db_path.clone()) {
-        eprintln!("[digilegacy-mcp] 错误：打开数据库失败: {e}");
-        std::process::exit(1);
+    // 主库启用整库加密时，用 DPAPI 解出的 key 打开——MCP 与主程序同为
+    // 当前 Windows 用户，DPAPI 作用域覆盖，同机同用户的信任边界不变。
+    let key_source = match db_path.parent() {
+        Some(dir) => digilegacy_lib::db_crypto::load_db_key(dir),
+        None => Err("无效的数据库路径".to_string()),
+    };
+    match key_source {
+        Ok(Some(key)) => {
+            if let Err(e) =
+                digilegacy_lib::db::init_database_readonly_at_with_key(db_path.clone(), Some(&key))
+            {
+                eprintln!("[digilegacy-mcp] 错误：打开加密数据库失败: {e}");
+                std::process::exit(1);
+            }
+            eprintln!("[digilegacy-mcp] 加密库已打开（SQLCipher）");
+        }
+        Ok(None) => {
+            if let Err(e) = digilegacy_lib::db::init_database_readonly_at(db_path.clone()) {
+                eprintln!("[digilegacy-mcp] 错误：打开数据库失败: {e}");
+                std::process::exit(1);
+            }
+        }
+        Err(e) => {
+            eprintln!("[digilegacy-mcp] 错误：读取库密钥失败: {e}");
+            std::process::exit(1);
+        }
     }
     eprintln!("[digilegacy-mcp] 数据库已就绪: {}", db_path.display());
 

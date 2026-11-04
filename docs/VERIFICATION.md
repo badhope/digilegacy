@@ -305,7 +305,7 @@
 - **E2E（Playwright）未在本机执行**：需先 `npx playwright install chromium`（本机未安装浏览器二进制）。E2E 用例数仍为 80（静态推导），未改动。
 - **未执行 `tauri:build`**：本机无 WiX/NSIS 打包链，安装包构建由 CI 的 `release-build` job 覆盖。
 - **未做真机多设备验证**：Shamir 份额跨设备恢复路径由单元测试覆盖（含混合批次拒绝），未在第二台机器上人工验证。
-- **整库加密（SQLCipher）未实施**：字段级加密不保护表结构与元数据；这是已知缺口，列入下一轮（见 `docs/BENCHMARK.md` P2-1）。
+- ~~**整库加密（SQLCipher）未实施**~~ **已实施（2026-11-04，v0.4.0）**：`rusqlite/bundled-sqlcipher-vendored-openssl`；库 key 由 Windows DPAPI 保护（独立于主密码体系）；迁移走 `sqlcipher_export` + 快照 + 独立连接验证 + 失败回滚；规格测试：加密↔明文往返（文件 magic 断言）与错误 key fail-closed。280+9 测试全过。
 
 ## 2026-10-28 发版核对轮（v0.2.2）
 

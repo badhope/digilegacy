@@ -7,6 +7,7 @@ mod checkpoint;
 mod commands;
 mod crypto;
 pub mod db;
+pub mod db_crypto;
 mod family_faq;
 mod fsutil;
 mod heartbeat;
@@ -209,6 +210,9 @@ pub fn run() {
             commands::list_agent_run_log,
             commands::clear_agent_run_log,
             commands::cancel_agent_task,
+            commands::get_db_encryption_status,
+            commands::enable_db_encryption,
+            commands::disable_db_encryption,
             commands::set_dead_mans_switch,
             commands::get_dashboard_stats,
             commands::security_status,

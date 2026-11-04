@@ -149,6 +149,25 @@
       </template>
     </div>
 
+    <!-- 整库加密（SQLCipher）：独立于主密码体系的第二层。桌面端 only。 -->
+    <div class="card mt-24" v-if="isTauriEnv()" data-testid="db-encryption-card">
+      <div class="card-title mb-8">{{ t('profile.dbEncTitle') }}</div>
+      <p class="text-muted" style="font-size: 13px;">{{ t('profile.dbEncDesc') }}</p>
+      <p class="form-hint">{{ t('profile.dbEncBoundary') }}</p>
+      <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
+        <span style="font-weight: 600; font-size: 14px;" :style="{ color: dbEncEnabled ? 'var(--success-strong, green)' : 'var(--gray-600)' }">
+          {{ dbEncEnabled ? t('profile.dbEncOn') : t('profile.dbEncOff') }}
+        </span>
+        <button v-if="!dbEncEnabled" class="btn btn-primary btn-sm" style="margin-left: auto;" :disabled="dbEncBusy" data-testid="db-enc-enable" @click="enableDbEncryption">
+          {{ t('profile.dbEncEnable') }}
+        </button>
+        <button v-else class="btn btn-secondary btn-sm" style="margin-left: auto;" :disabled="dbEncBusy" data-testid="db-enc-disable" @click="disableDbEncryption">
+          {{ t('profile.dbEncDisable') }}
+        </button>
+      </div>
+      <p v-if="dbEncMessage" role="status" style="font-size: 13px; margin-top: 8px;">{{ dbEncMessage }}</p>
+    </div>
+
     <div class="card mt-24" v-if="recoveryCode" style="border-color: var(--warning); border-width: 2px;">
       <div class="card-title mb-16">{{ t('profile.recoveryOnce') }}</div>
       <p style="font-size: 13px; color: var(--gray-600);">
@@ -530,6 +549,46 @@ const assets = useAssetsStore();
 const masterPassword = ref('');
 const masterPassword2 = ref('');
 const securityMessage = ref('');
+
+// ── 整库加密（SQLCipher）：状态与开关 ──
+const dbEncEnabled = ref(false);
+const dbEncBusy = ref(false);
+const dbEncMessage = ref('');
+
+async function loadDbEncryptionStatus() {
+  try {
+    const res = await invoke<ApiResponse<{ enabled: boolean }>>('get_db_encryption_status');
+    if (res.success && res.data) dbEncEnabled.value = res.data.enabled;
+  } catch {
+    /* 浏览器预览/旧后端无此命令：保持默认关闭显示 */
+  }
+}
+
+async function enableDbEncryption() {
+  dbEncBusy.value = true;
+  try {
+    const res = await invoke<ApiResponse<void>>('enable_db_encryption');
+    dbEncMessage.value = res.message;
+    if (res.success) dbEncEnabled.value = true;
+  } catch (e) {
+    dbEncMessage.value = String(e);
+  } finally {
+    dbEncBusy.value = false;
+  }
+}
+
+async function disableDbEncryption() {
+  dbEncBusy.value = true;
+  try {
+    const res = await invoke<ApiResponse<void>>('disable_db_encryption');
+    dbEncMessage.value = res.message;
+    if (res.success) dbEncEnabled.value = false;
+  } catch (e) {
+    dbEncMessage.value = String(e);
+  } finally {
+    dbEncBusy.value = false;
+  }
+}
 const securityOk = ref(false);
 
 const oldPassword = ref('');
@@ -1300,6 +1359,7 @@ const dmsSummary = computed(() => {
 });
 
 onMounted(async () => {
+  void loadDbEncryptionStatus();
   // 安全状态由本页自己拉取一次：不能假设 App 的初始化一定先完成
   // （单测/深链直接进入本页时 App 尚未 ready，会显示「未启用加密」的错误状态）。
   await Promise.all([security.refresh(), dashboard.loadUser(), dashboard.loadCheckInStatus()]);

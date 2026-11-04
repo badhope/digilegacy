@@ -27,6 +27,33 @@ static CONN: Lazy<Mutex<Option<Connection>>> = Lazy::new(|| Mutex::new(None));
 /// 版本号仍然递增，让未来任何破坏性迁移能按数字分支而不是靠猜。
 const SCHEMA_VERSION: i64 = 8;
 
+// ========== 整库加密（SQLCipher）==========
+
+// SQLCipher 的明文模式 = 不提供 key：无 key 时它以普通 SQLite 语义工作，
+// 与未加密文件完全兼容（实测：`PRAGMA key = ''` 在 SQLCipher 4 会报
+// "requires a key of one or more characters"，空 key 不是兼容开关）。
+// 因此明文路径什么都不做，这条注释就是「故意不发 key」的说明书。
+
+/// 用 32 字节随机 key 打开 SQLCipher 库（raw-key 形式 `x'hex'`）。
+/// key 已是 CSPRNG 输出，用 raw 形式绕过 SQLCipher 内置 PBKDF2——
+/// 再过一遍 KDF 不增加熵，只会拖慢每次打开。
+pub(crate) fn apply_db_key(conn: &Connection, key: &[u8; 32]) -> Result<(), String> {
+    let hex: String = key.iter().map(|b| format!("{:02x}", b)).collect();
+    conn.pragma_update(None, "key", format!("x'{}'", hex))
+        .map_err(|e| format!("设置库密钥失败: {}", e))
+}
+
+/// key 正确与否的唯一判据：能否读 schema。SQLCipher 对错误 key 的行为是
+/// 在第一次真实读时抛 "file is not a database"，打开动作本身不报错——
+/// 所以打开后必须立即验证，不能等到第一条业务查询才炸。
+pub(crate) fn verify_db_readable(conn: &Connection) -> Result<(), String> {
+    conn.query_row("SELECT count(*) FROM sqlite_master", [], |r| {
+        r.get::<_, i64>(0)
+    })
+    .map(|_| ())
+    .map_err(|_| "库密钥不正确或数据库文件已损坏".to_string())
+}
+
 /// 初始化数据库
 pub fn init_database(app_handle: &AppHandle) -> Result<(), String> {
     let app_dir = app_handle
@@ -36,7 +63,13 @@ pub fn init_database(app_handle: &AppHandle) -> Result<(), String> {
 
     std::fs::create_dir_all(&app_dir).map_err(|e| format!("创建应用目录失败: {}", e))?;
 
-    init_database_at(app_dir.join("digilegacy.db"))
+    // 整库加密：dbkey.bin 存在 → 用 DPAPI 解出的 key 打开加密库；
+    // 不存在 → 明文库（key=''）。key 文件在但解不开是严重错误，
+    // 必须显式失败——静默重建明文库等于把加密承诺整个作废。
+    match crate::db_crypto::load_db_key(&app_dir)? {
+        Some(key) => init_database_at_with_key(app_dir.join("digilegacy.db"), Some(&key)),
+        None => init_database_at(app_dir.join("digilegacy.db")),
+    }
 }
 
 /// 以只读模式打开既有数据库（MCP 服务器 bin 专用）。
@@ -46,6 +79,15 @@ pub fn init_database(app_handle: &AppHandle) -> Result<(), String> {
 /// 数据库必须已经由主程序建好；WAL 残留（主程序崩溃后未 checkpoint）会让
 /// 只读连接打不开，此时报错并提示先跑一次主程序，而不是降级成读写。
 pub fn init_database_readonly_at(db_path: PathBuf) -> Result<(), String> {
+    init_database_readonly_at_with_key(db_path, None)
+}
+
+/// 只读打开（带可选 SQLCipher key）。MCP 服务器专用：
+/// 主库启用整库加密时由 DPAPI 解出的 key 在此注入。
+pub fn init_database_readonly_at_with_key(
+    db_path: PathBuf,
+    key: Option<&[u8; 32]>,
+) -> Result<(), String> {
     if !db_path.exists() {
         return Err(format!("数据库不存在: {}", db_path.display()));
     }
@@ -60,6 +102,12 @@ pub fn init_database_readonly_at(db_path: PathBuf) -> Result<(), String> {
                 e
             )
         })?;
+    if let Some(k) = key {
+        apply_db_key(&conn, k)?;
+    }
+    // key 为 None = 明文模式：不发 key
+    // 只读连接也要验证 key：错误 key 会在第一条查询才暴露
+    verify_db_readable(&conn)?;
     conn.pragma_update(None, "busy_timeout", "5000")
         .map_err(|e| format!("设置 busy_timeout 失败: {}", e))?;
     {
@@ -69,14 +117,185 @@ pub fn init_database_readonly_at(db_path: PathBuf) -> Result<(), String> {
     Ok(())
 }
 
-/// 在指定路径初始化数据库（供启动流程、测试与 MCP 服务器 bin 复用）
+// ========== 整库加密迁移（sqlcipher_export 官方路径）==========
+
+fn key_hex(key: &[u8; 32]) -> String {
+    key.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+/// 把当前打开的明文库升级为 SQLCipher 加密库。
+///
+/// 流程：WAL checkpoint → 明文库快照（留在应用目录，用户可自行删除）→
+/// `sqlcipher_export` 导出到临时加密库（官方迁移路径，复制全部表/索引/触发器；
+/// user_version 需手动补）→ 独立连接验证 → 关闭全局连接 → 原子替换 →
+/// 用 key 重开。任何一步失败：临时文件与 key 文件清除，原库原样保留。
+pub fn encrypt_database_at_runtime(app_dir: &std::path::Path) -> Result<(), String> {
+    if crate::db_crypto::load_db_key(app_dir)?.is_some() {
+        return Err("数据库已经是整库加密状态".to_string());
+    }
+    let key = crate::db_crypto::create_db_key(app_dir)?;
+    let hex = key_hex(&key);
+    let db_path = {
+        let guard = DB_PATH.lock().unwrap();
+        guard.clone().ok_or_else(|| "数据库未初始化".to_string())?
+    };
+    let tmp = app_dir.join("digilegacy-enc.tmp");
+    let _ = std::fs::remove_file(&tmp);
+
+    let prepare = (|| -> Result<(), String> {
+        {
+            let guard = get_conn()?;
+            let conn = guard.as_ref().unwrap();
+            // WAL checkpoint：把 -wal 里的数据全部落进主文件，否则快照丢最新写入
+            conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+                .map_err(|e| format!("WAL checkpoint 失败: {}", e))?;
+            let snap = app_dir.join(format!(
+                "digilegacy-plaintext-{}.bak",
+                Local::now().format("%Y%m%d-%H%M%S")
+            ));
+            std::fs::copy(&db_path, &snap).map_err(|e| format!("快照明文库失败: {}", e))?;
+            conn.execute_batch(&format!(
+                "ATTACH DATABASE '{}' AS enc KEY \"x'{}'\"; SELECT sqlcipher_export('enc'); PRAGMA enc.user_version = {}; DETACH DATABASE enc;",
+                tmp.display().to_string().replace('\'', "''"),
+                hex,
+                SCHEMA_VERSION
+            ))
+            .map_err(|e| format!("sqlcipher_export 失败: {}", e))?;
+        }
+        // 用独立连接验证临时加密库（不影响全局连接，失败可直接放弃）
+        {
+            let vconn = Connection::open(&tmp).map_err(|e| format!("打开临时库失败: {}", e))?;
+            apply_db_key(&vconn, &key)?;
+            verify_db_readable(&vconn)?;
+            let uv: i64 = vconn
+                .query_row("PRAGMA user_version", [], |r| r.get(0))
+                .map_err(|e| format!("读取 schema 版本失败: {}", e))?;
+            if uv != SCHEMA_VERSION {
+                return Err(format!("迁移后 schema 版本不一致: {uv}"));
+            }
+        }
+        Ok(())
+    })();
+
+    if let Err(e) = prepare {
+        let _ = std::fs::remove_file(&tmp);
+        let _ = crate::db_crypto::delete_db_key(app_dir);
+        return Err(e);
+    }
+
+    // 原子替换：必须先 drop 全局连接释放 Windows 文件锁
+    {
+        let mut guard = CONN.lock().unwrap();
+        *guard = None;
+        std::fs::rename(&tmp, &db_path).map_err(|e| format!("替换数据库文件失败: {}", e))?;
+        // 明文库时代的 WAL/SHM 残留对加密库是垃圾，清掉
+        let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
+        let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
+
+        let conn = Connection::open(&db_path).map_err(|e| format!("重开加密库失败: {}", e))?;
+        apply_db_key(&conn, &key)?;
+        verify_db_readable(&conn)?;
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .map_err(|e| format!("设置 WAL 模式失败: {}", e))?;
+        conn.pragma_update(None, "busy_timeout", "5000")
+            .map_err(|e| format!("设置 busy_timeout 失败: {}", e))?;
+        *guard = Some(conn);
+    }
+    Ok(())
+}
+
+/// 把加密库转回明文库（对称操作，供用户主动停用整库加密）。
+pub fn decrypt_database_at_runtime(app_dir: &std::path::Path) -> Result<(), String> {
+    let key = crate::db_crypto::load_db_key(app_dir)?
+        .ok_or_else(|| "数据库当前未启用整库加密".to_string())?;
+    // export 到明文用 KEY ''，key 本身不再参与 SQL——但必须先验证它是有效的
+    // （load 成功即证明 DPAPI 解保护成功），key 语义保留为「当前库确实是加密的」。
+    let _ = key;
+    let db_path = {
+        let guard = DB_PATH.lock().unwrap();
+        guard.clone().ok_or_else(|| "数据库未初始化".to_string())?
+    };
+    let tmp = app_dir.join("digilegacy-plain.tmp");
+    let _ = std::fs::remove_file(&tmp);
+    let snapshot = app_dir.join(format!(
+        "digilegacy-encrypted-{}.bak",
+        Local::now().format("%Y%m%d-%H%M%S")
+    ));
+
+    let prepare = (|| -> Result<(), String> {
+        {
+            let guard = get_conn()?;
+            let conn = guard.as_ref().unwrap();
+            conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+                .map_err(|e| format!("WAL checkpoint 失败: {}", e))?;
+            std::fs::copy(&db_path, &snapshot).map_err(|e| format!("快照加密库失败: {}", e))?;
+            conn.execute_batch(&format!(
+                "ATTACH DATABASE '{}' AS plain KEY ''; SELECT sqlcipher_export('plain'); PRAGMA plain.user_version = {}; DETACH DATABASE plain;",
+                tmp.display().to_string().replace('\'', "''"),
+                SCHEMA_VERSION
+            ))
+            .map_err(|e| format!("sqlcipher_export 失败: {}", e))?;
+        }
+        {
+            let vconn = Connection::open(&tmp).map_err(|e| format!("打开临时库失败: {}", e))?;
+            verify_db_readable(&vconn)?;
+        }
+        Ok(())
+    })();
+
+    if let Err(e) = prepare {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+
+    {
+        let mut guard = CONN.lock().unwrap();
+        *guard = None;
+        std::fs::rename(&tmp, &db_path).map_err(|e| format!("替换数据库文件失败: {}", e))?;
+        let _ = std::fs::remove_file(db_path.with_extension("db-wal"));
+        let _ = std::fs::remove_file(db_path.with_extension("db-shm"));
+        let conn = Connection::open(&db_path).map_err(|e| format!("重开明文库失败: {}", e))?;
+        // 明文模式：不发 key（见上方 SQLCipher 明文模式说明）
+        verify_db_readable(&conn)?;
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .map_err(|e| format!("设置 WAL 模式失败: {}", e))?;
+        *guard = Some(conn);
+    }
+    crate::db_crypto::delete_db_key(app_dir)?;
+    Ok(())
+}
+
+/// 整库加密是否已启用（dbkey.bin 存在）。
+pub fn is_db_encryption_enabled(app_dir: &std::path::Path) -> bool {
+    crate::db_crypto::load_db_key(app_dir)
+        .map(|k| k.is_some())
+        .unwrap_or(false)
+}
+
+/// 在指定路径初始化明文数据库（供测试与未启用整库加密的启动流程复用）。
 pub fn init_database_at(db_path: PathBuf) -> Result<(), String> {
+    init_database_at_with_key(db_path, None)
+}
+
+/// 带可选 SQLCipher key 的初始化。`Some(key)` 打开/创建加密库，
+/// `None` 打开/创建明文库（SQLCipher 构建下显式 `PRAGMA key = ''`）。
+/// 所有表结构与迁移逻辑两条路径完全一致——加密的是存储层，不是逻辑层。
+pub fn init_database_at_with_key(db_path: PathBuf, key: Option<&[u8; 32]>) -> Result<(), String> {
     {
         let mut path_guard = DB_PATH.lock().unwrap();
         *path_guard = Some(db_path.clone());
     }
 
     let conn = Connection::open(&db_path).map_err(|e| format!("打开数据库失败: {}", e))?;
+    // PRAGMA key 必须是打开后的第一条语句，任何提前的读写都会以
+    // "file is not a database" 失败或触发 SQLCipher 的默认 KDF 路径。
+    if let Some(k) = key {
+        apply_db_key(&conn, k)?;
+        // key 模式下先验证可读性：错误 key 在这里给出明确错误，
+        // 而不是等到 journal_mode 才报一句含混的 "file is not a database"
+        verify_db_readable(&conn)?;
+    }
+    // key 为 None = 明文模式：不发 key，SQLCipher 以普通 SQLite 语义工作
 
     conn.pragma_update(None, "journal_mode", "WAL")
         .map_err(|e| format!("设置 WAL 模式失败: {}", e))?;

@@ -2698,3 +2698,118 @@ fn ai_chat_log_rejects_oversized() {
 
     let _ = std::fs::remove_file(&path);
 }
+
+// ========== 整库加密（SQLCipher）迁移往返 ==========
+
+/// 明文库 → 加密 → 数据一致 → 解密 → 数据一致。
+/// 这是整库加密核心承诺的可执行规格：迁移不丢数据，两种形态都真实落盘。
+#[test]
+fn sqlcipher_encrypt_decrypt_roundtrip_preserves_data() {
+    let _lock = vault::test_lock();
+    let dir = std::env::temp_dir().join(format!(
+        "digilegacy_enc_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = dir.join("digilegacy.db");
+
+    // 1. 明文库 + 一条真实资产
+    init_database_at(db.clone()).unwrap();
+    {
+        let guard = get_conn().unwrap();
+        let conn = guard.as_ref().unwrap();
+        conn.execute_batch(
+            "INSERT INTO digital_assets (platform_id, account_identifier, category, disposal_method, created_at, updated_at)
+             VALUES (1, 'test-id-001', 'property', 'no_action', '2026-11-04 00:00:00', '2026-11-04 00:00:00');",
+        )
+        .unwrap();
+    }
+
+    // 2. 迁移前：文件头必须是 SQLite 明文 magic
+    let head = std::fs::read(&db).unwrap();
+    assert!(
+        head.starts_with(b"SQLite format 3"),
+        "迁移前必须是明文 SQLite 文件"
+    );
+
+    // 3. 加密迁移
+    encrypt_database_at_runtime(&dir).unwrap();
+    assert!(
+        dir.join(crate::db_crypto::KEY_FILE_NAME).exists(),
+        "key 文件应落盘"
+    );
+
+    // 4. 迁移后：文件头不再是 SQLite magic（整库已加密）
+    let head = std::fs::read(&db).unwrap();
+    assert!(
+        !head.starts_with(b"SQLite format 3"),
+        "迁移后必须是加密文件，不能残留明文头"
+    );
+
+    // 5. 当前连接（已用 key 重开）数据一致
+    {
+        let guard = get_conn().unwrap();
+        let conn = guard.as_ref().unwrap();
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM digital_assets", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1, "迁移后数据必须还在");
+    }
+
+    // 6. 解密回明文
+    decrypt_database_at_runtime(&dir).unwrap();
+    assert!(
+        !dir.join(crate::db_crypto::KEY_FILE_NAME).exists(),
+        "解密后 key 文件应删除"
+    );
+    let head = std::fs::read(&db).unwrap();
+    assert!(
+        head.starts_with(b"SQLite format 3"),
+        "解密后应回到明文 SQLite"
+    );
+    {
+        let guard = get_conn().unwrap();
+        let conn = guard.as_ref().unwrap();
+        let n: i64 = conn
+            .query_row("SELECT COUNT(*) FROM digital_assets", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1, "解密后数据必须还在");
+    }
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// 错误 key 不能打开加密库——「key 正确性可验证」是整库加密的安全前提。
+#[test]
+fn sqlcipher_wrong_key_fails_closed() {
+    let _lock = vault::test_lock();
+    let dir = std::env::temp_dir().join(format!(
+        "digilegacy_encwrong_{}_{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = dir.join("digilegacy.db");
+    init_database_at(db.clone()).unwrap();
+    encrypt_database_at_runtime(&dir).unwrap();
+
+    // 用错误 key 打开必须失败（verify_db_readable 的 fail-closed 语义）
+    let wrong = [7u8; 32];
+    let err = init_database_at_with_key(db.clone(), Some(&wrong)).unwrap_err();
+    assert!(
+        err.contains("密钥不正确") || err.contains("损坏"),
+        "错误 key 的错误信息应明确: {err}"
+    );
+
+    // 用正确 key 重开（恢复测试环境的连接状态）
+    let right = crate::db_crypto::load_db_key(&dir).unwrap().unwrap();
+    init_database_at_with_key(db.clone(), Some(&right)).unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+}
