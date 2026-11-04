@@ -29,15 +29,19 @@ fn key_file_path(app_dir: &std::path::Path) -> PathBuf {
 
 /// DPAPI 附加熵：同一 Windows 账户下其它应用即便硬调 CryptUnprotectData，
 /// 没有这串应用专属熵也解不开——纵深防御，成本为零。
+#[cfg(windows)]
 const ENTROPY: &[u8] = b"digilegacy/db-key/v1";
 
 /// blob 文件名（应用数据目录下）。
+#[cfg(windows)]
 pub const KEY_FILE_NAME: &str = "dbkey.bin";
 
 /// blob 文件格式版本。将来换保护机制（如迁移到其它平台设施）时按版本分支。
+#[cfg(windows)]
 const BLOB_VERSION: u8 = 1;
 
 /// 整库加密状态（前端展示用）。
+#[cfg(windows)]
 #[derive(Debug, serde::Serialize)]
 pub struct DbEncryptionStatus {
     pub enabled: bool,
@@ -187,7 +191,7 @@ fn dpapi_unprotect(data: &[u8]) -> Result<Vec<u8>, String> {
 mod fallback {
     use std::path::Path;
 
-    pub const KEY_FILE_NAME: &str = super::KEY_FILE_NAME;
+    pub const KEY_FILE_NAME: &str = "dbkey.bin";
 
     #[derive(Debug, serde::Serialize)]
     pub struct DbEncryptionStatus {
