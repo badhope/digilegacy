@@ -592,3 +592,84 @@ describe('内置 Agent 桌面分支', () => {
     expect(mockedInvoke.mock.calls.some(c => c[0] === 'run_agent_task_streaming')).toBe(true);
   });
 });
+
+describe('Agent 运行审计与取消', () => {
+  const assistantOn = {
+    success: true, message: '',
+    data: { enabled: true, endpoint: 'https://x/v1', model: 'm', has_key: true },
+  };
+  const auditRow = {
+    id: 1,
+    started_at: '2026-11-04 08:00:00',
+    task: '查一下继承进度',
+    outcome: 'final',
+    rounds: 3,
+    tools_used: 'query_assets,get_planning_stats',
+  };
+
+  it('挂载后加载并渲染最近 10 条运行记录', async () => {
+    const w = await mountReport({
+      get_assistant_config: assistantOn,
+      list_agent_run_log: { success: true, message: '', data: [auditRow] },
+    });
+    await flushPromises();
+    expect(w.text()).toContain('运行记录（最近 10 条）');
+    expect(w.text()).toContain('查一下继承进度');
+    expect(w.text()).toContain('query_assets');
+  });
+
+  it('清空记录调用 clear_agent_run_log 且列表清空', async () => {
+    const w = await mountReport({
+      get_assistant_config: assistantOn,
+      list_agent_run_log: { success: true, message: '', data: [auditRow] },
+      clear_agent_run_log: { success: true, message: '已清空 Agent 运行记录', data: null },
+    });
+    await flushPromises();
+    const clearBtn = w.findAll('button').find(b => b.text().includes('清空记录'))!;
+    expect(clearBtn).toBeDefined();
+    await clearBtn.trigger('click');
+    await flushPromises();
+    expect(mockedInvoke.mock.calls.some(c => c[0] === 'clear_agent_run_log')).toBe(true);
+    expect(w.text()).toContain('还没有运行记录');
+  });
+
+  it('审计加载失败是静默旁路：列表显示空态，页面不崩', async () => {
+    const w = await mountReport({
+      get_assistant_config: assistantOn,
+      // 返回非 success 响应走「失败降级」分支，而不是抛异常
+      list_agent_run_log: { success: false, message: '数据库忙', data: null },
+    });
+    await flushPromises();
+    expect(w.text()).toContain('还没有运行记录');
+  });
+
+  it('任务运行中出现取消按钮，点击后调用 cancel_agent_task', async () => {
+    let resolveRun!: (v: unknown) => void;
+    mockTauriEnv.value = true;
+    const w = await mountReport({
+      get_assistant_config: assistantOn,
+      list_agent_run_log: { success: true, message: '', data: [] },
+      run_agent_task_streaming: () =>
+        new Promise((res) => {
+          resolveRun = res;
+        }),
+      cancel_agent_task: { success: true, message: '已发出取消请求', data: null },
+    });
+    await w.find('#agent-task').setValue('查进度');
+    const runBtn = w.findAll('button').find(b => b.attributes('data-testid') === 'agent-run')!;
+    await runBtn.trigger('click');
+    await flushPromises();
+
+    const cancelBtn = w
+      .findAll('button')
+      .find(b => b.attributes('data-testid') === 'agent-cancel');
+    expect(cancelBtn, '运行中必须显示取消按钮').toBeDefined();
+    await cancelBtn!.trigger('click');
+    await flushPromises();
+    expect(mockedInvoke.mock.calls.some(c => c[0] === 'cancel_agent_task')).toBe(true);
+
+    // 收尾：放行挂起的 run promise，避免测试悬挂
+    resolveRun({ success: true, message: '', data: { steps: [], final_text: '完成', truncated: false } });
+    await flushPromises();
+  });
+});
