@@ -371,8 +371,9 @@ pub fn payload_fields_for(id: &str) -> Vec<String> {
 
 /// 家人 FAQ 也可以作为审核场景：检查「答案是否与政策库矛盾」。
 /// 这里保留构造器但**不默认注册**——FAQ 是静态文案，改动频率低，
-/// 是否值得每次跑 AI 初审属于产品取舍。
-#[allow(dead_code)]
+/// 是否值得每次跑 AI 初审属于产品取舍。构造器被回归测试锁定，
+/// 生产编译下按有意保留处理。
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn faq_items() -> Vec<ReviewItem> {
     FAQ.iter()
         .map(|e| {

@@ -100,7 +100,9 @@ pub fn preview_outbound(
     }
 }
 
-/// 出境的请求体永远不含这些字段——用于测试的反向断言清单。
+/// 出境的请求体永远不含这些字段。生产过滤在 payload 组装处逐字段硬编码；
+/// 这份清单是它的**执行器**：测试用全量反向断言逼两处保持同步——
+/// 生产多发一个字段，测试就红。仅测试引用，故按测试依赖保留。
 #[cfg_attr(not(test), allow(dead_code))]
 pub const FORBIDDEN_FIELDS: &[&str] = &[
     "account_identifier",

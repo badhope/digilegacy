@@ -826,7 +826,6 @@ fn authenticate_backup_security(
 /// 新代码应使用 `import_backup_json_db_with_mode`，由命令层按用户选择决定模式。
 /// 生产路径已全部切到带模式的版本，这里只被测试与场景矩阵调用。
 #[cfg(test)]
-#[allow(dead_code)]
 pub fn import_backup_json_db(content: &str) -> Result<i64, String> {
     import_backup_json_db_with_mode(content, ImportMode::Replace)
 }

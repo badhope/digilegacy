@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-04
+
+### Changed
+
+- **Dead-code audit, site by site.** Every `#[allow(dead_code)]` in the codebase was re-verified against real usage: one truly dead method deleted (`HeartbeatStatus::last_seen_ok`, zero references), one stale allow removed (`DmsConfig::last_check_in` is used by `stage_snapshot`), redundant allow under `#[cfg(test)]` dropped (`import_backup_json_db`), and the remainder narrowed to precise `#[cfg_attr(not(test), ...)]` with comments that now state the *actual* reason each item is kept (test-locked regression specs, domain-tag drift guards, product-deferred reviewers) — including fixing two comments that described call chains which no longer exist (`FORBIDDEN_FIELDS` filtering, `rekey_value` legacy path).
+- **Both frontend `@ts-ignore`s deleted.** jszip ships its own type declarations; the dynamic import is now properly typed with `const { default: JSZip } = await import('jszip')` — no `any`, no skipped checks. Zero `@ts-ignore`, zero `: any`, zero `TODO/FIXME` remain in the codebase.
+- **Dependency audits re-run and filed:** `npm audit` (production deps) → **0 vulnerabilities**; RustSec (via CI, local git channel to github.com is blocked) → **0 vulnerabilities**, with the 7 remaining unmaintained/unsound warnings identified as Tauri's Linux-side transitive deps (no impact on Windows builds) and filed in `docs/TECH-STACK.md`.
+
+### Notes
+
+- `docs/VERIFICATION.md` now states explicitly that full-database encryption (SQLCipher) is a roadmap **feature** (P2), not debt — it needs a one-time plaintext→encrypted migration design and must not be half-implemented.
+
 ## [0.3.2] - 2026-11-04
 
 ### Added
