@@ -31,14 +31,6 @@ serde_json = "1.0"
 # 不依赖系统 OpenSSL；编译需要 perl（openssl Configure 脚本）。
 # 明文库兼容：SQLCipher 下 `PRAGMA key = ''` 可打开未加密库（测试与未升级用户不受影响）。
 rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
-# 整库加密的 key 管理：Windows DPAPI（CryptProtectData/Unprotect）。
-# 与 Tauri 共用同一个 windows crate（feature 取并集），不新增编译单元。
-[target."cfg(windows)".dependencies]
-windows = { version = "0.62", features = [
-    "Win32_Foundation",
-    "Win32_Security_Cryptography",
-    "Win32_System_Memory",
-] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.10", features = ["v4"] }
 thiserror = "1.0"
@@ -74,3 +66,12 @@ codegen-units = 16
 debug = 0
 lto = false
 incremental = false
+
+# 整库加密的 key 管理：Windows DPAPI（CryptProtectData/Unprotect）。
+# 与 Tauri 共用同一个 windows crate（feature 取并集），不新增编译单元。
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Security_Cryptography",
+    "Win32_System_Memory",
+] }
