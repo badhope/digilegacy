@@ -9,13 +9,13 @@
 | 命令 | 本轮基线结果 | 证据边界 |
 |---|---|---|
 | `npm run typecheck` | PASS | `vue-tsc --noEmit` |
-| `npm run test:coverage` | **34 files / 468 tests passed**；83.05% statements、79.05% branches、75.81% functions、84.59% lines | 前端单测与覆盖率；覆盖率阈值全部达标 |
+| `npm run test:coverage` | **35 files / 472 tests passed**；分支覆盖率含 Agent 审计/取消新代码，阈值全部达标 | 前端单测与覆盖率；2026-11-04 新增 ReportView 审计/取消 4 项 |
 | `npm run build` | PASS；`ls dist/assets | grep '^mock-'` 无输出 | 生产前端构建 |
 | `cargo fmt --check` | PASS | 仅格式检查 |
 | `cargo clippy --all-targets -- -D warnings` | PASS | 无 warnings；唯一提示是上游 imap-proto 的 future-incompat |
 | `cargo test --locked` | **276 passed / 1 ignored**（278 collected）+ MCP 服务器 bin 9 passed | 通过 MSVC `cl.exe`；2026-11 新增外出暂停 1 项、Agent 取消 1 项 + MCP 协议契约 9 项 |
 | `PW_CHANNEL=msedge npx playwright test` | **85 passed** | 全量 E2E；新增 `harness.spec.ts` 5 项 |
-| `node scripts/check-doc-facts.mjs` | PASS | 276 Rust、468 前端、87 IPC、17 表、152 平台、85 E2E |
+| `node scripts/check-doc-facts.mjs` | PASS | 276 Rust、472 前端、87 IPC、17 表、152 平台、85 E2E |
 
 ### 本轮新增能力
 
