@@ -13,7 +13,7 @@
 | `npm run build` | PASS；`ls dist/assets | grep '^mock-'` 无输出 | 生产前端构建 |
 | `cargo fmt --check` | PASS | 仅格式检查 |
 | `cargo clippy --all-targets -- -D warnings` | PASS | 无 warnings；唯一提示是上游 imap-proto 的 future-incompat |
-| `cargo test --locked` | **275 passed / 1 ignored**（277 collected）+ MCP 服务器 bin 9 passed | 通过 MSVC `cl.exe`；2026-11 新增外出暂停 1 项 + MCP 协议契约 9 项 |
+| `cargo test --locked` | **276 passed / 1 ignored**（278 collected）+ MCP 服务器 bin 9 passed | 通过 MSVC `cl.exe`；2026-11 新增外出暂停 1 项、Agent 取消 1 项 + MCP 协议契约 9 项 |
 | `PW_CHANNEL=msedge npx playwright test` | **85 passed** | 全量 E2E；新增 `harness.spec.ts` 5 项 |
 | `node scripts/check-doc-facts.mjs` | PASS | 276 Rust、468 前端、87 IPC、17 表、152 平台、85 E2E |
 

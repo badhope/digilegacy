@@ -1,6 +1,6 @@
 use chrono::Local;
 use once_cell::sync::Lazy;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OpenFlags};
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use tauri::{AppHandle, Manager};
@@ -22,9 +22,10 @@ static CONN: Lazy<Mutex<Option<Connection>>> = Lazy::new(|| Mutex::new(None));
 /// v5：新增 `heir_recovery`（Shamir 继承人恢复包元数据）。
 /// v6：新增 `imap_config` / `imap_seen`（入站签到）。
 /// v7：新增 `ai_chat_log`（AI 助手会话历史）。
+/// v8：新增 `agent_run_log`（Agent 运行审计摘要，90 天保留）。
 /// 这些表都用 `CREATE TABLE IF NOT EXISTS` 建，存量库无需逐列迁移；
 /// 版本号仍然递增，让未来任何破坏性迁移能按数字分支而不是靠猜。
-const SCHEMA_VERSION: i64 = 7;
+const SCHEMA_VERSION: i64 = 8;
 
 /// 初始化数据库
 pub fn init_database(app_handle: &AppHandle) -> Result<(), String> {
@@ -36,6 +37,36 @@ pub fn init_database(app_handle: &AppHandle) -> Result<(), String> {
     std::fs::create_dir_all(&app_dir).map_err(|e| format!("创建应用目录失败: {}", e))?;
 
     init_database_at(app_dir.join("digilegacy.db"))
+}
+
+/// 以只读模式打开既有数据库（MCP 服务器 bin 专用）。
+///
+/// 与 `init_database_at` 的差异：`SQLITE_OPEN_READ_ONLY` 打开、不迁移、不建表、
+/// 不同步平台库——即使 MCP 进程被恶意客户端驱动，也没有任何写库路径。
+/// 数据库必须已经由主程序建好；WAL 残留（主程序崩溃后未 checkpoint）会让
+/// 只读连接打不开，此时报错并提示先跑一次主程序，而不是降级成读写。
+pub fn init_database_readonly_at(db_path: PathBuf) -> Result<(), String> {
+    if !db_path.exists() {
+        return Err(format!("数据库不存在: {}", db_path.display()));
+    }
+    {
+        let mut path_guard = DB_PATH.lock().unwrap();
+        *path_guard = Some(db_path.clone());
+    }
+    let conn =
+        Connection::open_with_flags(&db_path, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e| {
+            format!(
+                "只读打开数据库失败（若主程序曾异常退出，请先启动一次主程序完成整理）: {}",
+                e
+            )
+        })?;
+    conn.pragma_update(None, "busy_timeout", "5000")
+        .map_err(|e| format!("设置 busy_timeout 失败: {}", e))?;
+    {
+        let mut guard = CONN.lock().unwrap();
+        *guard = Some(conn);
+    }
+    Ok(())
 }
 
 /// 在指定路径初始化数据库（供启动流程、测试与 MCP 服务器 bin 复用）
@@ -253,6 +284,19 @@ fn create_tables(conn: &Connection) -> rusqlite::Result<()> {
             answer TEXT NOT NULL,
             model TEXT DEFAULT '',
             created_at TEXT NOT NULL
+        );
+
+        -- Agent 运行审计摘要：只存任务描述、结果摘要与工具名清单。
+        -- 工具参数与结果全文不落库——审计要能复盘，但不能变成第二份敏感数据副本。
+        -- 保留 90 天，写入时顺手清理过期行（lazy retention，无定时器）。
+        CREATE TABLE IF NOT EXISTS agent_run_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            started_at TEXT NOT NULL,
+            task TEXT NOT NULL,
+            outcome TEXT NOT NULL DEFAULT 'final',
+            final_text TEXT DEFAULT '',
+            rounds INTEGER DEFAULT 0,
+            tools_used TEXT DEFAULT ''
         );
         CREATE INDEX IF NOT EXISTS idx_ai_chat_created ON ai_chat_log(created_at DESC);
 
@@ -1362,6 +1406,79 @@ fn recent_check_ins_db(conn: &Connection, limit: usize) -> Result<Vec<String>, S
         .map_err(|e| format!("读取签到记录失败: {}", e))?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|e| format!("收集签到记录失败: {}", e))
+}
+
+// ========== Agent 运行审计 ==========
+
+/// 一次 Agent 运行的审计行（列表展示用，不含结果全文）。
+#[derive(Debug, serde::Serialize)]
+pub struct AgentRunLogEntry {
+    pub id: i64,
+    pub started_at: String,
+    pub task: String,
+    /// final / truncated / error
+    pub outcome: String,
+    pub rounds: i64,
+    pub tools_used: String,
+}
+
+/// 写入一次 Agent 运行摘要，并顺手清理 90 天前的旧行。
+/// 失败只返回 Err 由调用方决定降级——审计失败不应让任务本身作废。
+pub fn log_agent_run_db(
+    task: &str,
+    outcome: &str,
+    final_text: &str,
+    rounds: usize,
+    tools_used: &str,
+) -> Result<(), String> {
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    conn.execute(
+        "INSERT INTO agent_run_log (started_at, task, outcome, final_text, rounds, tools_used) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![now, task, outcome, final_text, rounds as i64, tools_used],
+    )
+    .map_err(|e| format!("写入 Agent 审计失败: {}", e))?;
+    conn.execute(
+        "DELETE FROM agent_run_log WHERE started_at < datetime('now', 'localtime', '-90 days')",
+        [],
+    )
+    .map_err(|e| format!("清理过期审计失败: {}", e))?;
+    Ok(())
+}
+
+/// 最近 N 条 Agent 运行摘要（新的在前）。
+pub fn list_agent_run_log_db(limit: usize) -> Result<Vec<AgentRunLogEntry>, String> {
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, started_at, task, outcome, rounds, tools_used FROM agent_run_log ORDER BY id DESC LIMIT ?1",
+        )
+        .map_err(|e| format!("查询 Agent 审计失败: {}", e))?;
+    let rows = stmt
+        .query_map(params![limit.min(100) as i64], |r| {
+            Ok(AgentRunLogEntry {
+                id: r.get(0)?,
+                started_at: r.get(1)?,
+                task: r.get(2)?,
+                outcome: r.get(3)?,
+                rounds: r.get(4)?,
+                tools_used: r.get(5)?,
+            })
+        })
+        .map_err(|e| format!("读取 Agent 审计失败: {}", e))?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("收集 Agent 审计失败: {}", e))
+}
+
+/// 手动清空全部 Agent 审计（用户有权抹掉自己的痕迹）。
+pub fn clear_agent_run_log_db() -> Result<(), String> {
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    conn.execute("DELETE FROM agent_run_log", [])
+        .map_err(|e| format!("清空 Agent 审计失败: {}", e))?;
+    Ok(())
 }
 
 /// 设置/清除外出模式暂停。`until` 空串 = 清除；否则必须是 YYYY-MM-DD 且不早于今天。

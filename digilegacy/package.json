@@ -1,7 +1,7 @@
 {
   "name": "digilegacy",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "DigiLegacy - local-first digital legacy planning desktop app",
   "type": "module",
   "engines": {

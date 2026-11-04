@@ -195,7 +195,10 @@ fn main() {
         );
         std::process::exit(1);
     }
-    if let Err(e) = digilegacy_lib::db::init_database_at(db_path.clone()) {
+    // 只读打开：MCP 进程没有任何写库路径（连迁移都不跑）。
+    // 副作用是主程序崩溃遗留 WAL 时打不开——报错并提示先跑一次主程序，
+    // 这比静默降级成读写更符合「宁可少给」的边界。
+    if let Err(e) = digilegacy_lib::db::init_database_readonly_at(db_path.clone()) {
         eprintln!("[digilegacy-mcp] 错误：打开数据库失败: {e}");
         std::process::exit(1);
     }

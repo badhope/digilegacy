@@ -232,7 +232,9 @@ fn run_agent_inner(
     if crate::report::contains_placeholder(&report) {
         return Err("当前数据处于加密锁定状态，请先解锁后再使用 Agent".to_string());
     }
-    match on_event {
+    // 每次任务开始前清掉上一次遗留的取消标志。
+    crate::agent::reset_cancel();
+    let result = match on_event {
         Some(channel) => crate::agent::run_task_with_events(
             &task,
             &cfg.endpoint,
@@ -243,7 +245,27 @@ fn run_agent_inner(
             },
         ),
         None => crate::agent::run_task(&task, &cfg.endpoint, &key, &cfg.model),
+    };
+    // 审计留痕：成败都记。审计写入失败不吞掉任务结果——
+    // 审计是尽力而为的旁路，不是事务的一部分。
+    match &result {
+        Ok(out) => {
+            let rounds = out.steps.iter().map(|s| s.round).max().unwrap_or(0);
+            let tools = out
+                .steps
+                .iter()
+                .map(|s| s.tool.as_str())
+                .collect::<Vec<_>>()
+                .join(",");
+            let outcome = if out.truncated { "truncated" } else { "final" };
+            let _ = db::log_agent_run_db(&task, outcome, &out.final_text, rounds, &tools);
+        }
+        Err(e) => {
+            let brief: String = e.chars().take(500).collect();
+            let _ = db::log_agent_run_db(&task, "error", &brief, 0, "");
+        }
     }
+    result
 }
 
 #[command]
@@ -256,6 +278,33 @@ pub async fn run_agent_task(
     result
         .map(ApiResponse::ok)
         .or_else(|e| Ok(ApiResponse::fail(&e)))
+}
+
+/// Agent 运行审计：最近 N 条摘要（新的在前）。
+#[command]
+pub fn list_agent_run_log(
+    limit: Option<usize>,
+) -> Result<ApiResponse<Vec<db::AgentRunLogEntry>>, String> {
+    db::list_agent_run_log_db(limit.unwrap_or(10))
+        .map(ApiResponse::ok)
+        .or_else(|e| Ok(ApiResponse::fail(&e)))
+}
+
+/// 清空全部 Agent 运行审计。
+#[command]
+pub fn clear_agent_run_log() -> Result<ApiResponse<()>, String> {
+    db::clear_agent_run_log_db()?;
+    Ok(ApiResponse::ok_with_msg((), "已清空 Agent 运行记录"))
+}
+
+/// 请求取消当前 Agent 任务（协作式：当前模型轮次结束后生效）。
+#[command]
+pub fn cancel_agent_task() -> Result<ApiResponse<()>, String> {
+    crate::agent::request_cancel();
+    Ok(ApiResponse::ok_with_msg(
+        (),
+        "已发出取消请求，当前轮次结束后生效",
+    ))
 }
 
 /// 运行受限本地 Agent。事件经 Channel 推给前端，最终结果仍以 ApiResponse 返回。
