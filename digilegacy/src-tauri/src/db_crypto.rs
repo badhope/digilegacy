@@ -21,6 +21,12 @@
 #[cfg(windows)]
 use std::path::PathBuf;
 
+/// key 文件完整路径。
+#[cfg(windows)]
+fn key_file_path(app_dir: &std::path::Path) -> PathBuf {
+    app_dir.join(KEY_FILE_NAME)
+}
+
 /// DPAPI 附加熵：同一 Windows 账户下其它应用即便硬调 CryptUnprotectData，
 /// 没有这串应用专属熵也解不开——纵深防御，成本为零。
 const ENTROPY: &[u8] = b"digilegacy/db-key/v1";
@@ -35,12 +41,6 @@ const BLOB_VERSION: u8 = 1;
 #[derive(Debug, serde::Serialize)]
 pub struct DbEncryptionStatus {
     pub enabled: bool,
-}
-
-/// key 文件完整路径。
-#[cfg(windows)]
-fn key_file_path(app_dir: &std::path::Path) -> PathBuf {
-    app_dir.join(KEY_FILE_NAME)
 }
 
 /// 生成新的 32 字节库加密密钥（CSPRNG），DPAPI 保护后落盘。
