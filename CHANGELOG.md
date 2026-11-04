@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-04
+
+### Added
+
+- **Full-database encryption (SQLCipher)** — the P2-1 roadmap item, now real. Beyond field-level encryption (which protects values), the entire SQLite file is encrypted with SQLCipher (AES-256): table structure, metadata, platform policies, everything. A copied `digilegacy.db` is random bytes on any other machine or Windows account.
+  - **Key model**: a random 32-byte database key, protected by Windows DPAPI (CurrentUser scope + application entropy) in `dbkey.bin`. This is deliberately *independent* of the master password — locking/unlocking the vault does not have to tear down the database connection, and the existing lock semantics are untouched. Honest boundary (stated in UI and docs): this protects against the file being copied away; it does not protect against an attacker on the same Windows account (that threat model belongs to BitLocker).
+  - **Migration**: user-triggered from Profile -> Security. WAL checkpoint -> plaintext snapshot kept on disk -> official `sqlcipher_export()` path into a temporary encrypted database -> independent-connection verification (schema version + readability) -> atomic swap -> reopen with key. Any failure removes temp files and the key, leaving the original plaintext database untouched. Symmetric decrypt path for opting out.
+  - **Plaintext compatibility**: SQLCipher without a key operates as plain SQLite — tests, unconfigured users behave exactly as before (verified: all pre-existing db tests pass unchanged under the SQLCipher build). Note for the record: `PRAGMA key = ''` is *not* accepted by SQLCipher 4 ("requires a key of one or more characters") — the plaintext mode is "no key pragma at all".
+  - **MCP server**: transparently opens the encrypted database with the DPAPI-unwrapped key (same Windows user, same trust boundary); plaintext databases work as before.
+  - **Verification**: two new end-to-end tests — encrypt->decrypt roundtrip preserving data with file-magic assertions at every stage, and wrong-key fail-closed. **280 + 9 tests pass under the SQLCipher build.**
+  - Build: `rusqlite/bundled-sqlcipher-vendored-openssl` (self-contained OpenSSL build; needs perl + nmake — CI runners have both).
+
+### Changed
+
+- IPC commands 92 -> 95 (`get_db_encryption_status` / `enable_db_encryption` / `disable_db_encryption`); schema version unchanged (the storage layer changed, not the schema).
+- `docs/TECH-STACK.md`: SQLCipher moves from "roadmap feature, deliberately not started" to implemented, with the DPAPI key-model rationale documented.
+
 ## [0.3.3] - 2026-11-04
 
 ### Changed

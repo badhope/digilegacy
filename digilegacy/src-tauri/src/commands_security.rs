@@ -216,6 +216,50 @@ pub fn export_backup(app_handle: AppHandle) -> Result<ApiResponse<String>, Strin
     ))
 }
 
+// ========== 整库加密（SQLCipher）==========
+
+/// 查询整库加密状态。
+#[command]
+pub fn get_db_encryption_status(
+    app_handle: AppHandle,
+) -> Result<ApiResponse<crate::db_crypto::DbEncryptionStatus>, String> {
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("获取应用数据目录失败: {}", e))?;
+    Ok(ApiResponse::ok(crate::db_crypto::DbEncryptionStatus {
+        enabled: crate::db::is_db_encryption_enabled(&app_dir),
+    }))
+}
+
+/// 启用整库加密：明文库 → SQLCipher（带快照，失败自动回滚）。
+#[command]
+pub fn enable_db_encryption(app_handle: AppHandle) -> Result<ApiResponse<()>, String> {
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("获取应用数据目录失败: {}", e))?;
+    crate::db::encrypt_database_at_runtime(&app_dir)?;
+    Ok(ApiResponse::ok_with_msg(
+        (),
+        "整库加密已开启：数据库文件此后以 SQLCipher（AES-256）存储，明文快照保留在应用目录",
+    ))
+}
+
+/// 停用整库加密：SQLCipher → 明文库（同样带快照）。
+#[command]
+pub fn disable_db_encryption(app_handle: AppHandle) -> Result<ApiResponse<()>, String> {
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("获取应用数据目录失败: {}", e))?;
+    crate::db::decrypt_database_at_runtime(&app_dir)?;
+    Ok(ApiResponse::ok_with_msg(
+        (),
+        "整库加密已停用，数据库转回明文存储",
+    ))
+}
+
 /// 导入备份的核心策略（纯函数，便于脱离 Tauri 运行时回归）。
 ///
 /// `replace` 模式必须先写一份导入前快照；命令层传应用数据目录，测试可传入故障路径。
