@@ -35,7 +35,8 @@ serde_json = "1.0"
 #
 # `bundled-sqlcipher` 只编译 SQLite + SQLCipher 本身，OpenSSL 由构建环境提供：
 # 设 OPENSSL_LIB_DIR / OPENSSL_INCLUDE_DIR 指向已编译好的 OpenSSL 即可
-# （CI 与打包脚本负责提供；见 docs/VERIFICATION.md 的构建说明）。
+# （样例见 digilegacy/scripts/verify-env.example.cmd；一次性生成安装目录的命令见
+#   docs/VERIFICATION.md 构建说明）。
 # SQLCipher 在 Windows 上也可以用内置 crypto，但 libsqlite3-sys 0.38 的 Windows
 # 分支要求显式 OpenSSL，故按它的契约提供。
 #

@@ -20,6 +20,8 @@
 | Web API 实跑 | `/api/health` 200、`/api/assets` 返回真实数据、未授权 401、未知命令 404、禁止命令 403、只读模式写操作 403、非回环无 token 拒绝启动 | 三个端口分别验证 |
 | 静态托管 | `/`、`/dashboard`、`/assets/1` 均 200；JS 返回 `text/javascript`、CSS 返回 `text/css`；缺失资源 404 | 修复前全部返回 `text/html` 导致白屏 |
 | 浏览器走查 | 9 个页面渲染正常；中英切换、深色/浅色切换、刷新后持久化均通过 | iab 环境 Playwright 定位器点击受限，改用坐标点击复核 |
+| `cargo fmt --check` / `clippy -D warnings` / `cargo test --locked`（复检） | **三项全部 exit 0**；291 lib + 4 cli + 9 mcp 全过 | 修复 paths.rs 的 needless-return、server bin 的 tests-after-main、cli 的 redundant-closure 与死常量后复跑 |
+| release 构建 | `npx tauri build --bundles nsis` 产出 `DigiLegacy_0.5.0_x64-setup.exe`（13.37 MiB）；同批产出 release 版 `digilegacy-cli.exe` / `digilegacy-server.exe` / `digilegacy-mcp.exe` 并实跑通过 | 构建环境需 `OPENSSL_LIB_DIR` / `OPENSSL_INCLUDE_DIR`（样例 `digilegacy/scripts/verify-env.example.cmd`）；Windows 静态 OpenSSL 需 `build.rs` 补链 user32 |
 
 ### 本轮新增能力
 

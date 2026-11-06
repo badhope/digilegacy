@@ -541,76 +541,6 @@ async fn guide(Query(q): Query<LocaleQuery>) -> Response {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn write_and_denied_lists_do_not_overlap() {
-        for cmd in WRITE_COMMANDS {
-            assert!(
-                !DENIED_COMMANDS.contains(cmd),
-                "`{}` 同时出现在写白名单与禁止清单里，语义矛盾",
-                cmd
-            );
-        }
-    }
-
-    #[test]
-    fn every_write_command_is_a_real_command() {
-        let known = dispatch::command_names();
-        for cmd in WRITE_COMMANDS {
-            assert!(
-                known.contains(cmd),
-                "写白名单包含未知命令 `{}`，拼写错误会让该操作静默不可用",
-                cmd
-            );
-        }
-    }
-
-    #[test]
-    fn every_denied_command_is_a_real_command() {
-        let known = dispatch::command_names();
-        for cmd in DENIED_COMMANDS {
-            assert!(known.contains(cmd), "禁止清单包含未知命令 `{}`", cmd);
-        }
-    }
-
-    #[test]
-    fn constant_time_eq_behaves_like_eq() {
-        assert!(constant_time_eq(b"secret", b"secret"));
-        assert!(!constant_time_eq(b"secret", b"secreT"));
-        assert!(!constant_time_eq(b"secret", b"secret-longer"));
-        assert!(!constant_time_eq(b"", b"x"));
-    }
-
-    #[test]
-    fn token_guard_requires_bearer_prefix() {
-        let state = AppState {
-            allow_write: false,
-            token: Some("abc".into()),
-        };
-        let mut h = HeaderMap::new();
-        assert!(!authorized(&state, &h), "无 header 必须拒绝");
-        h.insert(axum::http::header::AUTHORIZATION, "abc".parse().unwrap());
-        assert!(!authorized(&state, &h), "缺少 Bearer 前缀必须拒绝");
-        h.insert(
-            axum::http::header::AUTHORIZATION,
-            "Bearer abc".parse().unwrap(),
-        );
-        assert!(authorized(&state, &h));
-    }
-
-    #[test]
-    fn no_token_means_loopback_only_but_authorized() {
-        let state = AppState {
-            allow_write: false,
-            token: None,
-        };
-        assert!(authorized(&state, &HeaderMap::new()));
-    }
-}
-
 // ============ 入口 ============
 
 fn main() {
@@ -678,5 +608,74 @@ fn main() {
     if let Err(e) = serve(cfg) {
         eprintln!("{}", e);
         std::process::exit(1);
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_and_denied_lists_do_not_overlap() {
+        for cmd in WRITE_COMMANDS {
+            assert!(
+                !DENIED_COMMANDS.contains(cmd),
+                "`{}` 同时出现在写白名单与禁止清单里，语义矛盾",
+                cmd
+            );
+        }
+    }
+
+    #[test]
+    fn every_write_command_is_a_real_command() {
+        let known = dispatch::command_names();
+        for cmd in WRITE_COMMANDS {
+            assert!(
+                known.contains(cmd),
+                "写白名单包含未知命令 `{}`，拼写错误会让该操作静默不可用",
+                cmd
+            );
+        }
+    }
+
+    #[test]
+    fn every_denied_command_is_a_real_command() {
+        let known = dispatch::command_names();
+        for cmd in DENIED_COMMANDS {
+            assert!(known.contains(cmd), "禁止清单包含未知命令 `{}`", cmd);
+        }
+    }
+
+    #[test]
+    fn constant_time_eq_behaves_like_eq() {
+        assert!(constant_time_eq(b"secret", b"secret"));
+        assert!(!constant_time_eq(b"secret", b"secreT"));
+        assert!(!constant_time_eq(b"secret", b"secret-longer"));
+        assert!(!constant_time_eq(b"", b"x"));
+    }
+
+    #[test]
+    fn token_guard_requires_bearer_prefix() {
+        let state = AppState {
+            allow_write: false,
+            token: Some("abc".into()),
+        };
+        let mut h = HeaderMap::new();
+        assert!(!authorized(&state, &h), "无 header 必须拒绝");
+        h.insert(axum::http::header::AUTHORIZATION, "abc".parse().unwrap());
+        assert!(!authorized(&state, &h), "缺少 Bearer 前缀必须拒绝");
+        h.insert(
+            axum::http::header::AUTHORIZATION,
+            "Bearer abc".parse().unwrap(),
+        );
+        assert!(authorized(&state, &h));
+    }
+
+    #[test]
+    fn no_token_means_loopback_only_but_authorized() {
+        let state = AppState {
+            allow_write: false,
+            token: None,
+        };
+        assert!(authorized(&state, &HeaderMap::new()));
     }
 }

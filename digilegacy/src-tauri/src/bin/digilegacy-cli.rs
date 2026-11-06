@@ -18,7 +18,6 @@ use serde_json::{json, Map, Value};
 
 const EXIT_OK: u8 = 0;
 const EXIT_FAIL: u8 = 1;
-const EXIT_USAGE: u8 = 2;
 
 #[derive(Parser)]
 #[command(
@@ -391,7 +390,7 @@ fn run(cli: &Cli, data_dir: &std::path::Path) -> Result<u8, String> {
                 .cloned()
                 .ok_or_else(|| "参数必须是 JSON 对象".to_string())?;
             let v = call(name, obj)?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
         Command::Commands => Ok(EXIT_OK),
     }
@@ -430,7 +429,7 @@ fn assets(cli: &Cli, cmd: &AssetsCmd) -> Result<u8, String> {
         }
         AssetsCmd::Get { id } => {
             let v = call("get_asset_by_id", one("id", json!(id)))?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
         AssetsCmd::Add {
             platform,
@@ -584,7 +583,7 @@ fn dms(cli: &Cli, cmd: &DmsCmd) -> Result<u8, String> {
     match cmd {
         DmsCmd::Status => {
             let v = call("get_dms_status", Map::new())?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
         DmsCmd::Checkin => {
             let v = call("update_check_in", Map::new())?;
@@ -609,7 +608,7 @@ fn dms(cli: &Cli, cmd: &DmsCmd) -> Result<u8, String> {
                 until.clone().unwrap_or_default()
             };
             let v = call("set_dms_pause", one("until", json!(value)))?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
         DmsCmd::Review => {
             let v = call("record_planning_review", Map::new())?;
@@ -617,7 +616,7 @@ fn dms(cli: &Cli, cmd: &DmsCmd) -> Result<u8, String> {
         }
         DmsCmd::History => {
             let v = call("get_dms_history", Map::new())?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
     }
 }
@@ -655,7 +654,7 @@ fn report(cli: &Cli, cmd: &ReportCmd) -> Result<u8, String> {
         }
         ReportCmd::Drill => {
             let v = call("run_family_drill", Map::new())?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
     }
 }
@@ -681,11 +680,11 @@ fn backup(cli: &Cli, cmd: &BackupCmd) -> Result<u8, String> {
         }
         BackupCmd::Checkpoint { label } => {
             let v = call("create_checkpoint", one("label", json!(label)))?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
         BackupCmd::Checkpoints => {
             let v = call("list_checkpoints", Map::new())?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
         BackupCmd::Restore { id, password } => {
             let mut m = one("id", json!(id));
@@ -700,7 +699,7 @@ fn vault(cli: &Cli, cmd: &VaultCmd) -> Result<u8, String> {
     match cmd {
         VaultCmd::Status => {
             let v = call("security_status", Map::new())?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
         VaultCmd::Unlock { password } => {
             let pw = resolve_secret(password)?;
@@ -714,7 +713,7 @@ fn vault(cli: &Cli, cmd: &VaultCmd) -> Result<u8, String> {
         VaultCmd::Setup { password } => {
             let pw = resolve_secret(password)?;
             let v = call("set_master_password", one("password", json!(pw)))?;
-            emit(cli, &v, |d| pretty(d))
+            emit(cli, &v, pretty)
         }
     }
 }

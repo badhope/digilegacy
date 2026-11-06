@@ -42,16 +42,16 @@ fn default_dir() -> Result<PathBuf, String> {
     {
         let appdata = std::env::var("APPDATA")
             .map_err(|_| "环境变量 APPDATA 缺失，无法定位数据目录".to_string())?;
-        return Ok(PathBuf::from(appdata).join(APP_DIR_NAME));
+        Ok(PathBuf::from(appdata).join(APP_DIR_NAME))
     }
     #[cfg(target_os = "macos")]
     {
         let home = std::env::var("HOME")
             .map_err(|_| "环境变量 HOME 缺失，无法定位数据目录".to_string())?;
-        return Ok(PathBuf::from(home)
+        Ok(PathBuf::from(home)
             .join("Library")
             .join("Application Support")
-            .join(APP_DIR_NAME));
+            .join(APP_DIR_NAME))
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
