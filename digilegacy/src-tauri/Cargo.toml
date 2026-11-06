@@ -53,6 +53,14 @@ keepass = { version = "0.17.0", features = ["save_kdbx4"] }
 hkdf = "0.13.0"
 imap = { version = "2.4.1", features = ["native-tls"] }
 native-tls = "0.2.18"
+# CLI 与 HTTP 服务入口。
+# clap：命令行解析（derive 模式，与 Tauri 无耦合）。
+# axum/tokio：Web 端只读 API。tokio 已由 tauri 传递引入，这里显式声明
+# 我们实际用到的 features，避免依赖上游 feature 集合的偶然性。
+clap = { version = "4.5", features = ["derive"] }
+axum = { version = "0.8", features = ["json"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "sync"] }
+tower-http = { version = "0.6", features = ["fs", "trace", "cors", "compression-gzip"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

@@ -794,8 +794,9 @@ mod tests {
 
     /// get_dms_status 是界面唯一的 DMS 数据源，必须是纯读：
     /// 调用它不得写发件箱、不得触达 SMTP（旧实现调 evaluate_dms 会真发邮件）。
-    /// 注：get_dms_history / get_backup_status 需要 AppHandle，无法在单元测试中构造，
-    /// 其底层 outbox_history / latest_backup_summary 已分别由 notify 与 backup 的测试覆盖。
+    /// 注：get_dms_history / get_backup_status 依赖进程级数据目录，
+    /// 其底层 outbox_history / latest_backup_summary 已分别由 notify 与 backup 的测试覆盖；
+    /// dispatch 层另有「命令可路由」测试确保它们没有被漏接。
     #[test]
     fn get_dms_status_is_read_only_and_reports_stage() {
         let _g = crate::vault::test_lock();

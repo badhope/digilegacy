@@ -12,7 +12,7 @@ use std::path::Path;
 
 use chrono::{Local, NaiveDateTime};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::db;
 
@@ -92,15 +92,8 @@ fn stage_snapshot(cfg: &DmsConfig) -> (i64, i64) {
 
 /// 读取本地发件箱历史（按日期倒序，最多 `limit` 条）。
 /// 界面的「通知记录」此前只显示当前这一轮评估的返回值，历史投递完全不可见。
-pub fn outbox_history(
-    app_handle: &AppHandle,
-    limit: usize,
-) -> Result<Vec<DmsNotification>, String> {
-    let dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取应用数据目录失败: {}", e))?
-        .join("dms_outbox");
+pub fn outbox_history(limit: usize) -> Result<Vec<DmsNotification>, String> {
+    let dir = crate::paths::data_dir()?.join("dms_outbox");
     let mut files: Vec<std::path::PathBuf> = match fs::read_dir(&dir) {
         Ok(entries) => entries
             .filter_map(|e| e.ok())
@@ -221,12 +214,8 @@ fn compute_stage(overdue_days: i64, cfg: &DmsConfig) -> i64 {
     }
 }
 
-fn outbox_path(app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
-    let dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取应用数据目录失败: {}", e))?
-        .join("dms_outbox");
+fn outbox_path() -> Result<std::path::PathBuf, String> {
+    let dir = crate::paths::data_dir()?.join("dms_outbox");
     fs::create_dir_all(&dir).map_err(|e| format!("创建发件箱目录失败: {}", e))?;
     Ok(dir.join(format!("{}.jsonl", Local::now().format("%Y-%m-%d"))))
 }
@@ -442,13 +431,13 @@ pub fn send_test_message(settings: &SmtpSettings, recipient: &str) -> Result<(),
 }
 
 fn dispatch(
-    app_handle: &AppHandle,
+    _app_handle: &AppHandle,
     stage: i64,
     recipient: &str,
     subject: &str,
     body: &str,
 ) -> Result<DmsNotification, String> {
-    let path = outbox_path(app_handle)?;
+    let path = outbox_path()?;
     if already_notified(&path, stage, recipient) {
         return Ok(DmsNotification {
             stage,

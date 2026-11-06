@@ -60,15 +60,25 @@ afterEach(() => {
 });
 
 describe('theme', () => {
-  it('未保存过任何选择时默认跟随系统（系统为浅色 → 解析浅色）', () => {
+  it('未保存过任何选择时默认浅色（不跟随系统）', () => {
     themeModule!.initTheme();
-    expect(state().mode).toBe('system');
+    expect(state().mode).toBe('light');
     expect(state().resolved).toBe('light');
   });
 
-  it('系统偏好深色时跟随系统解析为深色', async () => {
+  it('默认浅色与系统偏好无关：系统为深色时首次打开仍是浅色', async () => {
     await loadTheme(true);
     themeModule!.initTheme();
+    expect(state().mode).toBe('light');
+    expect(state().resolved).toBe('light');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+  });
+
+  it('显式选「跟随系统」且系统为深色时解析为深色', async () => {
+    await loadTheme(true);
+    localStorage.setItem(STORAGE_KEY, 'system');
+    themeModule!.initTheme();
+    expect(state().mode).toBe('system');
     expect(state().resolved).toBe('dark');
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
   });
@@ -85,10 +95,10 @@ describe('theme', () => {
     expect(state().resolved).toBe('light');
   });
 
-  it('保存的非法值被忽略（保持当前模式）', () => {
+  it('保存的非法值被忽略（保持默认浅色）', () => {
     localStorage.setItem(STORAGE_KEY, 'neon');
     themeModule!.initTheme();
-    expect(state().mode).toBe('system');
+    expect(state().mode).toBe('light');
     expect(state().resolved).toBe('light');
   });
 
@@ -111,6 +121,7 @@ describe('theme', () => {
 
   it('跟随系统时系统主题变化实时切换（深→浅）', async () => {
     await loadTheme(true);
+    localStorage.setItem(STORAGE_KEY, 'system');
     themeModule!.initTheme();
     expect(state().resolved).toBe('dark');
 

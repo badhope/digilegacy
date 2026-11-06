@@ -3,7 +3,7 @@
 use crate::db;
 use crate::db::CheckInStatus;
 use crate::models::*;
-use tauri::{command, AppHandle};
+use tauri::command;
 use zeroize::Zeroize;
 
 // ========== 用户档案 ==========
@@ -64,13 +64,11 @@ pub fn get_dms_status() -> Result<ApiResponse<crate::notify::DmsStatus>, String>
 
 /// 本地发件箱历史（最近 50 条），让用户能看到「过去真的发过什么」。
 #[command]
-pub fn get_dms_history(
-    app_handle: AppHandle,
-) -> Result<ApiResponse<Vec<crate::notify::DmsNotification>>, String> {
+pub fn get_dms_history() -> Result<ApiResponse<Vec<crate::notify::DmsNotification>>, String> {
     if let Err(e) = db::ensure_vault_readable_db() {
         return Ok(ApiResponse::fail(&e));
     }
-    crate::notify::outbox_history(&app_handle, 50).map(ApiResponse::ok)
+    crate::notify::outbox_history(50).map(ApiResponse::ok)
 }
 
 #[command]

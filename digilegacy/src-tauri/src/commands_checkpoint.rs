@@ -2,46 +2,41 @@
 //!
 //! 回滚复用既有的认证式导入路径，因此同样要求源口令与 AEAD 校验通过；
 //! 回滚前先自动打一个 `pre-restore` 检查点，保证回滚本身也可撤销。
+//!
+//! 数据目录走 `crate::paths` 而不是 `AppHandle`：桌面、CLI、HTTP 服务
+//! 三个入口共用同一套命令逻辑，行为不会漂移。
 
 use crate::checkpoint;
 use crate::db;
 use crate::models::*;
-use tauri::{command, AppHandle, Manager};
+use tauri::command;
 
-fn data_dir(app_handle: &AppHandle) -> Result<std::path::PathBuf, String> {
-    app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取数据目录失败: {}", e))
+fn data_dir() -> Result<std::path::PathBuf, String> {
+    crate::paths::data_dir()
 }
 
 /// 手动创建检查点：先导出完整备份 JSON，再落到检查点目录。
 #[command]
-pub fn create_checkpoint(
-    label: String,
-    app_handle: AppHandle,
-) -> Result<ApiResponse<checkpoint::CheckpointMeta>, String> {
+pub fn create_checkpoint(label: String) -> Result<ApiResponse<checkpoint::CheckpointMeta>, String> {
     let label = label.trim();
     if label.chars().count() > 80 {
         return Ok(ApiResponse::fail("检查点名称过长（上限 80 字符）"));
     }
-    let dir = data_dir(&app_handle)?;
+    let dir = data_dir()?;
     let json = db::export_backup_json_db()?;
     let meta = checkpoint::create(&dir, &json, label, false)?;
     Ok(ApiResponse::ok_with_msg(meta, "检查点已创建"))
 }
 
 #[command]
-pub fn list_checkpoints(
-    app_handle: AppHandle,
-) -> Result<ApiResponse<Vec<checkpoint::CheckpointMeta>>, String> {
-    let dir = data_dir(&app_handle)?;
+pub fn list_checkpoints() -> Result<ApiResponse<Vec<checkpoint::CheckpointMeta>>, String> {
+    let dir = data_dir()?;
     Ok(ApiResponse::ok(checkpoint::list(&dir)))
 }
 
 #[command]
-pub fn delete_checkpoint(id: String, app_handle: AppHandle) -> Result<ApiResponse<()>, String> {
-    let dir = data_dir(&app_handle)?;
+pub fn delete_checkpoint(id: String) -> Result<ApiResponse<()>, String> {
+    let dir = data_dir()?;
     checkpoint::delete(&dir, &id)?;
     Ok(ApiResponse::ok_with_msg((), "检查点已删除"))
 }
@@ -54,9 +49,8 @@ pub fn delete_checkpoint(id: String, app_handle: AppHandle) -> Result<ApiRespons
 pub fn restore_checkpoint(
     id: String,
     source_password: Option<String>,
-    app_handle: AppHandle,
 ) -> Result<ApiResponse<String>, String> {
-    let dir = data_dir(&app_handle)?;
+    let dir = data_dir()?;
     let content = checkpoint::read(&dir, &id)?;
 
     // 先把「回滚前」的状态存下来，否则回滚成了一趟没有返程票的车。

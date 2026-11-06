@@ -402,6 +402,9 @@
     scroll-behavior: auto !important;
   }
   .skeleton::after { animation: none; }
+  /* 入场动画整体关掉：只压缩时长仍会跑一遍关键帧，配合任何时间轴异常
+     都可能把内容留在起始态。减少动画的用户要的是「立刻看到内容」。 */
+  .fade-in { animation: none !important; }
   .card:hover,
   .stat-card:hover { transform: none; }
 }

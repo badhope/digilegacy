@@ -665,8 +665,14 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* 入场动画不得成为「可见性」的依赖。
+   旧写法用 `forwards` 把最终态交给动画持有：动画时钟一旦不推进
+   （prefers-reduced-motion、后台标签页、省电模式、合成器暂停），元素就永久
+   停在 opacity:0 —— 用户看到的是一整块空白，而不是「动画没播」。
+   现在把最终态还给元素自身的默认样式（opacity 默认就是 1），动画只负责
+   「从透明淡入」这一段，播不播都不影响内容可见。 */
 .fade-in {
-  animation: fadeIn 0.3s ease forwards;
+  animation: fadeIn 0.3s ease;
 }
 
 /* ========== Spinner ========== */

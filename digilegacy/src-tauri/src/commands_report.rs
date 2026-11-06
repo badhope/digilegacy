@@ -4,7 +4,7 @@
 use super::win_shell;
 use crate::db;
 use crate::models::*;
-use tauri::{command, AppHandle, Manager};
+use tauri::command;
 
 // ========== 继承报告 ==========
 
@@ -38,15 +38,9 @@ pub(crate) fn render_report_response(
 ///
 /// `locale` 由前端传入当前界面语言（`zh-CN` / `en-US`），未知值回退中文。
 #[command]
-pub fn render_report(
-    app_handle: AppHandle,
-    locale: Option<String>,
-) -> Result<ApiResponse<String>, String> {
+pub fn render_report(locale: Option<String>) -> Result<ApiResponse<String>, String> {
     let report = db::get_inheritance_report_db()?;
-    let response = render_report_response(&report, locale.as_deref().unwrap_or("zh-CN"))?;
-    // app_handle 仅为与其他导出命令保持一致的签名；这里不写盘。
-    let _ = &app_handle;
-    Ok(response)
+    render_report_response(&report, locale.as_deref().unwrap_or("zh-CN"))
 }
 
 // ========== 继承报告 / 工具包 ==========
@@ -69,18 +63,12 @@ pub(crate) fn validate_backup_content(content: &str) -> Result<(), String> {
 }
 
 #[command]
-pub fn export_report_to_file(
-    app_handle: AppHandle,
-    content: String,
-) -> Result<ApiResponse<String>, String> {
+pub fn export_report_to_file(content: String) -> Result<ApiResponse<String>, String> {
     if let Err(e) = validate_report_html(&content) {
         return Ok(ApiResponse::fail(&e));
     }
 
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取目录失败: {}", e))?;
+    let app_dir = crate::paths::data_dir()?;
 
     let dir = app_dir.join("报告");
     std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {}", e))?;
@@ -101,10 +89,7 @@ pub fn export_report_to_file(
 // ========== ZIP 工具包导出 ==========
 
 #[command]
-pub fn export_zip_to_file(
-    content: String,
-    app_handle: AppHandle,
-) -> Result<ApiResponse<String>, String> {
+pub fn export_zip_to_file(content: String) -> Result<ApiResponse<String>, String> {
     use base64::{engine::general_purpose::STANDARD as base64, Engine};
     // IPC 入口参数上限：解码后 200MB（对应 base64 约 267MB）。
     // 无上限时恶意/失控前端可凭一次 IPC 请求拖垮进程内存。
@@ -117,10 +102,7 @@ pub fn export_zip_to_file(
     if decoded.len() > 200 * 1024 * 1024 {
         return Ok(ApiResponse::fail("工具包体积超出上限（200MB）"));
     }
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取目录失败: {}", e))?;
+    let app_dir = crate::paths::data_dir()?;
 
     std::fs::create_dir_all(&app_dir).map_err(|e| format!("创建目录失败: {}", e))?;
 
@@ -144,14 +126,8 @@ pub fn export_zip_to_file(
 /// `%APPDATA%`）。这里只接受「本应用数据目录内的已存在文件」，
 /// 不接受任意路径——否则等于把 `open_external` 扩成任意路径执行器。
 #[command]
-pub fn reveal_exported_file(
-    path: String,
-    app_handle: AppHandle,
-) -> Result<ApiResponse<()>, String> {
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取目录失败: {}", e))?;
+pub fn reveal_exported_file(path: String) -> Result<ApiResponse<()>, String> {
+    let app_dir = crate::paths::data_dir()?;
     let target = std::path::PathBuf::from(&path);
     if path.chars().any(|c| c == '\0' || c.is_control()) {
         return Ok(ApiResponse::fail("路径包含非法字符"));
