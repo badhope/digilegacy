@@ -198,6 +198,12 @@ jobs:
   # 发布构建：验证安装包真的能产出。
   # 这条曾经缺失，导致「MSI 因中文产品名 + WiX codepage 1252 打包失败」
   # 一直没被发现——代码全绿但用户根本装不上。
+  #
+  # 第二条同类事故：SQLCipher 曾用外部 OpenSSL，构建环境必须自备一份静态
+  # OpenSSL，runner 上没有 → libsqlite3-sys 的 build script 直接 panic，安装包
+  # 只在开发机上出得来。Cargo.toml 已改为 `bundled-sqlcipher-vendored-openssl`，
+  # OpenSSL 随 crate 编译；下面的工具检查只是把「万一改回外部依赖」提前变成
+  # 一句人话，而不是 20 分钟后的 build script panic。
   release-build:
     name: 发布构建 · Windows 安装包
     if: github.repository == 'badhope/digilegacy'
@@ -219,6 +225,18 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: digilegacy/src-tauri
+
+      - name: 检查 SQLCipher 构建前置（perl / nasm）
+        shell: pwsh
+        run: |
+          # vendored OpenSSL 需要这两件；runner 镜像自带。缺失时立即失败并说明
+          # 原因，别让 libsqlite3-sys 在编译末尾抛 build script panic。
+          foreach ($tool in @('perl', 'nasm')) {
+            $cmd = Get-Command $tool -ErrorAction SilentlyContinue
+            if (-not $cmd) { throw "缺少 $tool：vendored OpenSSL 无法编译（见 docs/VERIFICATION.md）" }
+            Write-Host "$tool -> $($cmd.Source)"
+          }
+          perl -MExtUtils::MakeMaker -e "print qq{MakeMaker ok\n}" | Out-Host
 
       - name: 安装依赖
         run: npm ci

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
@@ -19,6 +19,12 @@ import type { Mock } from 'vitest';
 silenceExpectedErrors();
 
 const mockedInvoke = invoke as unknown as Mock;
+
+/** 推进防抖定时器并等 Vue 重渲染。搜索走 useDebouncedRef(200)。 */
+async function advanceDebounce(ms = 220) {
+  vi.advanceTimersByTime(ms);
+  await flushPromises();
+}
 
 function makeAsset(over: Record<string, unknown> = {}) {
   return {
@@ -65,6 +71,11 @@ beforeEach(() => {
   // onMounted 会拉取列表；默认给一个成功的空响应，避免组件走异常分支污染断言
   mockedInvoke.mockReset();
   mockedInvoke.mockResolvedValue({ success: true, message: '', data: [] });
+});
+
+afterEach(() => {
+  // 只有搜索用例开假定时器；统一在这里收尾，避免泄漏到下一个用例。
+  vi.useRealTimers();
 });
 
 describe('AssetsView 渲染', () => {
@@ -185,6 +196,7 @@ describe('AssetsView 渲染', () => {
   });
 
   it('搜索按平台名/账号过滤，且无结果时提示是筛选结果', async () => {
+    vi.useFakeTimers();
     const w = await mountView();
     const store = useAssetsStore();
     store.assets = [
@@ -196,10 +208,15 @@ describe('AssetsView 渲染', () => {
     const input = w.find('input[type="search"]');
     expect(input.exists(), '搜索框必须存在').toBe(true);
     await input.setValue('wechat');
+    // 搜索是防抖的（停手 200ms 才过滤），必须显式推进定时器。
+    // 这里顺带证明防抖真的接上了：不推进就不该过滤。
+    expect(w.findAll('.asset-row')).toHaveLength(2);
+    await advanceDebounce();
     expect(w.findAll('.asset-row')).toHaveLength(1);
     expect(w.text()).toContain('微信');
 
     await input.setValue('不存在的关键词');
+    await advanceDebounce();
     expect(w.findAll('.asset-row')).toHaveLength(0);
     expect(w.text()).toContain('没有匹配的资产');
     expect(w.text()).not.toContain('还没有登记任何数字资产');

@@ -112,6 +112,7 @@ import { useI18n } from '../i18n';
 import SearchOutline from '@vicons/ionicons5/es/SearchOutline';
 import LockClosedOutline from '@vicons/ionicons5/es/LockClosedOutline';
 import { useAssetsStore } from '../stores/assets';
+import { useDebouncedRef } from '../composables/debounce';
 import type { DigitalAsset } from '../types';
 import { formatMoney, categoryLabel, disposalLabel } from '../utils/format';
 import PlatformIcon from '../components/PlatformIcon.vue';
@@ -121,6 +122,8 @@ const { t } = useI18n();
 const assets = useAssetsStore();
 const filter = ref<string>('all');
 const keyword = ref('');
+// 输入框即时回显，过滤在停手 200ms 后才跑：资产上百条时逐键重排会明显掉帧。
+const searchTerm = useDebouncedRef(keyword, 200);
 const sortBy = ref<'recent' | 'value' | 'platform' | 'disposal'>('recent');
 
 /**
@@ -157,7 +160,7 @@ const filteredAssets = computed(() => {
       ? assets.assets.filter(isIncomplete)
       : assets.assets.filter(a => a.category === filter.value);
 
-  const terms = keyword.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = searchTerm.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const matched = terms.length === 0
     ? byCat
     : byCat.filter(a => {

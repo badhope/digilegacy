@@ -208,6 +208,7 @@ import CheckmarkCircleOutline from '@vicons/ionicons5/es/CheckmarkCircleOutline'
 import SearchOutline from '@vicons/ionicons5/es/SearchOutline';
 import PlatformIcon from '../components/PlatformIcon.vue';
 import CollapseGroup from '../components/CollapseGroup.vue';
+import { useDebouncedRef } from '../composables/debounce';
 import type { Platform } from '../types';
 
 const { t } = useI18n();
@@ -297,7 +298,7 @@ const filteredPlatformCount = computed(() => {
   const dataCats = selectedCats.value.size === 0
     ? null
     : new Set(assetCategories.filter(c => selectedCats.value.has(c.key)).flatMap(c => c.cats));
-  const terms = platformKeyword.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = platformSearchTerm.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   return platforms.platforms.filter(p => {
     if (dataCats && !dataCats.has(p.category)) return false;
     if (terms.length === 0) return true;
@@ -309,10 +310,12 @@ const filteredPlatformCount = computed(() => {
 interface CategoryWithPlatforms extends AssetCategory { platforms: Platform[] }
 
 const platformKeyword = ref('');
+// 152 条平台库逐个匹配 + 分组重排，逐键触发会卡；停手 200ms 后再算。
+const platformSearchTerm = useDebouncedRef(platformKeyword, 200);
 
 const selectedCategoriesWithPlatforms = computed((): CategoryWithPlatforms[] => {
   if (selectedCats.value.size === 0) return [];
-  const terms = platformKeyword.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = platformSearchTerm.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   return assetCategories
     .filter(c => selectedCats.value.has(c.key))
     .map(c => ({

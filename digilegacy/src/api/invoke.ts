@@ -103,16 +103,31 @@ async function httpInvoke<T>(cmd: string, args?: Record<string, unknown>): Promi
   }
 
   const env = payload as Partial<InvokeEnvelope<T>> & { message?: string };
-  if (!res.ok && env.message === undefined) {
-    throw new Error(`请求失败（HTTP ${res.status}）`);
+  if (env === null || typeof env !== 'object') {
+    throw new Error(`服务端返回了无法识别的响应（HTTP ${res.status}）`);
   }
+
+  // 有信封就按信封走，**不看 HTTP 状态码**。
+  //
+  // 关键点：业务失败（success:false）在 Tauri 侧是正常返回值，store 靠
+  // res.success/res.message 分支处理；抛错会让界面走 catch，把后端那句
+  // 「继承人姓名不能为空」换成笼统的「加载失败」。同理，只读模式、命令被禁、
+  // 未知命令这些传输层拒绝也带完整信封和可读原因，交给 store 展示更有用。
+  if (typeof env.success === 'boolean') {
+    return {
+      success: env.success,
+      message: env.message ?? '',
+      data: (env.data ?? null) as T,
+    } as unknown as T;
+  }
+
+  // 没有信封：2xx 视为宽松成功（反向代理或旧服务可能只回裸 data），
+  // 非 2xx 视为真正的传输失败并带上状态码与后端消息。
   if (!res.ok) {
     throw new Error(env.message || `请求失败（HTTP ${res.status}）`);
   }
-  // 业务失败（success:false）不抛错：Tauri 侧同样是把它当正常返回值交给
-  // store 判断。抛错会让界面走 catch 分支、丢掉后端给的 message。
   return {
-    success: env.success ?? true,
+    success: true,
     message: env.message ?? '',
     data: (env.data ?? null) as T,
   } as unknown as T;

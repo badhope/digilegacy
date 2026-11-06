@@ -21,7 +21,7 @@
 | 静态托管 | `/`、`/dashboard`、`/assets/1` 均 200；JS 返回 `text/javascript`、CSS 返回 `text/css`；缺失资源 404 | 修复前全部返回 `text/html` 导致白屏 |
 | 浏览器走查 | 9 个页面渲染正常；中英切换、深色/浅色切换、刷新后持久化均通过 | iab 环境 Playwright 定位器点击受限，改用坐标点击复核 |
 | `cargo fmt --check` / `clippy -D warnings` / `cargo test --locked`（复检） | **三项全部 exit 0**；291 lib + 4 cli + 9 mcp 全过 | 修复 paths.rs 的 needless-return、server bin 的 tests-after-main、cli 的 redundant-closure 与死常量后复跑 |
-| release 构建 | `npx tauri build --bundles nsis` 产出 `DigiLegacy_0.5.0_x64-setup.exe`（13.37 MiB）；同批产出 release 版 `digilegacy-cli.exe` / `digilegacy-server.exe` / `digilegacy-mcp.exe` 并实跑通过 | 构建环境需 `OPENSSL_LIB_DIR` / `OPENSSL_INCLUDE_DIR`（样例 `digilegacy/scripts/verify-env.example.cmd`）；Windows 静态 OpenSSL 需 `build.rs` 补链 user32 |
+| release 构建 | `npx tauri build --bundles nsis` 产出 `DigiLegacy_0.5.0_x64-setup.exe`；同批产出 release 版 `digilegacy-cli.exe` / `digilegacy-server.exe` / `digilegacy-mcp.exe` 并实跑通过 | 构建前置只剩 perl（Strawberry Perl）与 nasm：OpenSSL 由 `bundled-sqlcipher-vendored-openssl` 随 crate 编译，不再需要 `OPENSSL_LIB_DIR` / `OPENSSL_INCLUDE_DIR` |
 
 ### 本轮新增能力
 
@@ -248,15 +248,22 @@
 | **IMAP 入站签到**（回邮件=我还安好；白名单发件人 + uid 去重 + lookback 窗口） | 能力 | `imap_checkin` 3 组测试 + 后台 30 分钟轮询接线 |
 | 遗留死代码清理（`reencrypt_heirs`、`invalidate_on_rekey`、`set_security_config_db` 薄包装） | 整洁 | clippy -D warnings 0 |
 
-### SQLCipher（整库加密）实测结论：本机不可行，列 CI 路径
+### SQLCipher（整库加密）构建路径：已收敛到 vendored OpenSSL
+
+早期两条路都失败过，记录在此以免有人重复尝试：
 
 | 尝试 | 结果 |
 |---|---|
 | `bundled-sqlcipher` + `OPENSSL_DIR=C:\msys64\ucrt64` | cl.exe 拉入 MSYS GCC 风格头，`corecrt_wstdio.h` 语法错误 100+ |
-| `bundled-sqlcipher-vendored-openssl` | openssl-src 需 native Windows perl（本机仅 msys perl），`Configure VC-WIN64A` exit 2 |
-| include 顺序调整 | 仍要求 MSYS 的 `openssl/crypto.h`，两套头无法同时满足 |
+| `bundled-sqlcipher-vendored-openssl` + 系统 msys perl | openssl-src 要求 native Windows perl（需 `ExtUtils::MakeMaker`），`Configure VC-WIN64A` exit 2 |
 
-结论与缓解已写入 `docs/BENCHMARK.md` P2-1：CI（ubuntu）可直接编译；当前泄露面仅剩行数与表结构。
+**当前采用的路线**：`bundled-sqlcipher-vendored-openssl` + **Strawberry Perl**（自带
+`ExtUtils::MakeMaker` 与 nasm）。前提条件从「每个环境自备一份静态 OpenSSL」降为
+「装一个 Perl 发行版」，而 CI 的 `windows-latest` 镜像本来就预装 Strawberry Perl 与
+nasm，本地 `choco install strawberryperl` 一条命令即可。
+
+本机实测：`cargo check` 在 11 分钟内完成，全程未设置 `OPENSSL_DIR` /
+`OPENSSL_LIB_DIR` / `OPENSSL_INCLUDE_DIR`。
 
 ### 打包
 

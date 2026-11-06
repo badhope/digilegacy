@@ -42,6 +42,18 @@ jobs:
         with:
           workspaces: digilegacy/src-tauri
 
+      - name: 检查 SQLCipher 构建前置（perl / nasm）
+        shell: pwsh
+        run: |
+          # vendored OpenSSL（Cargo.toml 的 bundled-sqlcipher-vendored-openssl）
+          # 需要 perl 与 nasm。镜像自带；缺失时立刻报出原因。
+          foreach ($tool in @('perl', 'nasm')) {
+            $cmd = Get-Command $tool -ErrorAction SilentlyContinue
+            if (-not $cmd) { throw "缺少 $tool：vendored OpenSSL 无法编译（见 docs/VERIFICATION.md）" }
+            Write-Host "$tool -> $($cmd.Source)"
+          }
+          perl -MExtUtils::MakeMaker -e "print qq{MakeMaker ok\n}" | Out-Host
+
       - name: 安装依赖
         run: npm ci
 
