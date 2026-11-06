@@ -4,6 +4,73 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-06
+
+Three ways in, one core. The same command layer now drives the desktop app, a CLI and a
+self-hosted web service — so a feature added once is available everywhere, and the three can no
+longer drift apart.
+
+### Added
+
+- **`digilegacy-cli`** — the whole plan is operable without opening a window: `init`, `doctor`
+  (database, encryption, vault state, schema version, platform count), `profile`, `assets`
+  (list/get/add/delete/dispose/credential), `heirs` (list/add/remove), `dms`
+  (status/checkin/enable/disable/pause/review/history), `report` (html/export/guide/drill),
+  `backup` (export/import/checkpoint/checkpoints/restore), `vault` (status/unlock/lock/setup),
+  `platforms` (list/count), plus `call` as a raw escape hatch and `commands` to enumerate.
+  Sensitive values are masked unless `--show-secrets`; `--json` makes every command scriptable.
+- **`digilegacy-server`** — a self-hosted HTTP service over the same database. `POST /api/invoke`
+  is a single entry point for the shared command set; `GET /api/{health,dashboard,assets,
+  platforms,heirs,dms,report,guide,review/profiles}` are convenience endpoints. It serves the
+  built frontend with correct MIME types, hashed-asset caching and a 200-status SPA fallback.
+- **Three run modes in one frontend.** `invoke.ts` routes to Tauri IPC, to the HTTP backend (any
+  non-demo production build), or to the localStorage demo — and returns the *same* envelope shape
+  in all three, so stores and views need no knowledge of where they run.
+- **`docs/LANDSCAPE.md`** — a verified review of 12 open-source peers (stars/licence/last push as
+  of 2026-11-06) recording exactly which ideas were adopted and where each one lives in the source.
+
+### Changed
+
+- **Data-directory resolution left Tauri.** `paths.rs` resolves the data directory once per
+  process (explicit argument → `DIGILEGACY_DATA_DIR` → platform default, matching the existing
+  `com.digilegacy.app` identifier so upgrades find their data). `bootstrap.rs` owns non-desktop
+  startup. Commands that used to demand an `AppHandle` now work in all three entries.
+- **`dispatch.rs` is now the single routing table** between the command layer and every non-GUI
+  entry point. Desktop-only commands (`set_autostart`, `hide_main_window`) return an explicit
+  "unsupported here" instead of silently pretending to succeed.
+- **Default theme is light.** Previously "follow system"; the planning flow is used by people of
+  all ages and a dark default surprises more users than it helps. Follow-system is still one click
+  away and is remembered.
+
+### Security
+
+- The HTTP surface is **read-only unless started with `--allow-write`**, and even then only a
+  documented write whitelist is reachable.
+- Key-lifecycle and outbound commands (master password, recovery, KDBX export, SMTP/IMAP/API
+  credentials, assistant, agent, auto-review) are **refused over HTTP regardless of flags**.
+- Binding to a non-loopback address without `--token` is refused at startup; token comparison is
+  constant-time; the token can come from `DIGILEGACY_API_TOKEN`.
+- Static serving resolves every request inside the web root, rejects traversal segments and drive
+  letters, and returns 404 for missing hashed assets instead of a misleading HTML body.
+
+### Fixed
+
+- **Blank page when the web service hosted the frontend.** `Router::fallback_service(...)` was
+  immediately overwritten by `.fallback(...)`, so every JS/CSS request returned `text/html`; the
+  browser refused the module and rendered nothing. Replaced with one handler that serves real
+  files, sets the correct content type and falls back to `index.html` with status 200.
+- **Deep links returned 404 status** even though the HTML body was correct, so a refresh on
+  `/dashboard` looked like a broken page to browsers and CDNs.
+- **Dashboard always showed zero.** The HTTP layer unwrapped `{success,message,data}` down to
+  `data`, while every store reads `res.data` — the result was `undefined` and a silently empty UI.
+  The HTTP path now returns the identical envelope Tauri returns.
+- **Content could stay invisible forever.** View roots relied on `animation: fadeIn … forwards`
+  to reach `opacity: 1`; when the animation clock does not advance (reduced-motion preference,
+  background tab, power saving) the element stayed at `opacity: 0` and page navigation appeared to
+  do nothing. Final visibility no longer depends on an animation completing.
+- Removed the page-level `<transition mode="out-in">`, which fought the per-view `fade-in`
+  animation for the same opacity channel under `prefers-reduced-motion`.
+
 ## [0.4.0] - 2026-11-04
 
 ### Added

@@ -72,6 +72,35 @@ flowchart LR
 - **检查点**：重要改动前手动存一份命名快照。回滚一次点击，且与备份走同一套认证式导入校验；回滚前会自动再存一份 `pre-restore`，所以回滚本身也可撤销。
 - **回答「现在该做什么」的仪表板**：一个环给总量，下面一条四维分段条给构成，再配一份每行都能直接跳到修复处的待办清单。
 
+## 三种运行方式
+
+规划数据始终是同一个 SQLite 文件，三个入口打开它——共用同一套命令层，不存在第二份实现。
+
+| | 桌面版 | 命令行 | 自托管 Web |
+|---|---|---|---|
+| 适合 | 日常规划、打印 | 脚本化、备份、无界面机器 | 在自己局域网里的另一台设备上查看 |
+| 入口 | `DigiLegacy.exe` | `digilegacy-cli doctor` | `digilegacy-server --web-dir dist` |
+| 需要图形界面 | 是 | 否 | 否（只需浏览器） |
+| 写入 | 全部 | 全部 | **默认只读**，除非加 `--allow-write` |
+
+```bash
+# 命令行：日常核对与备份，不开窗口
+digilegacy-cli doctor
+digilegacy-cli assets list --json
+digilegacy-cli backup checkpoint "报税前"
+digilegacy-cli report export --locale zh-CN
+
+# Web：把同一个数据库用浏览器打开
+npm run build:web
+digilegacy-server --web-dir dist --port 8787
+```
+
+![The same plan in a browser over the self-hosted web service](docs/screenshots/11-web-dashboard.png)
+
+HTTP 服务默认只监听 `127.0.0.1`。绑到其它地址时必须同时给 `--token`，否则拒绝启动；即便给了，
+主密码、恢复密钥、凭据与外部网络相关命令也**不通过 HTTP 暴露**。它是你自己机器的查看窗口，
+不是一个云端账号。
+
 ## 安装
 
 **Windows 10/11** · 无需注册账号 · MSI 与 NSIS 安装包见 [releases 页面](https://github.com/badhope/digilegacy/releases)。
@@ -134,6 +163,7 @@ scripts/verify.sh      本地门禁 —— 与 CI 跑的是同一组命令
 - [架构与加密流程](docs/ARCHITECTURE.md)
 - [路线图与定位复核](docs/ROADMAP.md)
 - [验证记录](docs/VERIFICATION.md) —— 命令、数字与已知缺口
+- [同类项目调研](docs/LANDSCAPE.md) — 12 个开源同类项，元数据可复核，逐条标注借鉴点落在哪个文件
 - [竞品深度对照](docs/COMPETITIVE.md) —— 20+ 同类产品，学到了什么、拒绝了什么
 - [技术栈审计](docs/TECH-STACK.md) —— 逐项查轮子：哪里用成熟库、哪里有意自研
 - [AI 集成边界](docs/AI_INTEGRATION.md) —— 含 MCP 服务器契约

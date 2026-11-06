@@ -2,9 +2,47 @@
 
 本文件记录最终验证证据，避免"看起来绿"与"真的绿"混淆。历史轮次保留当时的数字，但不代表当前工作树或本轮门禁结果。
 
-## 2026-11-03 设计与 harness 轮次（v0.3.0）：当前基线
+## 2026-11-06 三入口轮次（v0.5.0）：当前基线
 
-本轮做了三件事：设计系统与关键页面视觉升级、harness 能力落地（工具注册表 + 权限分级 + 检查点回滚）、双语截图与文档同步。下表为本轮实跑结果。
+本轮把「一套命令层」变成真的：数据目录解析脱离 Tauri、新增统一分发器，桌面 / CLI / Web 服务三个入口共用同一份业务逻辑；同时修掉三个真实缺陷（HTTP 信封形状、SPA 静态托管 MIME、入场动画承载可见性）。下表为本轮实跑结果。
+
+| 命令 | 本轮基线结果 | 证据边界 |
+|---|---|---|
+| `npm run typecheck` | PASS | `vue-tsc --noEmit` |
+| `npm run test:coverage` | **34 files / 478 tests passed**；覆盖率阈值全部达标 | 前端单测；新增 HTTP 路由 6 项与默认浅色 2 项 |
+| `npm run build` | PASS；`dist/assets` 无 `mock-*` 分块，含 `api/invoke` | 生产前端构建 |
+| `cargo fmt --check` | PASS | 仅格式检查 |
+| `cargo clippy --all-targets --locked -- -D warnings` | PASS | 零 warning |
+| `cargo test --locked --lib` | **291 passed / 1 ignored**（292 collected） | MSVC `cl.exe`；含 dispatch/paths/bootstrap/commands_read 新测试 |
+| `cargo test --locked --bin digilegacy-cli` | 4 passed | CLI 参数与打码/截断行为 |
+| `cargo test --locked --bin digilegacy-server` | 6 passed | 白名单/禁止清单一致性、常量时间比较、token 守卫 |
+| CLI 实跑 | init / doctor / assets add/list/--show-secrets / heirs add/list / dms enable/status/checkin / report export / drill 全部成功 | 使用独立数据目录，未触碰用户库 |
+| Web API 实跑 | `/api/health` 200、`/api/assets` 返回真实数据、未授权 401、未知命令 404、禁止命令 403、只读模式写操作 403、非回环无 token 拒绝启动 | 三个端口分别验证 |
+| 静态托管 | `/`、`/dashboard`、`/assets/1` 均 200；JS 返回 `text/javascript`、CSS 返回 `text/css`；缺失资源 404 | 修复前全部返回 `text/html` 导致白屏 |
+| 浏览器走查 | 9 个页面渲染正常；中英切换、深色/浅色切换、刷新后持久化均通过 | iab 环境 Playwright 定位器点击受限，改用坐标点击复核 |
+| `cargo fmt --check` / `clippy -D warnings` / `cargo test --locked`（复检） | **三项全部 exit 0**；291 lib + 4 cli + 9 mcp 全过 | 修复 paths.rs 的 needless-return、server bin 的 tests-after-main、cli 的 redundant-closure 与死常量后复跑 |
+| release 构建 | `npx tauri build --bundles nsis` 产出 `DigiLegacy_0.5.0_x64-setup.exe`（13.37 MiB）；同批产出 release 版 `digilegacy-cli.exe` / `digilegacy-server.exe` / `digilegacy-mcp.exe` 并实跑通过 | 构建环境需 `OPENSSL_LIB_DIR` / `OPENSSL_INCLUDE_DIR`（样例 `digilegacy/scripts/verify-env.example.cmd`）；Windows 静态 OpenSSL 需 `build.rs` 补链 user32 |
+
+### 本轮新增能力
+
+1. **CLI（`digilegacy-cli`）**：12 个命令组覆盖规划全流程；`--json` 供脚本消费，敏感字段默认打码。
+2. **Web 服务（`digilegacy-server`）**：`/api/invoke` 统一入口 + 8 个便捷端点 + 静态托管；默认只读，密钥与出站命令永不通过 HTTP 暴露。
+3. **三入口共享核心**：`paths.rs`（目录解析）、`bootstrap.rs`（非桌面启动）、`dispatch.rs`（路由表）、`commands_read.rs`（只读门面）。
+4. **前端三路由**：`invoke.ts` 按环境选择 Tauri IPC / HTTP / 演示 mock，三处返回形状完全一致。
+
+### 本轮修复的真实缺陷
+
+- **HTTP 层提前解包 `data`**：store 全部按 Tauri 形状读 `res.data`，导致仪表板恒为 0 且无报错。
+- **SPA 回退覆盖静态服务**：`fallback_service` 被 `.fallback` 覆盖，所有 JS/CSS 以 `text/html` 返回，浏览器白屏。
+- **深层路由返回 404 状态码**：内容正确但状态码错误，刷新 `/dashboard` 被当作失败页。
+- **入场动画承载可见性**：`animation … forwards` 是元素达到 `opacity:1` 的唯一途径；当动画时钟不推进（减少动画、后台标签、省电）时内容永久透明，导航看起来失灵。
+- **页面级 `<transition mode="out-in">` 与视图 `fade-in` 抢同一 opacity 通道**：在 `prefers-reduced-motion` 下 `fade-enter-from` 永不摘除。
+
+---
+
+## 2026-11-03 设计与 harness 轮次（v0.3.0）：历史基线
+
+本轮做了三件事：设计系统与关键页面视觉升级、harness 能力落地（工具注册表 + 权限分级 + 检查点回滚）、双语截图与文档同步。下表为本轮实跑结果（数字为当时值，保留不改）。
 
 | 命令 | 本轮基线结果 | 证据边界 |
 |---|---|---|

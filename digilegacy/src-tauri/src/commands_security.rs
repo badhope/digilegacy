@@ -4,7 +4,7 @@
 
 use crate::db;
 use crate::models::*;
-use tauri::{command, AppHandle, Manager};
+use tauri::{command, AppHandle};
 use zeroize::Zeroize;
 
 use super::report::validate_backup_content;
@@ -180,7 +180,7 @@ pub fn change_master_password(
 }
 
 #[command]
-pub fn export_backup(app_handle: AppHandle) -> Result<ApiResponse<String>, String> {
+pub fn export_backup() -> Result<ApiResponse<String>, String> {
     let json = db::export_backup_json_db()?;
     let encrypted = serde_json::from_str::<serde_json::Value>(&json)
         .ok()
@@ -191,10 +191,7 @@ pub fn export_backup(app_handle: AppHandle) -> Result<ApiResponse<String>, Strin
                 .map(serde_json::Value::is_object)
         })
         .unwrap_or(false);
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取目录失败: {}", e))?;
+    let app_dir = crate::paths::data_dir()?;
     let dir = app_dir.join("备份");
     std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {}", e))?;
     let name = format!(
@@ -221,12 +218,8 @@ pub fn export_backup(app_handle: AppHandle) -> Result<ApiResponse<String>, Strin
 /// 查询整库加密状态。
 #[command]
 pub fn get_db_encryption_status(
-    app_handle: AppHandle,
 ) -> Result<ApiResponse<crate::db_crypto::DbEncryptionStatus>, String> {
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取应用数据目录失败: {}", e))?;
+    let app_dir = crate::paths::data_dir()?;
     Ok(ApiResponse::ok(crate::db_crypto::DbEncryptionStatus {
         enabled: crate::db::is_db_encryption_enabled(&app_dir),
     }))
@@ -234,11 +227,8 @@ pub fn get_db_encryption_status(
 
 /// 启用整库加密：明文库 → SQLCipher（带快照，失败自动回滚）。
 #[command]
-pub fn enable_db_encryption(app_handle: AppHandle) -> Result<ApiResponse<()>, String> {
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取应用数据目录失败: {}", e))?;
+pub fn enable_db_encryption() -> Result<ApiResponse<()>, String> {
+    let app_dir = crate::paths::data_dir()?;
     crate::db::encrypt_database_at_runtime(&app_dir)?;
     Ok(ApiResponse::ok_with_msg(
         (),
@@ -248,11 +238,8 @@ pub fn enable_db_encryption(app_handle: AppHandle) -> Result<ApiResponse<()>, St
 
 /// 停用整库加密：SQLCipher → 明文库（同样带快照）。
 #[command]
-pub fn disable_db_encryption(app_handle: AppHandle) -> Result<ApiResponse<()>, String> {
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取应用数据目录失败: {}", e))?;
+pub fn disable_db_encryption() -> Result<ApiResponse<()>, String> {
+    let app_dir = crate::paths::data_dir()?;
     crate::db::decrypt_database_at_runtime(&app_dir)?;
     Ok(ApiResponse::ok_with_msg(
         (),
@@ -334,9 +321,8 @@ pub fn import_backup(
     content: String,
     mode: Option<String>,
     source_password: Option<String>,
-    app_handle: AppHandle,
 ) -> Result<ApiResponse<String>, String> {
-    let dir = app_handle.path().app_data_dir().ok();
+    let dir = crate::paths::data_dir().ok();
     let mut password = source_password;
     let result = import_backup_response_with_password(
         &content,
@@ -358,11 +344,8 @@ pub fn get_recovery_seal_exists() -> Result<ApiResponse<bool>, String> {
 /// 自动备份状态：让用户知道「每日快照」是否真的在跑。
 /// 旧界面只有手动导出按钮，自动备份存在但完全不可见。
 #[command]
-pub fn get_backup_status(app_handle: AppHandle) -> Result<ApiResponse<serde_json::Value>, String> {
-    let dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取目录失败: {}", e))?;
+pub fn get_backup_status() -> Result<ApiResponse<serde_json::Value>, String> {
+    let dir = crate::paths::data_dir()?;
     let summary = crate::backup::latest_backup_summary(&dir);
     let count = crate::backup::list_backups(&dir).len();
     Ok(ApiResponse::ok(serde_json::json!({
@@ -660,16 +643,11 @@ pub fn open_external(url: String) -> Result<ApiResponse<()>, String> {
 /// 生成继承人恢复包：份额写入打印友好的 HTML，元数据（不含份额）落库。
 #[command]
 pub fn generate_heir_recovery_kit(
-    app_handle: AppHandle,
     threshold: u8,
     total: u8,
     passphrase: Option<String>,
 ) -> Result<ApiResponse<crate::heir_recovery::KitResult>, String> {
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取目录失败: {}", e))?;
-    let dir = app_dir.join("继承人恢复包");
+    let dir = crate::paths::data_dir()?.join("继承人恢复包");
     let mut pass = passphrase;
     let result = crate::heir_recovery::generate_kit(threshold, total, pass.as_deref(), &dir);
     if let Some(p) = pass.as_mut() {
@@ -753,10 +731,7 @@ pub fn unlock_with_recovery_shares(
 
 /// 导出 KDBX 4 归档：家人用 KeePassXC 即可打开，脱离本应用仍可读。
 #[command]
-pub fn export_kdbx_archive(
-    app_handle: AppHandle,
-    archive_password: String,
-) -> Result<ApiResponse<String>, String> {
+pub fn export_kdbx_archive(archive_password: String) -> Result<ApiResponse<String>, String> {
     use crate::report::ReportLocale;
     // ReportLocale::parse 自带回退（未知值 → Zh），无需再包一层
     let locale =
@@ -775,11 +750,7 @@ pub fn export_kdbx_archive(
     pass.zeroize();
     match result {
         Ok(bytes) => {
-            let app_dir = app_handle
-                .path()
-                .app_data_dir()
-                .map_err(|e| format!("获取目录失败: {}", e))?;
-            let dir = app_dir.join("KDBX归档");
+            let dir = crate::paths::data_dir()?.join("KDBX归档");
             std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {}", e))?;
             let path = dir.join(format!(
                 "归零继承归档_{}.kdbx",

@@ -95,10 +95,17 @@
               <span :lang="locale === 'zh-CN' ? 'en' : 'zh'">{{ locale === 'zh-CN' ? t('app.demoBannerEn') : t('app.demoBannerZh') }}</span>
             </span>
           </div>
+          <!--
+            路由切换刻意**不用** <transition mode="out-in">。
+            原因：每个视图根节点自带 `fade-in` 动画（animation: fadeIn ... forwards），
+            与 Vue 的 enter/leave 钩子会在同一元素上抢同一条 opacity 通道。在
+            `prefers-reduced-motion: reduce` 下所有 transition-duration 被压到
+            0.01ms，Vue 的 after-leave/after-enter 回调与实际帧不同步，
+            `fade-enter-from` 会被永久留在元素上（opacity: 0）——对开了「减少动画」
+            的用户，页面内导航直接变成白屏。视图自己的 fade-in 已经提供了入场效果，
+            这里只需要一个稳定的组件切换点。 -->
           <router-view v-slot="{ Component }">
-            <transition name="fade" mode="out-in">
-              <component :is="Component" />
-            </transition>
+            <component :is="Component" />
           </router-view>
         </div>
       </main>
@@ -639,12 +646,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-.fade-enter-from { opacity: 0; transform: translateY(8px); }
-.fade-leave-to { opacity: 0; transform: translateY(-8px); }
-
 .lock-overlay {
   position: fixed;
   inset: 0;

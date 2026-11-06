@@ -1,14 +1,19 @@
 // 主题：浅色 / 深色 / 跟随系统。
 //
 // 只切换 <html data-theme>，颜色全部由 CSS token 决定（见 main.css）。
-// 选择持久化到 localStorage；未选择时跟随系统 prefers-color-scheme。
+// 选择持久化到 localStorage。
+//
+// 默认是**浅色**，不是「跟随系统」：这个应用的使用场景是遗产规划，
+// 用户里会有相当比例的老年人，深色界面在弱光环境下对比度反而更低；
+// 产品定位要求「打开就能看清」，所以默认取最稳妥的一档。
+// 想跟随系统仍可在设置里切换，偏好会被记住。
 
 import { readonly, ref } from 'vue';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 const STORAGE_KEY = 'digilegacy_theme';
-const mode = ref<ThemeMode>('system');
+const mode = ref<ThemeMode>('light');
 const resolved = ref<'light' | 'dark'>('light');
 
 const media = typeof window !== 'undefined' ? window.matchMedia?.('(prefers-color-scheme: dark)') : undefined;

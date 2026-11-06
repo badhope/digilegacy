@@ -1,32 +1,78 @@
 # Architecture
 
-DigiLegacy is a single-process Tauri 2 desktop application. There is no backend service, no database server, and no network call other than the optional heartbeat the user configures themselves.
+DigiLegacy is **one Rust core with three entry points**. The desktop app is the primary one; a CLI
+and a self-hosted HTTP service open the same SQLite file through the same command layer. No cloud,
+no database server, no network call other than the heartbeat you configure yourself.
+
+The reason for this shape is simple: the moment a command layer needs a GUI handle to do its work,
+any second front end is forced to reimplement it. Splitting data-directory resolution out of Tauri
+(`paths.rs`) and routing every non-GUI call through one dispatch table (`dispatch.rs`) is what makes
+"one feature, three front doors" true instead of aspirational.
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│ WebView (Vue 3 + TypeScript + Pinia)                         │
-│   views/ ── stores/ ── api/invoke.ts ──┐                     │
-└───────────────────────────────────────┼──────────────────────┘
-                                        │ Tauri IPC (95 commands)
-┌───────────────────────────────────────▼──────────────────────┐
-│ Rust core (src-tauri/src)                                    │
-│   commands.rs   thin command layer, split by domain below    │
-│   agent_tools   tool registry + permission tiers              │
-│   checkpoint    named snapshots + restore                     │
-│   vault.rs      master key in memory, field encrypt/decrypt   │
-│   crypto.rs     AES-256-GCM + Argon2id/PBKDF2 primitives      │
-│   recovery.rs   one-time recovery key seal                    │
-│   db.rs         schema, migrations, security, DMS, reports    │
-│   fsutil.rs     0600 file writes (backups / reports / netrc)   │
-│   notify.rs     DMS evaluation + outbox + SMTP (lettre)       │
-│   heartbeat.rs  zero-content heartbeat over curl              │
-│   backup.rs     daily snapshot, 7-day retention, atomic write │
-│   platform_data.rs  built-in 152-platform policy database     │
-└───────────────────────────────────────┬──────────────────────┘
-                                        │ rusqlite (bundled SQLite, WAL)
-                                        ▼
-                             %APPDATA%/com.digilegacy.app/digilegacy.db
+┌────────────────────────┐  ┌──────────────────────┐  ┌──────────────────────────┐
+│ Desktop (WebView)      │  │ CLI                  │  │ Web service              │
+│ Vue 3 + TS + Pinia     │  │ digilegacy-cli       │  │ digilegacy-server        │
+│ views → stores →       │  │ clap subcommands     │  │ axum routes + static     │
+│ api/invoke.ts          │  │ --json / masks       │  │ POST /api/invoke         │
+└───────────┬────────────┘  └──────────┬───────────┘  └────────────┬─────────────┘
+            │ Tauri IPC (95 commands)  │                          │
+            │                          ▼                          ▼
+            │              ┌───────────────────────────────────────────┐
+            └─────────────►│ dispatch.rs — one routing table            │
+                           │ (desktop-only cmds return "unsupported")   │
+                           └───────────────────┬───────────────────────┘
+                                               ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Rust core (src-tauri/src)                                                │
+│   paths.rs      data-directory resolution (no Tauri dependency)          │
+│   bootstrap.rs  non-desktop startup: open DB, health probe, backup       │
+│   commands_*.rs thin command layer, one module per domain                │
+│   commands_read.rs read facade used by HTTP convenience endpoints        │
+│   agent_tools   tool registry + permission tiers                         │
+│   checkpoint    named snapshots + restore                                │
+│   vault.rs      master key in memory, field encrypt/decrypt              │
+│   crypto.rs     AES-256-GCM + Argon2id/PBKDF2 primitives                 │
+│   recovery.rs   one-time recovery key seal                               │
+│   db*.rs        schema, migrations, security, DMS, reports               │
+│   fsutil.rs     0600 file writes (backups / reports / netrc)             │
+│   notify.rs     DMS evaluation + outbox + SMTP (lettre)                  │
+│   heartbeat.rs  zero-content heartbeat                                   │
+│   backup.rs     daily snapshot, 7-day retention, atomic write            │
+│   platform_data.rs  built-in 152-platform policy database                │
+└───────────────────────────────────┬──────────────────────────────────────┘
+                                    │ rusqlite (bundled SQLite + SQLCipher, WAL)
+                                    ▼
+                     %APPDATA%/com.digilegacy.app/digilegacy.db
 ```
+
+## Entry-point boundaries
+
+| Command class | Desktop | CLI | HTTP |
+|---|---|---|---|
+| Read (assets, reports, stats, policies) | yes | yes | yes |
+| Write (assets, heirs, DMS config, checkpoints) | yes | yes | only with `--allow-write` |
+| Key lifecycle (master password, recovery, DB encryption) | yes | yes | **never** |
+| Outbound network (SMTP, IMAP, heartbeat, assistant, agent) | yes | yes | **never** |
+| Window / tray / autostart | yes | unsupported (explicit error) | unsupported (explicit error) |
+
+The HTTP boundary is deliberately narrower than the other two. A process listening on a port is
+reachable by anything on that interface; a process you launch with a subcommand is not.
+
+## Request lifecycle (HTTP)
+
+```
+POST /api/invoke {cmd, args}
+  → token check (constant-time, only when --token is set)
+  → deny-list check  (key lifecycle + outbound: 403 regardless of flags)
+  → write check      (write whitelist: 403 unless --allow-write)
+  → spawn_blocking   (SQLite is not async; keep the reactor free)
+  → dispatch::call   (same function the CLI calls)
+  → {success, message, data}   ← byte-identical shape to Tauri IPC
+```
+
+That last line matters: the frontend reads `res.data` in every store, so any transport that returns
+something else produces a silently empty UI rather than an error.
 
 ## Layering rules
 

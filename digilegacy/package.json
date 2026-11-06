@@ -1,7 +1,7 @@
 {
   "name": "digilegacy",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "DigiLegacy - local-first digital legacy planning desktop app",
   "type": "module",
   "engines": {
@@ -22,7 +22,9 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:coverage": "cross-env E2E_COVERAGE=1 playwright test && node e2e/collect-coverage.mjs",
     "check:doc-facts": "node scripts/check-doc-facts.mjs",
-    "build:demo": "cross-env VITE_DEMO=1 vue-tsc --noEmit && cross-env VITE_DEMO=1 vite build && node scripts/write-demo-robots.mjs"
+    "build:demo": "cross-env VITE_DEMO=1 vue-tsc --noEmit && cross-env VITE_DEMO=1 vite build && node scripts/write-demo-robots.mjs",
+    "build:web": "vue-tsc --noEmit && vite build",
+    "serve:web": "node scripts/serve-web.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

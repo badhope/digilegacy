@@ -3,7 +3,7 @@
 use crate::db;
 use crate::models::*;
 use crate::platform_data::get_all_platforms as get_all_platforms_data;
-use tauri::{command, AppHandle, Manager};
+use tauri::command;
 
 // ========== 平台 ==========
 
@@ -97,12 +97,9 @@ pub fn import_platform_patch(content: String) -> Result<ApiResponse<String>, Str
 }
 
 #[command]
-pub fn export_platform_patch(app_handle: AppHandle) -> Result<ApiResponse<String>, String> {
+pub fn export_platform_patch() -> Result<ApiResponse<String>, String> {
     let json = db::export_platform_overrides_db()?;
-    let app_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("获取目录失败: {}", e))?;
+    let app_dir = crate::paths::data_dir()?;
     let dir = app_dir.join("政策补丁");
     std::fs::create_dir_all(&dir).map_err(|e| format!("创建目录失败: {}", e))?;
     let name = format!(

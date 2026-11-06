@@ -705,6 +705,22 @@ pub(super) fn sync_platforms(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// 当前库的 schema 版本（`PRAGMA user_version`）。
+///
+/// 暴露给 CLI `doctor` 与 HTTP `/api/health`：升级后如果版本号没跟上，
+/// 说明迁移没跑到，这比「看起来能用」更值得报警。
+pub fn schema_version_db() -> Result<i64, String> {
+    let guard = get_conn()?;
+    let conn = guard.as_ref().unwrap();
+    conn.query_row("PRAGMA user_version", [], |r| r.get(0))
+        .map_err(|e| format!("读取 schema 版本失败: {}", e))
+}
+
+/// 当前 schema 常量（供自检对照）。
+pub fn expected_schema_version() -> i64 {
+    SCHEMA_VERSION
+}
+
 /// 获取数据库连接（共享连接，避免并发锁死）
 pub(crate) fn get_conn() -> Result<MutexGuard<'static, Option<Connection>>, String> {
     let guard = CONN.lock().map_err(|_| "数据库锁中毒".to_string())?;
