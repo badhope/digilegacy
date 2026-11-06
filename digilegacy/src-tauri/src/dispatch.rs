@@ -71,18 +71,16 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
 
         // ---------- 资产 ----------
         "add_asset" => {
-            let req: AssetRequest = serde_json::from_value(
-                args.get("req").cloned().unwrap_or(Value::Null),
-            )
-            .map_err(|e| format!("资产参数不合法: {}", e))?;
+            let req: AssetRequest =
+                serde_json::from_value(args.get("req").cloned().unwrap_or(Value::Null))
+                    .map_err(|e| format!("资产参数不合法: {}", e))?;
             to_value(crate::commands::add_asset(req)?)
         }
         "update_asset" => {
             let id = arg_i64(&args, "id")?;
-            let req: AssetRequest = serde_json::from_value(
-                args.get("req").cloned().unwrap_or(Value::Null),
-            )
-            .map_err(|e| format!("资产参数不合法: {}", e))?;
+            let req: AssetRequest =
+                serde_json::from_value(args.get("req").cloned().unwrap_or(Value::Null))
+                    .map_err(|e| format!("资产参数不合法: {}", e))?;
             to_value(crate::commands::update_asset(id, req)?)
         }
         "delete_asset" => {
@@ -123,10 +121,9 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         // ---------- 档案、DMS、仪表板 ----------
         "get_user_profile" => to_value(crate::commands::get_user_profile()?),
         "set_user_profile" => {
-            let profile: UserProfile = serde_json::from_value(
-                args.get("profile").cloned().unwrap_or(Value::Null),
-            )
-            .map_err(|e| format!("档案参数不合法: {}", e))?;
+            let profile: UserProfile =
+                serde_json::from_value(args.get("profile").cloned().unwrap_or(Value::Null))
+                    .map_err(|e| format!("档案参数不合法: {}", e))?;
             to_value(crate::commands::set_user_profile(profile)?)
         }
         "get_inheritance_report" => to_value(crate::commands::get_inheritance_report()?),
@@ -150,10 +147,9 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         "record_planning_review" => to_value(crate::commands::record_planning_review()?),
         "get_custody_hints" => to_value(crate::commands::get_custody_hints()?),
         "set_custody_hints" => {
-            let hints: crate::db::CustodyHints = serde_json::from_value(
-                args.get("hints").cloned().unwrap_or(Value::Null),
-            )
-            .map_err(|e| format!("保管位置参数不合法: {}", e))?;
+            let hints: crate::db::CustodyHints =
+                serde_json::from_value(args.get("hints").cloned().unwrap_or(Value::Null))
+                    .map_err(|e| format!("保管位置参数不合法: {}", e))?;
             to_value(crate::commands::set_custody_hints(hints)?)
         }
 
@@ -321,10 +317,9 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         "send_heartbeat_now" => to_value(crate::commands::send_heartbeat_now()?),
         "get_imap_config" => to_value(crate::commands::get_imap_config()?),
         "set_imap_config" => {
-            let config: crate::imap_checkin::ImapConfig = serde_json::from_value(
-                args.get("config").cloned().unwrap_or(Value::Null),
-            )
-            .map_err(|e| format!("IMAP 参数不合法: {}", e))?;
+            let config: crate::imap_checkin::ImapConfig =
+                serde_json::from_value(args.get("config").cloned().unwrap_or(Value::Null))
+                    .map_err(|e| format!("IMAP 参数不合法: {}", e))?;
             let password = arg_opt_str(&args, "password");
             to_value(crate::commands::set_imap_config(config, password)?)
         }
@@ -351,12 +346,18 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
             to_value(crate::commands::ask_assistant(question, locale)?)
         }
         "list_ai_chat" => {
-            let limit = args.get("limit").and_then(Value::as_u64).map(|v| v as usize);
+            let limit = args
+                .get("limit")
+                .and_then(Value::as_u64)
+                .map(|v| v as usize);
             to_value(crate::commands::list_ai_chat(limit)?)
         }
         "clear_ai_chat" => to_value(crate::commands::clear_ai_chat()?),
         "list_agent_run_log" => {
-            let limit = args.get("limit").and_then(Value::as_u64).map(|v| v as usize);
+            let limit = args
+                .get("limit")
+                .and_then(Value::as_u64)
+                .map(|v| v as usize);
             to_value(crate::commands::list_agent_run_log(limit)?)
         }
         "clear_agent_run_log" => to_value(crate::commands::clear_agent_run_log()?),
@@ -386,7 +387,10 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         }
         "run_ai_review" => {
             let profile_id = arg_str(&args, "profile_id")?;
-            let limit = args.get("limit").and_then(Value::as_u64).map(|v| v as usize);
+            let limit = args
+                .get("limit")
+                .and_then(Value::as_u64)
+                .map(|v| v as usize);
             to_value(crate::commands::run_ai_review(profile_id, limit)?)
         }
         "submit_human_review" => {

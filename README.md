@@ -73,6 +73,37 @@ machine, locked fields stay locked:
 - **Checkpoints.** Take a named snapshot before a significant edit. Restore is one click and goes through the same authenticated-import checks as a backup — and the restore itself is undoable because a `pre-restore` checkpoint is written first.
 - **A dashboard that answers "what now".** One completion ring for the headline number, a four-dimension bar underneath it, and an issue list where every row is a link to the fix.
 
+## Three ways to run it
+
+The plan lives in one SQLite file. Three front doors open it — the same command layer serves all of
+them, so nothing is implemented twice.
+
+| | Desktop | CLI | Self-hosted web |
+|---|---|---|---|
+| Best for | everyday planning, printing | scripting, backups, headless machines | reading your plan from another device on your own network |
+| Start with | `DigiLegacy.exe` | `digilegacy-cli doctor` | `digilegacy-server --web-dir dist` |
+| Needs a GUI | yes | no | no (browser only) |
+| Writes | full | full | **read-only** unless `--allow-write` |
+
+```bash
+# CLI — everyday checks and backups, no window
+digilegacy-cli doctor
+digilegacy-cli assets list --json
+digilegacy-cli backup checkpoint "before tax season"
+digilegacy-cli report export --locale en
+
+# Web — serve the same database to your own browser
+npm run build:web
+digilegacy-server --web-dir dist --port 8787
+```
+
+![The same plan in a browser over the self-hosted web service](docs/screenshots/11-web-dashboard.png)
+
+The HTTP service binds to `127.0.0.1` by default. Point it at any other interface and it refuses to
+start without `--token`; even then, master-password, recovery, credential and outbound-network
+commands are not reachable over HTTP at all. It is a viewer for your own machine, not a cloud
+account.
+
 ## Install
 
 **Windows 10/11** · no account required · MSI and NSIS installers on the [releases page](https://github.com/badhope/digilegacy/releases).
@@ -135,6 +166,7 @@ scripts/verify.sh      Local gate — the same commands CI runs
 - [Architecture and encryption flow](docs/ARCHITECTURE.md)
 - [Roadmap and positioning review](docs/ROADMAP.md)
 - [Verification records](docs/VERIFICATION.md) — commands, numbers and known gaps
+- [Landscape review](docs/LANDSCAPE.md) — 12 open-source peers, verified metadata, and exactly which ideas were adopted where
 - [Competitive teardown](docs/COMPETITIVE.md) — 20+ comparable products, what was learned and what was rejected
 - [Tech-stack audit](docs/TECH-STACK.md) — every wheel checked: mature libraries vs deliberate in-house parts
 - [AI integration boundaries](docs/AI_INTEGRATION.md) — including the MCP server contract

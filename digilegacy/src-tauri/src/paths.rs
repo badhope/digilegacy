@@ -112,7 +112,10 @@ mod tests {
     #[test]
     fn set_then_read_roundtrip() {
         set_data_dir(PathBuf::from("/tmp/digilegacy-test-dir"));
-        assert_eq!(data_dir().unwrap(), PathBuf::from("/tmp/digilegacy-test-dir"));
+        assert_eq!(
+            data_dir().unwrap(),
+            PathBuf::from("/tmp/digilegacy-test-dir")
+        );
         reset_for_tests();
     }
 

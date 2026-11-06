@@ -1,6 +1,6 @@
 [package]
 name = "digilegacy"
-version = "0.4.0"
+version = "0.5.0"
 description = "DigiLegacy - local-first digital legacy planning desktop app"
 authors = ["DigiLegacy Team"]
 edition = "2021"
@@ -27,10 +27,20 @@ tauri-plugin-notification = "2.0"
 tauri-plugin-autostart = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-# SQLCipher 整库加密（P2-1）。bundled-sqlcipher-vendored-openssl 自带 OpenSSL 源码编译，
-# 不依赖系统 OpenSSL；编译需要 perl（openssl Configure 脚本）。
-# 明文库兼容：SQLCipher 下 `PRAGMA key = ''` 可打开未加密库（测试与未升级用户不受影响）。
-rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
+# SQLCipher 整库加密（P2-1）。
+#
+# 为什么不是 `bundled-sqlcipher-vendored-openssl`：那条路径会在构建时用 perl 跑
+# OpenSSL 的 Configure。本机只有 MSYS perl，缺少 ExtUtils::MakeMaker 等模块，
+# 而 github.com 通道被阻断导致无法补装——整条链在本机不可构建。
+#
+# `bundled-sqlcipher` 只编译 SQLite + SQLCipher 本身，OpenSSL 由构建环境提供：
+# 设 OPENSSL_LIB_DIR / OPENSSL_INCLUDE_DIR 指向已编译好的 OpenSSL 即可
+# （CI 与打包脚本负责提供；见 docs/VERIFICATION.md 的构建说明）。
+# SQLCipher 在 Windows 上也可以用内置 crypto，但 libsqlite3-sys 0.38 的 Windows
+# 分支要求显式 OpenSSL，故按它的契约提供。
+#
+# 明文库兼容：SQLCipher 无 key 时以普通 SQLite 语义工作，测试与未升级用户不受影响。
+rusqlite = { version = "0.40", features = ["bundled-sqlcipher"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.10", features = ["v4"] }
 thiserror = "1.0"

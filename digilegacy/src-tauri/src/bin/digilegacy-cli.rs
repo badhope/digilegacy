@@ -105,25 +105,38 @@ enum AssetsCmd {
     Get { id: i64 },
     /// Add an asset. `--platform` is a platform id from `digilegacy platforms list`.
     Add {
-        #[arg(long)] platform: i64,
-        #[arg(long)] category: String,
-        #[arg(long, default_value = "")] identifier: String,
-        #[arg(long, default_value = "")] description: String,
-        #[arg(long, default_value_t = 0.0)] value: f64,
-        #[arg(long, default_value = "no_action")] disposal: String,
-        #[arg(long)] heir: Option<String>,
-        #[arg(long)] heir_contact: Option<String>,
-        #[arg(long, default_value = "")] notes: String,
+        #[arg(long)]
+        platform: i64,
+        #[arg(long)]
+        category: String,
+        #[arg(long, default_value = "")]
+        identifier: String,
+        #[arg(long, default_value = "")]
+        description: String,
+        #[arg(long, default_value_t = 0.0)]
+        value: f64,
+        #[arg(long, default_value = "no_action")]
+        disposal: String,
+        #[arg(long)]
+        heir: Option<String>,
+        #[arg(long)]
+        heir_contact: Option<String>,
+        #[arg(long, default_value = "")]
+        notes: String,
     },
     /// Delete an asset.
     Delete { id: i64 },
     /// Set the disposal decision for one asset.
     Dispose {
         id: i64,
-        #[arg(long)] method: String,
-        #[arg(long)] heir: Option<String>,
-        #[arg(long)] heir_contact: Option<String>,
-        #[arg(long, default_value = "")] notes: String,
+        #[arg(long)]
+        method: String,
+        #[arg(long)]
+        heir: Option<String>,
+        #[arg(long)]
+        heir_contact: Option<String>,
+        #[arg(long, default_value = "")]
+        notes: String,
     },
     /// Store an encrypted credential for an asset.
     Credential {
@@ -131,7 +144,8 @@ enum AssetsCmd {
         /// Read the value from stdin instead of the command line (keeps it out of shell history).
         #[arg(long)]
         stdin: bool,
-        #[arg(long)] value: Option<String>,
+        #[arg(long)]
+        value: Option<String>,
     },
 }
 
@@ -141,13 +155,19 @@ enum HeirsCmd {
     List,
     /// Add an heir.
     Add {
-        #[arg(long)] name: String,
-        #[arg(long, default_value = "")] relation: String,
-        #[arg(long, default_value = "")] phone: String,
-        #[arg(long, default_value = "")] email: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long, default_value = "")]
+        relation: String,
+        #[arg(long, default_value = "")]
+        phone: String,
+        #[arg(long, default_value = "")]
+        email: String,
         /// Allocation note, e.g. "financial accounts only".
-        #[arg(long, default_value = "")] share_note: String,
-        #[arg(long)] is_executor: bool,
+        #[arg(long, default_value = "")]
+        share_note: String,
+        #[arg(long)]
+        is_executor: bool,
     },
     /// Remove an heir by name.
     Remove { name: String },
@@ -160,13 +180,18 @@ enum DmsCmd {
     /// Record a check-in now.
     Checkin,
     /// Enable and set the interval.
-    Enable { #[arg(long)] days: i64 },
+    Enable {
+        #[arg(long)]
+        days: i64,
+    },
     /// Disable the switch.
     Disable,
     /// Pause evaluation until a date (YYYY-MM-DD), or clear with --clear.
     Pause {
-        #[arg(long)] until: Option<String>,
-        #[arg(long)] clear: bool,
+        #[arg(long)]
+        until: Option<String>,
+        #[arg(long)]
+        clear: bool,
     },
     /// Record an annual planning review.
     Review,
@@ -178,15 +203,18 @@ enum DmsCmd {
 enum ReportCmd {
     /// Render the inheritance report as HTML to stdout.
     Html {
-        #[arg(long, default_value = "zh-CN")] locale: String,
+        #[arg(long, default_value = "zh-CN")]
+        locale: String,
     },
     /// Export the report into the data directory.
     Export {
-        #[arg(long, default_value = "zh-CN")] locale: String,
+        #[arg(long, default_value = "zh-CN")]
+        locale: String,
     },
     /// Render the family action guide.
     Guide {
-        #[arg(long, default_value = "zh-CN")] locale: String,
+        #[arg(long, default_value = "zh-CN")]
+        locale: String,
     },
     /// Run the family drill (read-only readiness check).
     Drill,
@@ -199,8 +227,10 @@ enum BackupCmd {
     /// Import a backup JSON file (merge by default).
     Import {
         path: String,
-        #[arg(long, default_value = "merge")] mode: String,
-        #[arg(long)] password: Option<String>,
+        #[arg(long, default_value = "merge")]
+        mode: String,
+        #[arg(long)]
+        password: Option<String>,
     },
     /// Create a checkpoint.
     Checkpoint { label: String },
@@ -209,7 +239,8 @@ enum BackupCmd {
     /// Restore a checkpoint.
     Restore {
         id: String,
-        #[arg(long)] password: Option<String>,
+        #[arg(long)]
+        password: Option<String>,
     },
 }
 
@@ -219,13 +250,15 @@ enum VaultCmd {
     Status,
     /// Unlock with the master password (prompted on stdin when --password is omitted).
     Unlock {
-        #[arg(long)] password: Option<String>,
+        #[arg(long)]
+        password: Option<String>,
     },
     /// Lock immediately.
     Lock,
     /// Set the master password on a fresh database.
     Setup {
-        #[arg(long)] password: Option<String>,
+        #[arg(long)]
+        password: Option<String>,
     },
 }
 
@@ -234,7 +267,8 @@ enum PlatformsCmd {
     /// List the platform library.
     List {
         /// Filter by category (property / personality / mixed).
-        #[arg(long)] category: Option<String>,
+        #[arg(long)]
+        category: Option<String>,
     },
     /// Show how many platform records exist.
     Count,
@@ -287,10 +321,21 @@ fn run(cli: &Cli, data_dir: &std::path::Path) -> Result<u8, String> {
                 );
             } else {
                 println!("数据目录  {}", report.data_dir);
-                println!("数据库    {}", if report.database_present { "存在" } else { "缺失" });
+                println!(
+                    "数据库    {}",
+                    if report.database_present {
+                        "存在"
+                    } else {
+                        "缺失"
+                    }
+                );
                 println!(
                     "整库加密  {}",
-                    if report.db_encryption_enabled { "已启用" } else { "未启用" }
+                    if report.db_encryption_enabled {
+                        "已启用"
+                    } else {
+                        "未启用"
+                    }
                 );
                 println!(
                     "保险库    {}",
@@ -374,7 +419,9 @@ fn assets(cli: &Cli, cmd: &AssetsCmd) -> Result<u8, String> {
                         truncate(g("platform_name"), 22),
                         g("category"),
                         g("disposal_method"),
-                        r.get("estimated_value").and_then(Value::as_f64).unwrap_or(0.0),
+                        r.get("estimated_value")
+                            .and_then(Value::as_f64)
+                            .unwrap_or(0.0),
                         mask(ident, cli.show_secrets)
                     ));
                 }
@@ -461,15 +508,19 @@ fn heirs(cli: &Cli, cmd: &HeirsCmd) -> Result<u8, String> {
                 if rows.is_empty() {
                     return "还没有登记继承人。".to_string();
                 }
-                let mut out =
-                    String::from("姓名                 关系         执行人  电话             邮箱\n");
+                let mut out = String::from(
+                    "姓名                 关系         执行人  电话             邮箱\n",
+                );
                 for r in rows {
                     let g = |k: &str| r.get(k).and_then(Value::as_str).unwrap_or("");
                     out.push_str(&format!(
                         "{:<20} {:<12} {:<7} {:<16} {}\n",
                         g("name"),
                         g("relation"),
-                        if r.get("is_executor").and_then(Value::as_bool).unwrap_or(false) {
+                        if r.get("is_executor")
+                            .and_then(Value::as_bool)
+                            .unwrap_or(false)
+                        {
                             "是"
                         } else {
                             "否"
@@ -620,8 +671,8 @@ fn backup(cli: &Cli, cmd: &BackupCmd) -> Result<u8, String> {
             mode,
             password,
         } => {
-            let content = std::fs::read_to_string(path)
-                .map_err(|e| format!("读取备份文件失败: {}", e))?;
+            let content =
+                std::fs::read_to_string(path).map_err(|e| format!("读取备份文件失败: {}", e))?;
             let mut m = one("content", json!(content));
             m.insert("mode".into(), json!(mode));
             m.insert("source_password".into(), json!(password));
@@ -683,7 +734,14 @@ fn platforms(cli: &Cli, cmd: &PlatformsCmd) -> Result<u8, String> {
                         None => true,
                     })
                     .collect();
-                let mut out = format!("共 {} 条\n{:>4}  {:<28} {:<12} {:<12}\n", rows.len(), "ID", "平台", "类别", "难度");
+                let mut out = format!(
+                    "共 {} 条\n{:>4}  {:<28} {:<12} {:<12}\n",
+                    rows.len(),
+                    "ID",
+                    "平台",
+                    "类别",
+                    "难度"
+                );
                 for r in rows {
                     let g = |k: &str| r.get(k).and_then(Value::as_str).unwrap_or("");
                     out.push_str(&format!(
@@ -773,7 +831,12 @@ fn mask(value: &str, show: bool) -> String {
         0 => String::new(),
         1 => "*".to_string(),
         2 => format!("{}*", chars[0]),
-        n => format!("{}{}{}", chars[0], "*".repeat(n.saturating_sub(2).min(8)), chars[n - 1]),
+        n => format!(
+            "{}{}{}",
+            chars[0],
+            "*".repeat(n.saturating_sub(2).min(8)),
+            chars[n - 1]
+        ),
     }
 }
 

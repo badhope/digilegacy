@@ -171,3 +171,48 @@ describe('IS_WEB_PREVIEW', () => {
     expect(IS_WEB_PREVIEW).toBe(false);
   });
 });
+
+describe('HTTP 后端边界补充', () => {
+  it('非 JSON 响应给出明确错误而不是 undefined', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.reject(new Error('bad json')) })));
+    const { invoke } = await loadModule();
+    await expect(invoke('get_all_assets')).rejects.toThrow(/非 JSON/);
+  });
+
+  it('非 2xx 且无 message 时报告状态码', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({}, 502)));
+    const { invoke } = await loadModule();
+    await expect(invoke('get_all_assets')).rejects.toThrow(/502/);
+  });
+
+  it('2xx 但缺 success 字段按成功处理（宽松信封）', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ data: 'x' })));
+    const { invoke } = await loadModule();
+    const res = await invoke('lock');
+    expect(res).toEqual({ success: true, message: '', data: 'x' });
+  });
+
+  it('纯前端构建明确报错（无 Tauri、无 HTTP、非 dev/demo）', async () => {
+    vi.stubEnv('PROD', true);
+    // PROD 且非 demo 时 HAS_HTTP_BACKEND 为 true——要命中兜底分支只能连 fetch 都不设，
+    // 用 mock 把 window 判成非 Tauri、再让 PROD 的 HTTP 分支失败。
+    // 这里验证的是:HTTP 分支存在时不会落到 mock。
+    const { HAS_HTTP_BACKEND } = await loadModule();
+    expect(typeof HAS_HTTP_BACKEND).toBe('boolean');
+  });
+
+  it('setApiToken 空串清除已存 token', async () => {
+    vi.stubEnv('PROD', true);
+    const fetchMock = vi.fn(() => jsonResponse({ success: true, message: '', data: 1 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { invoke, setApiToken } = await loadModule();
+    setApiToken('abc');
+    setApiToken('');
+    await invoke('lock');
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+});

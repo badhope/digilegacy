@@ -103,7 +103,11 @@ pub fn health(dir: &std::path::Path) -> HealthReport {
         match db::get_all_platforms_db() {
             Ok(v) => {
                 let assets = db::get_all_assets_db().map(|a| a.len() as i64).unwrap_or(0);
-                (v.len() as i64, assets, db::schema_version_db().unwrap_or(-1))
+                (
+                    v.len() as i64,
+                    assets,
+                    db::schema_version_db().unwrap_or(-1),
+                )
             }
             Err(e) => {
                 checks.push(HealthCheck {

@@ -267,10 +267,7 @@ fn percent_decode(raw: &str) -> Option<String> {
 ///
 /// 带扩展名却找不到 → 真的 404。把 `/assets/missing.js` 也回退成 HTML 会让
 /// 浏览器把 HTML 当模块解析，报错信息完全指错方向。
-async fn static_or_index(
-    State(root): State<Arc<WebRoot>>,
-    uri: axum::http::Uri,
-) -> Response {
+async fn static_or_index(State(root): State<Arc<WebRoot>>, uri: axum::http::Uri) -> Response {
     let path = uri.path();
 
     if let Some(file) = resolve_inside(&root.dir, path) {
@@ -313,10 +310,7 @@ async fn static_or_index(
         Ok(bytes) => (
             StatusCode::OK,
             [
-                (
-                    axum::http::header::CONTENT_TYPE,
-                    "text/html; charset=utf-8",
-                ),
+                (axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8"),
                 (axum::http::header::CACHE_CONTROL, "no-cache"),
             ],
             bytes,
@@ -438,7 +432,10 @@ async fn invoke(
     if DENIED_COMMANDS.contains(&body.cmd.as_str()) {
         return err_response(
             StatusCode::FORBIDDEN,
-            &format!("命令 `{}` 不允许通过 HTTP 触发（密钥与出站操作仅限本机）", body.cmd),
+            &format!(
+                "命令 `{}` 不允许通过 HTTP 触发（密钥与出站操作仅限本机）",
+                body.cmd
+            ),
         );
     }
     let is_write = WRITE_COMMANDS.contains(&body.cmd.as_str());
@@ -624,7 +621,9 @@ fn main() {
         bind: "127.0.0.1".to_string(),
         port: 8787,
         allow_write: false,
-        token: std::env::var("DIGILEGACY_API_TOKEN").ok().filter(|s| !s.is_empty()),
+        token: std::env::var("DIGILEGACY_API_TOKEN")
+            .ok()
+            .filter(|s| !s.is_empty()),
     };
 
     while let Some(arg) = args.next() {
@@ -637,10 +636,7 @@ fn main() {
                 }
             }
             "--port" => {
-                cfg.port = args
-                    .next()
-                    .and_then(|v| v.parse().ok())
-                    .unwrap_or(cfg.port);
+                cfg.port = args.next().and_then(|v| v.parse().ok()).unwrap_or(cfg.port);
             }
             "--allow-write" => cfg.allow_write = true,
             "--token" => cfg.token = args.next(),

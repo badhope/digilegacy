@@ -217,7 +217,8 @@ pub fn export_backup() -> Result<ApiResponse<String>, String> {
 
 /// 查询整库加密状态。
 #[command]
-pub fn get_db_encryption_status() -> Result<ApiResponse<crate::db_crypto::DbEncryptionStatus>, String> {
+pub fn get_db_encryption_status(
+) -> Result<ApiResponse<crate::db_crypto::DbEncryptionStatus>, String> {
     let app_dir = crate::paths::data_dir()?;
     Ok(ApiResponse::ok(crate::db_crypto::DbEncryptionStatus {
         enabled: crate::db::is_db_encryption_enabled(&app_dir),
