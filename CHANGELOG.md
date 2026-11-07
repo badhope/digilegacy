@@ -4,6 +4,59 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-07
+
+A hardening release. Nothing new to learn, but several things that were quietly wrong now behave the
+way the interface always promised: the Windows installer can finally be built by CI, failures say
+what actually went wrong, and the first screen no longer hides the button it is telling you to press.
+
+### Fixed
+
+- **CI could not build the Windows installer at all.** `libsqlite3-sys` was configured with the
+  external-OpenSSL feature, so every build environment had to supply its own static OpenSSL; the
+  GitHub runner does not, and the build script panicked. The installer was therefore reproducible
+  only on the original development machine. `Cargo.toml` now uses
+  `bundled-sqlcipher-vendored-openssl`, which compiles OpenSSL from source as part of the crate —
+  the prerequisite drops from "obtain a matching static OpenSSL" to "have a Perl distribution",
+  which the runner image already ships. Both workflows check for `perl` and `nasm` up front so a
+  future regression fails in seconds with a readable message instead of after a 20-minute compile.
+- **Business failures were reported as HTTP errors.** The server mapped `success:false` to `400`,
+  and the frontend treated any non-2xx as a transport failure — so a rejected form showed a generic
+  "load failed" and threw away the server's actual reason. A finished command now answers `200` and
+  expresses the outcome in the envelope; only transport and authorization rejections use 4xx/5xx.
+  The frontend follows the envelope whenever one is present, regardless of status code.
+- **Malformed request bodies returned plain-text 422.** axum's default rejection is not JSON, so the
+  client's `res.json()` threw "non-JSON response" and lost the parse error. Bodies are now validated
+  explicitly and rejected with the same `{success,message}` envelope.
+- **Invalid arguments were reported as `500`.** A user who left a field blank saw a server error,
+  and monitoring counted it as downtime. `dispatch` now tags argument errors with `INVALID_ARGS`,
+  the HTTP layer maps them to `400`, and the prefix is stripped from user-visible text (CLI too).
+- **The onboarding tour covered the control it was pointing at.** Card placement used fixed height
+  guesses, so on the discovery screen it sat on top of the "Continue" button and on the asset screen
+  it hid the first row — the first thing a new user sees was unusable. Placement now reserves the
+  card's real height, never overlaps the highlighted target, and falls back to the side. The card
+  also used content-box sizing, which made it 40px wider than its own positioning math and pushed
+  the step dots outside the border.
+- Removed a dead `probeDuration` function in `build-promo.mjs` that called `require` from an ES
+  module — any future call would have thrown.
+- Replaced a literal NUL byte in `digilegacy-server.rs` (inside a `'\x00'` char literal) with a
+  proper escape. The byte made git, grep and several editors treat the file as binary.
+
+### Changed
+
+- **Typography is token-driven end to end.** 264 hard-coded `font-size` declarations across views
+  and components were replaced with the existing `--text-*` scale, so the type hierarchy can be
+  changed in one place. No visual change intended — E2E and unit tests are unchanged and green.
+- New `useDebouncedRef` / `useThrottledRef` / `debounce` primitives, now used by the asset search and
+  the 152-entry platform library, which previously re-filtered and re-sorted on every keystroke.
+
+### Documentation
+
+- `docs/VERIFICATION.md` and `docs/BENCHMARK.md` no longer claim SQLCipher is unbuildable on Windows;
+  they record the two failed approaches and the route that works.
+- `README.md` / `README.zh-CN.md` state the real build prerequisites (Perl + nasm, no OpenSSL).
+- Removed `digilegacy/scripts/verify-env.example.cmd`, which documented the retired `OPENSSL_*` setup.
+
 ## [0.5.0] - 2026-11-06
 
 Three ways in, one core. The same command layer now drives the desktop app, a CLI and a

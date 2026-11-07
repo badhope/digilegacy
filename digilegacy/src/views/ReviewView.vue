@@ -1,7 +1,7 @@
 <template>
   <div class="review fade-in">
-    <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">{{ t('review.title') }}</h2>
-    <p class="text-muted mb-24" style="font-size: 14px;">{{ t('review.subtitle') }}</p>
+    <h2 style="font-size: var(--text-xl); font-weight: 700; margin-bottom: 8px;">{{ t('review.title') }}</h2>
+    <p class="text-muted mb-24" style="font-size: var(--text-base);">{{ t('review.subtitle') }}</p>
 
     <!-- 场景切换：场景是数据（后端注册表），界面不写死任何业务名 -->
     <div class="card mb-24">
@@ -40,7 +40,7 @@
         <li v-for="f in payloadFields" :key="f">{{ t(f) }}</li>
       </ul>
       <div v-if="isStrict" style="margin-top: 12px;">
-        <div style="font-size: 13px; font-weight: 600;">{{ t('review.strictChecksTitle') }}</div>
+        <div style="font-size: var(--text-sm); font-weight: 600;">{{ t('review.strictChecksTitle') }}</div>
         <p class="form-hint">{{ t('review.strictChecksNote') }}</p>
         <ul class="payload-list" style="margin-top: 6px;">
           <li v-for="c in activeProfile?.strict_checks ?? []" :key="c.id">{{ c.label }}</li>
@@ -53,7 +53,7 @@
         </button>
         <button class="btn btn-secondary btn-sm" :disabled="busy" @click="loadItems">{{ t('review.reload') }}</button>
       </div>
-      <p v-if="message" style="font-size: 12px; margin-top: 8px; color: var(--gray-600);" aria-live="polite">{{ message }}</p>
+      <p v-if="message" style="font-size: var(--text-xs); margin-top: 8px; color: var(--gray-600);" aria-live="polite">{{ message }}</p>
     </div>
 
     <div v-if="activeId" class="card">
@@ -87,10 +87,10 @@
           <span class="expand-caret" aria-hidden="true">{{ expanded.has(item.key) ? '▾' : '▸' }}</span>
           <strong>{{ item.title }}</strong>
           <span class="tag" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span>
-          <span v-if="item.ai_verdict" class="tag tag-secondary" style="font-size: 11px;">
+          <span v-if="item.ai_verdict" class="tag tag-secondary" style="font-size: var(--text-2xs);">
             {{ t('review.aiLabel') }}: {{ aiLabel(item.ai_verdict) }}
           </span>
-          <span v-if="item.stale" class="tag tag-warning" style="font-size: 11px;">{{ t('review.stale') }}</span>
+          <span v-if="item.stale" class="tag tag-warning" style="font-size: var(--text-2xs);">{{ t('review.stale') }}</span>
           <span v-if="item.reviewed_at" class="review-meta" style="margin-left: auto;">
             {{ t('review.reviewedAt', { time: item.reviewed_at }) }}
           </span>
@@ -362,7 +362,7 @@ onMounted(loadProfiles);
 
 <style scoped>
 .payload-list {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--gray-600);
   margin: 8px 0 0 20px;
   columns: 2;
@@ -389,9 +389,9 @@ onMounted(loadProfiles);
   border-radius: 6px;
 }
 .review-head-btn:hover { background: var(--gray-50); }
-.expand-caret { color: var(--gray-400); font-size: 11px; width: 10px; }
+.expand-caret { color: var(--gray-400); font-size: var(--text-2xs); width: 10px; }
 .review-preview {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--gray-600);
   background: var(--gray-50);
   border-left: 2px solid var(--gray-300, #d6cfc4);
@@ -404,13 +404,13 @@ onMounted(loadProfiles);
   white-space: pre-wrap;
 }
 .review-note {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--gray-600);
   margin-top: 6px;
   white-space: pre-wrap;
 }
 .review-meta {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--gray-500);
   margin-top: 4px;
 }

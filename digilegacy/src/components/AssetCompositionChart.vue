@@ -135,7 +135,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   min-width: 180px;
 }
 .asset-chart-legend li {
@@ -151,5 +151,5 @@ onBeforeUnmount(() => {
 }
 .asset-chart-legend .name { color: var(--gray-700); }
 .asset-chart-legend .value { margin-left: auto; color: var(--gray-600); font-variant-numeric: tabular-nums; }
-.asset-chart-empty { font-size: 13px; margin: 0; }
+.asset-chart-empty { font-size: var(--text-sm); margin: 0; }
 </style>

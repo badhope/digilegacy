@@ -116,7 +116,7 @@ watch(
   background: var(--toast-bg);
   color: #fff;
   box-shadow: 0 12px 32px rgba(35, 32, 25, 0.32), 0 2px 6px rgba(35, 32, 25, 0.18);
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 500;
   line-height: 1.45;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -134,7 +134,7 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 800;
   line-height: 1;
 }
@@ -146,7 +146,7 @@ watch(
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.72);
-  font-size: 18px;
+  font-size: var(--text-lg);
   line-height: 1;
   cursor: pointer;
   padding: 2px 4px;
@@ -181,8 +181,8 @@ watch(
   box-shadow: 0 24px 64px rgba(35, 32, 25, 0.28);
 }
 
-.confirm-title { font-size: 17px; font-weight: 700; color: var(--gray-900); }
-.confirm-desc { margin-top: 10px; font-size: 14px; line-height: 1.6; color: var(--gray-600); }
+.confirm-title { font-size: var(--text-lg); font-weight: 700; color: var(--gray-900); }
+.confirm-desc { margin-top: 10px; font-size: var(--text-base); line-height: 1.6; color: var(--gray-600); }
 .confirm-actions { margin-top: 22px; display: flex; justify-content: flex-end; gap: 10px; }
 
 .dialog-enter-active, .dialog-leave-active { transition: opacity 0.18s ease; }

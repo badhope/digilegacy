@@ -1,11 +1,11 @@
 <template>
   <div class="profile fade-in">
-    <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 24px;">{{ t('nav.profile') }}</h2>
-    <p class="text-muted mb-32" style="font-size: 14px;">{{ t('profile.subtitle') }}</p>
+    <h2 style="font-size: var(--text-xl); font-weight: 700; margin-bottom: 24px;">{{ t('nav.profile') }}</h2>
+    <p class="text-muted mb-32" style="font-size: var(--text-base);">{{ t('profile.subtitle') }}</p>
 
     <div v-if="hasPlaceholder" class="card mb-24" role="alert" style="border-color: var(--warning); background: var(--warning-light);">
-      <strong style="font-size: 14px;">{{ t('profile.placeholderTitle') }}</strong>
-      <p style="font-size: 13px; margin-top: 6px;">{{ t('profile.placeholderDesc', { fields: placeholderFields.join('、') }) }}</p>
+      <strong style="font-size: var(--text-base);">{{ t('profile.placeholderTitle') }}</strong>
+      <p style="font-size: var(--text-sm); margin-top: 6px;">{{ t('profile.placeholderDesc', { fields: placeholderFields.join('、') }) }}</p>
     </div>
 
     <div class="grid grid-2">
@@ -72,7 +72,7 @@
             <input class="form-input" :id="'heir-share-' + idx" v-model="h.share_note" :placeholder="t('heirs.shareNotePlaceholder')" />
           </div>
           <div class="flex items-center gap-12" style="margin-top: 8px; flex-wrap: wrap;">
-            <label class="flex items-center gap-8" style="cursor: pointer; font-size: 13px;">
+            <label class="flex items-center gap-8" style="cursor: pointer; font-size: var(--text-sm);">
               <input type="radio" :name="'executor'" :value="idx" :checked="h.is_executor" @change="setExecutor(idx)" />
               {{ t('heirs.executor') }}
             </label>
@@ -84,12 +84,12 @@
           <button class="btn btn-secondary btn-sm" :disabled="heirs.length >= 20" @click="addHeir">{{ t('heirs.add') }}</button>
           <button class="btn btn-primary btn-sm" :disabled="heirsBusy" @click="saveHeirs">{{ heirsBusy ? t('common.saving') : t('heirs.save') }}</button>
         </div>
-        <p v-if="heirsMsg" style="font-size: 12px; margin-top: 8px;" :style="{ color: heirsOk ? 'var(--success)' : 'var(--danger)' }" role="alert" aria-live="polite">{{ heirsMsg }}</p>
+        <p v-if="heirsMsg" style="font-size: var(--text-xs); margin-top: 8px;" :style="{ color: heirsOk ? 'var(--success)' : 'var(--danger)' }" role="alert" aria-live="polite">{{ heirsMsg }}</p>
       </div>
 
       <div class="card">
         <div class="card-title mb-16">Dead Man's Switch</div>
-        <p style="font-size: 13px; color: var(--gray-600);">
+        <p style="font-size: var(--text-sm); color: var(--gray-600);">
           {{ t('profile.dmsNote') }}
         </p>
         <p class="form-hint" style="margin-top: 8px;">
@@ -102,17 +102,17 @@
     <div class="card mt-24">
       <div class="card-title mb-16">{{ t('profile.securityTitle') }}</div>
       <template v-if="security.hasMasterPassword">
-        <p style="font-size: 13px; color: var(--gray-600);">{{ t('profile.securityEnabledDesc') }}</p>
+        <p style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('profile.securityEnabledDesc') }}</p>
         <button class="btn btn-secondary btn-sm" style="margin-top: 12px;" @click="lockNow"><LockClosedOutline /> {{ t('profile.lockNow') }}</button>
 
         <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-200, #e8e4de);">
-          <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px;">{{ t('profile.recoveryKey') }}</div>
+          <div style="font-weight: 600; font-size: var(--text-base); margin-bottom: 8px;">{{ t('profile.recoveryKey') }}</div>
           <p class="form-hint" style="margin-top: 0;">{{ t('profile.recoveryKeyHint') }}</p>
-          <div style="font-size: 13px; color: var(--gray-600);">{{ t('profile.recoveryStatus') }}：{{ recoveryExists === null ? t('profile.recoveryChecking') : recoveryExists ? t('profile.recoveryGenerated') : t('profile.recoveryMissing') }}</div>
+          <div style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('profile.recoveryStatus') }}：{{ recoveryExists === null ? t('profile.recoveryChecking') : recoveryExists ? t('profile.recoveryGenerated') : t('profile.recoveryMissing') }}</div>
         </div>
 
         <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-200, #e8e4de);">
-          <div style="font-weight: 600; font-size: 14px; margin-bottom: 12px;">{{ t('profile.changePassword') }}</div>
+          <div style="font-weight: 600; font-size: var(--text-base); margin-bottom: 12px;">{{ t('profile.changePassword') }}</div>
           <div class="grid grid-2" style="gap: 16px;">
             <div class="form-group">
               <label class="form-label" for="pf-old-pw">{{ t('profile.oldPassword') }}</label>
@@ -128,11 +128,11 @@
             </div>
           </div>
           <button class="btn btn-secondary btn-sm" :disabled="security.busy" @click="changeMasterPassword">{{ t('profile.changePasswordBtn') }}</button>
-          <p v-if="changeMessage" role="alert" style="font-size: 13px; margin-top: 8px;" :style="{ color: changeOk ? 'var(--success)' : 'var(--danger)' }">{{ changeMessage }}</p>
+          <p v-if="changeMessage" role="alert" style="font-size: var(--text-sm); margin-top: 8px;" :style="{ color: changeOk ? 'var(--success)' : 'var(--danger)' }">{{ changeMessage }}</p>
         </div>
       </template>
       <template v-else>
-        <p style="font-size: 13px; color: var(--gray-600);">{{ t('profile.securityDisabledDesc') }}</p>
+        <p style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('profile.securityDisabledDesc') }}</p>
         <div class="grid grid-2" style="margin-top: 12px; gap: 16px;">
           <div class="form-group">
             <label class="form-label" for="pf-master-pw">{{ t('profile.setPasswordLabel') }}</label>
@@ -145,17 +145,17 @@
         </div>
         <p class="form-hint">{{ t('profile.passwordWarning') }}</p>
         <button class="btn btn-primary btn-sm" style="margin-top: 12px;" :disabled="security.busy" @click="enableEncryption">{{ t('profile.enableEncryption') }}</button>
-        <p v-if="securityMessage" role="alert" style="font-size: 13px; margin-top: 8px;" :style="{ color: securityOk ? 'var(--success)' : 'var(--danger)' }">{{ securityMessage }}</p>
+        <p v-if="securityMessage" role="alert" style="font-size: var(--text-sm); margin-top: 8px;" :style="{ color: securityOk ? 'var(--success)' : 'var(--danger)' }">{{ securityMessage }}</p>
       </template>
     </div>
 
     <!-- 整库加密（SQLCipher）：独立于主密码体系的第二层。桌面端 only。 -->
     <div class="card mt-24" v-if="isTauriEnv()" data-testid="db-encryption-card">
       <div class="card-title mb-8">{{ t('profile.dbEncTitle') }}</div>
-      <p class="text-muted" style="font-size: 13px;">{{ t('profile.dbEncDesc') }}</p>
+      <p class="text-muted" style="font-size: var(--text-sm);">{{ t('profile.dbEncDesc') }}</p>
       <p class="form-hint">{{ t('profile.dbEncBoundary') }}</p>
       <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
-        <span style="font-weight: 600; font-size: 14px;" :style="{ color: dbEncEnabled ? 'var(--success-strong, green)' : 'var(--gray-600)' }">
+        <span style="font-weight: 600; font-size: var(--text-base);" :style="{ color: dbEncEnabled ? 'var(--success-strong, green)' : 'var(--gray-600)' }">
           {{ dbEncEnabled ? t('profile.dbEncOn') : t('profile.dbEncOff') }}
         </span>
         <button v-if="!dbEncEnabled" class="btn btn-primary btn-sm" style="margin-left: auto;" :disabled="dbEncBusy" data-testid="db-enc-enable" @click="enableDbEncryption">
@@ -165,18 +165,18 @@
           {{ t('profile.dbEncDisable') }}
         </button>
       </div>
-      <p v-if="dbEncMessage" role="status" style="font-size: 13px; margin-top: 8px;">{{ dbEncMessage }}</p>
+      <p v-if="dbEncMessage" role="status" style="font-size: var(--text-sm); margin-top: 8px;">{{ dbEncMessage }}</p>
     </div>
 
     <div class="card mt-24" v-if="recoveryCode" style="border-color: var(--warning); border-width: 2px;">
       <div class="card-title mb-16">{{ t('profile.recoveryOnce') }}</div>
-      <p style="font-size: 13px; color: var(--gray-600);">
+      <p style="font-size: var(--text-sm); color: var(--gray-600);">
         {{ t('profile.recoveryOnceHint1') }}<strong>{{ t('profile.recoveryOnceHint2') }}</strong>{{ t('profile.recoveryOnceHint3') }}
       </p>
       <div class="recovery-code-box">{{ recoveryCode }}</div>
       <div style="display: flex; gap: 12px; margin-top: 12px; align-items: center; flex-wrap: wrap;">
         <button class="btn btn-secondary btn-sm" @click="copyRecoveryCode">{{ t('common.copy') }}</button>
-        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: var(--text-sm);">
           <input type="checkbox" v-model="recoveryAck" style="width: 18px; height: 18px;" />
           {{ t('profile.recoveryWritten') }}
         </label>
@@ -187,7 +187,7 @@
 
     <div class="card mt-24">
       <div class="card-title mb-16">{{ t('profile.backupTitle') }}</div>
-      <p style="font-size: 13px; color: var(--gray-600);">{{ t('profile.backupDesc') }}</p>
+      <p style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('profile.backupDesc') }}</p>
       <div style="display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap;">
         <button class="btn btn-secondary btn-sm" @click="exportBackup">{{ t('profile.exportBackup') }}</button>
         <label class="sr-only" for="pf-backup-source-password">{{ t('profile.backupSourcePassword') }}</label>
@@ -204,7 +204,7 @@
         <button class="btn btn-secondary btn-sm" @click="importBackup(false)">{{ t('profile.importBackup') }}</button>
         <button class="btn btn-danger btn-sm" @click="importBackup(true)">{{ t('profile.importReplace') }}</button>
       </div>
-      <p v-if="backupMessage" role="alert" style="font-size: 13px; margin-top: 8px;" :style="{ color: backupOk ? 'var(--success)' : 'var(--danger)' }">{{ backupMessage }}</p>
+      <p v-if="backupMessage" role="alert" style="font-size: var(--text-sm); margin-top: 8px;" :style="{ color: backupOk ? 'var(--success)' : 'var(--danger)' }">{{ backupMessage }}</p>
       <p v-if="!security.hasMasterPassword" class="form-hint">{{ t('profile.backupPlainHint') }}</p>
       <p class="form-hint" style="margin-top: 10px;" aria-live="polite">{{ autoBackupSummary }}</p>
     </div>
@@ -254,7 +254,7 @@
 
     <div class="card mt-24">
       <div class="card-title mb-16">{{ t('profile.custodyTitle') }}</div>
-      <p style="font-size: 13px; color: var(--gray-600);">{{ t('profile.custodyDesc') }}</p>
+      <p style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('profile.custodyDesc') }}</p>
       <template v-if="!isTauri">
         <p class="form-hint">{{ t('profile.browserUnsupported') }}</p>
       </template>
@@ -273,14 +273,14 @@
         <div style="margin-top: 12px;">
           <button class="btn btn-primary btn-sm" :disabled="custodyBusy" @click="saveCustody">{{ custodyBusy ? t('common.saving') : t('profile.custodySave') }}</button>
         </div>
-        <p v-if="custodyMsg" style="font-size: 12px; margin-top: 8px;" :style="{ color: custodyOk ? 'var(--success)' : 'var(--danger)' }" role="alert" aria-live="polite">{{ custodyMsg }}</p>
+        <p v-if="custodyMsg" style="font-size: var(--text-xs); margin-top: 8px;" :style="{ color: custodyOk ? 'var(--success)' : 'var(--danger)' }" role="alert" aria-live="polite">{{ custodyMsg }}</p>
       </template>
     </div>
 
     <!-- 继承人恢复包：单机应用唯一能让家人在持有者失能后解密数据的路径 -->
     <div class="card mt-24" id="recovery-kit-card">
       <div class="card-title mb-16">{{ t('kit.title') }}</div>
-      <p style="font-size: 13px; color: var(--gray-600);">{{ t('kit.desc') }}</p>
+      <p style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('kit.desc') }}</p>
       <template v-if="!isTauri">
         <p class="form-hint">{{ t('profile.browserUnsupported') }}</p>
       </template>
@@ -293,7 +293,7 @@
         <p v-else class="form-hint" style="margin-top: 12px;">{{ t('kit.none') }}</p>
 
         <div v-if="kit.stale && !kit.exists" class="form-hint">{{ t('kit.regenerateHint') }}</div>
-        <p v-if="kitMessage" role="alert" style="font-size: 12px; margin-top: 8px;" :style="{ color: kitOk ? 'var(--success)' : 'var(--danger)' }">{{ kitMessage }}</p>
+        <p v-if="kitMessage" role="alert" style="font-size: var(--text-xs); margin-top: 8px;" :style="{ color: kitOk ? 'var(--success)' : 'var(--danger)' }">{{ kitMessage }}</p>
 
         <div style="margin-top: 12px; display: grid; gap: 10px; max-width: 640px;">
           <div class="flex gap-12" style="flex-wrap: wrap;">
@@ -326,7 +326,7 @@
 
         <!-- 恢复演练：生成过 ≠ 可用。这里用只读校验证明份额真的能恢复。 -->
         <div v-if="kit.exists" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-200);">
-          <div style="font-weight: 600; font-size: 13px; margin-bottom: 6px;">{{ t('kit.drill') }}</div>
+          <div style="font-weight: 600; font-size: var(--text-sm); margin-bottom: 6px;">{{ t('kit.drill') }}</div>
           <p class="form-hint">{{ t('kit.drillDesc') }}</p>
           <div style="display: grid; gap: 8px; max-width: 640px; margin-top: 10px;">
             <div class="form-group" style="margin: 0;">
@@ -348,7 +348,7 @@
               rows="2"
               v-model="drillInputs[i]"
               :placeholder="t('kit.lockPlaceholder')"
-              style="font-family: ui-monospace, Consolas, monospace; font-size: 12px;"
+              style="font-family: ui-monospace, Consolas, monospace; font-size: var(--text-xs);"
             ></textarea>
           </div>
           <div style="display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap;">
@@ -357,7 +357,7 @@
               {{ drillBusy ? t('kit.drillRunning') : t('kit.drillRun') }}
             </button>
           </div>
-          <div v-if="drillResult" role="status" style="margin-top: 10px; font-size: 13px; line-height: 1.8;">
+          <div v-if="drillResult" role="status" style="margin-top: 10px; font-size: var(--text-sm); line-height: 1.8;">
             <div>{{ t('kit.drillSelfTest') }}：
               <strong :style="{ color: drillResult.self_test_ok ? 'var(--success)' : 'var(--danger)' }">
                 {{ drillResult.self_test_ok ? t('kit.drillSelfTestOk', { ms: String(drillResult.self_test_ms) }) : t('kit.drillSelfTestFail') }}
@@ -382,7 +382,7 @@
 
     <div class="card mt-24">
       <div class="card-title mb-16">{{ t('ai.title') }}</div>
-      <p style="font-size: 13px; color: var(--gray-600);">{{ t('ai.desc') }}</p>
+      <p style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('ai.desc') }}</p>
       <p class="form-hint" style="margin-top: 8px;">{{ t('ai.noService') }}</p>
       <template v-if="!isTauri">
         <p class="form-hint">{{ t('profile.browserUnsupported') }}</p>
@@ -390,7 +390,7 @@
       <template v-else>
         <label class="flex items-center gap-8" style="cursor: pointer; margin-top: 12px;">
           <input type="checkbox" id="ai-enabled" v-model="assistant.enabled" style="width: 18px; height: 18px;" />
-          <span style="font-weight: 500; font-size: 14px;">{{ t('ai.enable') }}</span>
+          <span style="font-weight: 500; font-size: var(--text-base);">{{ t('ai.enable') }}</span>
         </label>
         <div style="margin-top: 10px; display: grid; gap: 10px; max-width: 640px;">
           <div class="form-group" style="margin: 0;">
@@ -411,13 +411,13 @@
         <div style="margin-top: 12px;">
           <button class="btn btn-primary btn-sm" :disabled="assistantBusy" @click="saveAssistant">{{ assistantBusy ? t('common.saving') : t('ai.save') }}</button>
         </div>
-        <p v-if="assistantMsg" style="font-size: 12px; margin-top: 8px;" :style="{ color: assistantOk ? 'var(--success)' : 'var(--danger)' }" role="alert" aria-live="polite">{{ assistantMsg }}</p>
+        <p v-if="assistantMsg" style="font-size: var(--text-xs); margin-top: 8px;" :style="{ color: assistantOk ? 'var(--success)' : 'var(--danger)' }" role="alert" aria-live="polite">{{ assistantMsg }}</p>
       </template>
     </div>
 
     <div class="card mt-24">
       <div class="card-title mb-16">{{ t('profile.smtpTitle') }}</div>
-      <p style="font-size: 13px; color: var(--gray-600);">{{ t('profile.smtpDesc') }}</p>
+      <p style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('profile.smtpDesc') }}</p>
       <template v-if="!isTauri">
         <p class="form-hint">{{ t('profile.browserUnsupported') }}</p>
       </template>
@@ -450,20 +450,20 @@
         </div>
         <label class="flex items-center gap-8" style="cursor: pointer; margin-top: 8px;">
           <input type="checkbox" v-model="smtp.allow_insecure" style="width: 18px; height: 18px;" />
-          <span style="font-size: 13px;">{{ t('profile.smtpAllowInsecure') }}</span>
+          <span style="font-size: var(--text-sm);">{{ t('profile.smtpAllowInsecure') }}</span>
         </label>
         <p class="form-hint">{{ t('profile.smtpHint') }}</p>
         <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
           <button class="btn btn-primary btn-sm" :disabled="smtpBusy" @click="saveSmtp">{{ smtpBusy ? t('common.saving') : t('profile.smtpSave') }}</button>
           <button class="btn btn-secondary btn-sm" :disabled="smtpBusy" @click="sendTestMail">{{ t('profile.smtpTest') }}</button>
         </div>
-        <p v-if="smtpMsg" style="font-size: 12px; margin-top: 8px;" :style="{ color: smtpOk ? 'var(--success)' : 'var(--danger)' }" role="alert" aria-live="polite">{{ smtpMsg }}</p>
+        <p v-if="smtpMsg" style="font-size: var(--text-xs); margin-top: 8px;" :style="{ color: smtpOk ? 'var(--success)' : 'var(--danger)' }" role="alert" aria-live="polite">{{ smtpMsg }}</p>
       </template>
     </div>
 
     <div class="card mt-24">
       <div class="card-title mb-16">{{ t('profile.heartbeatTitle') }}</div>
-      <p style="font-size: 13px; color: var(--gray-600);">{{ t('profile.heartbeatDesc1') }}<strong>{{ t('profile.heartbeatDesc2') }}</strong>{{ t('profile.heartbeatDesc3') }}</p>
+      <p style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('profile.heartbeatDesc1') }}<strong>{{ t('profile.heartbeatDesc2') }}</strong>{{ t('profile.heartbeatDesc3') }}</p>
       <template v-if="!isTauri">
         <p class="form-hint">{{ t('profile.browserUnsupported') }}</p>
       </template>
@@ -471,7 +471,7 @@
         <div style="margin-top: 12px; display: grid; gap: 10px; max-width: 520px;">
           <label class="flex items-center gap-8" style="cursor: pointer;">
             <input type="checkbox" v-model="heartbeatEnabled" style="width: 18px; height: 18px;" />
-            <span style="font-weight: 500; font-size: 14px;">{{ t('profile.heartbeatEnable') }}</span>
+            <span style="font-weight: 500; font-size: var(--text-base);">{{ t('profile.heartbeatEnable') }}</span>
           </label>
           <div class="form-group" style="margin: 0;">
             <label class="form-label" for="hb-endpoint">{{ t('profile.heartbeatEndpoint') }}</label>
@@ -486,15 +486,15 @@
             <button class="btn btn-primary btn-sm" :disabled="heartbeatBusy" @click="saveHeartbeatConfig">{{ heartbeatBusy ? t('common.saving') : t('profile.saveHeartbeat') }}</button>
           </div>
         </div>
-        <p v-if="heartbeatMsg" style="font-size: 12px; color: var(--gray-600); margin-top: 8px;" aria-live="polite">{{ heartbeatMsg }}</p>
+        <p v-if="heartbeatMsg" style="font-size: var(--text-xs); color: var(--gray-600); margin-top: 8px;" aria-live="polite">{{ heartbeatMsg }}</p>
         <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap;">
           <button class="btn btn-secondary btn-sm" @click="sendHeartbeat">{{ t('profile.testHeartbeat') }}</button>
-          <span v-if="heartbeatTestMsg" style="font-size: 12px; color: var(--gray-600);" aria-live="polite">{{ heartbeatTestMsg }}</span>
+          <span v-if="heartbeatTestMsg" style="font-size: var(--text-xs); color: var(--gray-600);" aria-live="polite">{{ heartbeatTestMsg }}</span>
         </div>
         <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--gray-200, #e8e4de);">
           <label class="flex items-center gap-8" style="cursor: pointer;">
             <input type="checkbox" v-model="autostartEnabled" style="width: 18px; height: 18px;" @change="toggleAutostart" />
-            <span style="font-weight: 500; font-size: 14px;">{{ t('profile.autostart') }}</span>
+            <span style="font-weight: 500; font-size: var(--text-base);">{{ t('profile.autostart') }}</span>
           </label>
           <p class="form-hint">{{ t('profile.autostartHint') }}</p>
         </div>
@@ -503,7 +503,7 @@
 
     <div class="card mt-24">
       <div class="card-title mb-16">{{ t('profile.patchTitle') }}</div>
-      <p style="font-size: 13px; color: var(--gray-600);">{{ t('profile.patchDesc') }}</p>
+      <p style="font-size: var(--text-sm); color: var(--gray-600);">{{ t('profile.patchDesc') }}</p>
       <template v-if="!isTauri">
         <p class="form-hint">{{ t('profile.browserUnsupported') }}</p>
       </template>
@@ -514,13 +514,13 @@
           <button class="btn btn-secondary btn-sm" @click="exportPatch">{{ patchCount > 0 ? t('profile.exportPatch') : t('profile.exportPatchTemplate') }}</button>
           <button class="btn btn-secondary btn-sm" :disabled="patchCount === 0" @click="clearPatch">{{ t('profile.clearPatch') }}</button>
         </div>
-        <p v-if="patchMsg" style="font-size: 12px; color: var(--gray-600); margin-top: 8px;" aria-live="polite">{{ patchMsg }}</p>
+        <p v-if="patchMsg" style="font-size: var(--text-xs); color: var(--gray-600); margin-top: 8px;" aria-live="polite">{{ patchMsg }}</p>
       </template>
     </div>
 
     <div class="card mt-24" style="text-align: center;">
       <button class="btn btn-primary btn-lg" @click="saveProfile">{{ t('profile.saveProfile') }}</button>
-      <p class="text-muted mt-16" style="font-size: 12px;">
+      <p class="text-muted mt-16" style="font-size: var(--text-xs);">
         {{ security.hasMasterPassword ? t('profile.saveHintEncrypted') : t('profile.saveHintPlain') }}
       </p>
     </div>
@@ -1466,12 +1466,12 @@ async function saveProfile() {
   min-width: 0;
 }
 .checkpoint-info strong {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--gray-900);
   overflow-wrap: break-word;
 }
 .checkpoint-meta {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--gray-600);
   font-variant-numeric: tabular-nums;
 }
@@ -1490,7 +1490,7 @@ async function saveProfile() {
   border-radius: 8px;
   background: rgba(183, 121, 31, 0.08);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 15px;
+  font-size: var(--text-base);
   letter-spacing: 1px;
   word-break: break-all;
   text-align: center;

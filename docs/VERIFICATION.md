@@ -2,14 +2,14 @@
 
 本文件记录最终验证证据，避免"看起来绿"与"真的绿"混淆。历史轮次保留当时的数字，但不代表当前工作树或本轮门禁结果。
 
-## 2026-11-06 三入口轮次（v0.5.0）：当前基线
+## 2026-11-07 加固轮次（v0.6.0）：当前基线
 
 本轮把「一套命令层」变成真的：数据目录解析脱离 Tauri、新增统一分发器，桌面 / CLI / Web 服务三个入口共用同一份业务逻辑；同时修掉三个真实缺陷（HTTP 信封形状、SPA 静态托管 MIME、入场动画承载可见性）。下表为本轮实跑结果。
 
 | 命令 | 本轮基线结果 | 证据边界 |
 |---|---|---|
 | `npm run typecheck` | PASS | `vue-tsc --noEmit` |
-| `npm run test:coverage` | **34 files / 483 tests passed**；分支覆盖率 78.02% ≥ 78% | 前端单测；新增 HTTP 路由 11 项与默认浅色 2 项 |
+| `npm run test:coverage` | **35 files / 490 tests passed**；分支覆盖率 78.12% ≥ 78% | 前端单测；含新增的防抖原语 5 项与 HTTP 信封契约 2 项 |
 | `npm run build` | PASS；`dist/assets` 无 `mock-*` 分块，含 `api/invoke` | 生产前端构建 |
 | `cargo fmt --check` | PASS | 仅格式检查 |
 | `cargo clippy --all-targets --locked -- -D warnings` | PASS | 零 warning |
@@ -21,7 +21,7 @@
 | 静态托管 | `/`、`/dashboard`、`/assets/1` 均 200；JS 返回 `text/javascript`、CSS 返回 `text/css`；缺失资源 404 | 修复前全部返回 `text/html` 导致白屏 |
 | 浏览器走查 | 9 个页面渲染正常；中英切换、深色/浅色切换、刷新后持久化均通过 | iab 环境 Playwright 定位器点击受限，改用坐标点击复核 |
 | `cargo fmt --check` / `clippy -D warnings` / `cargo test --locked`（复检） | **三项全部 exit 0**；291 lib + 4 cli + 9 mcp 全过 | 修复 paths.rs 的 needless-return、server bin 的 tests-after-main、cli 的 redundant-closure 与死常量后复跑 |
-| release 构建 | `npx tauri build --bundles nsis` 产出 `DigiLegacy_0.5.0_x64-setup.exe`；同批产出 release 版 `digilegacy-cli.exe` / `digilegacy-server.exe` / `digilegacy-mcp.exe` 并实跑通过 | 构建前置只剩 perl（Strawberry Perl）与 nasm：OpenSSL 由 `bundled-sqlcipher-vendored-openssl` 随 crate 编译，不再需要 `OPENSSL_LIB_DIR` / `OPENSSL_INCLUDE_DIR` |
+| release 构建 | `npx tauri build --bundles nsis` 产出 `DigiLegacy_0.6.0_x64-setup.exe`；同批产出 release 版 `digilegacy-cli.exe` / `digilegacy-server.exe` / `digilegacy-mcp.exe` 并实跑通过 | 构建前置只剩 perl（Strawberry Perl）与 nasm：OpenSSL 由 `bundled-sqlcipher-vendored-openssl` 随 crate 编译，不再需要 `OPENSSL_LIB_DIR` / `OPENSSL_INCLUDE_DIR` |
 
 ### 本轮新增能力
 

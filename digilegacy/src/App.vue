@@ -116,25 +116,25 @@
       <div class="lock-card" role="dialog" aria-modal="true" aria-labelledby="lock-title" ref="lockCardRef">
         <template v-if="!recoveryMode">
           <div class="lock-hero-icon" aria-hidden="true"><component :is="LockClosedOutline" /></div>
-          <h2 id="lock-title" style="font-size: 18px; font-weight: 700; margin-top: 8px;">{{ t('lock.title') }}</h2>
-          <p class="text-muted" style="font-size: 13px; margin-top: 8px;">{{ t('lock.desc') }}</p>
+          <h2 id="lock-title" style="font-size: var(--text-lg); font-weight: 700; margin-top: 8px;">{{ t('lock.title') }}</h2>
+          <p class="text-muted" style="font-size: var(--text-sm); margin-top: 8px;">{{ t('lock.desc') }}</p>
           <input class="form-input" type="password" v-model="unlockPassword" :aria-label="t('lock.passwordLabel')" :placeholder="t('lock.passwordPlaceholder')" style="margin-top: 16px;" @keyup.enter="handleUnlock" />
-          <p v-if="unlockError" role="alert" style="color: var(--danger); font-size: 13px; margin-top: 8px;">{{ unlockError }}</p>
+          <p v-if="unlockError" role="alert" style="color: var(--danger); font-size: var(--text-sm); margin-top: 8px;">{{ unlockError }}</p>
           <button class="btn btn-primary" style="margin-top: 16px; width: 100%;" :disabled="security.busy" @click="handleUnlock">{{ security.busy ? t('lock.verifying') : t('app.unlock') }}</button>
           <button v-if="!demoMode" class="btn btn-secondary btn-sm" style="margin-top: 10px; width: 100%;" @click="recoveryMode = true">{{ t('lock.forgot') }}</button>
           <button v-if="!demoMode" class="btn btn-secondary btn-sm" style="margin-top: 8px; width: 100%;" @click="shareMode = true; recoveryMode = false">{{ t('kit.lockEntry') }}</button>
-          <p class="text-muted" style="font-size: 12px; margin-top: 12px;">{{ t('lock.hint') }}</p>
+          <p class="text-muted" style="font-size: var(--text-xs); margin-top: 12px;">{{ t('lock.hint') }}</p>
         </template>
         <template v-else>
           <div class="lock-hero-icon" aria-hidden="true"><component :is="KeyOutline" /></div>
-          <h2 id="lock-title" style="font-size: 18px; font-weight: 700; margin-top: 8px;">{{ t('recovery.title') }}</h2>
-          <p class="text-muted" style="font-size: 13px; margin-top: 8px;">{{ t('recovery.desc') }}</p>
+          <h2 id="lock-title" style="font-size: var(--text-lg); font-weight: 700; margin-top: 8px;">{{ t('recovery.title') }}</h2>
+          <p class="text-muted" style="font-size: var(--text-sm); margin-top: 8px;">{{ t('recovery.desc') }}</p>
           <input class="form-input" v-model="recoveryCode" :aria-label="t('recovery.codeLabel')" :placeholder="t('recovery.codePlaceholder')" style="margin-top: 16px;" @keyup.enter="handleStartRecovery" />
           <button v-if="!recoveryUnlocked" class="btn btn-primary" style="margin-top: 12px; width: 100%;" :disabled="recoveryBusy" @click="handleStartRecovery">{{ recoveryBusy ? t('lock.verifying') : t('recovery.verify') }}</button>
           <template v-if="recoveryUnlocked">
             <input class="form-input" type="password" v-model="recoveryNewPassword" data-autofocus-pw :aria-label="t('recovery.newPasswordLabel')" :placeholder="t('recovery.newPasswordPlaceholder')" style="margin-top: 12px;" />
             <input class="form-input" type="password" v-model="recoveryNewPassword2" :aria-label="t('recovery.confirmPasswordLabel')" :placeholder="t('recovery.confirmPasswordPlaceholder')" style="margin-top: 12px;" />
-            <p v-if="recoveryMessage" role="alert" style="font-size: 13px; margin-top: 8px;" :style="{ color: recoveryOk ? 'var(--success)' : 'var(--danger)' }" class="recovery-msg">{{ recoveryMessage }}</p>
+            <p v-if="recoveryMessage" role="alert" style="font-size: var(--text-sm); margin-top: 8px;" :style="{ color: recoveryOk ? 'var(--success)' : 'var(--danger)' }" class="recovery-msg">{{ recoveryMessage }}</p>
             <button class="btn btn-primary" style="margin-top: 12px; width: 100%;" :disabled="recoveryBusy" @click="handleCompleteRecovery">{{ recoveryBusy ? t('recovery.processing') : t('recovery.reset') }}</button>
           </template>
           <!-- 新恢复密钥必须在重设成功后仍然可见：旧码一次性失效，
@@ -153,7 +153,7 @@
               @click="finishRecovery"
             >{{ t('recovery.savedClose') }}</button>
           </template>
-          <p v-else-if="recoveryError" role="alert" style="color: var(--danger); font-size: 13px; margin-top: 8px;">{{ recoveryError }}</p>
+          <p v-else-if="recoveryError" role="alert" style="color: var(--danger); font-size: var(--text-sm); margin-top: 8px;">{{ recoveryError }}</p>
           <!-- 新恢复密钥展示期间隐藏「返回」：该按钮会离开恢复流程且不清空 recoveryNewCode，
                用户点一下就把唯一一份新码永久丢掉。只能用下方的显式确认按钮退出。 -->
           <button v-if="!recoveryNewCode" class="btn btn-secondary btn-sm" style="margin-top: 10px; width: 100%;" @click="backToUnlock">{{ t('recovery.backToUnlock') }}</button>
@@ -162,8 +162,8 @@
         <!-- 继承人恢复份额解锁：失能场景下家人走这条路径 -->
         <template v-if="shareMode">
           <div class="lock-hero-icon" aria-hidden="true"><component :is="KeyOutline" /></div>
-          <h2 id="lock-title" style="font-size: 18px; font-weight: 700; margin-top: 8px;">{{ t('kit.lockTitle') }}</h2>
-          <p class="text-muted" style="font-size: 13px; margin-top: 8px;">{{ t('kit.lockDesc') }}</p>
+          <h2 id="lock-title" style="font-size: var(--text-lg); font-weight: 700; margin-top: 8px;">{{ t('kit.lockTitle') }}</h2>
+          <p class="text-muted" style="font-size: var(--text-sm); margin-top: 8px;">{{ t('kit.lockDesc') }}</p>
           <textarea
             v-for="(_, i) in shareInputs"
             :key="i"
@@ -172,12 +172,12 @@
             v-model="shareInputs[i]"
             :aria-label="t('kit.lockPlaceholder')"
             :placeholder="t('kit.lockPlaceholder')"
-            style="margin-top: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 12px;"
+            style="margin-top: 10px; font-family: ui-monospace, Consolas, monospace; font-size: var(--text-xs);"
           ></textarea>
           <button class="btn btn-secondary btn-sm" style="margin-top: 8px; width: 100%;" @click="shareInputs.push('')">{{ t('kit.addShare') }}</button>
           <input class="form-input" type="password" v-model="sharePassphrase" :placeholder="t('kit.passphrase')" style="margin-top: 10px;" autocomplete="off" />
-          <p v-if="shareError" role="alert" style="color: var(--danger); font-size: 13px; margin-top: 8px;">{{ shareError }}</p>
-          <p v-if="shareMessage" role="status" style="color: var(--success); font-size: 13px; margin-top: 8px;">{{ shareMessage }}</p>
+          <p v-if="shareError" role="alert" style="color: var(--danger); font-size: var(--text-sm); margin-top: 8px;">{{ shareError }}</p>
+          <p v-if="shareMessage" role="status" style="color: var(--success); font-size: var(--text-sm); margin-top: 8px;">{{ shareMessage }}</p>
           <button class="btn btn-primary" style="margin-top: 12px; width: 100%;" :disabled="shareBusy" @click="handleShareUnlock">{{ shareBusy ? t('kit.unlocking') : t('kit.unlockShare') }}</button>
           <button class="btn btn-secondary btn-sm" style="margin-top: 10px; width: 100%;" @click="shareMode = false; shareError = ''">{{ t('recovery.backToUnlock') }}</button>
         </template>
@@ -682,7 +682,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--gray-700);
   cursor: pointer;
   text-align: left;
@@ -695,7 +695,7 @@ onBeforeUnmount(() => {
   margin-bottom: 20px;
   padding: 12px 16px;
   color: var(--warning-strong);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.6;
 }
 .demo-banner :deep(svg) { width: 18px; height: 18px; flex-shrink: 0; }

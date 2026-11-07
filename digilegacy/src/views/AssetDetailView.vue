@@ -11,26 +11,26 @@
     </div>
 
     <div v-else-if="loadError" class="card" role="alert" style="border-color: var(--danger);">
-      <h3 style="font-size: 16px; margin-bottom: 8px; color: var(--danger-strong);">{{ t('detail.loadFailed') }}</h3>
-      <p class="text-muted" style="font-size: 13px;">{{ loadError }}</p>
+      <h3 style="font-size: var(--text-md); margin-bottom: 8px; color: var(--danger-strong);">{{ t('detail.loadFailed') }}</h3>
+      <p class="text-muted" style="font-size: var(--text-sm);">{{ loadError }}</p>
       <router-link to="/assets" class="btn btn-primary btn-sm mt-16">{{ t('detail.backToList') }}</router-link>
     </div>
 
     <div v-if="asset" class="card">
       <div class="flex items-center gap-12 mb-24">
-        <div style="width: 56px; height: 56px; border-radius: 14px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 28px;"><PlatformIcon :name="asset.platform_name" :size="28" /></div>
-        <div><h2 style="font-size: 20px; font-weight: 700;">{{ asset.platform_name }}</h2><p class="text-muted" style="font-size: 14px;">{{ asset.account_identifier }}</p></div>
+        <div style="width: 56px; height: 56px; border-radius: 14px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: var(--text-2xl);"><PlatformIcon :name="asset.platform_name" :size="28" /></div>
+        <div><h2 style="font-size: var(--text-xl); font-weight: 700;">{{ asset.platform_name }}</h2><p class="text-muted" style="font-size: var(--text-base);">{{ asset.account_identifier }}</p></div>
       </div>
 
       <div class="card mb-24" style="background: var(--gray-50);">
         <div class="card-title">{{ t('detail.policyTitle') }}</div>
-        <p style="font-size: 14px; color: var(--gray-700); line-height: 1.6; margin-top: 8px;">{{ platformInfo?.process_description || t('detail.noPolicy') }}</p>
-        <div v-if="platformInfo?.required_documents" class="mt-16"><strong style="font-size: 13px;">{{ t('detail.requiredDocs') }}</strong><span class="text-muted" style="font-size: 13px; margin-left: 8px;">{{ platformInfo.required_documents }}</span></div>
+        <p style="font-size: var(--text-base); color: var(--gray-700); line-height: 1.6; margin-top: 8px;">{{ platformInfo?.process_description || t('detail.noPolicy') }}</p>
+        <div v-if="platformInfo?.required_documents" class="mt-16"><strong style="font-size: var(--text-sm);">{{ t('detail.requiredDocs') }}</strong><span class="text-muted" style="font-size: var(--text-sm); margin-left: 8px;">{{ platformInfo.required_documents }}</span></div>
       </div>
 
       <div v-if="hasPlaceholder" class="card mb-24" role="alert" style="border-color: var(--warning); background: var(--warning-light);">
-        <strong style="font-size: 14px;">{{ t('detail.placeholderTitle') }}</strong>
-        <p style="font-size: 13px; margin-top: 6px;">{{ t('detail.placeholderDesc', { fields: placeholderFields.join('、') }) }}</p>
+        <strong style="font-size: var(--text-base);">{{ t('detail.placeholderTitle') }}</strong>
+        <p style="font-size: var(--text-sm); margin-top: 6px;">{{ t('detail.placeholderDesc', { fields: placeholderFields.join('、') }) }}</p>
       </div>
 
       <div class="card mb-24" style="background: var(--gray-50);">
@@ -45,21 +45,21 @@
             <button class="btn btn-secondary btn-sm" @click="copyCredential">{{ t('detail.copyCredential') }}</button>
             <button class="btn btn-danger btn-sm" v-if="asset?.has_credential" @click="clearCredential">{{ t('detail.clearCredential') }}</button>
             <span class="tag tag-success" v-if="asset?.has_credential">{{ t('detail.encryptedSaved') }}</span>
-            <span class="text-muted" style="font-size: 12px;" aria-live="polite">{{ credentialStatus }}</span>
+            <span class="text-muted" style="font-size: var(--text-xs);" aria-live="polite">{{ credentialStatus }}</span>
           </div>
         </template>
         <template v-else>
-          <p class="text-muted" style="font-size: 13px; margin-top: 8px;">
+          <p class="text-muted" style="font-size: var(--text-sm); margin-top: 8px;">
             {{ t('detail.noEncryptionTip1') }}
             <router-link to="/profile" style="color: var(--primary); text-decoration: underline; text-underline-offset: 2px; font-weight: 600;">{{ t('detail.noEncryptionLink') }}</router-link>
             {{ t('detail.noEncryptionTip2') }}
           </p>
         </template>
-        <p v-if="isFinancialPlatform" style="font-size: 12px; color: var(--warning-strong); margin-top: 12px;"><WarningOutline aria-hidden="true" /> {{ t('detail.financeWarning') }}</p>
+        <p v-if="isFinancialPlatform" style="font-size: var(--text-xs); color: var(--warning-strong); margin-top: 12px;"><WarningOutline aria-hidden="true" /> {{ t('detail.financeWarning') }}</p>
         <div class="mt-16" style="padding-top: 12px; border-top: 1px solid var(--gray-200, #e8e4de);">
           <button class="btn btn-secondary btn-sm" @click="openOfficial">{{ t('detail.openOfficial') }}</button>
-          <span class="text-muted" style="font-size: 12px; margin-left: 8px;">{{ t('detail.openOfficialTip') }}</span>
-          <div v-if="linkStatus" class="text-muted" style="font-size: 12px; margin-top: 6px;" role="alert">{{ linkStatus }}</div>
+          <span class="text-muted" style="font-size: var(--text-xs); margin-left: 8px;">{{ t('detail.openOfficialTip') }}</span>
+          <div v-if="linkStatus" class="text-muted" style="font-size: var(--text-xs); margin-top: 6px;" role="alert">{{ linkStatus }}</div>
         </div>
       </div>
 
@@ -77,7 +77,7 @@
 
       <div class="form-group mt-16"><label class="form-label" for="detail-notes">{{ t('detail.notesLabel') }}</label><textarea class="form-textarea" id="detail-notes" v-model="asset.notes" :placeholder="t('detail.notesPlaceholder')"></textarea></div>
 
-      <p v-if="saveError" role="alert" style="font-size: 13px; color: var(--danger-strong); margin-top: 16px;">{{ saveError }}</p>
+      <p v-if="saveError" role="alert" style="font-size: var(--text-sm); color: var(--danger-strong); margin-top: 16px;">{{ saveError }}</p>
 
       <div style="display: flex; gap: 12px; justify-content: space-between; margin-top: 24px;">
         <button class="btn btn-danger btn-sm" :disabled="saving" @click="handleDelete">{{ t('detail.deleteAsset') }}</button>

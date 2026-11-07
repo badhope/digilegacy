@@ -2,7 +2,7 @@
   <div class="drawer-mask" aria-hidden="true" @click="emit('close')"></div>
   <aside class="help-drawer" role="dialog" aria-modal="true" aria-labelledby="help-title" ref="drawerRef">
     <div class="help-header">
-      <h2 id="help-title" style="font-size: 17px; font-weight: 700; margin: 0;">{{ t('help.title') }}</h2>
+      <h2 id="help-title" style="font-size: var(--text-lg); font-weight: 700; margin: 0;">{{ t('help.title') }}</h2>
       <button class="btn btn-secondary btn-sm" ref="closeBtnRef" @click="emit('close')">{{ t('common.close') }}</button>
     </div>
 
@@ -151,7 +151,7 @@ onBeforeUnmount(() => {
   margin-bottom: 22px;
 }
 .help-section-title {
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 700;
   color: var(--gray-900, #24323a);
   margin-bottom: 8px;
@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--gray-600, #5c6f79);
   line-height: 1.65;
 }
@@ -184,7 +184,7 @@ onBeforeUnmount(() => {
   padding: 0 6px;
   border-radius: 4px;
   background: var(--gray-100, #f0ece6);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--gray-700, #4a5560);
 }
 .about-shortcut {
