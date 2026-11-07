@@ -28,7 +28,13 @@ jobs:
       run:
         working-directory: digilegacy
     steps:
+      # 关键：workflow_dispatch 补建历史版本时必须检出**目标 tag** 的源码。
+      # 默认的 github.ref 在 dispatch 时是 main——实际发生过：补建 v0.5.0 时
+      # 用 main（版本号已是 0.6.0）构建，产出的安装包文件名是 0.6.0，
+      # 却挂进了 v0.5.0 的 Release。tag push 时 github.ref_name 就是 tag 名，两者等价。
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
 
       - uses: actions/setup-node@v7
         with:
