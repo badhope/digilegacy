@@ -72,6 +72,7 @@ machine, locked fields stay locked:
 - **Command palette (⌘K / Ctrl+K).** Jump to any screen or run theme / language / lock without leaving the keyboard. Type to filter, ↑↓ to move, Enter to run.
 - **Checkpoints.** Take a named snapshot before a significant edit. Restore is one click and goes through the same authenticated-import checks as a backup — and the restore itself is undoable because a `pre-restore` checkpoint is written first.
 - **A dashboard that answers "what now".** One completion ring for the headline number, a four-dimension bar underneath it, and an issue list where every row is a link to the fix.
+- **Search that keeps up.** The asset list and the 152-entry platform library debounce input before filtering, so typing stays smooth as the plan grows.
 
 ## Three ways to run it
 
@@ -120,7 +121,7 @@ npm run tauri:dev      # desktop app with hot reload
 npm run tauri:build    # MSI + NSIS installers
 ```
 
-Requires Node 22.22.2 (see `.nvmrc`), Rust stable, and the Tauri system dependencies for your platform.
+Requires Node 22.22.2 (see `.nvmrc`), Rust stable, and the Tauri system dependencies for your platform. On Windows the SQLCipher build additionally needs a Perl distribution with `ExtUtils::MakeMaker` and `nasm` — `choco install strawberryperl nasm -y` is enough. No separate OpenSSL install: it is compiled from source as part of the build.
 
 ## Security model
 

@@ -231,14 +231,15 @@
 **实现**：`hkdf` crate，用主密钥派生 `field_key` / `backup_key` / `kit_key` 三个域。约 0.5 人日。
 **收益**：备份泄露不等于字段密钥泄露；恢复包口令破解不等于主密钥破解。
 
-### P2-1 整库加密（SQLCipher）——已实测，本机不可行，列 CI 路径
-**现状**：字段级加密，但表结构、行数、时间戳、平台 ID 全明文。取证工具能看出「此人有 37 个账户、其中 12 个是金融类」。
-**实测（2026-10-30，本机 Windows）**：三种路径全部受阻——
+### P2-1 整库加密（SQLCipher）——已落地
+**现状**：字段级加密 + 整库 SQLCipher（AES-256）双轨。v0.4.0 起整库加密可用，表结构、行数、时间戳、平台 ID 不再明文。
+
+**早期构建受阻记录（保留以免重复踩坑，2026-10-30 本机实测）**：
 1. `bundled-sqlcipher` + `OPENSSL_DIR=C:\msys64\ucrt64`：sqlcipher/sqlite3.c 编译时 cl.exe 拉入 MSYS 的 GCC 风格 UCRT 头，`corecrt_wstdio.h` 语法错误 100+（MSVC 与 MSYS 头不兼容）；
-2. `bundled-sqlcipher-vendored-openssl`：openssl-src 需要 **native Windows perl** 跑 `Configure VC-WIN64A`，本机只有 msys perl 5.38，Configure exit 2；
+2. `bundled-sqlcipher-vendored-openssl`：openssl-src 需要 **native Windows perl** 跑 `Configure VC-WIN64A`，当时本机只有 msys perl 5.38，Configure exit 2；
 3. 调整 include 顺序（VC 头在前）可解决 1，但 sqlcipher 的 crypto 层仍要求 MSYS 路径下的 `openssl/crypto.h`——两套头无法同时满足。
-**可行路径**：CI（ubuntu runner 原生 perl + libssl-dev）可直接用 `bundled-sqlcipher`；Windows 需安装 Strawberry Perl 后启用 vendored-openssl。
-**当前缓解**：字段级加密 + KDBX 长期归档（KDBX 自带整库 AES-256）+ Shamir 恢复包，敏感内容已全部密文；泄露面只剩行数与表结构。
+
+**最终解法**：`bundled-sqlcipher-vendored-openssl` + Strawberry Perl（自带 `ExtUtils::MakeMaker` 与 nasm）。前置条件从「自备静态 OpenSSL」降为「装一个 Perl 发行版」，而 CI 的 `windows-latest` 镜像本就预装这两件。用「外部 OpenSSL」的旧写法曾让 CI 的 Windows 发布构建在 `libsqlite3-sys` 的 build script 里 panic——本地能出包、CI 出不了，属于最该消灭的一类缺陷，现已移除。
 
 ### P2-2 KDBX 导出（长期归档）
 **实现**：`keepass` crate，把全部资产导出为 KDBX 4 文件。20 年后用 KeePassXC 也能打开。

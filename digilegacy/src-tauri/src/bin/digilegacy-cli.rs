@@ -297,7 +297,14 @@ fn main() -> ExitCode {
     match out {
         Ok(code) => ExitCode::from(code),
         Err(e) => {
-            eprintln!("错误: {}", e);
+            // INVALID_ARGS 前缀是给 HTTP 层映射状态码用的机器标记，终端里读它没意义。
+            eprintln!(
+                "错误: {}",
+                e.replace(
+                    &format!("{}: ", digilegacy_lib::dispatch::ERR_INVALID_ARGS),
+                    ""
+                )
+            );
             ExitCode::from(EXIT_FAIL)
         }
     }

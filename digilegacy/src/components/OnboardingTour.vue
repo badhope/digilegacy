@@ -70,21 +70,66 @@ const spotlightStyle = computed(() => {
   };
 });
 
+/**
+ * 卡片定位。
+ *
+ * 关键约束：**永不盖住高亮目标**。早期实现只按视口高度粗略常量（260/240）判断，
+ * 卡片实测高度约 190-210px 且随文案换行变化，结果在资产发现页把「继续」按钮
+ * 压住、在资产页压住首条资产——用户第一次打开产品就点不到主操作。
+ *
+ * 现在的规则：
+ * 1. 没有目标（欢迎页）→ 居中，但整体上移，避免压住首屏主按钮。
+ * 2. 算完期望位置后，统一夹到视口内，并与目标矩形做一次避让。
+ */
+const CARD_W = 340;
+/** 卡片实测高度上限（标题+3 行描述+按钮+步数）。用保守值做避让计算。 */
+const CARD_H = 230;
+const GAP = 14;
+const EDGE = 16;
+
 const cardStyle = computed(() => {
-  const CARD_W = 340;
   if (!rect.value) {
-    return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
+    // 欢迎页：居中但抬高，给首屏主 CTA 让出可见区域。
+    return {
+      left: '50%',
+      top: '42%',
+      transform: 'translate(-50%, -50%)',
+    };
   }
   const r = rect.value;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+
+  const clampX = (x: number) => Math.max(EDGE, Math.min(x, vw - CARD_W - EDGE));
+  const clampY = (y: number) => Math.max(EDGE, Math.min(y, vh - CARD_H - EDGE));
+
+  // 侧栏目标（导航项）必须放右侧：上下放置会盖住相邻导航项，
+  // 用户看不全「自己在学的是哪一项」。
   if (r.left < 320) {
-    return { left: `${r.right + 16}px`, top: `${Math.min(r.top, vh - 260)}px` };
+    return { left: `${r.right + GAP}px`, top: `${clampY(r.top)}px` };
   }
-  if (r.bottom + 240 < vh) {
-    return { left: `${Math.max(16, Math.min(r.left, vw - CARD_W - 16))}px`, top: `${r.bottom + 14}px` };
+
+  // 主内容区：优先放在目标下方；下方空间不足就放上方；两侧都不够则放右侧/左侧。
+  const spaceBelow = vh - r.bottom - GAP - EDGE;
+  const spaceAbove = r.top - GAP - EDGE;
+
+  if (spaceBelow >= CARD_H) {
+    return { left: `${clampX(r.left)}px`, top: `${r.bottom + GAP}px` };
   }
-  return { left: `${Math.max(16, Math.min(r.left, vw - CARD_W - 16))}px`, top: `${Math.max(16, r.top - 230)}px` };
+  if (spaceAbove >= CARD_H) {
+    return { left: `${clampX(r.left)}px`, top: `${r.top - CARD_H - GAP}px` };
+  }
+  // 上下都放不下（矮窗口或长目标）：贴右侧，仍保证不压目标。
+  const spaceRight = vw - r.right - GAP - EDGE;
+  if (spaceRight >= CARD_W) {
+    return { left: `${r.right + GAP}px`, top: `${clampY(r.top)}px` };
+  }
+  const spaceLeft = r.left - GAP - EDGE;
+  if (spaceLeft >= CARD_W) {
+    return { left: `${r.left - CARD_W - GAP}px`, top: `${clampY(r.top)}px` };
+  }
+  // 实在无处可放（极小窗口）：夹到视口内，至少不越界。
+  return { left: `${clampX(r.left)}px`, top: `${clampY(vh - CARD_H - EDGE)}px` };
 });
 
 function measure() {
@@ -165,6 +210,9 @@ onBeforeUnmount(() => {
 }
 .tour-card {
   position: fixed;
+  /* border-box：padding 与边框算进 340px。否则内容宽 340 + 40 padding = 380px，
+     卡片的实际边界比定位计算宽 40px，圆点行会溢出到卡片外（截图上很明显）。 */
+  box-sizing: border-box;
   width: 340px;
   background: var(--surface);
   border-radius: 14px;
@@ -174,6 +222,7 @@ onBeforeUnmount(() => {
 }
 .tour-progress {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
   margin-bottom: 10px;
 }
@@ -187,12 +236,12 @@ onBeforeUnmount(() => {
   background: var(--primary, #4a7c8c);
 }
 .tour-title {
-  font-size: 16px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--gray-900, #24323a);
 }
 .tour-desc {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--gray-600, #5c6f79);
   line-height: 1.65;
   margin-top: 6px;
@@ -205,7 +254,7 @@ onBeforeUnmount(() => {
 }
 .tour-step-text {
   text-align: right;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--gray-400, #9aa8b0);
   margin-top: 6px;
 }

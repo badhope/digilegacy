@@ -27,7 +27,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, Query, State},
+    extract::{rejection::JsonRejection, Path, Query, State},
     http::{HeaderMap, StatusCode},
     response::{Html, IntoResponse, Response},
     routing::{get, post},
@@ -219,7 +219,7 @@ fn content_type_for(path: &std::path::Path) -> &'static str {
 /// 这里只接受「解析后仍以 root 开头」的结果。
 fn resolve_inside(root: &std::path::Path, raw: &str) -> Option<PathBuf> {
     let decoded = percent_decode(raw)?;
-    if decoded.contains(' ') {
+    if decoded.contains('\u{0}') {
         return None;
     }
     let rel = decoded.trim_start_matches('/');
@@ -421,14 +421,40 @@ struct InvokeBody {
     args: Map<String, Value>,
 }
 
+/// 统一调用入口。
+///
+/// 状态码语义（前端 `invoke.ts` 依赖，改动前先看它）：
+/// - **命令执行完了**（无论业务成功还是业务失败）→ 200 + `{success, message, data}` 信封。
+///   业务失败不是 HTTP 错误：`success:false` 是后端明确回话，store 要读它的 `message`
+///   展示原因。早先这里把业务失败映射成 400，前端按“非 2xx 即抛错”处理，于是
+///   用户看到的是笼统的加载失败，后端那句“继承人姓名不能为空”被丢掉。
+/// - **传输/授权层拒绝**（无 token、命令被禁、只读模式、未知命令、工作线程崩溃）
+///   才是 4xx/5xx：这些是调用方式错了，不是业务结果。
+///
+/// 请求体不合法（缺 `cmd`、非法 JSON）同样返回同一套信封而不是 axum 默认的纯文本
+/// 422——否则前端 `res.json()` 直接抛错，用户看到的是一句“非 JSON 响应”。
 async fn invoke(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-    Json(body): Json<InvokeBody>,
+    body: Result<Json<InvokeBody>, JsonRejection>,
 ) -> Response {
     if !authorized(&state, &headers) {
         return err_response(StatusCode::UNAUTHORIZED, "缺少或错误的 Bearer token");
     }
+
+    let Json(body) = match body {
+        Ok(b) => b,
+        Err(rejection) => {
+            return err_response(
+                StatusCode::BAD_REQUEST,
+                &format!(
+                    "请求体不合法：{}（应为 {{\"cmd\": \"命令名\", \"args\": {{...}}}}）",
+                    rejection.body_text()
+                ),
+            );
+        }
+    };
+
     if DENIED_COMMANDS.contains(&body.cmd.as_str()) {
         return err_response(
             StatusCode::FORBIDDEN,
@@ -448,23 +474,24 @@ async fn invoke(
 
     match tokio::task::spawn_blocking(move || dispatch::call(&body.cmd, body.args)).await {
         Ok(Ok(v)) => {
-            let success = v.get("success").and_then(Value::as_bool).unwrap_or(true);
-            let status = if success {
-                StatusCode::OK
-            } else {
-                StatusCode::BAD_REQUEST
-            };
-            (status, Json(v)).into_response()
+            // 命令执行完就回 200：success 由信封表达，不再混进状态码。
+            (StatusCode::OK, Json(v)).into_response()
         }
         Ok(Err(e)) => {
             let status = if e.contains(dispatch::ERR_UNSUPPORTED) {
                 StatusCode::NOT_IMPLEMENTED
+            } else if e.contains(dispatch::ERR_INVALID_ARGS) {
+                // 调用方给错了参数：4xx。归到 500 会让监控把用户漏填字段算成服务故障，
+                // 用户也会以为「服务器坏了」而不是「我这栏没填」。
+                StatusCode::BAD_REQUEST
             } else if e.contains("未知命令") {
                 StatusCode::NOT_FOUND
             } else {
                 StatusCode::INTERNAL_SERVER_ERROR
             };
-            err_response(status, &e)
+            // INVALID_ARGS 前缀是给机器分类用的，给人看时要去掉。
+            let msg = e.replace(&format!("{}: ", dispatch::ERR_INVALID_ARGS), "");
+            err_response(status, &msg)
         }
         Err(e) => err_response(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -614,6 +641,27 @@ fn main() {
 mod tests {
     use super::*;
 
+    /// 把 Response 的 body 读成 JSON，供信封断言使用。
+    ///
+    /// 只断言状态码不够：真正的契约是「无论成功失败，body 都是同一个信封」。
+    async fn body_json(resp: Response) -> Value {
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .expect("body 可读");
+        serde_json::from_slice(&bytes).expect("body 是 JSON")
+    }
+
+    #[tokio::test]
+    async fn err_response_is_always_a_full_envelope() {
+        // 前端 invoke.ts 只在「有 success 字段」时按信封处理。少了 success，
+        // 403/404 会被降级成「请求失败（HTTP xxx）」，后端写的原因就丢了。
+        let resp = err_response(StatusCode::FORBIDDEN, "只读模式");
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let v = body_json(resp).await;
+        assert_eq!(v["success"], json!(false));
+        assert_eq!(v["message"], json!("只读模式"));
+    }
+
     #[test]
     fn write_and_denied_lists_do_not_overlap() {
         for cmd in WRITE_COMMANDS {
@@ -623,6 +671,28 @@ mod tests {
                 cmd
             );
         }
+    }
+
+    /// 参数错误必须是 400 且不带机器前缀，否则监控会把用户漏填字段算进服务故障。
+    #[tokio::test]
+    async fn invalid_args_maps_to_400_and_strips_prefix() {
+        // 走真实的 dispatch：add_asset 缺 req 字段就是典型的调用方输入错误。
+        let err = dispatch::call("add_asset", Map::new()).expect_err("缺参数必须报错");
+        assert!(
+            err.contains(dispatch::ERR_INVALID_ARGS),
+            "缺参数必须带 INVALID_ARGS 前缀，实际: {err}"
+        );
+
+        // 服务端把它映射成 400，并把前缀从给人看的文案里去掉。
+        let msg = err.replace(&format!("{}: ", dispatch::ERR_INVALID_ARGS), "");
+        let resp = err_response(StatusCode::BAD_REQUEST, &msg);
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let v = body_json(resp).await;
+        assert_eq!(v["success"], json!(false));
+        assert!(
+            !v["message"].as_str().unwrap().contains("INVALID_ARGS"),
+            "机器前缀不该出现在用户可见文案里"
+        );
     }
 
     #[test]

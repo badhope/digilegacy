@@ -11,7 +11,6 @@
 // - 二进制文件走 base64，单文件上限 100MB（本仓库最大约 700KB）。
 
 import { execSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const REPOS = [
@@ -92,9 +91,12 @@ function gitBlobSha(buf) {
 }
 
 async function uploadBlob(repoOwner, token, filePath) {
-  const abs = path.resolve(filePath);
-  const stat = statSync(abs);
-  const buf = readFileSync(abs);
+  // 内容取自 git 对象库，不读工作区：本仓库文本以 LF 入库、Windows 检出为 CRLF，
+  // 读工作区会让每个文本文件算出不同的 blob sha，远端 tree 与本地对不上（踩过两次）。
+  const buf = execSync(`git cat-file blob HEAD:${filePath}`, {
+    cwd: process.cwd(),
+    maxBuffer: 128 * 1024 * 1024,
+  });
   // 大于 10MB 走 API 会慢，但本仓库没有这种文件；保留检查以便早失败
   if (buf.length > 90 * 1024 * 1024) {
     throw new Error(`${filePath} 超过 90MB，跳过 API 上传`);
@@ -103,7 +105,7 @@ async function uploadBlob(repoOwner, token, filePath) {
   // 先查后传：blob 是内容寻址的，已存在就跳过——重跑时大部分文件直接命中
   try {
     await gh(`/repos/${repoOwner}/digilegacy/git/blobs/${sha}`, {}, token);
-    return { path: filePath.replace(/\\/g, '/'), mode: '100644', type: 'blob', sha, size: stat.size };
+    return { path: filePath.replace(/\\/g, '/'), mode: '100644', type: 'blob', sha, size: buf.length };
   } catch (e) {
     if (!String(e).includes('-> 404')) throw e;
   }

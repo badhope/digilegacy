@@ -187,6 +187,34 @@ describe('HTTP 后端边界补充', () => {
     await expect(invoke('get_all_assets')).rejects.toThrow(/502/);
   });
 
+  it('非 2xx 但带完整信封时按信封处理，把后端原因交给调用方', async () => {
+    // 只读模式（403）、命令被禁（403）、未知命令（404）都带 {success:false,message}。
+    // 抛错会把「服务以只读模式运行」换成「请求失败（HTTP 403）」，丢掉可操作信息。
+    vi.stubEnv('PROD', true);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse({ success: false, message: '服务以只读模式运行' }, 403))
+    );
+    const { invoke } = await loadModule();
+
+    const res = await invoke<{ success: boolean; message: string }>('delete_asset', { id: 1 });
+    expect(res.success).toBe(false);
+    expect(res.message).toBe('服务以只读模式运行');
+  });
+
+  it('请求体不合法（400 结构化信封）同样不抛错', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => jsonResponse({ success: false, message: '请求体不合法：missing field `cmd`' }, 400))
+    );
+    const { invoke } = await loadModule();
+
+    const res = await invoke<{ success: boolean; message: string }>('nope');
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('请求体不合法');
+  });
+
   it('2xx 但缺 success 字段按成功处理（宽松信封）', async () => {
     vi.stubEnv('PROD', true);
     vi.stubGlobal('fetch', vi.fn(() => jsonResponse({ data: 'x' })));

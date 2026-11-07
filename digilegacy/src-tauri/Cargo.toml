@@ -1,6 +1,6 @@
 [package]
 name = "digilegacy"
-version = "0.5.0"
+version = "0.6.0"
 description = "DigiLegacy - local-first digital legacy planning desktop app"
 authors = ["DigiLegacy Team"]
 edition = "2021"
@@ -29,19 +29,19 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 # SQLCipher 整库加密（P2-1）。
 #
-# 为什么不是 `bundled-sqlcipher-vendored-openssl`：那条路径会在构建时用 perl 跑
-# OpenSSL 的 Configure。本机只有 MSYS perl，缺少 ExtUtils::MakeMaker 等模块，
-# 而 github.com 通道被阻断导致无法补装——整条链在本机不可构建。
+# 用 `bundled-sqlcipher-vendored-openssl`：OpenSSL 随 crate 一起在本机编译，构建
+# 环境**不需要**预装 OpenSSL，也不需要用 OPENSSL_DIR / OPENSSL_LIB_DIR 指路。
 #
-# `bundled-sqlcipher` 只编译 SQLite + SQLCipher 本身，OpenSSL 由构建环境提供：
-# 设 OPENSSL_LIB_DIR / OPENSSL_INCLUDE_DIR 指向已编译好的 OpenSSL 即可
-# （样例见 digilegacy/scripts/verify-env.example.cmd；一次性生成安装目录的命令见
-#   docs/VERIFICATION.md 构建说明）。
-# SQLCipher 在 Windows 上也可以用内置 crypto，但 libsqlite3-sys 0.38 的 Windows
-# 分支要求显式 OpenSSL，故按它的契约提供。
+# 早期用的是 `bundled-sqlcipher`（外部 OpenSSL），代价是每个构建环境都得自己准备
+# 一份静态 OpenSSL：CI 的 windows-latest 上没配，于是 `libsqlite3-sys` 的 build
+# script 直接 panic，安装包在本地能出、在 CI 出不了。这类「本地绿、用户装不上」
+# 的失败代价最高，所以宁可多花一点编译时间也要把前置条件消掉。
+#
+# 该路径需要 perl（Strawberry Perl）与 nasm：CI 的 windows-latest 已预装，
+# 本机准备步骤见 docs/VERIFICATION.md。
 #
 # 明文库兼容：SQLCipher 无 key 时以普通 SQLite 语义工作，测试与未升级用户不受影响。
-rusqlite = { version = "0.40", features = ["bundled-sqlcipher"] }
+rusqlite = { version = "0.40", features = ["bundled-sqlcipher-vendored-openssl"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.10", features = ["v4"] }
 thiserror = "1.0"

@@ -1,15 +1,15 @@
 <template>
   <div class="dms fade-in">
-    <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">{{ t('nav.dms') }} · Dead Man's Switch</h2>
-    <p class="text-muted mb-32" style="font-size: 14px;">{{ t('dms.subtitle') }}</p>
+    <h2 style="font-size: var(--text-xl); font-weight: 700; margin-bottom: 8px;">{{ t('nav.dms') }} · Dead Man's Switch</h2>
+    <p class="text-muted mb-32" style="font-size: var(--text-base);">{{ t('dms.subtitle') }}</p>
 
     <!-- 状态卡片 -->
     <div class="card mb-32" :class="statusClass">
       <div class="flex items-center gap-12">
         <div class="dms-status-icon" aria-hidden="true"><component :is="statusIcon" /></div>
         <div>
-          <div style="font-size: 20px; font-weight: 700;" :style="{ color: statusColor }">{{ statusTitle }}</div>
-          <div class="text-muted mt-16" style="font-size: 13px;">{{ statusSubtitle }}</div>
+          <div style="font-size: var(--text-xl); font-weight: 700;" :style="{ color: statusColor }">{{ statusTitle }}</div>
+          <div class="text-muted mt-16" style="font-size: var(--text-sm);">{{ statusSubtitle }}</div>
           <!-- 状态「安好」只说明签到计时正常，不等于家人能收到通知。
                仪表板把它算作 blocker；这里必须给出同一结论，否则两个页面自相矛盾。 -->
           <div v-if="!deliveryReady" class="dms-delivery-warn" role="alert">
@@ -36,10 +36,10 @@
         <button class="btn btn-success btn-lg" @click="handleCheckIn" :disabled="checking">
           {{ checking ? t('dms.checking') : t('dms.checkInBtn') }}
         </button>
-        <div v-if="lastCheckIn" class="mt-16 text-muted" style="font-size: 13px;">{{ t('dms.lastCheckIn') }}：{{ lastCheckIn }}</div>
+        <div v-if="lastCheckIn" class="mt-16 text-muted" style="font-size: var(--text-sm);">{{ t('dms.lastCheckIn') }}：{{ lastCheckIn }}</div>
         <!-- 签到历史：让「我上次到底点过没有」可自查，而不是只有一行最新时间 -->
         <div v-if="recentCheckIns.length > 1" class="mt-12">
-          <div class="text-muted" style="font-size: 12px; margin-bottom: 4px;">{{ t('dms.recentCheckIns') }}</div>
+          <div class="text-muted" style="font-size: var(--text-xs); margin-bottom: 4px;">{{ t('dms.recentCheckIns') }}</div>
           <ul class="dms-history-list">
             <li v-for="(ts, i) in recentCheckIns.slice(1)" :key="i">{{ ts }}</li>
           </ul>
@@ -51,7 +51,7 @@
         <div class="form-group">
           <label class="flex items-center gap-8" style="cursor: pointer;">
             <input type="checkbox" id="dms-enabled" v-model="settings.enabled" style="width: 18px; height: 18px;" />
-            <span style="font-weight: 500; font-size: 14px;">{{ t('dms.enable') }}</span>
+            <span style="font-weight: 500; font-size: var(--text-base);">{{ t('dms.enable') }}</span>
           </label>
           <p class="form-hint">{{ t('dms.disableHint') }}</p>
         </div>
@@ -89,7 +89,7 @@
         <div class="card-title mb-16">{{ t('dms.reviewTitle') }}</div>
         <p class="form-hint mb-16">{{ t('dms.reviewHint') }}</p>
         <div class="flex items-center gap-12">
-          <span class="text-muted" style="font-size: 13px;">
+          <span class="text-muted" style="font-size: var(--text-sm);">
             {{ dashboard.stats?.last_reviewed_at ? t('dms.reviewLast', { date: dashboard.stats.last_reviewed_at }) : t('dms.reviewNever') }}
           </span>
           <button class="btn btn-primary btn-sm" style="margin-left: auto;" @click="markReviewed" :disabled="reviewing">
@@ -109,7 +109,7 @@
       </ul>
       <div style="display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap;">
         <button class="btn btn-secondary btn-sm" :disabled="testingNotify" @click="handleTestNotify">{{ testingNotify ? t('dms.sending') : t('dms.testNotify') }}</button>
-        <span v-if="testResult" style="font-size: 12px;" aria-live="polite" :style="{ color: testResult === 'ok' ? 'var(--success)' : 'var(--danger)' }">
+        <span v-if="testResult" style="font-size: var(--text-xs);" aria-live="polite" :style="{ color: testResult === 'ok' ? 'var(--success)' : 'var(--danger)' }">
           {{ testResult === 'ok' ? t('dms.testOk') : t('dms.testFail') }}
         </span>
       </div>
@@ -154,7 +154,7 @@
           <span class="tag" :class="n.stage >= 3 ? 'tag-danger' : n.stage >= 2 ? 'tag-warning' : 'tag-property'">{{ t('dms.stageTag', { stage: n.stage }) }}</span>
           <div style="flex: 1;">
             <div style="font-weight: 600;">{{ n.subject }}</div>
-            <div class="text-muted" style="font-size: 12px;">{{ t('dms.recipient') }}：{{ n.recipient || t('dms.notConfigured') }} · {{ t('dms.channel') }}：{{ n.channel }} · {{ n.sent_at }}</div>
+            <div class="text-muted" style="font-size: var(--text-xs);">{{ t('dms.recipient') }}：{{ n.recipient || t('dms.notConfigured') }} · {{ t('dms.channel') }}：{{ n.channel }} · {{ n.sent_at }}</div>
           </div>
         </div>
       </div>
@@ -350,7 +350,7 @@ onMounted(async () => {
   border: 1px solid var(--warning);
   background: var(--warning-light);
   color: var(--warning-strong);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.55;
 }
 .dms-delivery-warn svg {
@@ -365,15 +365,15 @@ onMounted(async () => {
 .dms-disabled { background: var(--gray-50); border-color: var(--gray-200); }
 .dms-stages { display: flex; flex-direction: column; gap: 16px; }
 .dms-stage { display: flex; gap: 12px; padding: 12px 16px; border-radius: 8px; }
-.dms-stage p { font-size: 13px; margin-top: 2px; }
-.dms-note-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--gray-600, #5c6f79); line-height: 1.65; }
+.dms-stage p { font-size: var(--text-sm); margin-top: 2px; }
+.dms-note-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: var(--text-sm); color: var(--gray-600, #5c6f79); line-height: 1.65; }
 .dms-note-list strong { color: var(--gray-800, #37464f); }
 .dms-stage-1 { background: var(--success-light); }
 .dms-stage-2 { background: var(--warning-light); }
 .dms-stage-3 { background: var(--danger-light); }
 .dms-stage-active { outline: 2px solid var(--primary); outline-offset: 2px; }
-.dms-stage-num { font-size: 24px; }
+.dms-stage-num { font-size: var(--text-2xl); }
 .dms-limits { background: var(--gray-50); border-color: var(--gray-300); }
 .dms-limits .card-title { color: var(--gray-900); }
-.dms-history-list { margin: 0; padding-left: 18px; font-size: 12px; color: var(--gray-600); line-height: 1.7; font-variant-numeric: tabular-nums; }
+.dms-history-list { margin: 0; padding-left: 18px; font-size: var(--text-xs); color: var(--gray-600); line-height: 1.7; font-variant-numeric: tabular-nums; }
 </style>

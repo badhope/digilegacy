@@ -1,7 +1,7 @@
 <template>
   <div class="report fade-in">
-    <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 24px;">{{ t('report.title') }}</h2>
-    <p class="text-muted mb-32" style="font-size: 14px;">
+    <h2 style="font-size: var(--text-xl); font-weight: 700; margin-bottom: 24px;">{{ t('report.title') }}</h2>
+    <p class="text-muted mb-32" style="font-size: var(--text-base);">
       {{ t('report.subtitle') }}
     </p>
 
@@ -10,12 +10,12 @@
       <div class="skeleton skeleton-line w-60"></div>
       <div class="skeleton skeleton-line w-40"></div>
       <div class="skeleton skeleton-line w-60"></div>
-      <p class="text-muted mt-16" style="font-size: 13px;">{{ t('report.generating') }}</p>
+      <p class="text-muted mt-16" style="font-size: var(--text-sm);">{{ t('report.generating') }}</p>
     </div>
 
     <div v-else-if="loadError" class="card" role="alert" style="border-color: var(--danger);">
-      <h3 style="font-size: 16px; margin-bottom: 8px; color: var(--danger-strong);">{{ t('report.loadFailed') }}</h3>
-      <p class="text-muted mb-16" style="font-size: 13px;">{{ loadError }}</p>
+      <h3 style="font-size: var(--text-md); margin-bottom: 8px; color: var(--danger-strong);">{{ t('report.loadFailed') }}</h3>
+      <p class="text-muted mb-16" style="font-size: var(--text-sm);">{{ loadError }}</p>
       <button class="btn btn-primary btn-sm" @click="loadReport">{{ t('report.reload') }}</button>
     </div>
 
@@ -57,10 +57,10 @@
       <div class="report-section">
         <div class="report-section-title">{{ t('report.section2') }}</div>
         <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
-          <div class="text-center"><div style="font-size: 32px; font-weight: 700; color: var(--primary);">{{ report.assets.length }}</div><div class="text-muted" style="font-size: 12px;">{{ t('report.totalCount') }}</div></div>
-          <div class="text-center"><div style="font-size: 32px; font-weight: 700; color: var(--success);">{{ report.property_assets_count }}</div><div class="text-muted" style="font-size: 12px;">{{ t('cat.property') }}</div></div>
-          <div class="text-center"><div style="font-size: 32px; font-weight: 700; color: var(--secondary);">{{ report.personality_assets_count }}</div><div class="text-muted" style="font-size: 12px;">{{ t('cat.personality') }}</div></div>
-          <div class="text-center"><div style="font-size: 32px; font-weight: 700;">¥{{ formatMoney(report.total_estimated_value) }}</div><div class="text-muted" style="font-size: 12px;">{{ t('report.totalValue') }}</div></div>
+          <div class="text-center"><div style="font-size: var(--text-3xl); font-weight: 700; color: var(--primary);">{{ report.assets.length }}</div><div class="text-muted" style="font-size: var(--text-xs);">{{ t('report.totalCount') }}</div></div>
+          <div class="text-center"><div style="font-size: var(--text-3xl); font-weight: 700; color: var(--success);">{{ report.property_assets_count }}</div><div class="text-muted" style="font-size: var(--text-xs);">{{ t('cat.property') }}</div></div>
+          <div class="text-center"><div style="font-size: var(--text-3xl); font-weight: 700; color: var(--secondary);">{{ report.personality_assets_count }}</div><div class="text-muted" style="font-size: var(--text-xs);">{{ t('cat.personality') }}</div></div>
+          <div class="text-center"><div style="font-size: var(--text-3xl); font-weight: 700;">¥{{ formatMoney(report.total_estimated_value) }}</div><div class="text-muted" style="font-size: var(--text-xs);">{{ t('report.totalValue') }}</div></div>
         </div>
       </div>
 
@@ -86,7 +86,7 @@
         <div class="report-section-title">{{ t('report.section4') }}</div>
         <div v-for="(asset, idx) in inheritableAssets" :key="asset.id" style="margin-bottom: 12px; padding: 12px; background: var(--gray-50); border-radius: 8px; border-left: 3px solid var(--primary);">
           <strong>{{ idx + 1 }}. {{ asset.platform_name }}</strong>
-          <p style="font-size: 13px; color: var(--gray-600); margin-top: 4px;">
+          <p style="font-size: var(--text-sm); color: var(--gray-600); margin-top: 4px;">
             {{ t('report.disposalMethod', { method: disposalLabel(asset.disposal_method) }) }} |
             <span v-if="asset.heir_name">{{ heirInfoText(asset) }}</span>
           </p>
@@ -100,28 +100,28 @@
         <div v-for="p in report.policies" :key="p.platform_id" style="margin-bottom: 12px; padding: 12px; background: var(--gray-50); border-radius: 8px; border-left: 3px solid var(--secondary);">
           <div style="display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; margin-bottom:6px;">
             <strong>{{ p.name }}</strong>
-            <span v-if="p.estimated_difficulty" class="tag tag-secondary" style="font-size:11px;">{{ t('report.policyDifficulty') }}：{{ p.estimated_difficulty }}</span>
-            <span v-if="p.estimated_time_days" class="tag tag-secondary" style="font-size:11px;">{{ t('report.policyDuration') }}：{{ p.estimated_time_days }}</span>
-            <span class="tag" :class="p.has_source ? 'tag-success' : 'tag-warning'" style="font-size:11px;">
+            <span v-if="p.estimated_difficulty" class="tag tag-secondary" style="font-size: var(--text-2xs);">{{ t('report.policyDifficulty') }}：{{ p.estimated_difficulty }}</span>
+            <span v-if="p.estimated_time_days" class="tag tag-secondary" style="font-size: var(--text-2xs);">{{ t('report.policyDuration') }}：{{ p.estimated_time_days }}</span>
+            <span class="tag" :class="p.has_source ? 'tag-success' : 'tag-warning'" style="font-size: var(--text-2xs);">
               {{ p.has_source ? t('report.policySourced') : t('report.policyUnsourced') }}
             </span>
           </div>
-          <p style="font-size: 12px; color: var(--gray-600); margin: 4px 0;">
+          <p style="font-size: var(--text-xs); color: var(--gray-600); margin: 4px 0;">
             <strong>{{ t('report.policyDocs') }}</strong>{{ p.required_documents || t('report.notFilled') }}
           </p>
-          <p style="font-size: 12px; color: var(--gray-600); margin: 4px 0;">
+          <p style="font-size: var(--text-xs); color: var(--gray-600); margin: 4px 0;">
             <strong>{{ t('report.policyProcess') }}</strong>{{ p.process_description || t('report.notFilled') }}
           </p>
-          <p v-if="p.monetization_path" style="font-size: 12px; color: var(--gray-600); margin: 4px 0;">
+          <p v-if="p.monetization_path" style="font-size: var(--text-xs); color: var(--gray-600); margin: 4px 0;">
             <strong>{{ t('report.policyPath') }}</strong>{{ p.monetization_path }}
           </p>
-          <p v-if="p.risk_warnings" style="font-size: 12px; color: var(--warning-strong); margin: 4px 0;">
+          <p v-if="p.risk_warnings" style="font-size: var(--text-xs); color: var(--warning-strong); margin: 4px 0;">
             <strong>{{ t('report.policyRisks') }}</strong>{{ p.risk_warnings }}
           </p>
-          <p v-if="p.official_policy_url" style="font-size: 11px; color: var(--gray-500); margin: 4px 0; word-break: break-all;">
+          <p v-if="p.official_policy_url" style="font-size: var(--text-2xs); color: var(--gray-500); margin: 4px 0; word-break: break-all;">
             <strong>{{ t('report.policyOfficial') }}</strong>{{ p.official_policy_url }}
           </p>
-          <p v-if="!p.has_source" style="font-size: 11px; color: var(--warning-strong); margin: 4px 0;">
+          <p v-if="!p.has_source" style="font-size: var(--text-2xs); color: var(--warning-strong); margin: 4px 0;">
             {{ t('report.policyUnsourcedNote') }}
           </p>
         </div>
@@ -132,18 +132,18 @@
         <div class="report-section-title">{{ t('report.sectionAuthorities') }}</div>
         <div v-for="a in report.authorities" :key="a.id" style="margin-bottom: 12px; padding: 12px; background: var(--gray-50); border-radius: 8px;">
           <div style="display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px;">
-            <strong style="font-size: 13px;">{{ isEnLocale ? a.title_en : a.title_zh }}</strong>
-            <span class="tag tag-secondary" style="font-size: 11px;">{{ t('report.authorityReachable') }}</span>
-            <span class="tag" :class="a.content_matched ? 'tag-success' : 'tag-warning'" style="font-size: 11px;">
+            <strong style="font-size: var(--text-sm);">{{ isEnLocale ? a.title_en : a.title_zh }}</strong>
+            <span class="tag tag-secondary" style="font-size: var(--text-2xs);">{{ t('report.authorityReachable') }}</span>
+            <span class="tag" :class="a.content_matched ? 'tag-success' : 'tag-warning'" style="font-size: var(--text-2xs);">
               {{ a.content_matched ? t('report.authorityMatched') : t('report.authorityUnmatched') }}
             </span>
-            <span v-if="a.kind === 'portal'" class="tag tag-warning" style="font-size: 11px;">{{ t('report.authorityPortal') }}</span>
+            <span v-if="a.kind === 'portal'" class="tag tag-warning" style="font-size: var(--text-2xs);">{{ t('report.authorityPortal') }}</span>
           </div>
-          <p style="font-size: 12px; color: var(--gray-600); margin: 4px 0;">{{ isEnLocale ? a.note_en : a.note_zh }}</p>
-          <p v-if="a.kind === 'portal'" style="font-size: 11px; color: var(--warning-strong); margin: 4px 0;">
+          <p style="font-size: var(--text-xs); color: var(--gray-600); margin: 4px 0;">{{ isEnLocale ? a.note_en : a.note_zh }}</p>
+          <p v-if="a.kind === 'portal'" style="font-size: var(--text-2xs); color: var(--warning-strong); margin: 4px 0;">
             {{ isEnLocale ? a.portal_note_en : a.portal_note_zh }}
           </p>
-          <p style="font-size: 11px; color: var(--gray-500); margin: 4px 0; word-break: break-all;">
+          <p style="font-size: var(--text-2xs); color: var(--gray-500); margin: 4px 0; word-break: break-all;">
             <span v-if="a.last_checked">{{ t('report.authorityChecked', { date: a.last_checked }) }} · </span>{{ a.url }}
           </p>
         </div>
@@ -151,7 +151,7 @@
 
       <div class="report-section">
         <div class="report-section-title">{{ t('report.section6') }}</div>
-        <div style="font-size: 13px; color: var(--gray-600); line-height: 1.8;">
+        <div style="font-size: var(--text-sm); color: var(--gray-600); line-height: 1.8;">
           <p style="margin: 4px 0;">{{ t('report.statement1') }}</p>
           <p style="margin: 4px 0;">{{ t('report.statement2') }}</p>
           <p style="margin: 4px 0;">{{ t('report.statement3') }}</p>
@@ -163,8 +163,8 @@
 
       <div class="report-section" style="margin-top: 48px;">
         <div style="display: flex; justify-content: space-between;">
-          <div style="text-align: center;"><div style="width: 200px; border-bottom: 1px solid var(--gray-400); margin-bottom: 8px;">&nbsp;</div><span style="font-size: 13px; color: var(--gray-500);">{{ t('report.signature') }}</span></div>
-          <div style="text-align: center;"><div style="width: 200px; border-bottom: 1px solid var(--gray-400); margin-bottom: 8px;">&nbsp;</div><span style="font-size: 13px; color: var(--gray-500);">{{ t('report.date') }}</span></div>
+          <div style="text-align: center;"><div style="width: 200px; border-bottom: 1px solid var(--gray-400); margin-bottom: 8px;">&nbsp;</div><span style="font-size: var(--text-sm); color: var(--gray-500);">{{ t('report.signature') }}</span></div>
+          <div style="text-align: center;"><div style="width: 200px; border-bottom: 1px solid var(--gray-400); margin-bottom: 8px;">&nbsp;</div><span style="font-size: var(--text-sm); color: var(--gray-500);">{{ t('report.date') }}</span></div>
         </div>
       </div>
 
@@ -177,7 +177,7 @@
 
     <div v-if="exportPath" class="card mt-24 tag-success" style="background: var(--success-light); border-color: var(--success);">
       <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
-        <span>{{ t('report.savedTo') }}<code style="font-size:12px;word-break:break-all;">{{ exportPath }}</code></span>
+        <span>{{ t('report.savedTo') }}<code style="font-size: var(--text-xs);word-break:break-all;">{{ exportPath }}</code></span>
         <div style="display:flex;gap:8px;">
           <!-- 导出后只给一行路径，普通用户找不到（应用数据目录是隐藏的） -->
           <button v-if="canReveal" class="btn btn-secondary btn-sm" @click="revealExport">{{ t('report.revealFile') }}</button>
@@ -199,7 +199,7 @@
     <!-- 内置 Agent：多轮本地工具检索，步骤可见，最终仍是草稿/建议。 -->
     <div class="card mt-24" v-if="assistantAvailable" data-testid="agent-card">
       <div class="card-title mb-8">{{ t('agent.title') }}</div>
-      <p class="text-muted" style="font-size: 13px;">{{ t('agent.desc') }}</p>
+      <p class="text-muted" style="font-size: var(--text-sm);">{{ t('agent.desc') }}</p>
       <div class="form-group" style="margin-top: 12px;">
         <label class="form-label" for="agent-task">{{ t('agent.taskLabel') }}</label>
         <textarea class="form-textarea" id="agent-task" v-model="agentTask" :placeholder="t('agent.taskPlaceholder')"></textarea>
@@ -213,30 +213,30 @@
         </button>
       </div>
       <div v-if="agentSteps.length > 0" class="agent-timeline" style="margin-top: 12px;">
-        <div v-for="(step, i) in agentSteps" :key="i" class="agent-step" style="padding: 8px; margin-top: 6px; background: var(--gray-50); border-radius: 6px; font-size: 12px;">
+        <div v-for="(step, i) in agentSteps" :key="i" class="agent-step" style="padding: 8px; margin-top: 6px; background: var(--gray-50); border-radius: 6px; font-size: var(--text-xs);">
           <strong>{{ step.kind === 'tool_start' ? t('agent.toolStarting') : step.kind === 'tool_end' ? t('agent.toolFinished') : step.kind === 'started' ? t('agent.started') : t('agent.finished') }}</strong>
           <span v-if="step.tool"> · {{ step.tool }}</span>
           <span v-if="step.result" class="form-hint" style="display: block; margin-top: 3px; white-space: pre-wrap;">{{ step.result }}</span>
         </div>
       </div>
       <div v-if="agentAnswer" style="margin-top: 12px; padding: 12px; background: var(--primary-light); border-radius: 8px;">
-        <strong style="font-size: 13px;">{{ t('agent.resultTitle') }}</strong>
-        <pre style="white-space: pre-wrap; font-size: 13px; margin-top: 6px; font-family: inherit;">{{ agentAnswer }}</pre>
+        <strong style="font-size: var(--text-sm);">{{ t('agent.resultTitle') }}</strong>
+        <pre style="white-space: pre-wrap; font-size: var(--text-sm); margin-top: 6px; font-family: inherit;">{{ agentAnswer }}</pre>
         <p class="form-hint">{{ t('agent.draftNotice') }}</p>
       </div>
-      <p v-if="agentError" role="alert" style="font-size: 13px; color: var(--danger-strong); margin-top: 8px;">{{ agentError }}</p>
+      <p v-if="agentError" role="alert" style="font-size: var(--text-sm); color: var(--danger-strong); margin-top: 8px;">{{ agentError }}</p>
 
       <!-- 运行审计：最近 10 条摘要。只存任务描述与工具名，参数与结果全文不落库。 -->
       <div style="margin-top: 16px; border-top: 1px solid var(--gray-100); padding-top: 12px;">
         <div class="flex items-center gap-12">
-          <strong style="font-size: 13px;">{{ t('agent.historyTitle') }}</strong>
+          <strong style="font-size: var(--text-sm);">{{ t('agent.historyTitle') }}</strong>
           <button class="btn btn-secondary btn-sm" style="margin-left: auto;" :disabled="agentRuns.length === 0" @click="clearAgentRuns">
             {{ t('agent.historyClear') }}
           </button>
         </div>
         <p v-if="agentRuns.length === 0" class="form-hint" style="margin-top: 6px;">{{ t('agent.historyEmpty') }}</p>
         <ul v-else style="list-style: none; padding: 0; margin: 8px 0 0 0;">
-          <li v-for="r in agentRuns" :key="r.id" style="padding: 6px 0; border-bottom: 1px solid var(--gray-50); font-size: 12px;">
+          <li v-for="r in agentRuns" :key="r.id" style="padding: 6px 0; border-bottom: 1px solid var(--gray-50); font-size: var(--text-xs);">
             <span :style="{ color: r.outcome === 'error' ? 'var(--danger-strong)' : r.outcome === 'truncated' ? 'var(--warning-strong)' : 'var(--success-strong)' }">
               {{ t(`agent.outcome.${r.outcome}`) }}
             </span>
@@ -251,7 +251,7 @@
     <!-- AI 助手（可选）：默认关闭，不内置任何端点。提问前必须先看「将发送什么」。 -->
     <div class="card mt-24" v-if="assistantAvailable">
       <div class="card-title mb-8">{{ t('ai.askTitle') }}</div>
-      <p class="text-muted" style="font-size: 13px;">{{ t('ai.askDesc') }}</p>
+      <p class="text-muted" style="font-size: var(--text-sm);">{{ t('ai.askDesc') }}</p>
       <div class="form-group" style="margin-top: 12px;">
         <label class="form-label" for="ai-question">{{ t('ai.question') }}</label>
         <textarea class="form-textarea" id="ai-question" v-model="aiQuestion" :placeholder="t('ai.questionPlaceholder')"></textarea>
@@ -261,19 +261,19 @@
         <button class="btn btn-primary btn-sm" :disabled="aiBusy || !aiPreview" @click="askAi">{{ aiBusy ? t('ai.asking') : t('ai.ask') }}</button>
       </div>
       <div v-if="aiPreview" style="margin-top: 12px; padding: 12px; background: var(--gray-50); border-radius: 8px;">
-        <strong style="font-size: 13px;">{{ t('ai.previewTitle') }}</strong>
-        <p style="font-size: 12px; color: var(--gray-600); margin-top: 6px;">{{ t('ai.previewNote', { chars: aiPreview.chars }) }}</p>
-        <ul style="font-size: 12px; color: var(--gray-600); margin: 6px 0 0 20px;">
+        <strong style="font-size: var(--text-sm);">{{ t('ai.previewTitle') }}</strong>
+        <p style="font-size: var(--text-xs); color: var(--gray-600); margin-top: 6px;">{{ t('ai.previewNote', { chars: aiPreview.chars }) }}</p>
+        <ul style="font-size: var(--text-xs); color: var(--gray-600); margin: 6px 0 0 20px;">
           <li v-for="f in aiPreview.fields" :key="f">{{ f }}</li>
         </ul>
       </div>
       <div v-if="aiAnswer" style="margin-top: 12px; padding: 12px; background: var(--primary-light); border-radius: 8px;">
-        <strong style="font-size: 13px;">{{ t('ai.answerTitle') }}</strong>
-        <pre style="white-space: pre-wrap; font-size: 13px; margin-top: 6px; font-family: inherit;">{{ aiAnswer }}</pre>
+        <strong style="font-size: var(--text-sm);">{{ t('ai.answerTitle') }}</strong>
+        <pre style="white-space: pre-wrap; font-size: var(--text-sm); margin-top: 6px; font-family: inherit;">{{ aiAnswer }}</pre>
         <p class="form-hint">{{ t('ai.unreviewed') }}</p>
       </div>
 
-      <p v-if="aiError" role="alert" style="font-size: 13px; color: var(--danger-strong); margin-top: 8px;">{{ aiError }}</p>
+      <p v-if="aiError" role="alert" style="font-size: var(--text-sm); color: var(--danger-strong); margin-top: 8px;">{{ aiError }}</p>
     </div>
 
     <!-- 本地问答历史：与助手开关无关——历史是本地留痕，助手未启用也能回看与清除 -->
@@ -283,23 +283,23 @@
         <button class="btn btn-secondary btn-sm" data-testid="ai-history-clear" @click="clearChatHistory">{{ t('ai.historyClear') }}</button>
       </div>
       <div v-for="h in chatHistory" :key="h.id" style="margin-top: 10px; padding: 10px; background: var(--gray-50); border-radius: 8px;">
-        <div style="font-size: 13px; font-weight: 500;">Q: {{ h.question }}</div>
-        <pre style="white-space: pre-wrap; font-size: 12px; margin: 6px 0 0; font-family: inherit; color: var(--gray-600);">A: {{ h.answer }}</pre>
-        <div style="font-size: 11px; color: var(--gray-400); margin-top: 4px;">{{ h.model }} · {{ h.created_at }}</div>
+        <div style="font-size: var(--text-sm); font-weight: 500;">Q: {{ h.question }}</div>
+        <pre style="white-space: pre-wrap; font-size: var(--text-xs); margin: 6px 0 0; font-family: inherit; color: var(--gray-600);">A: {{ h.answer }}</pre>
+        <div style="font-size: var(--text-2xs); color: var(--gray-400); margin-top: 4px;">{{ h.model }} · {{ h.created_at }}</div>
       </div>
     </div>
 
     <!-- 家人演练：只用元数据检查「家人拿到后会卡在哪」，不读取任何凭据 -->
     <div class="card mt-24">
       <div class="card-title mb-8">{{ t('drill.title') }}</div>
-      <p class="text-muted" style="font-size: 13px;">{{ t('drill.desc') }}</p>
+      <p class="text-muted" style="font-size: var(--text-sm);">{{ t('drill.desc') }}</p>
       <div style="margin-top: 12px;">
         <button class="btn btn-secondary btn-sm" :disabled="drillBusy" @click="runDrill">
           {{ drillBusy ? t('drill.running') : t('drill.run') }}
         </button>
       </div>
       <div v-if="drill" style="margin-top: 14px;">
-        <p style="font-size: 13px; color: var(--gray-600);" aria-live="polite">
+        <p style="font-size: var(--text-sm); color: var(--gray-600);" aria-live="polite">
           {{ t('drill.summary', { platforms: drill.platforms, assets: drill.assets }) }}
         </p>
         <ul class="drill-list">
@@ -308,11 +308,11 @@
             {{ drillCheckText(c) }}
           </li>
         </ul>
-        <p v-if="drill.checks.every(c => c.ok)" class="tag-success" style="font-size: 13px; margin-top: 8px;">
+        <p v-if="drill.checks.every(c => c.ok)" class="tag-success" style="font-size: var(--text-sm); margin-top: 8px;">
           {{ t('drill.allGood') }}
         </p>
       </div>
-      <p v-if="drillError" role="alert" style="font-size: 13px; color: var(--danger-strong); margin-top: 8px;">{{ drillError }}</p>
+      <p v-if="drillError" role="alert" style="font-size: var(--text-sm); color: var(--danger-strong); margin-top: 8px;">{{ drillError }}</p>
     </div>
   </div>
 </template>
@@ -776,7 +776,7 @@ onMounted(async () => {
   list-style: none;
   padding: 0;
   margin: 8px 0 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--danger-strong);
 }
 .drill-list li { margin: 4px 0; }
@@ -804,14 +804,14 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--gray-600);
   letter-spacing: 0.5px;
 }
 .doc-no {
   text-align: right;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--gray-400);
   letter-spacing: 0.5px;
   font-variant-numeric: tabular-nums;
@@ -819,7 +819,7 @@ onMounted(async () => {
 
 .report-title {
   text-align: center;
-  font-size: 25px;
+  font-size: var(--text-2xl);
   font-weight: 700;
   margin-bottom: 12px;
   letter-spacing: 6px;
@@ -829,7 +829,7 @@ onMounted(async () => {
 .doc-meta {
   text-align: center;
   color: var(--gray-500);
-  font-size: 12px;
+  font-size: var(--text-xs);
   margin-bottom: 40px;
   letter-spacing: 0.3px;
 }
@@ -837,7 +837,7 @@ onMounted(async () => {
 
 .report-section { margin-bottom: 28px; }
 .report-section-title {
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 600;
   padding-bottom: 9px;
   border-bottom: 2px solid var(--gray-200);
@@ -852,7 +852,7 @@ onMounted(async () => {
   margin-top: 44px;
   padding-top: 14px;
   border-top: 1px solid var(--gray-200);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--gray-400);
   letter-spacing: 0.3px;
 }

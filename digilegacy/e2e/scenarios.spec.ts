@@ -92,7 +92,9 @@ test.describe('资产发现：平台搜索 20 个关键词（20 场景）', () =
 
     for (const kw of keywords) {
       await search.fill(kw);
-      await page.waitForTimeout(120);
+      // 搜索走 200ms 防抖（停手才过滤）。断言必须等过滤真的发生，否则读到的是
+      // 上一个关键词的结果，测试会随机器负载随机红。这里等满防抖窗口再断言。
+      await page.waitForTimeout(280);
       const cards = await page.locator('.platform-card').count();
       expect(cards, `关键词「${kw}」渲染异常`).toBeGreaterThanOrEqual(0);
       // 搜索结果必须都包含关键词（空/空格除外）

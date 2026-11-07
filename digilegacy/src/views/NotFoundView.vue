@@ -2,8 +2,8 @@
   <div class="not-found fade-in">
     <div class="card text-center" style="padding: 56px 32px;">
       <EmptyState kind="search" :size="180" />
-      <h2 style="font-size: 22px; margin: 20px 0 8px;">{{ t('notFound.title') }}</h2>
-      <p class="text-muted mb-24" style="font-size: 14px;">
+      <h2 style="font-size: var(--text-xl); margin: 20px 0 8px;">{{ t('notFound.title') }}</h2>
+      <p class="text-muted mb-24" style="font-size: var(--text-base);">
         {{ t('notFound.desc') }}
       </p>
       <div class="flex gap-12" style="justify-content: center; flex-wrap: wrap;">

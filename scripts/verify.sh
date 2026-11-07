@@ -68,6 +68,14 @@ if [ "$MODE" != "--web-only" ]; then
   echo "################ Rust ################"
   CARGO="cargo"
   have cargo || { [ -x "$HOME/.cargo/bin/cargo" ] && CARGO="$HOME/.cargo/bin/cargo"; }
+  # SQLCipher 走 vendored OpenSSL，构建期需要 perl 与 nasm。缺了会在编译末尾
+  # 抛 build script panic，这里提前给一句人话（CI 里同样有一段等价检查）。
+  if ! have perl; then
+    echo "  WARN: 找不到 perl —— vendored OpenSSL 无法编译（Windows 装 Strawberry Perl）"
+  fi
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) have nasm || echo "  WARN: 找不到 nasm —— vendored OpenSSL 无法编译（choco install nasm）" ;;
+  esac
   run "格式检查" bash -c "cd '$TAURI' && '$CARGO' fmt --check"
   run "Clippy（-D warnings）" bash -c "cd '$TAURI' && '$CARGO' clippy --all-targets -- -D warnings"
   run "测试" bash -c "cd '$TAURI' && '$CARGO' test --locked"

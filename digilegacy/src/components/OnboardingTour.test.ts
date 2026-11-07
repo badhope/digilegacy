@@ -173,15 +173,18 @@ describe('卡片定位分支', () => {
     await w.vm.$nextTick();
   }
 
-  it('目标贴近左缘时卡片放在目标右侧', async () => {
+  it('目标贴近左缘时卡片放在目标右侧，且不覆盖目标', async () => {
     injectTarget(100, 200);
     const w = mountTour();
     await advanceToNav(w);
     const card = document.querySelector('.tour-card') as HTMLElement;
-    expect(card.style.left).toBe('236px'); // right(220) + 16
+    // 目标 right=220，间隔 14 → 234。旧实现在下方空间足够时优先放下方，
+    // 结果卡片横跨目标正上方/下方，把 120px 宽的目标挤到边缘；新规则优先避让。
+    expect(card.style.left).toBe('234px');
+    expect(parseFloat(card.style.left)).toBeGreaterThanOrEqual(220);
   });
 
-  it('目标在下半区时卡片放在目标下方', async () => {
+  it('目标下方空间足够时卡片放在目标下方', async () => {
     injectTarget(500, 200);
     const w = mountTour();
     await advanceToNav(w);
@@ -195,6 +198,8 @@ describe('卡片定位分支', () => {
     const w = mountTour();
     await advanceToNav(w);
     const card = document.querySelector('.tour-card') as HTMLElement;
-    expect(card.style.top).toBe('470px'); // 700 - 230 上移（兜底分支）
+    // 上方空间 700-14-16=670 >= CARD_H(230) → top = 700-230-14 = 456
+    expect(card.style.top).toBe('456px');
+    expect(parseFloat(card.style.top) + 230).toBeLessThanOrEqual(700);
   });
 });

@@ -1,7 +1,7 @@
 <template>
   <div class="heir fade-in">
-    <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">{{ t('heir.title') }}</h2>
-    <p class="text-muted mb-32" style="font-size: 14px;">
+    <h2 style="font-size: var(--text-xl); font-weight: 700; margin-bottom: 8px;">{{ t('heir.title') }}</h2>
+    <p class="text-muted mb-32" style="font-size: var(--text-base);">
       {{ t('heir.subtitle') }}
     </p>
 
@@ -10,8 +10,8 @@
       <div class="flex items-center gap-12">
         <span class="heir-warn-icon" aria-hidden="true"><WarningOutline /></span>
         <div>
-          <strong style="font-size: 16px;">{{ t('heir.prereqTitle') }}</strong>
-          <p style="font-size: 13px; margin-top: 4px; color: var(--gray-800);">
+          <strong style="font-size: var(--text-md);">{{ t('heir.prereqTitle') }}</strong>
+          <p style="font-size: var(--text-sm); margin-top: 4px; color: var(--gray-800);">
             {{ t('heir.prereqDesc') }}
           </p>
         </div>
@@ -23,19 +23,19 @@
       <div class="card-title mb-16">{{ t('heir.flowTitle') }}</div>
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <div class="flex items-center gap-12" style="padding: 10px 16px; background: var(--gray-50); border-radius: 8px;">
-          <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--solid-primary); color: var(--on-solid); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">1</span>
+          <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--solid-primary); color: var(--on-solid); display: flex; align-items: center; justify-content: center; font-size: var(--text-sm); font-weight: 700;">1</span>
           <span>{{ t('heir.flow1') }}</span>
         </div>
         <div class="flex items-center gap-12" style="padding: 10px 16px; background: var(--gray-50); border-radius: 8px;">
-          <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--solid-primary); color: var(--on-solid); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">2</span>
+          <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--solid-primary); color: var(--on-solid); display: flex; align-items: center; justify-content: center; font-size: var(--text-sm); font-weight: 700;">2</span>
           <span>{{ t('heir.flow2') }}</span>
         </div>
         <div class="flex items-center gap-12" style="padding: 10px 16px; background: var(--gray-50); border-radius: 8px;">
-          <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--solid-primary); color: var(--on-solid); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">3</span>
+          <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--solid-primary); color: var(--on-solid); display: flex; align-items: center; justify-content: center; font-size: var(--text-sm); font-weight: 700;">3</span>
           <span>{{ t('heir.flow3') }}</span>
         </div>
         <div class="flex items-center gap-12" style="padding: 10px 16px; background: var(--gray-50); border-radius: 8px;">
-          <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--solid-primary); color: var(--on-solid); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">4</span>
+          <span style="width: 28px; height: 28px; border-radius: 50%; background: var(--solid-primary); color: var(--on-solid); display: flex; align-items: center; justify-content: center; font-size: var(--text-sm); font-weight: 700;">4</span>
           <span>{{ t('heir.flow4') }}</span>
         </div>
       </div>
@@ -73,7 +73,7 @@
             <div style="padding: 12px 16px; background: var(--gray-50); display: flex; justify-content: space-between; align-items: center; gap: 12px;">
               <div class="flex items-center gap-8 minw-0">
                 <strong class="ellipsis">{{ platform.name }}</strong>
-                <span class="text-muted" style="font-size: 12px;">{{ categoryLabel(platform.category) }}</span>
+                <span class="text-muted" style="font-size: var(--text-xs);">{{ categoryLabel(platform.category) }}</span>
               </div>
               <span class="tag" :class="{
                 'tag-success': platform.inheritable,
@@ -81,7 +81,7 @@
               }">{{ platform.inheritable ? t('heir.inheritable') : t('heir.hardInherit') }}</span>
             </div>
             <div style="padding: 16px;">
-              <div class="grid grid-2" style="gap: 12px; font-size: 13px;">
+              <div class="grid grid-2" style="gap: 12px; font-size: var(--text-sm);">
                 <div>
                   <strong>{{ t('heir.requiredDocs') }}</strong>
                   <span class="text-muted">{{ platform.required_documents || t('heir.consultSupport') }}</span>
@@ -92,8 +92,8 @@
                 </div>
               </div>
               <div class="mt-12">
-                <strong style="font-size: 13px;">{{ t('heir.process') }}：</strong>
-                <p class="text-muted clamp-3" style="font-size: 13px; margin-top: 4px; line-height: 1.5;">
+                <strong style="font-size: var(--text-sm);">{{ t('heir.process') }}：</strong>
+                <p class="text-muted clamp-3" style="font-size: var(--text-sm); margin-top: 4px; line-height: 1.5;">
                   {{ platform.process_description || t('heir.noGuide') }}
                 </p>
               </div>
@@ -123,7 +123,7 @@
           <div style="padding: 12px 16px; background: linear-gradient(135deg, var(--primary-light) 0%, var(--secondary-light) 100%); display: flex; justify-content: space-between; align-items: center;">
             <div class="flex items-center gap-8">
               <strong>{{ platform.name }}</strong>
-              <span class="text-muted" style="font-size: 12px;">{{ categoryLabel(platform.category) }}</span>
+              <span class="text-muted" style="font-size: var(--text-xs);">{{ categoryLabel(platform.category) }}</span>
             </div>
             <div class="flex gap-8">
               <span class="tag" :class="{
@@ -136,10 +136,10 @@
           <div style="padding: 16px;">
             <!-- 变现/过户路径卡 -->
             <div v-if="platform.monetization_path" class="mb-16 p-12" style="background: var(--gray-50); border-radius: 8px; border-left: 3px solid var(--success);">
-              <div style="font-size: 13px; color: var(--gray-700); line-height: 1.6;">
+              <div style="font-size: var(--text-sm); color: var(--gray-700); line-height: 1.6;">
                 {{ platform.monetization_path }}
               </div>
-              <div style="font-size: 11px; color: var(--gray-500); margin-top: 6px; line-height: 1.5;">
+              <div style="font-size: var(--text-2xs); color: var(--gray-500); margin-top: 6px; line-height: 1.5;">
                 {{ t('heir.monetizationNote') }}
               </div>
             </div>
@@ -147,37 +147,37 @@
             <!-- 继承申请表链接：经 open_external 走系统浏览器，与资产详情同一白名单校验。
                  WebView 内直接 target=_blank 会拿到一个空白新窗口，且绕过 http/https 校验。 -->
             <div v-if="platform.inheritance_form_url" class="mb-12 p-12" style="background: var(--primary-light); border-radius: 8px;">
-              <strong style="font-size: 13px;">{{ t('heir.officialForm') }}：</strong>
+              <strong style="font-size: var(--text-sm);">{{ t('heir.officialForm') }}：</strong>
               <button class="btn btn-sm btn-secondary ml-8" @click="openForm(platform.inheritance_form_url)">{{ t('heir.openForm') }}</button>
-              <div class="text-muted" style="font-size: 11px; margin-top: 6px; word-break: break-all;">{{ platform.inheritance_form_url }}</div>
+              <div class="text-muted" style="font-size: var(--text-2xs); margin-top: 6px; word-break: break-all;">{{ platform.inheritance_form_url }}</div>
             </div>
 
             <!-- 溯源状态：让家人知道这条政策是「有出处」还是「未核实」，
                  而不是把所有条目都当成同等权威。 -->
-            <p class="mb-12" style="font-size: 12px;" :style="{ color: isUnverified(platform.data_source) ? 'var(--warning-strong)' : 'var(--gray-500)' }">
+            <p class="mb-12" style="font-size: var(--text-xs);" :style="{ color: isUnverified(platform.data_source) ? 'var(--warning-strong)' : 'var(--gray-500)' }">
               <span v-if="isUnverified(platform.data_source)">{{ t('heir.policyUnverified') }}</span>
               <span v-else>{{ t('heir.policySource') }}{{ platform.data_source }}<span v-if="platform.last_reviewed"> · {{ t('heir.policyReviewed') }}{{ platform.last_reviewed }}</span></span>
             </p>
 
             <!-- 风险提示 -->
             <div v-if="platform.risk_warnings" class="mb-12 p-12 heir-risk">
-              <strong style="font-size: 13px;">{{ t('heir.riskTitle') }}：</strong>
-              <p style="font-size: 13px; margin-top: 4px;">{{ platform.risk_warnings }}</p>
+              <strong style="font-size: var(--text-sm);">{{ t('heir.riskTitle') }}：</strong>
+              <p style="font-size: var(--text-sm); margin-top: 4px;">{{ platform.risk_warnings }}</p>
             </div>
 
             <!-- 关联法律模板 -->
             <div v-if="platform.legal_template_ids" class="mb-12 p-12" style="background: var(--gray-50); border-radius: 8px;">
-              <strong style="font-size: 13px;">{{ t('heir.legalTemplates') }}：</strong>
-              <span class="text-muted" style="font-size: 12px; margin-left: 8px;">{{ platform.legal_template_ids }}</span>
+              <strong style="font-size: var(--text-sm);">{{ t('heir.legalTemplates') }}：</strong>
+              <span class="text-muted" style="font-size: var(--text-xs); margin-left: 8px;">{{ platform.legal_template_ids }}</span>
             </div>
 
             <!-- 标签 -->
             <div v-if="platform.tags" class="mb-12" style="display: flex; flex-wrap: wrap; gap: 6px;">
-              <span v-for="tag in platform.tags.split(',')" :key="tag" class="tag tag-secondary" style="font-size: 11px;">{{ tag.trim() }}</span>
+              <span v-for="tag in platform.tags.split(',')" :key="tag" class="tag tag-secondary" style="font-size: var(--text-2xs);">{{ tag.trim() }}</span>
             </div>
 
             <!-- 基础信息 -->
-            <div class="grid grid-2" style="gap: 12px; font-size: 13px;">
+            <div class="grid grid-2" style="gap: 12px; font-size: var(--text-sm);">
               <div>
                 <strong>{{ t('heir.requiredDocs') }}</strong>
                 <span class="text-muted">{{ platform.required_documents || t('heir.consultSupport') }}</span>
@@ -188,8 +188,8 @@
               </div>
             </div>
             <div class="mt-12">
-              <strong style="font-size: 13px;">{{ t('heir.process') }}：</strong>
-              <p class="text-muted" style="font-size: 13px; margin-top: 4px; line-height: 1.5;">
+              <strong style="font-size: var(--text-sm);">{{ t('heir.process') }}：</strong>
+              <p class="text-muted" style="font-size: var(--text-sm); margin-top: 4px; line-height: 1.5;">
                 {{ platform.process_description || t('heir.noGuide') }}
               </p>
             </div>
@@ -209,20 +209,20 @@
       <div style="display: flex; flex-direction: column; gap: 16px;">
         <div style="padding: 16px; border: 1px solid var(--gray-200); border-radius: 8px;">
           <strong>{{ t('heir.faq1Title') }}</strong>
-          <p class="text-muted" style="font-size: 13px; margin-top: 4px; line-height: 1.5;">
+          <p class="text-muted" style="font-size: var(--text-sm); margin-top: 4px; line-height: 1.5;">
             {{ t('heir.faq1a') }}<br>
             <strong>{{ t('heir.solution') }}：</strong>{{ t('heir.faq1b') }}
           </p>
         </div>
         <div style="padding: 16px; border: 1px solid var(--gray-200); border-radius: 8px;">
           <strong>{{ t('heir.faq2Title') }}</strong>
-          <p class="text-muted" style="font-size: 13px; margin-top: 4px; line-height: 1.5;">
+          <p class="text-muted" style="font-size: var(--text-sm); margin-top: 4px; line-height: 1.5;">
             <strong>{{ t('heir.solution') }}：</strong>{{ t('heir.faq2a') }}
           </p>
         </div>
         <div style="padding: 16px; border: 1px solid var(--gray-200); border-radius: 8px;">
           <strong>{{ t('heir.faq3Title') }}</strong>
-          <p class="text-muted" style="font-size: 13px; margin-top: 4px; line-height: 1.5;">
+          <p class="text-muted" style="font-size: var(--text-sm); margin-top: 4px; line-height: 1.5;">
             <strong>{{ t('heir.solution') }}：</strong>{{ t('heir.faq3a') }}
           </p>
         </div>
@@ -232,7 +232,7 @@
     <!-- 免责声明 -->
     <div class="card" style="background: var(--gray-50);">
       <div class="card-title mb-16">{{ t('heir.legalTitle') }}</div>
-      <ul style="font-size: 13px; color: var(--gray-600); line-height: 2; padding-left: 20px;">
+      <ul style="font-size: var(--text-sm); color: var(--gray-600); line-height: 2; padding-left: 20px;">
         <li>{{ t('heir.legal1') }}</li>
         <li>{{ t('heir.legal2') }}</li>
         <li>{{ t('heir.legal3') }}</li>
@@ -362,7 +362,7 @@ onMounted(async () => {
   gap: 8px;
   padding: 8px 16px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 500;
   background: var(--gray-100);
   color: var(--gray-600);

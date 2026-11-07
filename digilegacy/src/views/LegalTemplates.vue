@@ -1,11 +1,11 @@
 <template>
   <div class="legal fade-in">
-    <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">{{ t('legal.title') }}</h2>
-    <p class="text-muted mb-32" style="font-size: 14px;">
+    <h2 style="font-size: var(--text-xl); font-weight: 700; margin-bottom: 8px;">{{ t('legal.title') }}</h2>
+    <p class="text-muted mb-32" style="font-size: var(--text-base);">
       {{ t('legal.subtitle') }}
     </p>
     <div v-if="isEn" class="card mb-24" style="background: var(--warning-light); border-color: var(--warning);">
-      <p class="legal-notice" style="font-size: 13px; color: var(--warning-strong);"><WarningOutline /> {{ t('legal.enNotice') }}</p>
+      <p class="legal-notice" style="font-size: var(--text-sm); color: var(--warning-strong);"><WarningOutline /> {{ t('legal.enNotice') }}</p>
     </div>
 
     <!-- 分类筛选 -->
@@ -32,9 +32,9 @@
           </div>
         </div>
         <div style="padding: 16px;">
-          <p class="text-muted" style="font-size: 13px; line-height: 1.5;">{{ tmpl.description }}</p>
+          <p class="text-muted" style="font-size: var(--text-sm); line-height: 1.5;">{{ tmpl.description }}</p>
           <div class="mt-12" style="display: flex; flex-wrap: wrap; gap: 6px;">
-            <span v-for="tag in tmpl.tags" :key="tag" class="tag tag-secondary" style="font-size: 11px;">{{ tag }}</span>
+            <span v-for="tag in tmpl.tags" :key="tag" class="tag tag-secondary" style="font-size: var(--text-2xs);">{{ tag }}</span>
           </div>
         </div>
       </div>
@@ -44,11 +44,11 @@
     <div v-if="previewTemplate" class="modal-overlay" @click.self="closePreview">
       <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="legal-preview-title" ref="previewRef" @keydown.tab="trapPreviewFocus">
         <div class="modal-header">
-          <h3 id="legal-preview-title" style="font-size: 18px; font-weight: 600; margin: 0;">{{ previewTemplate.name }}</h3>
+          <h3 id="legal-preview-title" style="font-size: var(--text-lg); font-weight: 600; margin: 0;">{{ previewTemplate.name }}</h3>
           <button class="btn btn-sm btn-secondary" ref="previewCloseRef" @click="closePreview">{{ t('common.close') }}</button>
         </div>
         <div class="modal-body">
-          <pre style="white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: var(--gray-700);">{{ previewTemplate.content }}</pre>
+          <pre style="white-space: pre-wrap; font-size: var(--text-sm); line-height: 1.6; color: var(--gray-700);">{{ previewTemplate.content }}</pre>
         </div>
       </div>
     </div>
@@ -56,7 +56,7 @@
     <!-- 使用说明 -->
     <div class="card" style="background: var(--gray-50);">
       <div class="card-title mb-16">{{ t('legal.usageTitle') }}</div>
-      <ul style="font-size: 13px; color: var(--gray-600); line-height: 2; padding-left: 20px;">
+      <ul style="font-size: var(--text-sm); color: var(--gray-600); line-height: 2; padding-left: 20px;">
         <li>{{ t('legal.usage1') }}</li>
         <li>{{ t('legal.usage2') }}</li>
         <li>{{ t('legal.usage3') }}</li>

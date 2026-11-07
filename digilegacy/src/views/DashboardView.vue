@@ -4,10 +4,10 @@
     <div class="card mb-32 hero-card">
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <div>
-          <h2 style="font-size: 22px; font-weight: 700; margin-bottom: 8px;">
+          <h2 style="font-size: var(--text-xl); font-weight: 700; margin-bottom: 8px;">
             {{ t('dashboard.hello', { name: displayName }) }}
           </h2>
-          <p style="font-size: 14px; line-height: 1.6;">
+          <p style="font-size: var(--text-base); line-height: 1.6;">
             {{ t('dashboard.subtitle').split('\n')[0] }}<br>
             {{ t('dashboard.subtitle').split('\n')[1] }}
           </p>
@@ -24,7 +24,7 @@
     <!-- 下一步：定位是「工具包」，首页先回答「现在该做什么」，百分比放在后面 -->
     <div class="card mb-24 next-step-card" v-if="(stats?.issues?.length ?? 0) === 0 && (stats?.total_assets ?? 0) > 0">
       <div class="card-title mb-8">{{ t('dashboard.nextStepTitle') }}</div>
-      <p class="text-muted" style="font-size: 13px;">{{ t('dashboard.nextStepReady') }}</p>
+      <p class="text-muted" style="font-size: var(--text-sm);">{{ t('dashboard.nextStepReady') }}</p>
       <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
         <router-link to="/report" class="btn btn-primary btn-sm">{{ t('dashboard.nextStepReport') }}</router-link>
         <router-link to="/heir" class="btn btn-secondary btn-sm">{{ t('dashboard.nextStepHeir') }}</router-link>
@@ -108,7 +108,7 @@
               {{ (stats?.completion_percentage ?? 0) >= 80 ? t('dashboard.good') : t('dashboard.todo') }}
             </span>
             <!-- 说明百分比是怎么算出来的：四项各 25%，用户可自行核对 -->
-            <div class="text-muted" style="font-size: 11px; margin-top: 4px;">{{ t('dashboard.scoreHint') }}</div>
+            <div class="text-muted" style="font-size: var(--text-2xs); margin-top: 4px;">{{ t('dashboard.scoreHint') }}</div>
           </template>
         </div>
       </div>
@@ -162,7 +162,7 @@
           <span>{{ triggerText }}</span>
         </div>
       </div>
-      <p class="text-muted mt-16" style="font-size: 13px;">
+      <p class="text-muted mt-16" style="font-size: var(--text-sm);">
         {{ t('dashboard.progressDetail', { planned: stats?.disposal_planned_count ?? 0, total: stats?.total_assets ?? 0 }) }}
       </p>
     </div>
@@ -232,8 +232,8 @@
     <!-- 空状态 -->
     <div class="card text-center" v-else style="padding: 48px;">
       <EmptyState kind="search" :size="160" />
-      <h3 style="font-size: 18px; margin-bottom: 8px;">{{ t('dashboard.emptyTitle') }}</h3>
-      <p class="text-muted mb-24" style="font-size: 14px;">{{ t('dashboard.emptyDesc') }}</p>
+      <h3 style="font-size: var(--text-lg); margin-bottom: 8px;">{{ t('dashboard.emptyTitle') }}</h3>
+      <p class="text-muted mb-24" style="font-size: var(--text-base);">{{ t('dashboard.emptyDesc') }}</p>
       <router-link to="/discover" class="btn btn-primary btn-lg">{{ t('dashboard.emptyCta') }}</router-link>
     </div>
   </div>
@@ -341,7 +341,7 @@ onMounted(async () => {
   padding: 5px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.16);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 .handover-grid {
@@ -371,8 +371,8 @@ onMounted(async () => {
   .progress-hero { flex-direction: column; align-items: flex-start; gap: 16px; }
   .progress-breakdown { width: 100%; }
 }
-.handover-item strong { font-size: 20px; color: var(--gray-900); }
-.handover-item span { font-size: 13px; color: var(--gray-600); }
+.handover-item strong { font-size: var(--text-xl); color: var(--gray-900); }
+.handover-item span { font-size: var(--text-sm); color: var(--gray-600); }
 
 .hero-card {
   /* 浅端压深至 #b45c4a：白字正文（14px）对比度 4.59:1，满足 WCAG AA */
@@ -398,7 +398,7 @@ onMounted(async () => {
   padding: 10px 12px;
   border: 1px solid var(--gray-200, #e8e4de);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--gray-600);
 }
 .check-item.warn {
@@ -446,13 +446,13 @@ onMounted(async () => {
   width: 22px; height: 22px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 50%;
-  font-size: 13px; font-weight: 700;
+  font-size: var(--text-sm); font-weight: 700;
   line-height: 1;
 }
 .issue-blocker .issue-icon { background: var(--danger-light, #fdecea); color: var(--danger-strong); }
 .issue-warn .issue-icon { background: var(--warning-light); color: var(--warning-strong); }
 .issue-info .issue-icon { background: var(--primary-light); color: var(--primary); }
 .issue-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.issue-text { font-size: 13px; line-height: 1.5; }
-.issue-go { font-size: 11px; color: var(--gray-500); }
+.issue-text { font-size: var(--text-sm); line-height: 1.5; }
+.issue-go { font-size: var(--text-2xs); color: var(--gray-500); }
 </style>

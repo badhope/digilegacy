@@ -9,7 +9,6 @@
 //   BASE_TREE=<远端当前 tree sha> OWNER=<账号> node scripts/push-github-incremental.mjs
 
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 
 const OWNER = process.env.OWNER;
 const BASE_TREE = process.env.BASE_TREE;
@@ -65,9 +64,17 @@ const changed = execSync(`git diff --name-only ${BASE_TREE} HEAD`, { cwd: proces
 console.log(`[${OWNER}] 需要同步 ${changed.length} 个文件`);
 
 // 2) 逐个上传 blob（串行：这链路经不起并发）
+//
+// 内容必须来自 **git 对象库**（`git cat-file blob <rev>:<path>`），不能读工作区文件。
+// 原因：本仓库 .gitattributes 让文本以 LF 入库，而 Windows 工作区检出是 CRLF。
+// 读工作区会把每个文本文件都变成「与远端不同」的假差异——历史上两次踩中，
+// 表现为远端内容正确但 tree 哈希与本地不一致，排查极费时间。
 const tree = [];
 for (const f of changed) {
-  const buf = readFileSync(f);
+  const buf = execSync(`git cat-file blob HEAD:${f}`, {
+    cwd: process.cwd(),
+    maxBuffer: 64 * 1024 * 1024,
+  });
   const blob = await gh(`${REPO}/git/blobs`, {
     method: 'POST',
     body: JSON.stringify({ content: buf.toString('base64'), encoding: 'base64' }),

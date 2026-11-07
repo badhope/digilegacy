@@ -2,8 +2,8 @@
   <div class="assets fade-in">
     <div class="flex justify-between items-center mb-32">
       <div>
-        <h2 style="font-size: 22px; font-weight: 700;">{{ t('assets.title') }}</h2>
-        <p class="text-muted mt-16" style="font-size: 14px;">{{ t('assets.summary', { count: assets.assets.length, value: formatMoney(assets.totalValue) }) }}</p>
+        <h2 style="font-size: var(--text-xl); font-weight: 700;">{{ t('assets.title') }}</h2>
+        <p class="text-muted mt-16" style="font-size: var(--text-base);">{{ t('assets.summary', { count: assets.assets.length, value: formatMoney(assets.totalValue) }) }}</p>
       </div>
       <router-link to="/discover" class="btn btn-primary">+ {{ t('assets.continue') }}</router-link>
     </div>
@@ -42,7 +42,7 @@
           :disabled="incompleteCount === 0"
           @click="filter = filter === 'incomplete' ? 'all' : 'incomplete'"
         >{{ t('assets.filterIncomplete') }} ({{ incompleteCount }})</button>
-        <span class="text-muted" style="font-size: 12px; margin-left: auto;" aria-live="polite">
+        <span class="text-muted" style="font-size: var(--text-xs); margin-left: auto;" aria-live="polite">
           {{ t('assets.showing', { shown: filteredAssets.length, total: assets.assets.length }) }}
         </span>
       </div>
@@ -56,8 +56,8 @@
         <div style="display: flex; gap: 16px;">
           <div class="asset-icon"><PlatformIcon :name="asset.platform_name" :size="24" /></div>
           <div>
-            <strong style="font-size: 16px;">{{ asset.platform_name }}</strong>
-            <p class="text-muted" style="font-size: 13px; margin-top: 2px;">{{ asset.account_identifier }}</p>
+            <strong style="font-size: var(--text-md);">{{ asset.platform_name }}</strong>
+            <p class="text-muted" style="font-size: var(--text-sm); margin-top: 2px;">{{ asset.account_identifier }}</p>
             <div style="display: flex; gap: 8px; margin-top: 8px;">
               <span class="tag" :class="'tag-' + asset.category">{{ categoryLabel(asset.category) }}</span>
               <span class="tag" :class="asset.disposal_method !== 'no_action' ? 'tag-success' : 'tag-warning'">{{ disposalLabel(asset.disposal_method) }}</span>
@@ -68,8 +68,8 @@
           </div>
         </div>
         <div style="text-align: right;">
-          <div style="font-size: 18px; font-weight: 700; color: var(--gray-900);">{{ asset.estimated_value ? '¥' + formatMoney(asset.estimated_value) : '-' }}</div>
-          <div class="text-muted" style="font-size: 12px;">{{ t('assets.estimatedValueLabel') }}</div>
+          <div style="font-size: var(--text-lg); font-weight: 700; color: var(--gray-900);">{{ asset.estimated_value ? '¥' + formatMoney(asset.estimated_value) : '-' }}</div>
+          <div class="text-muted" style="font-size: var(--text-xs);">{{ t('assets.estimatedValueLabel') }}</div>
         </div>
       </div>
     </div>
@@ -77,8 +77,8 @@
     <!-- 有数据但筛不出来：说清楚是筛选结果，不要让人以为资产没了 -->
     <div v-if="!assets.loading && !assets.loadError && assets.assets.length > 0 && filteredAssets.length === 0" class="card text-center" style="padding: 40px;">
       <EmptyState kind="search" :size="140" />
-      <h3 style="font-size: 16px; margin: 12px 0 8px;">{{ t('assets.noMatchTitle') }}</h3>
-      <p class="text-muted mb-16" style="font-size: 13px;">{{ t('assets.noMatchDesc') }}</p>
+      <h3 style="font-size: var(--text-md); margin: 12px 0 8px;">{{ t('assets.noMatchTitle') }}</h3>
+      <p class="text-muted mb-16" style="font-size: var(--text-sm);">{{ t('assets.noMatchDesc') }}</p>
       <button class="btn btn-secondary btn-sm" @click="resetFilters">{{ t('assets.resetFilter') }}</button>
     </div>
 
@@ -92,15 +92,15 @@
 
     <!-- 加载失败：必须与「成功但为空」区分，否则用户会误以为资产全部丢失 -->
     <div v-else-if="assets.loadError" class="card" role="alert" style="border-color: var(--danger);">
-      <h3 style="font-size: 16px; margin-bottom: 8px; color: var(--danger-strong);">{{ t('assets.loadFailed') }}</h3>
-      <p class="text-muted mb-16" style="font-size: 13px;">{{ assets.loadError }}</p>
+      <h3 style="font-size: var(--text-md); margin-bottom: 8px; color: var(--danger-strong);">{{ t('assets.loadFailed') }}</h3>
+      <p class="text-muted mb-16" style="font-size: var(--text-sm);">{{ assets.loadError }}</p>
       <button class="btn btn-primary btn-sm" @click="assets.loadAssets()">{{ t('common.retry') }}</button>
     </div>
 
     <div class="card text-center" v-else-if="assets.assets.length === 0" style="padding: 48px;">
       <EmptyState kind="assets" :size="160" />
-      <h3 style="font-size: 18px; margin: 16px 0 8px;">{{ t('assets.emptyTitle') }}</h3>
-      <p class="text-muted mb-24" style="font-size: 14px;">{{ t('assets.emptyDesc') }}</p>
+      <h3 style="font-size: var(--text-lg); margin: 16px 0 8px;">{{ t('assets.emptyTitle') }}</h3>
+      <p class="text-muted mb-24" style="font-size: var(--text-base);">{{ t('assets.emptyDesc') }}</p>
       <router-link to="/discover" class="btn btn-primary btn-lg">{{ t('assets.startDiscover') }}</router-link>
     </div>
   </div>
@@ -112,6 +112,7 @@ import { useI18n } from '../i18n';
 import SearchOutline from '@vicons/ionicons5/es/SearchOutline';
 import LockClosedOutline from '@vicons/ionicons5/es/LockClosedOutline';
 import { useAssetsStore } from '../stores/assets';
+import { useDebouncedRef } from '../composables/debounce';
 import type { DigitalAsset } from '../types';
 import { formatMoney, categoryLabel, disposalLabel } from '../utils/format';
 import PlatformIcon from '../components/PlatformIcon.vue';
@@ -121,6 +122,8 @@ const { t } = useI18n();
 const assets = useAssetsStore();
 const filter = ref<string>('all');
 const keyword = ref('');
+// 输入框即时回显，过滤在停手 200ms 后才跑：资产上百条时逐键重排会明显掉帧。
+const searchTerm = useDebouncedRef(keyword, 200);
 const sortBy = ref<'recent' | 'value' | 'platform' | 'disposal'>('recent');
 
 /**
@@ -157,7 +160,7 @@ const filteredAssets = computed(() => {
       ? assets.assets.filter(isIncomplete)
       : assets.assets.filter(a => a.category === filter.value);
 
-  const terms = keyword.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = searchTerm.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const matched = terms.length === 0
     ? byCat
     : byCat.filter(a => {
@@ -198,7 +201,7 @@ onMounted(async () => {
 <style scoped>
 .asset-row { cursor: pointer; }
 .asset-row:hover { border-color: var(--primary); }
-.asset-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--gray-100); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.asset-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--gray-100); display: flex; align-items: center; justify-content: center; font-size: var(--text-xl); flex-shrink: 0; }
 
 .search-box {
   position: relative;
@@ -210,7 +213,7 @@ onMounted(async () => {
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 14px;
+  font-size: var(--text-base);
   pointer-events: none;
   opacity: 0.7;
 }
@@ -225,7 +228,7 @@ onMounted(async () => {
   transform: translateY(-50%);
   border: none;
   background: transparent;
-  font-size: 18px;
+  font-size: var(--text-lg);
   line-height: 1;
   cursor: pointer;
   color: var(--gray-500);

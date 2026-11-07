@@ -10,11 +10,11 @@
 
     <!-- 步骤0：启发式自检问卷 -->
     <div class="card mb-32" v-if="currentStep === 0">
-      <div class="card-title" style="font-size: 18px;">{{ t('discover.checkTitle') }}</div>
+      <div class="card-title" style="font-size: var(--text-lg);">{{ t('discover.checkTitle') }}</div>
       <div class="card-subtitle">{{ t('discover.checkSubtitle') }}</div>
       <div class="checklist" v-for="(item, idx) in checklistItems" :key="idx">
         <input :id=" 'check-' + idx" type="checkbox" v-model="checkedItems[item.value]" />
-        <label :for=" 'check-' + idx" style="font-size: 14px; margin-left: 8px;">{{ t(item.textKey) }}</label>
+        <label :for=" 'check-' + idx" style="font-size: var(--text-base); margin-left: 8px;">{{ t(item.textKey) }}</label>
       </div>
       <div class="checklist-footer">
         {{ t('discover.checked') }} <strong>{{ checkedCount }} / {{ checklistItems.length }}</strong> {{ t('discover.itemSuffix') }}
@@ -24,12 +24,12 @@
 
     <!-- 步骤1：资产大类选择 -->
     <div class="card mb-32" v-if="currentStep === 1">
-      <div class="card-title" style="font-size: 18px;">{{ t('discover.catTitle') }}</div>
+      <div class="card-title" style="font-size: var(--text-lg);">{{ t('discover.catTitle') }}</div>
       <div class="card-subtitle">{{ t('discover.catSubtitle') }}</div>
     </div>
 
     <div class="card mb-16" v-if="currentStep === 1 && prefillCount > 0" role="status">
-      <p style="font-size: 13px; color: var(--gray-600);">
+      <p style="font-size: var(--text-sm); color: var(--gray-600);">
         {{ t('discover.prefillHint', { count: prefillCount }) }}
         <button class="btn btn-sm btn-secondary ml-8" @click="clearCategorySelection">{{ t('discover.clearSelection') }}</button>
       </p>
@@ -116,7 +116,7 @@
     <!-- 步骤3：资产详情登记 -->
     <div v-if="currentStep === 3">
       <div class="card mb-24">
-        <div class="card-title" style="font-size: 18px;">{{ t('discover.detailsTitle') }}</div>
+        <div class="card-title" style="font-size: var(--text-lg);">{{ t('discover.detailsTitle') }}</div>
         <div class="card-subtitle">{{ t('discover.detailsSubtitle') }}</div>
       </div>
 
@@ -177,7 +177,7 @@
       </div>
 
       <div class="card" style="text-align: center;">
-        <p v-if="saveError" class="text-muted" role="alert" style="color: var(--danger); font-size: 13px; margin-bottom: 12px;">{{ saveError }}</p>
+        <p v-if="saveError" class="text-muted" role="alert" style="color: var(--danger); font-size: var(--text-sm); margin-bottom: 12px;">{{ saveError }}</p>
         <button class="btn btn-success btn-lg" :disabled="saving" @click="saveAllAssets">
           {{ saving ? t('common.saving') : t('discover.saveAll') }}
         </button>
@@ -187,7 +187,7 @@
     <!-- 完成 -->
     <div v-if="currentStep === 4" class="card text-center" style="padding: 48px;">
       <div class="done-hero" aria-hidden="true"><CheckmarkCircleOutline /></div>
-      <h2 style="font-size: 22px; margin-bottom: 8px;">{{ t('discover.doneTitle') }}</h2>
+      <h2 style="font-size: var(--text-xl); margin-bottom: 8px;">{{ t('discover.doneTitle') }}</h2>
       <p class="text-muted mb-24" v-if="savedCount > 0">{{ t('discover.doneRegistered', { count: savedCount }) }}</p>
       <p class="text-muted mb-24" v-else>{{ t('discover.doneAllExisting') }}</p>
       <div style="display: flex; gap: 12px; justify-content: center;">
@@ -208,6 +208,7 @@ import CheckmarkCircleOutline from '@vicons/ionicons5/es/CheckmarkCircleOutline'
 import SearchOutline from '@vicons/ionicons5/es/SearchOutline';
 import PlatformIcon from '../components/PlatformIcon.vue';
 import CollapseGroup from '../components/CollapseGroup.vue';
+import { useDebouncedRef } from '../composables/debounce';
 import type { Platform } from '../types';
 
 const { t } = useI18n();
@@ -297,7 +298,7 @@ const filteredPlatformCount = computed(() => {
   const dataCats = selectedCats.value.size === 0
     ? null
     : new Set(assetCategories.filter(c => selectedCats.value.has(c.key)).flatMap(c => c.cats));
-  const terms = platformKeyword.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = platformSearchTerm.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   return platforms.platforms.filter(p => {
     if (dataCats && !dataCats.has(p.category)) return false;
     if (terms.length === 0) return true;
@@ -309,10 +310,12 @@ const filteredPlatformCount = computed(() => {
 interface CategoryWithPlatforms extends AssetCategory { platforms: Platform[] }
 
 const platformKeyword = ref('');
+// 152 条平台库逐个匹配 + 分组重排，逐键触发会卡；停手 200ms 后再算。
+const platformSearchTerm = useDebouncedRef(platformKeyword, 200);
 
 const selectedCategoriesWithPlatforms = computed((): CategoryWithPlatforms[] => {
   if (selectedCats.value.size === 0) return [];
-  const terms = platformKeyword.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const terms = platformSearchTerm.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   return assetCategories
     .filter(c => selectedCats.value.has(c.key))
     .map(c => ({
@@ -446,12 +449,12 @@ onMounted(async () => {
 <style scoped>
 .step-indicator { display: flex; gap: 16px; align-items: center; }
 .search-box { position: relative; width: 220px; }
-.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; opacity: 0.7; pointer-events: none; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: var(--text-sm); opacity: 0.7; pointer-events: none; }
 .search-input { padding-left: 30px; }
 .step-item { flex: 1; display: flex; align-items: center; gap: 8px; }
 .step-circle {
   width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center;
-  justify-content: center; font-weight: 700; font-size: 14px; background: var(--gray-200); color: var(--gray-700);
+  justify-content: center; font-weight: 700; font-size: var(--text-base); background: var(--gray-200); color: var(--gray-700);
 }
 .step-item.active .step-circle { background: var(--solid-primary); color: var(--on-solid); }
 
@@ -476,19 +479,19 @@ onMounted(async () => {
 }
 .category-card:hover, .category-card:focus-visible { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 .category-card.selected { border-color: var(--primary); background: var(--primary-light); }
-.category-icon { font-size: 36px; margin-bottom: 8px; }
-.category-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-.category-desc { font-size: 12px; color: var(--gray-600); line-height: 1.4; }
+.category-icon { font-size: var(--text-4xl); margin-bottom: 8px; }
+.category-name { font-size: var(--text-base); font-weight: 600; margin-bottom: 4px; }
+.category-desc { font-size: var(--text-xs); color: var(--gray-600); line-height: 1.4; }
 .category-check {
   position: absolute; top: 8px; right: 8px; width: 28px; height: 28px;
   border-radius: 50%; background: var(--solid-primary); color: var(--on-solid); display: flex;
-  align-items: center; justify-content: center; font-size: 14px; font-weight: 700;
+  align-items: center; justify-content: center; font-size: var(--text-base); font-weight: 700;
 }
 
-.platform-icon { font-size: 24px; }
+.platform-icon { font-size: var(--text-2xl); }
 .platform-check {
   width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center;
-  justify-content: center; font-size: 14px; background: var(--gray-100);
+  justify-content: center; font-size: var(--text-base); background: var(--gray-100);
 }
 .platform-card.selected .platform-check { background: var(--solid-primary); color: var(--on-solid); }
 </style>

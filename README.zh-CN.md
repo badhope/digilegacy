@@ -71,6 +71,7 @@ flowchart LR
 - **命令面板（⌘K / Ctrl+K）**：键盘就能到任意页面、切主题/语言/锁定。输入即过滤，↑↓ 选择，Enter 执行。
 - **检查点**：重要改动前手动存一份命名快照。回滚一次点击，且与备份走同一套认证式导入校验；回滚前会自动再存一份 `pre-restore`，所以回滚本身也可撤销。
 - **回答「现在该做什么」的仪表板**：一个环给总量，下面一条四维分段条给构成，再配一份每行都能直接跳到修复处的待办清单。
+- **跟得上的搜索**：资产列表与 152 条平台库都先防抖再过滤，规划越长打字越不掉帧。
 
 ## 三种运行方式
 
@@ -117,7 +118,7 @@ npm run tauri:dev      # 桌面端热重载
 npm run tauri:build    # 产出 MSI + NSIS
 ```
 
-需要 Node 22.22.2（见 `.nvmrc`）、Rust stable，以及对应平台的 Tauri 系统依赖。
+需要 Node 22.22.2（见 `.nvmrc`）、Rust stable，以及对应平台的 Tauri 系统依赖。Windows 上 SQLCipher 还要一个自带 `ExtUtils::MakeMaker` 的 Perl 发行版与 `nasm`——`choco install strawberryperl nasm -y` 即可；不需要单独安装 OpenSSL，它随构建一起从源码编译。
 
 ## 安全模型
 
