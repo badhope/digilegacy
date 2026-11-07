@@ -85,3 +85,6 @@ digilegacy/.pw-browsers/
 # tauri 构建产物
 digilegacy/src-tauri/target/
 .aqg/
+
+# 本地产物 / 临时脚本
+.tmp-*
