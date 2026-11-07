@@ -121,7 +121,7 @@ async function uploadBlob(repoOwner, token, filePath) {
     token,
   );
   if (body.sha !== sha) throw new Error(`${filePath}: 远端 blob sha 与本地不符`);
-  return { path: filePath.replace(/\\/g, '/'), mode: '100644', type: 'blob', sha, size: stat.size };
+  return { path: filePath.replace(/\\/g, '/'), mode: '100644', type: 'blob', sha, size: buf.length };
 }
 
 async function syncRepo({ owner, tokenVar }) {
