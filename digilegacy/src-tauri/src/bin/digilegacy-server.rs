@@ -480,12 +480,18 @@ async fn invoke(
         Ok(Err(e)) => {
             let status = if e.contains(dispatch::ERR_UNSUPPORTED) {
                 StatusCode::NOT_IMPLEMENTED
+            } else if e.contains(dispatch::ERR_INVALID_ARGS) {
+                // 调用方给错了参数：4xx。归到 500 会让监控把用户漏填字段算成服务故障，
+                // 用户也会以为「服务器坏了」而不是「我这栏没填」。
+                StatusCode::BAD_REQUEST
             } else if e.contains("未知命令") {
                 StatusCode::NOT_FOUND
             } else {
                 StatusCode::INTERNAL_SERVER_ERROR
             };
-            err_response(status, &e)
+            // INVALID_ARGS 前缀是给机器分类用的，给人看时要去掉。
+            let msg = e.replace(&format!("{}: ", dispatch::ERR_INVALID_ARGS), "");
+            err_response(status, &msg)
         }
         Err(e) => err_response(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -665,6 +671,28 @@ mod tests {
                 cmd
             );
         }
+    }
+
+    /// 参数错误必须是 400 且不带机器前缀，否则监控会把用户漏填字段算进服务故障。
+    #[tokio::test]
+    async fn invalid_args_maps_to_400_and_strips_prefix() {
+        // 走真实的 dispatch：add_asset 缺 req 字段就是典型的调用方输入错误。
+        let err = dispatch::call("add_asset", Map::new()).expect_err("缺参数必须报错");
+        assert!(
+            err.contains(dispatch::ERR_INVALID_ARGS),
+            "缺参数必须带 INVALID_ARGS 前缀，实际: {err}"
+        );
+
+        // 服务端把它映射成 400，并把前缀从给人看的文案里去掉。
+        let msg = err.replace(&format!("{}: ", dispatch::ERR_INVALID_ARGS), "");
+        let resp = err_response(StatusCode::BAD_REQUEST, &msg);
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+        let v = body_json(resp).await;
+        assert_eq!(v["success"], json!(false));
+        assert!(
+            !v["message"].as_str().unwrap().contains("INVALID_ARGS"),
+            "机器前缀不该出现在用户可见文案里"
+        );
     }
 
     #[test]

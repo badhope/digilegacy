@@ -120,7 +120,7 @@ npm run tauri:dev      # desktop app with hot reload
 npm run tauri:build    # MSI + NSIS installers
 ```
 
-Requires Node 22.22.2 (see `.nvmrc`), Rust stable, and the Tauri system dependencies for your platform.
+Requires Node 22.22.2 (see `.nvmrc`), Rust stable, and the Tauri system dependencies for your platform. On Windows the SQLCipher build additionally needs a Perl distribution with `ExtUtils::MakeMaker` and `nasm` — `choco install strawberryperl nasm -y` is enough. No separate OpenSSL install: it is compiled from source as part of the build.
 
 ## Security model
 

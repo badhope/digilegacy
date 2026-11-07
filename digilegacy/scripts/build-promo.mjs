@@ -32,13 +32,6 @@ function run(args) {
   });
 }
 
-function probeDuration(file) {
-  // ffmpeg -i 会把信息打到 stderr；这里复用 run 的 stderr 不可行，单独 spawn。
-  const { execFileSync: exec } = require('node:child_process');
-  void exec;
-  return null;
-}
-
 async function main() {
   const manifest = JSON.parse(await readFile(path.join(PROMO, 'manifest.json'), 'utf8'));
   const rawFiles = (await readdir(RAW)).filter(f => f.endsWith('.webm'));

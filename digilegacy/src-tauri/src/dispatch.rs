@@ -18,11 +18,28 @@ use crate::models::*;
 /// 某一入口不支持该命令时的统一错误前缀，便于 CLI/HTTP 各自映射状态码。
 pub const ERR_UNSUPPORTED: &str = "UNSUPPORTED";
 
+/// 调用方给错了参数（缺字段、类型不符、取值不合法）时的统一前缀。
+///
+/// 与「服务器内部失败」必须分开：参数错误是 4xx，重试同样的请求永远不会成功，
+/// 监控不该把它算进服务健康度；反过来，把它当 500 还会让用户看到「服务器错误」
+/// 而不知道是自己漏填了字段。
+pub const ERR_INVALID_ARGS: &str = "INVALID_ARGS";
+
+/// 参数错误统一包装：所有 `serde_json::from_value` 失败都走这里。
+fn invalid_args(what: &str, e: impl std::fmt::Display) -> String {
+    format!("{ERR_INVALID_ARGS}: {what}参数不合法: {e}")
+}
+
+/// 缺少必填参数也属于同一类。
+fn missing_arg(key: &str, expected: &str) -> String {
+    format!("{ERR_INVALID_ARGS}: 缺少参数 `{key}`（应为{expected}）")
+}
+
 fn arg_str(args: &Map<String, Value>, key: &str) -> Result<String, String> {
     args.get(key)
         .and_then(Value::as_str)
         .map(str::to_string)
-        .ok_or_else(|| format!("缺少参数 `{}`（应为字符串）", key))
+        .ok_or_else(|| missing_arg(key, "字符串"))
 }
 
 fn arg_opt_str(args: &Map<String, Value>, key: &str) -> Option<String> {
@@ -32,18 +49,18 @@ fn arg_opt_str(args: &Map<String, Value>, key: &str) -> Option<String> {
 fn arg_i64(args: &Map<String, Value>, key: &str) -> Result<i64, String> {
     args.get(key)
         .and_then(Value::as_i64)
-        .ok_or_else(|| format!("缺少参数 `{}`（应为整数）", key))
+        .ok_or_else(|| missing_arg(key, "整数"))
 }
 
 fn arg_u8(args: &Map<String, Value>, key: &str) -> Result<u8, String> {
     let v = arg_i64(args, key)?;
-    u8::try_from(v).map_err(|_| format!("参数 `{}` 超出 0-255 范围", key))
+    u8::try_from(v).map_err(|_| format!("{ERR_INVALID_ARGS}: 参数 `{key}` 超出 0-255 范围"))
 }
 
 fn arg_bool(args: &Map<String, Value>, key: &str) -> Result<bool, String> {
     args.get(key)
         .and_then(Value::as_bool)
-        .ok_or_else(|| format!("缺少参数 `{}`（应为布尔）", key))
+        .ok_or_else(|| missing_arg(key, "布尔"))
 }
 
 fn to_value<T: serde::Serialize>(resp: ApiResponse<T>) -> Result<Value, String> {
@@ -73,14 +90,14 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         "add_asset" => {
             let req: AssetRequest =
                 serde_json::from_value(args.get("req").cloned().unwrap_or(Value::Null))
-                    .map_err(|e| format!("资产参数不合法: {}", e))?;
+                    .map_err(|e| invalid_args("资产", e))?;
             to_value(crate::commands::add_asset(req)?)
         }
         "update_asset" => {
             let id = arg_i64(&args, "id")?;
             let req: AssetRequest =
                 serde_json::from_value(args.get("req").cloned().unwrap_or(Value::Null))
-                    .map_err(|e| format!("资产参数不合法: {}", e))?;
+                    .map_err(|e| invalid_args("资产", e))?;
             to_value(crate::commands::update_asset(id, req)?)
         }
         "delete_asset" => {
@@ -114,7 +131,7 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         "set_heirs" => {
             let heirs: Vec<Heir> =
                 serde_json::from_value(args.get("heirs").cloned().unwrap_or(Value::Null))
-                    .map_err(|e| format!("继承人参数不合法: {}", e))?;
+                    .map_err(|e| invalid_args("继承人", e))?;
             to_value(crate::commands::set_heirs(heirs)?)
         }
 
@@ -123,7 +140,7 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         "set_user_profile" => {
             let profile: UserProfile =
                 serde_json::from_value(args.get("profile").cloned().unwrap_or(Value::Null))
-                    .map_err(|e| format!("档案参数不合法: {}", e))?;
+                    .map_err(|e| invalid_args("档案", e))?;
             to_value(crate::commands::set_user_profile(profile)?)
         }
         "get_inheritance_report" => to_value(crate::commands::get_inheritance_report()?),
@@ -149,7 +166,7 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         "set_custody_hints" => {
             let hints: crate::db::CustodyHints =
                 serde_json::from_value(args.get("hints").cloned().unwrap_or(Value::Null))
-                    .map_err(|e| format!("保管位置参数不合法: {}", e))?;
+                    .map_err(|e| invalid_args("保管位置", e))?;
             to_value(crate::commands::set_custody_hints(hints)?)
         }
 
@@ -265,14 +282,14 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         "run_recovery_drill" => {
             let shares: Vec<String> =
                 serde_json::from_value(args.get("shares").cloned().unwrap_or(Value::Null))
-                    .map_err(|e| format!("份额参数不合法: {}", e))?;
+                    .map_err(|e| invalid_args("份额", e))?;
             let passphrase = arg_opt_str(&args, "passphrase");
             to_value(crate::commands::run_recovery_drill(shares, passphrase)?)
         }
         "unlock_with_recovery_shares" => {
             let shares: Vec<String> =
                 serde_json::from_value(args.get("shares").cloned().unwrap_or(Value::Null))
-                    .map_err(|e| format!("份额参数不合法: {}", e))?;
+                    .map_err(|e| invalid_args("份额", e))?;
             let passphrase = arg_opt_str(&args, "passphrase");
             to_value(crate::commands::unlock_with_recovery_shares(
                 shares, passphrase,
@@ -319,7 +336,7 @@ pub fn call(cmd: &str, args: Map<String, Value>) -> Result<Value, String> {
         "set_imap_config" => {
             let config: crate::imap_checkin::ImapConfig =
                 serde_json::from_value(args.get("config").cloned().unwrap_or(Value::Null))
-                    .map_err(|e| format!("IMAP 参数不合法: {}", e))?;
+                    .map_err(|e| invalid_args("IMAP ", e))?;
             let password = arg_opt_str(&args, "password");
             to_value(crate::commands::set_imap_config(config, password)?)
         }

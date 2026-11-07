@@ -117,7 +117,7 @@ npm run tauri:dev      # 桌面端热重载
 npm run tauri:build    # 产出 MSI + NSIS
 ```
 
-需要 Node 22.22.2（见 `.nvmrc`）、Rust stable，以及对应平台的 Tauri 系统依赖。
+需要 Node 22.22.2（见 `.nvmrc`）、Rust stable，以及对应平台的 Tauri 系统依赖。Windows 上 SQLCipher 还要一个自带 `ExtUtils::MakeMaker` 的 Perl 发行版与 `nasm`——`choco install strawberryperl nasm -y` 即可；不需要单独安装 OpenSSL，它随构建一起从源码编译。
 
 ## 安全模型
 
