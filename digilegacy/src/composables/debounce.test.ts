@@ -118,3 +118,95 @@ describe('debounce', () => {
     expect(fn).toHaveBeenCalledOnce();
   });
 });
+
+describe('useThrottledRef 边界', () => {
+  it('窗口内已排队时再触发不会重排定时器（合并为一次 flush）', async () => {
+    const scope = effectScope();
+    const source = ref(0);
+    const out = scope.run(() => useThrottledRef(source, 100))!;
+
+    source.value = 1;
+    await nextTick();
+    expect(out.value).toBe(1); // 首次立即生效
+
+    // 进入节流窗口：两次触发只应排一个定时器，末值为 3
+    source.value = 2;
+    source.value = 3;
+    await nextTick();
+    expect(out.value).toBe(1);
+
+    vi.advanceTimersByTime(100);
+    await nextTick();
+    expect(out.value).toBe(3);
+
+    scope.stop();
+  });
+
+  it('窗口过去后又立即生效（不会永久卡在节流态）', async () => {
+    const scope = effectScope();
+    const source = ref('a');
+    const out = scope.run(() => useThrottledRef(source, 100))!;
+
+    source.value = 'b';
+    await nextTick();
+    expect(out.value).toBe('b');
+
+    vi.advanceTimersByTime(150);
+    await nextTick();
+
+    source.value = 'c';
+    await nextTick();
+    // 距上次 flush 已超过 interval，应立刻生效而不是再等一个窗口
+    expect(out.value).toBe('c');
+
+    scope.stop();
+  });
+
+  it('销毁时清掉待触发的定时器', async () => {
+    const scope = effectScope();
+    const source = ref(0);
+    const out = scope.run(() => useThrottledRef(source, 200))!;
+
+    source.value = 1;
+    await nextTick();
+    source.value = 2; // 排队中
+    await nextTick();
+    scope.stop();
+
+    vi.advanceTimersByTime(1000);
+    await nextTick();
+    // 已销毁：排队值不得再写入
+    expect(out.value).toBe(1);
+  });
+});
+
+describe('useThrottledRef 定时器与立即触发竞争', () => {
+  it('已排队时如果窗口已经过去，取消排队并立即 flush 一次', async () => {
+    const scope = effectScope();
+    const source = ref(0);
+    const out = scope.run(() => useThrottledRef(source, 100))!;
+
+    // 第一次立即生效，last = now
+    source.value = 1;
+    await nextTick();
+    expect(out.value).toBe(1);
+
+    // 窗口内触发 → 排队（timer 已存在）
+    source.value = 2;
+    await nextTick();
+    expect(out.value).toBe(1);
+
+    // 把时钟推过 interval，让下一次触发走 wait <= 0 且 timer 仍在
+    vi.setSystemTime(Date.now() + 200);
+    source.value = 3;
+    await nextTick();
+
+    // 应立即生效（3），且原来排队的定时器被取消，不会稍后用 2 覆盖回去
+    expect(out.value).toBe(3);
+    vi.advanceTimersByTime(200);
+    await nextTick();
+    expect(out.value).toBe(3);
+
+    scope.stop();
+  });
+});

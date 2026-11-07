@@ -9,7 +9,7 @@
 | 命令 | 本轮基线结果 | 证据边界 |
 |---|---|---|
 | `npm run typecheck` | PASS | `vue-tsc --noEmit` |
-| `npm run test:coverage` | **35 files / 490 tests passed**；分支覆盖率 78.12% ≥ 78% | 前端单测；含新增的防抖原语 5 项与 HTTP 信封契约 2 项 |
+| `npm run test:coverage` | **35 files / 494 tests passed**；分支覆盖率 78.04% ≥ 78% | 前端单测；含新增的防抖原语 5 项与 HTTP 信封契约 2 项 |
 | `npm run build` | PASS；`dist/assets` 无 `mock-*` 分块，含 `api/invoke` | 生产前端构建 |
 | `cargo fmt --check` | PASS | 仅格式检查 |
 | `cargo clippy --all-targets --locked -- -D warnings` | PASS | 零 warning |
