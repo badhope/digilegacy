@@ -71,7 +71,7 @@ native-tls = "0.2.18"
 clap = { version = "4.5", features = ["derive"] }
 axum = { version = "0.8", features = ["json"] }
 tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "macros", "sync"] }
-tower-http = { version = "0.6", features = ["fs", "trace", "cors", "compression-gzip"] }
+tower-http = { version = "0.7", features = ["fs", "trace", "cors", "compression-gzip"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
