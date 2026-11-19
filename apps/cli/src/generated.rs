@@ -25,6 +25,7 @@ pub const COMMAND_LINES: &[&str] = &[
     "connections test",
     "diagnostics export",
     "jobs get",
+    "jobs cancel",
 ];
 
 pub fn print_help() {

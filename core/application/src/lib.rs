@@ -91,6 +91,7 @@ impl Application {
             "agent.approvals.list" => self.approvals_list(args),
             "agent.approvals.decide" => self.approvals_decide(args),
             "jobs.get" => self.jobs_get(args),
+            "jobs.cancel" => self.jobs_cancel(args),
             other => Err(PlatformError::unsupported(other)),
         }
     }
@@ -188,6 +189,16 @@ impl Application {
         Ok(json!(approval))
     }
 
+    pub fn jobs_cancel(&self, args: Value) -> Result<Value, PlatformError> {
+        let id = args
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| PlatformError::invalid_args("缺少 id"))?;
+        let detail = jobs::cancel(&self.store, id)?;
+        self.audit("job.cancel", id)?;
+        Ok(json!(detail))
+    }
+
     pub fn jobs_get(&self, args: Value) -> Result<Value, PlatformError> {
         let id = args
             .get("id")
@@ -278,8 +289,13 @@ impl Application {
     pub fn runs_get(&self, args: Value) -> Result<Value, PlatformError> {
         let id = args
             .get("id")
-            .and_then(Value::as_str)
+            .and_then(|v| {
+                v.as_str()
+                    .map(ToOwned::to_owned)
+                    .or_else(|| Some(v.to_string()))
+            })
             .ok_or_else(|| PlatformError::invalid_args("缺少 id"))?;
+        let id = id.trim_matches('"');
         runs::get(&self.store, id)
             .map(|data| json!(data))
             .map_err(map_domain)

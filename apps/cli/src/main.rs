@@ -104,6 +104,12 @@ enum JobsCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Cancel a queued job.
+    Cancel {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -506,6 +512,9 @@ fn main() -> ExitCode {
         Commands::Jobs { command } => match command {
             JobsCommand::Get { id, json: as_json } => {
                 run(&app, "jobs.get", json!({ "id": id }), as_json, false)
+            }
+            JobsCommand::Cancel { id, json: as_json } => {
+                run(&app, "jobs.cancel", json!({ "id": id }), as_json, false)
             }
         },
         Commands::Audit { command } => match command {

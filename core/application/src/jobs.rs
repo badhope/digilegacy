@@ -200,6 +200,28 @@ pub fn run_one(app: &Application) -> Result<bool, PlatformError> {
     Ok(true)
 }
 
+pub fn cancel(store: &Store, id: &str) -> Result<JobDetail, PlatformError> {
+    let detail = get(store, id)?;
+    if detail.status != "queued" {
+        return Err(PlatformError::new(
+            "CONFLICT",
+            format!("任务状态为 {}，只有排队中的任务可以取消", detail.status),
+        ));
+    }
+    let finished = now();
+    store
+        .write(|conn| {
+            conn.execute(
+                "UPDATE jobs SET status='cancelled', error_code='CANCELLED', updated_at=?2, finished_at=?2
+                 WHERE id=?1 AND status='queued'",
+                rusqlite::params![id, finished],
+            )?;
+            Ok(())
+        })
+        .map_err(|e| internal(format!("取消任务失败: {e}")))?;
+    get(store, id)
+}
+
 pub fn get(store: &Store, id: &str) -> Result<JobDetail, PlatformError> {
     store
         .read(|conn| {
@@ -301,6 +323,17 @@ mod tests {
             .dispatch("jobs.get", json!({ "id": "missing" }))
             .unwrap_err();
         assert_eq!(job.code, "NOT_FOUND");
+    }
+
+    #[test]
+    fn cancels_queued_job_once() {
+        let app = app();
+        let id = enqueue(app.store(), "agent.resume", json!({ "approvalId": "a1" })).unwrap();
+        let cancelled = cancel(app.store(), &id).unwrap();
+        assert_eq!(cancelled.status, "cancelled");
+        assert_eq!(cancelled.error_code, "CANCELLED");
+        let second = cancel(app.store(), &id).unwrap_err();
+        assert_eq!(second.code, "CONFLICT");
     }
 
     #[test]

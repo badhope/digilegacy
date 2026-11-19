@@ -368,5 +368,7 @@
   "approvals.rejectedNote": "Rejected; the run stops immediately.",
   "approvals.viewRun": "View run",
   "runs.detail.duration": "Duration",
-  "runs.detail.live": "Active; silent refresh every 1.5s, paused when the tab is hidden."
+  "runs.detail.live": "Active; silent refresh every 1.5s, paused when the tab is hidden.",
+  "deliverables.cancel": "Cancel export",
+  "deliverables.cancelling": "Cancelling…"
 }

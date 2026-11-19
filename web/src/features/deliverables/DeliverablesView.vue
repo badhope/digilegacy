@@ -7,7 +7,7 @@ import SectionCard from "@/shared/ui/SectionCard.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
 import { platformClient } from "@/platform/client";
-import type { DeliverableExport } from "@/platform/types";
+import type { DeliverableExport, JobDetail } from "@/platform/types";
 import type { IconName } from "@/shared/icons/paths";
 
 const { t, locale } = useI18n();
@@ -26,6 +26,16 @@ const generated = computed(() =>
   Object.values(results).filter((item): item is DeliverableExport => item?.status === "succeeded"),
 );
 const pollers = new Map<string, number>();
+const streams = new Map<string, EventSource>();
+const cancelling = ref<string | null>(null);
+
+function stopStream(kind: string) {
+  const source = streams.get(kind);
+  if (source) {
+    source.close();
+    streams.delete(kind);
+  }
+}
 
 function stopPoll(kind: string) {
   const timer = pollers.get(kind);
@@ -33,19 +43,13 @@ function stopPoll(kind: string) {
     window.clearInterval(timer);
     pollers.delete(kind);
   }
+  stopStream(kind);
 }
 
-async function refreshJob(kind: string, jobId: string) {
-  const envelope = await platformClient.getJob(jobId);
-  if (!envelope.success || !envelope.data) {
-    errors[kind] = envelope.message || envelope.code;
-    stopPoll(kind);
-    return;
-  }
-  const job = envelope.data;
+function applyJob(kind: string, job: JobDetail) {
   if (job.status === "succeeded") {
     results[kind] = {
-      jobId,
+      jobId: job.jobId,
       status: "succeeded",
       progress: 1,
       ...(job.result as Partial<DeliverableExport>),
@@ -59,15 +63,65 @@ async function refreshJob(kind: string, jobId: string) {
     stopPoll(kind);
     return;
   }
-  results[kind] = { jobId, status: job.status, progress: job.progress };
+  results[kind] = { jobId: job.jobId, status: job.status, progress: job.progress };
+}
+
+async function refreshJob(kind: string, jobId: string) {
+  const envelope = await platformClient.getJob(jobId);
+  if (!envelope.success || !envelope.data) {
+    errors[kind] = envelope.message || envelope.code;
+    stopPoll(kind);
+    return;
+  }
+  applyJob(kind, envelope.data);
+}
+
+function startStream(kind: string, jobId: string) {
+  if (typeof EventSource === "undefined") return;
+  stopStream(kind);
+  const source = new EventSource(platformClient.exportUrl(`/api/v1/events?jobId=${encodeURIComponent(jobId)}`));
+  source.addEventListener("snapshot", (event) => {
+    try {
+      const payload = JSON.parse((event as MessageEvent).data) as { job?: JobDetail };
+      if (payload.job) applyJob(kind, payload.job);
+    } catch {
+      // Keep the 1.5s fallback poller authoritative if a frame is malformed.
+    }
+  });
+  source.addEventListener("error", () => {
+    source.close();
+    streams.delete(kind);
+  });
+  streams.set(kind, source);
+}
+
+async function cancel(kind: string) {
+  const jobId = results[kind]?.jobId;
+  if (!jobId || cancelling.value) return;
+  cancelling.value = kind;
+  errors[kind] = "";
+  try {
+    const envelope = await platformClient.cancelJob(jobId);
+    if (!envelope.success) {
+      errors[kind] = envelope.message || envelope.code;
+      return;
+    }
+    stopPoll(kind);
+    delete results[kind];
+  } catch (cause) {
+    errors[kind] = cause instanceof Error ? cause.message : t("deliverables.error");
+  } finally {
+    cancelling.value = null;
+  }
 }
 
 function startPoll(kind: string, jobId: string) {
   stopPoll(kind);
+  startStream(kind, jobId);
   pollers.set(
     kind,
     window.setInterval(() => {
-      if (document.visibilityState !== "hidden") void refreshJob(kind, jobId);
+      if (!streams.has(kind) && document.visibilityState !== "hidden") void refreshJob(kind, jobId);
     }, 1500),
   );
 }
@@ -94,6 +148,8 @@ async function generate(kind: string) {
 onUnmounted(() => {
   for (const timer of pollers.values()) window.clearInterval(timer);
   pollers.clear();
+  for (const source of streams.values()) source.close();
+  streams.clear();
 });
 </script>
 
@@ -133,6 +189,11 @@ onUnmounted(() => {
         <div v-else-if="results[kind.kind]" class="deliverable-result">
           <span class="mono">{{ results[kind.kind]?.jobId }}</span>
           <span class="deliverable-meta">{{ t("deliverables.generating") }}</span>
+        </div>
+        <div v-if="results[kind.kind]?.status === 'queued'" class="deliverable-cancel">
+          <AppButton size="sm" :disabled="Boolean(cancelling)" @click="cancel(kind.kind)">
+            {{ cancelling === kind.kind ? t("deliverables.cancelling") : t("deliverables.cancel") }}
+          </AppButton>
         </div>
         <p v-if="errors[kind.kind]" class="deliverable-error">{{ errors[kind.kind] }}</p>
 
@@ -270,6 +331,7 @@ onUnmounted(() => {
   color: var(--danger, #b33a3a) !important;
 }
 
+.deliverable-cancel { margin-top: 8px; }
 .deliverable-actions {
   display: flex;
   align-items: center;

@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.8.0-m3i] - 2026-11-19
+
+### Added
+
+- `GET /api/v1/events?runId=<id>` / `?jobId=<id>`：SSE `snapshot` 事件流，服务端 500ms 读一次当前对象，只在中转状态变化时推送，15s keepalive；Web 运行详情与交付页优先 EventSource，失败自动回退 1.5s 轮询。
+- `jobs.cancel`：取消排队中的后台任务，置 `cancelled` / `CANCELLED` / `finishedAt`，写 `job.cancel` 审计；HTTP、CLI、IPC 可用，mcp/agent 关闭。
+
+### Changed
+
+- 契约扩至 **25 命令 / 17 工具 / 31 schema / 19 错误码**；`arch-check` 同步。
+- 版本 `0.8.0-m3i`；Web 关于页同步。
+- 交付页对 queued 导出显示“取消导出”；SSE 连接成功时暂停轮询，断流回退。
+
+### Verification
+
+- Rust 测试 **113 项**：security 49、store 15、domains 13、application 14、agent 3、server 12、foundation 5、render 2；全仓 `./tools/verify.sh` 通过。
+- 运行 #2 外部批准后 **0.6s** 由 SSE 更新为“已完成”；浏览器存在 `GET /api/v1/events?runId=2`。
+- CLI `jobs cancel` 对 queued job 返回 `cancelled`、`errorCode=CANCELLED`；二次取消 `CONFLICT`。
+
+### Known limits
+
+- SSE 为单进程 DB 轮询，不是广播总线；多实例部署需换事件总线。
+- `jobs.cancel` 只支持 queued；running 导出任务无法中断。
+- token/成本仍未落库，`Run.tokens` 仍为 0。
+
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
 ## [0.7.9-m3h] - 2026-11-19

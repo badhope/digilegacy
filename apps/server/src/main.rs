@@ -11,7 +11,10 @@ use axum::{
     body::Body,
     extract::{Json, Path, Query, State},
     http::{header, HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse, Response,
+    },
     routing::{get, patch, post},
     Router,
 };
@@ -20,8 +23,10 @@ use digilegacy_domains::{approvals, assets, audit, policy};
 use digilegacy_foundation::{Envelope, Permission, PlatformError};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tracing::info;
 
 #[derive(Clone)]
@@ -92,6 +97,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/deliverables/export", post(deliver_export))
         .route("/api/v1/exports/{job_id}", get(download_export))
         .route("/api/v1/jobs/{id}", get(job_detail))
+        .route("/api/v1/jobs/{id}/cancel", post(job_cancel))
+        .route("/api/v1/events", get(events))
         .route("/api/v1/security", get(security_get))
         .route("/api/v1/agent/runs", get(agent_runs).post(agent_runs_start))
         .route("/api/v1/agent/runs/{id}", get(agent_run_detail))
@@ -192,6 +199,50 @@ struct ExportRequest {
 
 fn default_locale() -> String {
     "zh-CN".to_string()
+}
+
+#[derive(Debug, Deserialize)]
+struct EventQuery {
+    #[serde(rename = "runId")]
+    run_id: Option<i64>,
+    #[serde(rename = "jobId")]
+    job_id: Option<String>,
+}
+
+async fn events(
+    State(state): State<AppState>,
+    Query(query): Query<EventQuery>,
+) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
+    let app = state.app;
+    let mut ticker = tokio::time::interval(Duration::from_millis(500));
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let stream = futures_util::stream::unfold(
+        (app, query, String::new(), ticker),
+        |(app, query, last, mut ticker)| async move {
+            ticker.tick().await;
+            let payload = if let Some(run_id) = query.run_id {
+                match app.dispatch("agent.runs.get", json!({ "id": run_id })) {
+                    Ok(run) => json!({ "run": run, "at": chrono::Utc::now().to_rfc3339() }),
+                    Err(error) => json!({ "error": error.code, "message": error.message }),
+                }
+            } else if let Some(job_id) = &query.job_id {
+                match app.dispatch("jobs.get", json!({ "id": job_id })) {
+                    Ok(job) => json!({ "job": job, "at": chrono::Utc::now().to_rfc3339() }),
+                    Err(error) => json!({ "error": error.code, "message": error.message }),
+                }
+            } else {
+                json!({ "error": "INVALID_ARGS", "message": "需要 runId 或 jobId" })
+            };
+            let text = payload.to_string();
+            let event = if text == last {
+                Event::default().comment("keepalive")
+            } else {
+                Event::default().event("snapshot").data(text.clone())
+            };
+            Some((Ok(event), (app, query, text, ticker)))
+        },
+    );
+    Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15)))
 }
 
 async fn deliver_export(
@@ -302,6 +353,14 @@ async fn agent_approval_decide(
 
 async fn job_detail(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     dispatch(&state, "jobs.get", json!({ "id": id }), None)
+}
+
+async fn job_cancel(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    dispatch(&state, "jobs.cancel", json!({ "id": id }), Some(&headers))
 }
 
 async fn agent_runs(

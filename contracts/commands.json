@@ -588,6 +588,31 @@
         "NOT_FOUND",
         "INTERNAL"
       ]
+    },
+    {
+      "name": "jobs.cancel",
+      "domain": "jobs",
+      "summary": "取消排队中的后台任务",
+      "permission": "draft",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/id.input.json",
+      "output": "schemas/job.detail.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "jobs cancel",
+        "http": "POST /api/v1/jobs/{id}/cancel",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "CONFLICT",
+        "INTERNAL"
+      ]
     }
   ]
 }

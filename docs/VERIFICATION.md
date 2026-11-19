@@ -246,6 +246,30 @@ CLI             deliver export 默认同步；--background 入队
 - 导出任务未支持取消；重复生成会创建多个 job。
 - 后台导出只记录 job 状态，未把 `duration_ms` 写入交付物表。
 
+### M3-I SSE 与排队任务取消
+
+```text
+GET /api/v1/events?runId=5 | ?jobId=job_... → text/event-stream
+server: 500ms 读取当前 RunDetail / JobDetail；变化时 event: snapshot + JSON；15s keepalive
+web:    RunDetailView / DeliverablesView 优先 EventSource；连接失败回退 1.5s 轮询
+jobs.cancel: queued → cancelled / CANCELLED + finishedAt；其余状态 CONFLICT
+```
+
+已实测：
+
+- 运行页打开等待审批的 run #2 后，外部 HTTP 批准，**0.6 秒内**页面变为“已完成”，早于 1.5s 轮询；浏览器网络记录存在 `GET /api/v1/events?runId=2`。
+- `curl -N /api/v1/events?runId=1` 依次输出 `waiting_approval`、`pending_approval`、`succeeded`、`done` 的 snapshot，状态变化由 SSE 推送。
+- `curl -N /api/v1/events?jobId=...` 返回 queued job 的完整 `JobDetail`，无变化时 `: keepalive`。
+- CLI：`deliver export --background` 入队后，`jobs cancel <id>` 返回 `cancelled`、`errorCode=CANCELLED`；再次 `jobs get` 仍为 `cancelled`。
+- 单元测试 `cancels_queued_job_once` 覆盖 queued 取消与二次取消 `CONFLICT`；application 测试 14 项。
+- 契约增至 **25 命令 / 17 工具 / 31 schema / 19 错误码**；`jobs.cancel` 仅 CLI/HTTP/IPC，mcp/agent 为 false。
+
+未完成边界：
+
+- SSE 是服务端 DB 轮询（每连接 500ms），不是跨进程广播总线；单工作区可接受，多实例需改事件总线。
+- `jobs.cancel` 只取消 `queued`；`running` 的导出任务无法中断，返回 `CONFLICT`。
+- token/成本仍未落库；`Run.tokens` 仍为 0，下一步需接真实 LLM usage。
+
 ### 未完成边界
 
 - 政策审核工作台与批量核对尚未做；政策溯源写已支持四态与审计。
@@ -263,9 +287,9 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         105.33 KB / 110 KB
+总 gzip         105.81 KB / 110 KB
 CSS gzip        18.20 KB / 19 KB
-入口 raw        63.84 KB / 64 KB
+入口 raw        64.03 KB / 65 KB
 vendor raw      98.89 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```
@@ -274,7 +298,7 @@ vendor raw      98.89 KB / 130 KB
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，24 commands / 27 表 / schema v11 |
+| Server | `GET /api/v1/health` | `200 OK`，25 commands / 27 表 / schema v11 |
 | Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |

@@ -82,6 +82,7 @@ export const platformClient = {
   exportDeliverable: (kind: string, locale = "zh-CN") =>
     invoke<DeliverableExport>(COMMANDS.deliverExport, { kind, locale, wait: false }),
   getJob: (id: string) => invoke<JobDetail>(COMMANDS.jobsGet, { id }),
+  cancelJob: (id: string) => invoke<JobDetail>(COMMANDS.jobsCancel, { id }),
   exportUrl: (path: string) => `${API_BASE}${path}`,
   listRuns: (args: Record<string, unknown> = {}) => invoke<AgentRuns>(COMMANDS.agentRunsList, args),
   getRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsGet, { id }),

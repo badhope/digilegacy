@@ -22,6 +22,8 @@ watch(runId, () => reload());
 const acting = ref(false);
 const actionError = ref("");
 let pollTimer: number | undefined;
+let eventSource: EventSource | undefined;
+let streamOpen = false;
 
 function isActive(status: RunStatus | undefined): boolean {
   return status === "queued" || status === "running" || status === "waiting_approval";
@@ -32,6 +34,31 @@ function stopPolling() {
     window.clearInterval(pollTimer);
     pollTimer = undefined;
   }
+  if (eventSource) {
+    eventSource.close();
+    eventSource = undefined;
+  }
+  streamOpen = false;
+}
+
+function startStream(id: string) {
+  if (typeof EventSource === "undefined" || !id) return;
+  const source = new EventSource(platformClient.exportUrl(`/api/v1/events?runId=${encodeURIComponent(id)}`));
+  source.addEventListener("open", () => {
+    streamOpen = true;
+  });
+  source.addEventListener("snapshot", (event) => {
+    try {
+      const payload = JSON.parse((event as MessageEvent).data) as { run?: typeof data.value };
+      if (payload.run) data.value = payload.run;
+    } catch {
+      // A malformed frame must not break the fallback poller.
+    }
+  });
+  source.addEventListener("error", () => {
+    streamOpen = false;
+  });
+  eventSource = source;
 }
 
 watch(
@@ -39,8 +66,9 @@ watch(
   (status) => {
     stopPolling();
     if (!isActive(status)) return;
+    startStream(runId.value);
     pollTimer = window.setInterval(() => {
-      if (document.visibilityState !== "hidden") refresh();
+      if (!streamOpen && document.visibilityState !== "hidden") refresh();
     }, 1500);
   },
   { immediate: true },

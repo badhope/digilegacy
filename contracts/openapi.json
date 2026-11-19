@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.7.9-m3h",
+    "version": "0.8.0-m3i",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -1519,6 +1519,81 @@
             }
           }
         ]
+      }
+    },
+    "/api/v1/jobs/{id}/cancel": {
+      "post": {
+        "operationId": "jobs.cancel",
+        "summary": "取消排队中的后台任务",
+        "tags": [
+          "jobs"
+        ],
+        "x-command": "jobs.cancel",
+        "x-permission": "draft",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/job.detail.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/id.input"
+              }
+            }
+          }
+        }
       }
     }
   },

@@ -368,5 +368,7 @@
   "approvals.rejectedNote": "已拒绝，运行会立即终止。",
   "approvals.viewRun": "查看运行",
   "runs.detail.duration": "耗时",
-  "runs.detail.live": "运行中，每 1.5 秒静默刷新；切到后台自动暂停。"
+  "runs.detail.live": "运行中，每 1.5 秒静默刷新；切到后台自动暂停。",
+  "deliverables.cancel": "取消导出",
+  "deliverables.cancelling": "取消中…"
 }

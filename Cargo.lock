@@ -438,7 +438,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-agent"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "digilegacy-contracts",
  "reqwest",
@@ -448,7 +448,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-application"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "digilegacy-agent",
@@ -467,7 +467,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-cli"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "clap",
  "digilegacy-application",
@@ -478,18 +478,18 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-contracts"
-version = "0.7.9"
+version = "0.8.0"
 
 [[package]]
 name = "digilegacy-desktop"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "digilegacy-domains"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "digilegacy-store",
@@ -500,7 +500,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-foundation"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "digilegacy-contracts",
  "serde",
@@ -509,11 +509,11 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-integrations"
-version = "0.7.9"
+version = "0.8.0"
 
 [[package]]
 name = "digilegacy-mcp"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "digilegacy-application",
  "digilegacy-store",
@@ -522,11 +522,11 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-render"
-version = "0.7.9"
+version = "0.8.0"
 
 [[package]]
 name = "digilegacy-security"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -547,15 +547,17 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-server"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "axum",
+ "chrono",
  "digilegacy-application",
  "digilegacy-contracts",
  "digilegacy-domains",
  "digilegacy-foundation",
  "digilegacy-security",
  "digilegacy-store",
+ "futures-util",
  "serde",
  "serde_json",
  "tokio",
@@ -565,7 +567,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-store"
-version = "0.7.9"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "digilegacy-security",
@@ -666,6 +668,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53c0fa8157de1303bfffdaa1cc2a673bfffb60102f76b0ef4441659124373fed"
 
 [[package]]
+name = "futures-macro"
+version = "0.3.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.10",
+]
+
+[[package]]
 name = "futures-sink"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -685,6 +698,7 @@ checksum = "0d50a92467f8ba5dd6e3ee5d4bd04d73ab2e4e1c44474a0674821dfce14b79bc"
 dependencies = [
  "futures-core",
  "futures-io",
+ "futures-macro",
  "futures-sink",
  "futures-task",
  "memchr",
