@@ -65,12 +65,32 @@ cargo clippy --workspace --all-targets -- -D warnings  OK
 cargo test --workspace            OK
 ```
 
-已观察测试：
+已观察测试（M1）：
 
 - foundation：5 个
 - render：1 个
 - server：5 个
-- 其余 crate：0 个（M0 边界）
+- security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
+- store：15 个（schema v9、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
+- 其余 crate：0 个（尚未接领域的边界）
+
+### M1 安全与数据底座
+
+```text
+core/security:
+  crypto v1/v2/v3 KDF、AES-256-GCM、HKDF 三域、KEK/DEK、恢复码三代封印
+  Shamir 2-of-N / 3-of-5、校验和、批次指纹、口令保护、恢复包 HTML
+  FileKeyring 0600、认证备份清单（SHA-256 + HMAC）
+core/store:
+  schema v9 = 26 张表；schema_migrations；additive v8->v9
+  SQLCipher raw key；单写 + 只读连接；integrity_check / quick_check
+  legacy v4/v5 JSON 导入（源密码验证后写入）
+  checkpoints（最多 12）+ restore verify
+  audit hash chain + diagnostics JSON
+```
+
+M1 退出条件中的“加密、恢复、备份、迁移、审计全绿”已由上述单测覆盖；
+`integrity_check` 在 store 测试中返回 `ok`。
 
 ### Web
 

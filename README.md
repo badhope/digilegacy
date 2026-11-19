@@ -23,11 +23,13 @@
 | Web 控制台壳（5 主入口 + 设置工具区） | 已做完 |
 | 架构测试 / 性能基线 / CI / verify 脚本 | 已做完 |
 | 工程治理文档与模板 | 已做完 |
-| 真实领域服务 | M1 起接入 |
-| 安全内核 / 数据库 | M1 迁移 |
+| 安全内核 / 数据库 | 已做完（M1） |
+| 真实领域服务 | M2 接入 |
 | 桌面 Tauri 窗口与托盘 | M3/M5 |
 
-当前版本：`0.7.0-m0`。
+当前版本：`0.7.0-m1`。
+
+M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
 契约规模：**13 个命令、10 个工具、18 个 schema、19 个错误码**。
 
@@ -67,8 +69,8 @@ Web Console        Agent / MCP        CLI             Desktop
 core/
   foundation/      信封、错误、权限、CommandBus、trace id
   contracts/       生成后的命令/错误表
-  security/        Vault 边界（M1 接加密）
-  store/           SQLite/SQLCipher 边界（M1 接库）
+  security/        Vault 生命周期、恢复、备份、文件 KEK
+  store/           SQLCipher、schema v9、迁移、检查点、审计
   domains/         DOM-01..07 领域清单
   integrations/    邮件、云盘、LLM 等连接边界
   agent/           Run / Approval 状态机
@@ -168,8 +170,9 @@ node tools/bench/web-budget.mjs
 ./tools/bench/core-bus.sh
 ```
 
-M0 基线：
+M1 基线：
 
+- Rust 测试：security 49、store 15（全仓 verify 通过）
 - Web 总 gzip 约 **81 KB**
 - 入口 chunk 约 **48 KB**，vendor 约 **98.5 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线）
