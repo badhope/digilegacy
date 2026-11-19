@@ -1,0 +1,61 @@
+{
+  "title": "AgentUsageSummary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["since", "days", "totals", "byDay", "byModel"],
+  "properties": {
+    "since": {"type": "string"},
+    "days": {"type": "integer", "minimum": 1, "maximum": 90},
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plans", "runs", "tokensIn", "tokensOut", "tokens", "costMicros", "pricedPlans", "unpricedPlans"],
+      "properties": {
+        "plans": {"type": "integer", "minimum": 0},
+        "runs": {"type": "integer", "minimum": 0},
+        "tokensIn": {"type": "integer", "minimum": 0},
+        "tokensOut": {"type": "integer", "minimum": 0},
+        "tokens": {"type": "integer", "minimum": 0},
+        "costMicros": {"type": "integer", "minimum": 0},
+        "pricedPlans": {"type": "integer", "minimum": 0},
+        "unpricedPlans": {"type": "integer", "minimum": 0}
+      }
+    },
+    "byDay": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["day", "plans", "runs", "tokensIn", "tokensOut", "tokens", "costMicros", "unpricedPlans"],
+        "properties": {
+          "day": {"type": "string"},
+          "plans": {"type": "integer", "minimum": 0},
+          "runs": {"type": "integer", "minimum": 0},
+          "tokensIn": {"type": "integer", "minimum": 0},
+          "tokensOut": {"type": "integer", "minimum": 0},
+          "tokens": {"type": "integer", "minimum": 0},
+          "costMicros": {"type": "integer", "minimum": 0},
+          "unpricedPlans": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "byModel": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["model", "plans", "tokensIn", "tokensOut", "tokens", "costMicros", "unpricedPlans"],
+        "properties": {
+          "model": {"type": "string"},
+          "plans": {"type": "integer", "minimum": 0},
+          "tokensIn": {"type": "integer", "minimum": 0},
+          "tokensOut": {"type": "integer", "minimum": 0},
+          "tokens": {"type": "integer", "minimum": 0},
+          "costMicros": {"type": "integer", "minimum": 0},
+          "unpricedPlans": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

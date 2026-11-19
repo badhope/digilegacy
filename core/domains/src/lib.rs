@@ -13,6 +13,7 @@ pub mod overview;
 pub mod plan;
 pub mod policy;
 pub mod runs;
+pub mod usage;
 
 pub use assets::DomainError;
 

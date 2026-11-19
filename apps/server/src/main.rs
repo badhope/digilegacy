@@ -101,6 +101,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/events", get(events))
         .route("/api/v1/security", get(security_get))
         .route("/api/v1/agent/runs", get(agent_runs).post(agent_runs_start))
+        .route("/api/v1/agent/usage", get(agent_usage))
         .route("/api/v1/agent/runs/{id}", get(agent_run_detail))
         .route("/api/v1/agent/runs/{id}/cancel", post(agent_run_cancel))
         .route("/api/v1/agent/runs/{id}/retry", post(agent_run_retry))
@@ -369,6 +370,24 @@ async fn agent_runs(
 ) -> impl IntoResponse {
     let (status, envelope) = dispatch(&state, "agent.runs.list", query, None);
     (status, envelope)
+}
+
+#[derive(Debug, Deserialize)]
+struct UsageQuery {
+    #[serde(default)]
+    days: Option<i64>,
+}
+
+async fn agent_usage(
+    State(state): State<AppState>,
+    Query(query): Query<UsageQuery>,
+) -> impl IntoResponse {
+    dispatch(
+        &state,
+        "agent.usage.summary",
+        json!({ "days": query.days }),
+        None,
+    )
 }
 
 fn error_response(error: PlatformError) -> (StatusCode, Json<Envelope<Value>>) {

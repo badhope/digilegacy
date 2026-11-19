@@ -5,7 +5,9 @@
 
 #![forbid(unsafe_code)]
 
-use digilegacy_domains::{approvals, assets, audit, overview, plan, policy, runs, DomainError};
+use digilegacy_domains::{
+    approvals, assets, audit, overview, plan, policy, runs, usage, DomainError,
+};
 use serde_json::{json, Value};
 
 pub mod deliver;
@@ -83,6 +85,7 @@ impl Application {
             "deliver.export" => self.deliver_export(args),
             "security.status" => self.security_status(),
             "agent.runs.list" => self.runs_list(args),
+            "agent.usage.summary" => self.usage_summary(args),
             "agent.runs.get" => self.runs_get(args),
             "agent.runs.start" => self.runs_start(args),
             "agent.runs.plan" => runtime::plan(self, args),
@@ -307,6 +310,13 @@ impl Application {
 
     pub fn runs_plan(&self, args: Value) -> Result<Value, PlatformError> {
         runtime::plan(self, args)
+    }
+
+    pub fn usage_summary(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: usage::SummaryInput = parse(args)?;
+        usage::summary(&self.store, input.days.unwrap_or(30))
+            .map(|data| json!(data))
+            .map_err(map_domain)
     }
 
     pub fn runs_list(&self, args: Value) -> Result<Value, PlatformError> {
@@ -566,6 +576,36 @@ mod tests {
         assert_eq!(run["planId"], "plan_test");
         let list = app.dispatch("agent.runs.list", json!({})).unwrap();
         assert_eq!(list["items"][0]["tokens"], 165);
+    }
+
+    #[test]
+    fn usage_summary_rolls_up_plans_without_double_counting_runs() {
+        let app = app();
+        let plan_id = "plan_usage_summary";
+        let usage = runs::Usage {
+            tokens_in: 100,
+            tokens_out: 20,
+            cost_micros: 140,
+            priced: true,
+        };
+        runs::record_plan(app.store(), plan_id, "用量测试", "mock-model", &usage, "[]").unwrap();
+        let run = app
+            .dispatch(
+                "agent.runs.start",
+                json!({
+                    "task": "用量测试",
+                    "planId": plan_id,
+                    "steps": [{ "tool": "overview.get", "args": {} }]
+                }),
+            )
+            .unwrap();
+        assert_eq!(run["tokens"], 120);
+        let summary = app.dispatch("agent.usage.summary", json!({})).unwrap();
+        assert_eq!(summary["totals"]["plans"], 1);
+        assert_eq!(summary["totals"]["runs"], 1);
+        assert_eq!(summary["totals"]["tokens"], 120);
+        assert_eq!(summary["totals"]["costMicros"], 140);
+        assert_eq!(summary["byModel"][0]["model"], "mock-model");
     }
 
     #[test]

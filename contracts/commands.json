@@ -446,6 +446,30 @@
       ]
     },
     {
+      "name": "agent.usage.summary",
+      "domain": "agent",
+      "summary": "汇总周期内的规划 token、成本与运行数",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/usage.summary.input.json",
+      "output": "schemas/usage.summary.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "usage summary",
+        "http": "GET /api/v1/agent/usage",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INTERNAL",
+        "STORE_NOT_READY",
+        "INVALID_ARGS"
+      ]
+    },
+    {
       "name": "agent.approvals.list",
       "domain": "agent",
       "summary": "列出 Agent 写操作审批队列",

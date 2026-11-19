@@ -19,6 +19,7 @@ pub const COMMAND_LINES: &[&str] = &[
     "runs plan",
     "runs cancel",
     "runs retry",
+    "usage summary",
     "approvals list",
     "approvals decide",
     "security status",

@@ -144,6 +144,22 @@
     "bulkThreshold": null
   },
   {
+    "name": "agent.usage.summary",
+    "command": "agent.usage.summary",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/usage.summary.input.json",
+    "outputSchema": "schemas/usage.summary.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
     "name": "agent.runs.get",
     "command": "agent.runs.get",
     "permission": "read",

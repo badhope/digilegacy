@@ -128,6 +128,46 @@ export interface AgentRuns {
   items: AgentRun[];
 }
 
+export interface UsageTotals {
+  plans: number;
+  runs: number;
+  tokensIn: number;
+  tokensOut: number;
+  tokens: number;
+  costMicros: number;
+  pricedPlans: number;
+  unpricedPlans: number;
+}
+
+export interface UsageDay {
+  day: string;
+  plans: number;
+  runs: number;
+  tokensIn: number;
+  tokensOut: number;
+  tokens: number;
+  costMicros: number;
+  unpricedPlans: number;
+}
+
+export interface UsageModel {
+  model: string;
+  plans: number;
+  tokensIn: number;
+  tokensOut: number;
+  tokens: number;
+  costMicros: number;
+  unpricedPlans: number;
+}
+
+export interface UsageSummary {
+  since: string;
+  days: number;
+  totals: UsageTotals;
+  byDay: UsageDay[];
+  byModel: UsageModel[];
+}
+
 export type ProvenanceStatus = "unverified" | "source_cited" | "verified" | "disputed";
 
 export interface PolicyProvenance {

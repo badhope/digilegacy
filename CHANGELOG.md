@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.2-m4b] - 2026-11-19
+
+### Added
+
+- `agent.usage.summary`：按周期汇总规划 token/成本、运行数、按日与按模型数据；输入 `days` 1..90，默认 30。
+- HTTP `GET /api/v1/agent/usage`、CLI `usage summary --days 30`。
+- Web 自动化页“用量”卡：规划数、运行数、token、成本、模型明细与未定价提示。
+
+### Changed
+
+- 契约扩至 **26 命令 / 18 工具 / 33 schema / 19 错误码**；`arch-check` 同步。
+- 版本 `0.8.2-m4b`。
+
+### Verification
+
+- Rust 测试 **117 项**（domains 14、application 16）；全仓 verify 通过。
+- 领域测试证明 token 只从 `agent_plan_log` 汇总，运行继承 token 不双计。
+- Application 测试：120-token 计划启动运行后汇总仍为 120，`plans=1/runs=1`。
+
+### Known limits
+
+- 只汇总规划器用量，工具执行成本未计。
+- 无 CSV/账单导出；`byDay` 按 UTC 切分。
+
 ## [0.8.1-m4a] - 2026-11-19
 
 ### Added

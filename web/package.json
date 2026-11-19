@@ -1,7 +1,7 @@
 {
   "name": "digilegacy-web",
   "private": true,
-  "version": "0.8.1-m4a",
+  "version": "0.8.2-m4b",
   "type": "module",
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26"

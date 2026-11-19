@@ -79,6 +79,11 @@ enum Commands {
         #[command(subcommand)]
         command: SecurityCommand,
     },
+    /// Agent usage rollup.
+    Usage {
+        #[command(subcommand)]
+        command: UsageCommand,
+    },
     /// Agent run history and runtime.
     Runs {
         #[command(subcommand)]
@@ -107,6 +112,17 @@ enum JobsCommand {
     /// Cancel a queued job.
     Cancel {
         id: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum UsageCommand {
+    /// Summarize plan tokens, cost and run count.
+    Summary {
+        #[arg(long, default_value_t = 30)]
+        days: i64,
         #[arg(long)]
         json: bool,
     },
@@ -535,6 +551,18 @@ fn main() -> ExitCode {
             SecurityCommand::Status { json: as_json } => {
                 run(&app, "security.status", json!({}), as_json, false)
             }
+        },
+        Commands::Usage { command } => match command {
+            UsageCommand::Summary {
+                days,
+                json: as_json,
+            } => run(
+                &app,
+                "agent.usage.summary",
+                json!({ "days": days }),
+                as_json,
+                false,
+            ),
         },
         Commands::Runs { command } => match command {
             RunsCommand::List {

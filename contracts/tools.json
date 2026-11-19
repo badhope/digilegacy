@@ -164,6 +164,24 @@
       "rate_limit": "60/min"
     },
     {
+      "name": "agent.usage.summary",
+      "title": "读取用量汇总",
+      "description": "按日/模型汇总规划 token 与成本，并单独统计运行数；token 不重复计入继承运行。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/usage.summary.input.json",
+      "output_schema": "schemas/usage.summary.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "agent.usage.summary",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "60/min"
+    },
+    {
       "name": "agent.runs.get",
       "title": "读取 Agent 运行详情",
       "description": "读取一次运行的任务、状态、逐步工具调用与结果；只读。",

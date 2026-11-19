@@ -156,6 +156,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: true,
     },
     CommandSpec {
+        name: "agent.usage.summary",
+        domain: "agent",
+        permission: "read",
+        http: "GET /api/v1/agent/usage",
+        requires_unlock: false,
+        audit: false,
+    },
+    CommandSpec {
         name: "agent.approvals.list",
         domain: "agent",
         permission: "read",
@@ -233,6 +241,7 @@ pub const TOOLS: &[ToolSpec] = &[
     ToolSpec { name: "policies.get", command: "policies.get", permission: "read", title: "读取单条政策", description: "按政策 ID 读取流程、材料、风险与溯源状态。", input_schema: "{\n  \"title\": \"IdInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"id\"\n  ],\n  \"properties\": {\n    \"id\": {\n      \"type\": \"string\",\n      \"minLength\": 1,\n      \"maxLength\": 64\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "policies.provenance.set", command: "policies.provenance.set", permission: "draft", title: "记录政策溯源", description: "由人或 Agent 记录政策来源的核实状态、来源 URL 与备注；不修改政策正文。", input_schema: "{\n  \"title\": \"PolicyProvenanceInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\"id\", \"status\"],\n  \"properties\": {\n    \"id\": { \"type\": \"string\" },\n    \"status\": { \"type\": \"string\", \"enum\": [\"unverified\", \"source_cited\", \"verified\", \"disputed\"] },\n    \"sourceUrl\": { \"type\": \"string\", \"default\": \"\" },\n    \"note\": { \"type\": \"string\", \"default\": \"\" }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "runs.list", command: "agent.runs.list", permission: "read", title: "列出 Agent 运行", description: "读取运行状态、步骤数与成本摘要。", input_schema: "{\n  \"title\": \"RunsListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"status\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"active\",\n        \"succeeded\",\n        \"failed\",\n        \"all\"\n      ],\n      \"default\": \"all\"\n    },\n    \"limit\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 100,\n      \"default\": 20\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "agent.usage.summary", command: "agent.usage.summary", permission: "read", title: "读取用量汇总", description: "按日/模型汇总规划 token 与成本，并单独统计运行数；token 不重复计入继承运行。", input_schema: "{\n  \"title\": \"AgentUsageSummaryInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"days\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 90,\n      \"default\": 30\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "agent.runs.get", command: "agent.runs.get", permission: "read", title: "读取 Agent 运行详情", description: "读取一次运行的任务、状态、逐步工具调用与结果；只读。", input_schema: "{\n  \"title\": \"IdInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"id\"\n  ],\n  \"properties\": {\n    \"id\": {\n      \"type\": \"string\",\n      \"minLength\": 1,\n      \"maxLength\": 64\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "agent.approvals.list", command: "agent.approvals.list", permission: "read", title: "读取 Agent 审批队列", description: "按状态读取 Agent 写操作审批记录；只读，不代替人工决定。", input_schema: "{\n  \"title\": \"ApprovalListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"status\": { \"type\": \"string\", \"enum\": [\"pending\", \"approved\", \"rejected\", \"expired\", \"all\"], \"default\": \"pending\" }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "security.status", command: "security.status", permission: "read", title: "读取安全状态", description: "读取锁定状态、恢复配置与密钥摘要，不含密钥本身。", input_schema: "{\n  \"title\": \"EmptyInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },

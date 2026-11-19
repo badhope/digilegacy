@@ -72,7 +72,7 @@ cargo test --workspace            OK
 - server：12 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突、Runtime 启动/详情）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
 - store：15 个（schema v12 / 28 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- domains：13 个；application：15 个；agent：4 个；合计 115 个
+- domains：14 个；application：16 个；agent：4 个；合计 117 个
 
 ### M1 安全与数据底座
 
@@ -293,6 +293,30 @@ agent.runs.list/get → tokens / costMicros / usagePriced / planId
 - 没有按日/模型聚合的用量报表；当前按计划记录与运行继承查询。
 - 真实 DeepSeek/豆包 key 未配置，E2E 使用本地 mock provider。
 
+### M4-B 用量汇总
+
+```text
+agent.usage.summary(days=30)
+  totals  ← agent_plan_log 的 token/成本；agent_run_log 只计 run 数
+  byDay   ← 计划 token/成本 + 当日运行数
+  byModel ← 按模型聚合的计划 token/成本
+HTTP GET /api/v1/agent/usage
+CLI  usage summary --days 30
+```
+
+已实测：
+
+- 领域测试固定两条 plan（135 tokens，其中 1 条未定价）与一条 run（100/20 tokens），汇总返回 `plans=2`、`runs=1`、`tokens=135`，证明运行继承 token 没有被二次相加。
+- Application 测试：一条 120-token 计划启动运行后，汇总仍为 `plans=1`、`runs=1`、`tokens=120`。
+- 契约扩至 **26 命令 / 18 工具 / 33 schema / 19 错误码**；`agent.usage.summary` 对 MCP/Agent 开放，权限 read。
+- Web 自动化页新增“用量”卡，展示规划数、运行数、token、成本、模型明细与未定价提示。
+
+未完成边界：
+
+- 汇总只覆盖规划器用量；工具执行/外部 API 成本未计。
+- 没有导出 CSV/账单的入口；当前是运行时查询。
+- `byDay` 使用 UTC 日期切分，跨时区账单口径需后续统一。
+
 ### 未完成边界
 
 - 政策审核工作台与批量核对尚未做；政策溯源写已支持四态与审计。
@@ -310,10 +334,10 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         106.35 KB / 110 KB
-JS gzip         88.14 KB / 89 KB
-CSS gzip        18.21 KB / 19 KB
-入口 raw        64.41 KB / 65 KB
+总 gzip         107.23 KB / 110 KB
+JS gzip         88.90 KB / 89 KB
+CSS gzip        18.33 KB / 19 KB
+入口 raw        65.66 KB / 66 KB
 vendor raw      98.89 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```
@@ -322,7 +346,7 @@ vendor raw      98.89 KB / 130 KB
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，25 commands / 28 表 / schema v12 |
+| Server | `GET /api/v1/health` | `200 OK`，26 commands / 28 表 / schema v12 |
 | Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |

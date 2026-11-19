@@ -19,12 +19,15 @@ import { loadRuns } from "./api";
 const router = useRouter();
 const { t, locale } = useI18n();
 const { data, loading, error, reload } = useResource(loadRuns);
+const usageResource = useResource(() => platformClient.usageSummary(30));
 const approvalResource = useResource(() => platformClient.listApprovals({ status: "pending" }));
 const readTools = computed(() => TOOL_CATALOG.filter((tool) => tool.mcp));
 
 const approvals = computed(() => approvalResource.data.value?.items ?? []);
 const waiting = computed(() => approvalResource.data.value?.pending ?? approvals.value.length);
 const failed = computed(() => data.value?.items.filter((run) => run.status === "failed").length ?? 0);
+const usage = computed(() => usageResource.data.value);
+const usageLoading = usageResource.loading;
 
 function tone(status: AgentRun["status"]): "ready" | "planned" | "degraded" | "danger" | "neutral" {
   if (status === "succeeded") return "ready";
@@ -36,6 +39,15 @@ function tone(status: AgentRun["status"]): "ready" | "planned" | "degraded" | "d
 
 function statusKey(status: AgentRun["status"]): string {
   return `run.status.${status}`;
+}
+
+function formatTokens(value: number | undefined): string {
+  return new Intl.NumberFormat(locale.value === "zh-CN" ? "zh-CN" : "en-US").format(value ?? 0);
+}
+
+function formatCost(micros: number | undefined): string {
+  if (!micros) return "—";
+  return `¥${(micros / 1_000_000).toFixed(6)}`;
 }
 
 function formatDate(value: string): string {
@@ -124,6 +136,23 @@ function openRun(run: AgentRun) {
         </SectionCard>
 
         <div class="automation-side">
+          <SectionCard :title="t('automation.usage.title')" :subtitle="t('automation.usage.subtitle')">
+            <div v-if="usageLoading" class="usage-empty">{{ t("common.loading") }}</div>
+            <div v-else-if="usage" class="usage-grid">
+              <div><span>{{ t("automation.usage.plans") }}</span><strong class="mono">{{ usage.totals.plans }}</strong></div>
+              <div><span>{{ t("automation.usage.runs") }}</span><strong class="mono">{{ usage.totals.runs }}</strong></div>
+              <div><span>{{ t("automation.usage.tokens") }}</span><strong class="mono">{{ formatTokens(usage.totals.tokens) }}</strong></div>
+              <div><span>{{ t("automation.usage.cost") }}</span><strong class="mono">{{ formatCost(usage.totals.costMicros) }}</strong></div>
+            </div>
+            <div v-if="usage?.byModel.length" class="usage-models">
+              <span class="mono" v-for="model in usage.byModel.slice(0, 3)" :key="model.model">
+                {{ model.model }} · {{ formatTokens(model.tokens) }} tokens · {{ formatCost(model.costMicros) }}
+              </span>
+            </div>
+            <p v-if="usage && usage.totals.unpricedPlans > 0" class="usage-note">{{ t("automation.usage.unpriced", { count: usage.totals.unpricedPlans }) }}</p>
+            <div v-else-if="usage && !usage.totals.plans" class="usage-empty">{{ t("automation.usage.empty") }}</div>
+          </SectionCard>
+
           <SectionCard :title="t('automation.approvals.title')" :subtitle="t('automation.approvals.subtitle')">
             <div v-if="approvals.length" class="approval-list">
               <div v-for="approval in approvals" :key="approval.id" class="approval-run">
@@ -190,6 +219,14 @@ function openRun(run: AgentRun) {
   margin-top: 16px;
 }
 
+.usage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.usage-grid > div { display: flex; flex-direction: column; gap: 4px; }
+.usage-grid span { color: var(--muted); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
+.usage-grid strong { font-size: 16px; font-weight: 500; }
+.usage-models { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.usage-models span { color: var(--muted); font-size: 10px; }
+.usage-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; }
+.usage-empty { color: var(--muted); font-size: 12px; }
 .automation-side {
   display: flex;
   flex-direction: column;
@@ -394,7 +431,15 @@ function openRun(run: AgentRun) {
     grid-template-columns: 1fr;
   }
 
-  .automation-side {
+  .usage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.usage-grid > div { display: flex; flex-direction: column; gap: 4px; }
+.usage-grid span { color: var(--muted); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
+.usage-grid strong { font-size: 16px; font-weight: 500; }
+.usage-models { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.usage-models span { color: var(--muted); font-size: 10px; }
+.usage-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; }
+.usage-empty { color: var(--muted); font-size: 12px; }
+.automation-side {
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
@@ -405,7 +450,15 @@ function openRun(run: AgentRun) {
     grid-template-columns: 1fr;
   }
 
-  .automation-side {
+  .usage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.usage-grid > div { display: flex; flex-direction: column; gap: 4px; }
+.usage-grid span { color: var(--muted); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
+.usage-grid strong { font-size: 16px; font-weight: 500; }
+.usage-models { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.usage-models span { color: var(--muted); font-size: 10px; }
+.usage-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; }
+.usage-empty { color: var(--muted); font-size: 12px; }
+.automation-side {
     grid-template-columns: 1fr;
   }
 }

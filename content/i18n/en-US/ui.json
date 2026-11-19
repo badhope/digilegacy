@@ -374,5 +374,13 @@
   "runs.detail.usage": "Usage",
   "runs.detail.costUnknown": "cost not configured",
   "runs.start.planUsage": "input {input} / output {output} tokens",
-  "runs.start.costUnknown": "cost not configured"
+  "runs.start.costUnknown": "cost not configured",
+  "automation.usage.title": "Usage",
+  "automation.usage.subtitle": "Planner tokens and cost over 30 days; run count is separate and inherited tokens are not double-counted.",
+  "automation.usage.plans": "PLANS",
+  "automation.usage.runs": "RUNS",
+  "automation.usage.tokens": "TOKENS",
+  "automation.usage.cost": "COST",
+  "automation.usage.unpriced": "{count} plans without pricing",
+  "automation.usage.empty": "No planner usage yet"
 }

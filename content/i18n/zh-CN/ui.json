@@ -374,5 +374,13 @@
   "runs.detail.usage": "用量",
   "runs.detail.costUnknown": "成本未配置",
   "runs.start.planUsage": "输入 {input} / 输出 {output} tokens",
-  "runs.start.costUnknown": "成本未配置"
+  "runs.start.costUnknown": "成本未配置",
+  "automation.usage.title": "用量",
+  "automation.usage.subtitle": "近 30 天规划 token 与成本；运行数单独统计，不重复计入继承 token。",
+  "automation.usage.plans": "规划",
+  "automation.usage.runs": "运行",
+  "automation.usage.tokens": "TOKEN",
+  "automation.usage.cost": "成本",
+  "automation.usage.unpriced": "{count} 次规划未配置成本单价",
+  "automation.usage.empty": "暂无规划用量"
 }
