@@ -43,6 +43,7 @@ node tools/bench/web-budget.mjs
 - **Domain tests** cover state transitions, validation and provenance rules.
 - **Store tests** open a database, apply migrations and verify the resulting schema.
 - **Application tests** exercise use cases without HTTP.
+- **Network guard tests** cover metadata/private/link-local URL rejection, loopback allowance and signed policy-feed transport against a local HTTP server.
 - **Server tests** cover transport behavior and error mapping.
 - **Web tests** cover cache behavior, routing and important page states.
 - **Manual smoke** checks the path a person actually clicks.

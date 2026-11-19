@@ -144,6 +144,8 @@ impl Application {
                 "未配置政策连接；请在设置中保存 policy 连接或设置 DIGILEGACY_POLICY_URL",
             )
         })?;
+        digilegacy_security::validate_external_url(&endpoint)
+            .map_err(PlatformError::invalid_args)?;
         let source = display_source(&endpoint);
         let state = domain_sync::state(self.store()).map_err(map_domain)?;
         let since = if input.since.trim().is_empty() {

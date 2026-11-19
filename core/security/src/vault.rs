@@ -14,6 +14,7 @@
 //! 此后不再需要全库重加密。
 
 use once_cell::sync::Lazy;
+use std::net::IpAddr;
 use std::sync::Mutex;
 use zeroize::{Zeroize, Zeroizing};
 
@@ -256,7 +257,80 @@ pub fn validate_external_url(url: &str) -> Result<String, String> {
     if authority.contains('@') {
         return Err("链接不得包含账号信息（@ 前的主机名不是真实访问目标）".to_string());
     }
+    let host = host_from_authority(authority);
+    let host_lower = host.trim_matches(['[', ']']).to_ascii_lowercase();
+    if is_metadata_host(host_lower.trim_end_matches('.')) {
+        return Err("链接指向云元数据地址，已拒绝".to_string());
+    }
+    if let Ok(ip) = host_lower.trim_end_matches('.').parse::<IpAddr>() {
+        if is_blocked_outbound_ip(ip, allow_private_network()) {
+            return Err("链接指向不可信的内网或链路本地地址，已拒绝".to_string());
+        }
+    }
     Ok(u.to_string())
+}
+
+fn host_from_authority(authority: &str) -> &str {
+    if authority.starts_with('[') {
+        return authority
+            .find(']')
+            .map(|end| &authority[1..end])
+            .unwrap_or(authority);
+    }
+    authority
+        .rsplit_once(':')
+        .filter(|(_, port)| port.chars().all(|c| c.is_ascii_digit()))
+        .map(|(host, _)| host)
+        .unwrap_or(authority)
+}
+
+fn allow_private_network() -> bool {
+    std::env::var("DIGILEGACY_ALLOW_PRIVATE_NETWORK")
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn is_metadata_host(host: &str) -> bool {
+    matches!(
+        host,
+        "169.254.169.254"
+            | "100.100.100.200"
+            | "fd00:ec2::254"
+            | "0.0.0.0"
+            | "::"
+            | "metadata"
+            | "metadata.google.internal"
+            | "metadata.google.internal."
+            | "instance-data"
+            | "instance-data.ec2.internal"
+            | "metadata.azure.com"
+    )
+}
+
+fn is_blocked_outbound_ip(ip: IpAddr, allow_private: bool) -> bool {
+    match ip {
+        IpAddr::V4(ip) => {
+            ip.is_unspecified()
+                || ip.is_link_local()
+                || ip.is_multicast()
+                || (ip.is_private() && !allow_private)
+        }
+        IpAddr::V6(ip) => {
+            if let Some(ipv4) = ip.to_ipv4_mapped() {
+                return is_blocked_outbound_ip(IpAddr::V4(ipv4), allow_private);
+            }
+            let first = ip.segments()[0];
+            ip.is_unspecified()
+                || ip.is_multicast()
+                || (first & 0xfe00 == 0xfc00 && !allow_private)
+                || (first & 0xffc0 == 0xfe80 && !allow_private)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -361,6 +435,38 @@ mod tests {
                 good
             );
         }
+    }
+
+    #[test]
+    fn url_validation_blocks_cloud_metadata_endpoints() {
+        for bad in [
+            "http://169.254.169.254/latest/meta-data",
+            "http://100.100.100.200/latest/meta-data",
+            "http://metadata.google.internal/computeMetadata/v1/",
+            "http://instance-data/latest/meta-data",
+            "http://0.0.0.0/admin",
+            "http://[fd00:ec2::254]/latest/meta-data",
+            "http://[::ffff:169.254.169.254]/latest/meta-data",
+            "http://169.254.169.254./latest/meta-data",
+        ] {
+            assert!(
+                validate_external_url(bad).is_err(),
+                "必须拒绝云元数据地址: {}",
+                bad
+            );
+        }
+    }
+
+    #[test]
+    fn private_network_guard_allows_loopback_but_blocks_lan_by_default() {
+        let lan: IpAddr = "192.168.1.10".parse().unwrap();
+        let loopback: IpAddr = "127.0.0.1".parse().unwrap();
+        let metadata: IpAddr = "169.254.169.254".parse().unwrap();
+        assert!(is_blocked_outbound_ip(lan, false));
+        assert!(!is_blocked_outbound_ip(lan, true));
+        assert!(!is_blocked_outbound_ip(loopback, false));
+        assert!(is_blocked_outbound_ip(metadata, false));
+        assert!(is_blocked_outbound_ip(metadata, true));
     }
 
     #[test]

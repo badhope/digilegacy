@@ -2,6 +2,14 @@
 
 [English](../../CHANGELOG.md) | 简体中文
 
+## [0.9.0-m5e] - 2026-11-20
+
+### Security
+
+- 出站连接与政策端点增加统一地址校验：拒绝云元数据、链路本地和私网字面地址；回环地址保留给本地开发，局域网部署需显式设置 `DIGILEGACY_ALLOW_PRIVATE_NETWORK=1`。
+- `policies.sync` 在拉取远端 feed 前复用同一校验，避免候选审核链路被用来访问内网服务。
+- 签名政策 feed 增加真实本地 HTTP 测试：HMAC 校验、篡改拒绝、`If-None-Match`/304 链路均有覆盖。
+
 ## [0.9.0-m5d] - 2026-11-20
 
 ### Added

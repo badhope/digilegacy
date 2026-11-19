@@ -562,3 +562,14 @@ M0 可以判定“工程壳完成”的条件：
 - 预算：入口 **77.27 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **100.35 / 101 KB**、CSS gzip **20.81 / 21 KB**、总 gzip **121.15 / 122 KB**；Policies 路由 15.88 / 24 KB。
 - 签名校验单测覆盖 `sha256=<hex>`、`sha256:<hex>` 与裸 hex，以及缺失、篡改、非法 hex 的 fail-closed；未用带签名的远端 feed 做真实 HTTP 联调。普通 localhost 明文 HTTP feed（未签名）已验证 200/304、候选入队和审核链路。
 - 复验命令：`./tools/verify.sh`；日志 `/tmp/m5d-verify8.log`、`/tmp/m5d-feed.log`、`/tmp/m5d-server-8787.log`。
+
+### M5-E 出站连接安全补丁
+
+- `core/security/src/vault.rs` 的 `validate_external_url` 增加统一出站地址拦截：云元数据主机、云元数据 IP、IPv4 私网、IPv6 unique-local/link-local、unspecified/multicast 字面地址默认拒绝；loopback 保留，`DIGILEGACY_ALLOW_PRIVATE_NETWORK=1` 可放行局域网字面地址。IPv4-mapped IPv6 与尾部点号主机也纳入判断。
+- `core/application/src/policy_sync.rs` 在读取 saved policy 连接或 `DIGILEGACY_POLICY_URL` 后、发起请求前复用同一校验；`http` 仍只允许 localhost，避免政策同步链路成为内网探测入口。
+- 安全单测新增 2 个：云元数据地址（含 `169.254.169.254`、`100.100.100.200`、`fd00:ec2::254`、IPv4-mapped IPv6、尾部点号）拒绝；私网默认拦截、loopback 放行、显式开关放行。
+- `core/integrations` 新增 2 个真实本地 HTTP 集成测试：签名 feed 返回 `X-Digilegacy-Signature`，验证 HMAC 通过、错误密钥/篡改正文拒绝；`If-None-Match` 请求命中 ETag 后返回 304，客户端正确读取状态与 ETag。
+- `./tools/verify.sh` exit 0：**162 Rust + 10 Web**；契约 **39 命令 / 23 工具 / 56 schema / 21 错误码**；schema v16 / 31 表；workspace members=12。
+- 预算保持：入口 **77.27 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **100.35 / 101 KB**、CSS gzip **20.80 / 21 KB**、总 gzip **121.15 / 122 KB**；Policies 路由 15.88 / 24 KB。
+- 已知边界：当前拦截字面地址，尚未在 DNS 解析后校验解析结果，也没有完整的出站 allowlist/DNS rebinding 防护；真实 STARTTLS/TLS SMTP 服务器联调仍未做。
+- 复验命令：`./tools/verify.sh`；日志 `/tmp/m5e-verify.log`。

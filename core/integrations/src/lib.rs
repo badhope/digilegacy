@@ -828,10 +828,61 @@ pub fn verify_policy_signature(body: &str, header: &str, secret: &str) -> bool {
 #[cfg(test)]
 mod policy_tests {
     use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
 
     const BODY: &str = "M5-D";
     const SECRET: &str = "secret";
     const SIGNATURE: &str = "e0f8acb11d8f958611ede07fac613f39b781977a4e747ef96b3c83f32116999f";
+
+    fn sign(body: &str, secret: &str) -> String {
+        use hmac::{Hmac, KeyInit, Mac};
+        use sha2::Sha256;
+
+        let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).unwrap();
+        mac.update(body.as_bytes());
+        format!(
+            "sha256={}",
+            mac.finalize()
+                .into_bytes()
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        )
+    }
+
+    fn serve_once(
+        status: &str,
+        headers: &[(&str, &str)],
+        body: &str,
+    ) -> (String, std::thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let status = status.to_string();
+        let headers: Vec<(String, String)> = headers
+            .iter()
+            .map(|(key, value)| ((*key).to_string(), (*value).to_string()))
+            .collect();
+        let body = body.to_string();
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buffer = [0u8; 4096];
+            let _ = stream.read(&mut buffer);
+            let response = format!(
+                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n{}\r\n\r\n{}",
+                body.len(),
+                headers
+                    .iter()
+                    .map(|(key, value)| format!("{key}: {value}"))
+                    .collect::<Vec<_>>()
+                    .join("\r\n"),
+                body
+            );
+            let _ = stream.write_all(response.as_bytes());
+            let _ = stream.flush();
+        });
+        (format!("http://127.0.0.1:{port}/feed"), handle)
+    }
 
     #[test]
     fn policy_signature_accepts_prefixed_and_bare_hex() {
@@ -846,6 +897,72 @@ mod policy_tests {
             &format!("sha256:{SIGNATURE}"),
             SECRET
         ));
+    }
+
+    #[test]
+    fn signed_feed_over_real_http_verifies_body_and_headers() {
+        let body = r#"{"policies":[],"nextSince":"2026-11-20T00:00:00Z"}"#;
+        let signature = sign(body, SECRET);
+        let (url, handle) = serve_once(
+            "200 OK",
+            &[
+                ("Content-Type", "application/json"),
+                ("ETag", "\"feed-1\""),
+                ("X-Digilegacy-Signature", &signature),
+            ],
+            body,
+        );
+        let fetched = fetch_policy_sync(&url, Some("read-token"), "", "").unwrap();
+        handle.join().unwrap();
+        assert_eq!(fetched.status, 200);
+        assert_eq!(fetched.body, body);
+        assert_eq!(fetched.etag, "\"feed-1\"");
+        assert!(verify_policy_signature(
+            &fetched.body,
+            &fetched.signature,
+            SECRET
+        ));
+        assert!(!verify_policy_signature(
+            &fetched.body,
+            &fetched.signature,
+            "wrong-secret"
+        ));
+        assert!(!verify_policy_signature(
+            r#"{"policies":[{"id":"tampered"}]}"#,
+            &fetched.signature,
+            SECRET
+        ));
+    }
+
+    #[test]
+    fn policy_feed_honours_etag_with_304_over_real_http() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buffer = [0u8; 4096];
+            let _ = stream.read(&mut buffer);
+            let request = String::from_utf8_lossy(&buffer).to_ascii_lowercase();
+            let status = if request.contains("if-none-match: \"feed-1\"") {
+                "304 Not Modified"
+            } else {
+                "400 Bad Request"
+            };
+            let response = format!(
+                "HTTP/1.1 {status}\r\nETag: \"feed-1\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            );
+            let _ = stream.write_all(response.as_bytes());
+        });
+        let fetched = fetch_policy_sync(
+            &format!("http://127.0.0.1:{port}/feed"),
+            None,
+            "",
+            "\"feed-1\"",
+        )
+        .unwrap();
+        handle.join().unwrap();
+        assert_eq!(fetched.status, 304);
+        assert_eq!(fetched.etag, "\"feed-1\"");
     }
 
     #[test]

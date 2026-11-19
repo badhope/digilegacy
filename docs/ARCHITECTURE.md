@@ -50,6 +50,8 @@ A command declares its permission class: `read`, `draft`, `write`, `key`, `netwo
 
 `core/integrations` is the boundary for external systems: HTTP feeds, SMTP, LLM providers, webhooks and connection probes. Network access is isolated here and returns structured results rather than leaking transport errors into domain code.
 
+Outbound URLs are validated before a socket is opened: only HTTP/HTTPS, no embedded credentials, no control characters, and no cloud metadata, link-local or private literal addresses. Loopback remains available for local testing; LAN endpoints require `DIGILEGACY_ALLOW_PRIVATE_NETWORK=1`. Policy sync runs the same guard before fetching a remote feed.
+
 ## Data and security
 
 SQLCipher protects the database at rest. Sensitive values are encrypted again at the field level before storage. Key material is derived and kept in process memory; it is never written to logs, generated reports or browser storage.
