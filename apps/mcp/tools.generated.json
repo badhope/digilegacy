@@ -298,6 +298,50 @@
     }
   },
   {
+    "name": "policies.candidates.list",
+    "title": "读取政策同步候选",
+    "description": "读取远程政策同步候选、字段级 diff 与审核状态；不会自动修改政策库。",
+    "inputSchema": {
+      "title": "PolicyCandidatesListInput",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "all",
+            "pending",
+            "conflict",
+            "approved",
+            "rejected"
+          ],
+          "default": "pending"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "policies.candidates.list"
+    }
+  },
+  {
     "name": "runs.list",
     "title": "列出 Agent 运行",
     "description": "读取运行状态、步骤数与成本摘要。",

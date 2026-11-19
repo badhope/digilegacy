@@ -298,6 +298,85 @@
       ]
     },
     {
+      "name": "policies.sync",
+      "domain": "policy",
+      "summary": "从已保存或环境政策端点拉取远程政策，只入候选，不自动改库",
+      "permission": "write",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/policy.sync.input.json",
+      "output": "schemas/policy.sync.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "policies sync",
+        "http": "POST /api/v1/policies/sync",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "PROVIDER_UNCONFIGURED",
+        "PROVIDER_AUTH",
+        "RATE_LIMITED",
+        "PROVIDER_ERROR",
+        "TIMEOUT",
+        "NETWORK",
+        "CONFLICT",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "policies.candidates.list",
+      "domain": "policy",
+      "summary": "分页读取政策同步候选与字段级 diff",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/policy.candidates.list.input.json",
+      "output": "schemas/policy.candidates.list.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "policies candidates",
+        "http": "GET /api/v1/policies/candidates",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "policies.candidate.decide",
+      "domain": "policy",
+      "summary": "人工批准或拒绝一条政策同步候选；批准后才更新政策库",
+      "permission": "write",
+      "requiresUnlock": false,
+      "idempotent": false,
+      "input": "schemas/policy.candidate.decide.input.json",
+      "output": "schemas/policy.candidate.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "policies candidates decide",
+        "http": "POST /api/v1/policies/candidates/{id}/decide",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "CONFLICT",
+        "CONFIG_KEY_MISSING",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "trigger.checkin",
       "domain": "trigger",
       "summary": "记录一次安全签到，重置触发计时",

@@ -1,0 +1,59 @@
+{
+  "title": "PolicySyncOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "configured",
+    "source",
+    "fetched",
+    "changed",
+    "queued",
+    "conflict",
+    "skipped",
+    "notModified",
+    "cursor",
+    "lastSyncAt",
+    "message"
+  ],
+  "properties": {
+    "configured": {
+      "type": "boolean"
+    },
+    "source": {
+      "type": "string"
+    },
+    "fetched": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "changed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "queued": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "conflict": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skipped": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "notModified": {
+      "type": "boolean"
+    },
+    "cursor": {
+      "type": "string"
+    },
+    "lastSyncAt": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

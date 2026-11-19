@@ -135,6 +135,13 @@
       "messageKey": "error.configKeyMissing"
     },
     {
+      "code": "PROVIDER_UNCONFIGURED",
+      "http": 409,
+      "retryable": false,
+      "cliExit": 3,
+      "messageKey": "error.providerUnconfigured"
+    },
+    {
       "code": "INTERNAL",
       "http": 500,
       "retryable": true,

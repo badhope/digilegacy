@@ -1,0 +1,22 @@
+{
+  "title": "PolicyCandidateDiff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "field",
+    "before",
+    "after"
+  ],
+  "properties": {
+    "field": {
+      "type": "string"
+    },
+    "before": {
+      "type": "string"
+    },
+    "after": {
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

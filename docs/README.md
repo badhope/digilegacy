@@ -4,11 +4,11 @@
 |---|---|
 | [POSITIONING.md](POSITIONING.md) | 平台定位、用户、非目标、成功标准 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 模块化单体、crate、契约、权限、性能 |
-| [VERIFICATION.md](VERIFICATION.md) | G01–G19 门禁状态、M0 验收结果 |
+| [VERIFICATION.md](VERIFICATION.md) | G01–G19 门禁状态、M0–M5 验收结果 |
 | [GOVERNANCE.md](GOVERNANCE.md) | DoR/DoD、变更分级、评审规则 |
 | [adr/](adr/) | 已接受的架构决策 |
 | [rfc/](rfc/) | 方案讨论模板 |
-| [plan/](plan/) | v1.2 工程计划（54 模块 / 80.5 人日 / 26 表 / G01–G19） |
+| [plan/](plan/) | v1.3 工程计划（54 模块 / 80.5 人日 / 31 表 / G01–G19） |
 
 ## 阅读顺序
 

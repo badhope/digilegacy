@@ -105,6 +105,12 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/notifications", get(notifications_list))
         .route("/api/v1/notifications/send", post(notifications_send))
         .route("/api/v1/policies", get(policies_list))
+        .route("/api/v1/policies/sync", post(policy_sync))
+        .route("/api/v1/policies/candidates", get(policy_candidates))
+        .route(
+            "/api/v1/policies/candidates/{id}/decide",
+            post(policy_candidate_decide),
+        )
         .route("/api/v1/policies/{id}", get(policy_get))
         .route(
             "/api/v1/policies/{id}/provenance",
@@ -322,6 +328,50 @@ async fn policies_list(
 
 async fn policy_get(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     dispatch(&state, "policies.get", json!({ "id": id }), None)
+}
+
+async fn policy_sync(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "policies.sync", input, Some(&headers))
+}
+
+#[derive(Debug, Deserialize)]
+struct PolicyCandidatesQuery {
+    #[serde(default)]
+    cursor: Option<String>,
+    #[serde(default)]
+    limit: Option<String>,
+    #[serde(default)]
+    status: Option<String>,
+}
+
+async fn policy_candidates(
+    State(state): State<AppState>,
+    Query(input): Query<PolicyCandidatesQuery>,
+) -> impl IntoResponse {
+    let limit = input
+        .limit
+        .as_deref()
+        .and_then(|value| value.parse::<i64>().ok());
+    dispatch(
+        &state,
+        "policies.candidates.list",
+        json!({ "cursor": input.cursor, "limit": limit, "status": input.status }),
+        None,
+    )
+}
+
+async fn policy_candidate_decide(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(mut input): Json<Value>,
+) -> impl IntoResponse {
+    input["id"] = json!(id);
+    dispatch(&state, "policies.candidate.decide", input, Some(&headers))
 }
 
 #[derive(Debug, Deserialize)]
@@ -833,6 +883,27 @@ mod tests {
             .unwrap()
             .iter()
             .any(|item| item["kind"] == "policy.provenance.set"));
+    }
+
+    #[test]
+    fn policy_sync_requires_a_target_and_decisions_require_a_token() {
+        let state = test_app_with_token(Some("test-token"));
+        let headers = write_headers("test-token");
+        let (status, envelope) = dispatch(&state, "policies.candidates.list", json!({}), None);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(envelope.0.data.unwrap()["total"], 0);
+
+        let (status, envelope) = dispatch(&state, "policies.sync", json!({}), Some(&headers));
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(envelope.0.code, "PROVIDER_UNCONFIGURED");
+
+        let (status, _) = dispatch(
+            &state,
+            "policies.candidate.decide",
+            json!({ "id": "1", "action": "approve" }),
+            None,
+        );
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 
     #[test]

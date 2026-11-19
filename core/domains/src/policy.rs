@@ -50,7 +50,7 @@ pub struct Policy {
     pub provenance: Provenance,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SeedPolicy {
     pub id: i64,
     pub name: String,
@@ -364,6 +364,11 @@ pub fn get(store: &Store, id: &str) -> Result<Policy, DomainError> {
     let id: i64 = id
         .parse()
         .map_err(|_| DomainError::Invalid(format!("政策 id 不是数字: {id}")))?;
+    find(store, id)?.ok_or_else(|| DomainError::NotFound(format!("政策 {id} 不存在")))
+}
+
+/// Optional lookup used by policy sync before a write transaction.
+pub fn find(store: &Store, id: i64) -> Result<Option<Policy>, DomainError> {
     store
         .read(|conn| {
             conn.query_row(
@@ -380,8 +385,7 @@ pub fn get(store: &Store, id: &str) -> Result<Policy, DomainError> {
             )
             .optional()
         })
-        .map_err(DomainError::from)?
-        .ok_or_else(|| DomainError::NotFound(format!("政策 {id} 不存在")))
+        .map_err(DomainError::from)
 }
 
 #[cfg(test)]

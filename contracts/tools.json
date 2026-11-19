@@ -164,6 +164,24 @@
       "rate_limit": "60/min"
     },
     {
+      "name": "policies.candidates.list",
+      "title": "读取政策同步候选",
+      "description": "读取远程政策同步候选、字段级 diff 与审核状态；不会自动修改政策库。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/policy.candidates.list.input.json",
+      "output_schema": "schemas/policy.candidates.list.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "policies.candidates.list",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "60/min"
+    },
+    {
       "name": "runs.list",
       "title": "列出 Agent 运行",
       "description": "读取运行状态、步骤数与成本摘要。",

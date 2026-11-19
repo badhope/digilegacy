@@ -1,5 +1,5 @@
--- DigiLegacy schema v15.
--- 30 tables. The v8 lineage is preserved; new tables are additive so an old
+-- DigiLegacy schema v16.
+-- 31 tables. The v8 lineage is preserved; new tables are additive so an old
 -- database can be migrated without recreating it.
 
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -301,6 +301,19 @@ CREATE TABLE IF NOT EXISTS policy_candidates (
     status TEXT NOT NULL DEFAULT 'pending',
     reviewed_at TEXT DEFAULT '',
     reviewed_by TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_policy_candidates_status
+    ON policy_candidates (status, fetched_at DESC);
+
+CREATE TABLE IF NOT EXISTS policy_sync_state (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    source TEXT NOT NULL DEFAULT '',
+    cursor TEXT NOT NULL DEFAULT '',
+    etag TEXT NOT NULL DEFAULT '',
+    last_sync_at TEXT NOT NULL DEFAULT '',
+    last_status TEXT NOT NULL DEFAULT 'never',
+    last_error TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS drill_runs (

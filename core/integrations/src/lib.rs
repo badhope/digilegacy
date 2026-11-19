@@ -696,3 +696,176 @@ mod tests {
         assert_eq!(result.status, "unconfigured");
     }
 }
+
+// ---------------------------------------------------------------------------
+// M5-D policy sync transport
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub struct PolicyFetch {
+    pub status: u16,
+    pub body: String,
+    pub etag: String,
+    pub signature: String,
+}
+
+fn is_local_host(host: Option<&str>) -> bool {
+    matches!(host, Some("localhost") | Some("127.0.0.1") | Some("::1"))
+}
+
+fn validate_policy_endpoint(endpoint: &str) -> Result<reqwest::Url, String> {
+    let url =
+        reqwest::Url::parse(endpoint.trim()).map_err(|error| format!("政策端点无效: {error}"))?;
+    match url.scheme() {
+        "https" if url.host().is_some() => Ok(url),
+        "http" if is_local_host(url.host_str()) => Ok(url),
+        _ => Err("政策端点必须使用 HTTPS；仅 localhost 允许 HTTP".to_string()),
+    }
+}
+
+/// Fetch one policy-sync page on a dedicated OS thread. The returned body is
+/// intentionally raw so the caller can verify an HMAC before parsing it.
+pub fn fetch_policy_sync(
+    endpoint: &str,
+    token: Option<&str>,
+    since: &str,
+    etag: &str,
+) -> Result<PolicyFetch, String> {
+    let endpoint = endpoint.to_string();
+    let token = token.map(str::to_string);
+    let since = since.to_string();
+    let etag = etag.to_string();
+    std::thread::spawn(move || fetch_policy_sync_inner(&endpoint, token.as_deref(), &since, &etag))
+        .join()
+        .map_err(|_| "政策同步线程失败".to_string())?
+}
+
+fn fetch_policy_sync_inner(
+    endpoint: &str,
+    token: Option<&str>,
+    since: &str,
+    etag: &str,
+) -> Result<PolicyFetch, String> {
+    let mut url = validate_policy_endpoint(endpoint)?;
+    if !since.trim().is_empty() {
+        url.query_pairs_mut().append_pair("since", since.trim());
+    }
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(20))
+        .redirect(reqwest::redirect::Policy::none())
+        .user_agent("DigiLegacy/0.9 policy-sync")
+        .build()
+        .map_err(|error| format!("创建政策同步客户端失败: {error}"))?;
+    let mut request = client
+        .get(url)
+        .header(reqwest::header::ACCEPT, "application/json");
+    if let Some(token) = token.filter(|value| !value.trim().is_empty()) {
+        request = request.bearer_auth(token);
+    }
+    if !etag.trim().is_empty() {
+        request = request.header(reqwest::header::IF_NONE_MATCH, etag.trim());
+    }
+    let response = request
+        .send()
+        .map_err(|error| format!("政策同步请求失败: {error}"))?;
+    let status = response.status().as_u16();
+    let etag = response
+        .headers()
+        .get(reqwest::header::ETAG)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    let signature = response
+        .headers()
+        .get("x-digilegacy-signature")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    let body = response
+        .text()
+        .map_err(|error| format!("读取政策同步响应失败: {error}"))?;
+    Ok(PolicyFetch {
+        status,
+        body,
+        etag,
+        signature,
+    })
+}
+
+fn decode_hex(value: &str) -> Option<Vec<u8>> {
+    if !value.len().is_multiple_of(2) {
+        return None;
+    }
+    let mut bytes = Vec::with_capacity(value.len() / 2);
+    for index in (0..value.len()).step_by(2) {
+        bytes.push(u8::from_str_radix(&value[index..index + 2], 16).ok()?);
+    }
+    Some(bytes)
+}
+
+/// Verify `x-digilegacy-signature: sha256=<hex>` (or bare hex) over the raw
+/// response body. A missing/invalid header fails closed when a secret is set.
+pub fn verify_policy_signature(body: &str, header: &str, secret: &str) -> bool {
+    use hmac::{Hmac, KeyInit, Mac};
+    use sha2::Sha256;
+
+    let header = header.trim();
+    let header = header
+        .strip_prefix("sha256=")
+        .or_else(|| header.strip_prefix("sha256:"))
+        .unwrap_or(header)
+        .trim();
+    let Some(signature) = decode_hex(header) else {
+        return false;
+    };
+    let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(secret.as_bytes()) else {
+        return false;
+    };
+    mac.update(body.as_bytes());
+    mac.verify_slice(&signature).is_ok()
+}
+
+#[cfg(test)]
+mod policy_tests {
+    use super::*;
+
+    const BODY: &str = "M5-D";
+    const SECRET: &str = "secret";
+    const SIGNATURE: &str = "e0f8acb11d8f958611ede07fac613f39b781977a4e747ef96b3c83f32116999f";
+
+    #[test]
+    fn policy_signature_accepts_prefixed_and_bare_hex() {
+        assert!(verify_policy_signature(BODY, SIGNATURE, SECRET));
+        assert!(verify_policy_signature(
+            BODY,
+            &format!("sha256={SIGNATURE}"),
+            SECRET
+        ));
+        assert!(verify_policy_signature(
+            BODY,
+            &format!("sha256:{SIGNATURE}"),
+            SECRET
+        ));
+    }
+
+    #[test]
+    fn policy_signature_fails_closed_on_missing_tampering_or_bad_hex() {
+        assert!(!verify_policy_signature(BODY, "", SECRET));
+        assert!(!verify_policy_signature("tampered", SIGNATURE, SECRET));
+        assert!(!verify_policy_signature(BODY, "abc", SECRET));
+        assert!(!verify_policy_signature(
+            BODY,
+            "zz".repeat(32).as_str(),
+            SECRET
+        ));
+    }
+
+    #[test]
+    fn policy_endpoint_allows_https_and_localhost_http_only() {
+        assert!(validate_policy_endpoint("https://example.com/v1/policies").is_ok());
+        assert!(validate_policy_endpoint("http://127.0.0.1:8792/v1/policies").is_ok());
+        assert!(validate_policy_endpoint("http://localhost/v1/policies").is_ok());
+        assert!(validate_policy_endpoint("http://example.com/v1/policies").is_err());
+        assert!(validate_policy_endpoint("file:///tmp/policies.json").is_err());
+    }
+}

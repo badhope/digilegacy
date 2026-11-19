@@ -15,6 +15,7 @@ pub mod notify;
 pub mod overview;
 pub mod plan;
 pub mod policy;
+pub mod policy_sync;
 pub mod runs;
 pub mod usage;
 

@@ -4,7 +4,7 @@ import { cachedQuery, clearQueryCache, invalidateQuery, queryCacheKey } from "./
 import type { UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, ConnectionKind,
   ConnectionItem,
   ConnectionUpsertInput,
-  ConnectionDeleteResult, ConnectionPage, ConnectionTestResult, DiscoveryResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, NotificationPage, NotificationSendResult, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
+  ConnectionDeleteResult, ConnectionPage, ConnectionTestResult, DiscoveryResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, NotificationPage, NotificationSendResult, Overview, Plan, PoliciesPage, Policy, PolicyCandidate, PolicyCandidatePage, PolicySyncResult, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -123,6 +123,12 @@ export const platformClient = {
   getPolicy: (id: string) => read<Policy>(COMMANDS.policiesGet, { id }, "policies"),
   setPolicyProvenance: (args: { id: string; status: string; sourceUrl?: string; note?: string }) =>
     write<Policy>(COMMANDS.policiesProvenanceSet, args, ["policies", "overview"]),
+  syncPolicies: (since = "") =>
+    write<PolicySyncResult>(COMMANDS.policiesSync, { since }, ["policy.candidates", "audit", "overview"]),
+  listPolicyCandidates: (args: Record<string, unknown> = {}) =>
+    read<PolicyCandidatePage>(COMMANDS.policiesCandidatesList, args, "policy.candidates"),
+  decidePolicyCandidate: (args: { id: string; action: "approve" | "reject"; note?: string }) =>
+    write<PolicyCandidate>(COMMANDS.policiesCandidateDecide, args, ["policies", "policy.candidates", "audit", "overview"]),
   exportDeliverable: (kind: string, locale = "zh-CN") =>
     write<DeliverableExport>(COMMANDS.deliverExport, { kind, locale, wait: false }, ["jobs", "overview"]),
   // Job/run detail is polled or streamed; never cache volatile progress.

@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.9.0-m5d] - 2026-11-20
+
+### Added
+
+- `policies.sync`：HTTP `POST /api/v1/policies/sync`、CLI `policies sync`；write + approval required + audit，MCP/Agent 不暴露。远端 feed 优先取已启用 saved `policy` 连接，回退 `DIGILEGACY_POLICY_URL/TOKEN`；支持 cursor、`If-None-Match/304`、Bearer；拉取只写候选，不自动修改政策库。
+- `policies.candidates.list`：HTTP `GET /api/v1/policies/candidates`、CLI `policies candidates`；只读分页，返回待审/冲突候选、字段级 diff、内容哈希、最近同步时间/状态/错误；新增 MCP 只读工具。
+- `policies.candidate.decide`：HTTP `POST /api/v1/policies/candidates/{id}/decide`、CLI `policies candidates decide`；write + approval required + audit。批准才解密 payload 落库，保留 `created_at`、更新 `updated_at`，provenance 强制回 `unverified` 并写入“同步候选已批准；内容已更新，来源需重新核对”；拒绝只改候选状态。
+- schema v16 / 31 表：新增 `policy_sync_state` 持久化 source/cursor/etag/lastSyncAt/lastStatus/lastError；`policy_candidates(status, fetched_at)` 加索引。领域层新增 19 字段级 diff、平台 + SHA-256 内容去重、provenance 已验证时的冲突候选。
+- 集成层 `fetch_policy_sync`：HTTPS 或仅 localhost HTTP、禁用重定向、20s 超时、`If-None-Match`、Bearer、`x-digilegacy-signature` HMAC-SHA256 校验（`sha256=<hex>`、`sha256:<hex>` 或裸 hex），签名缺失/无效 fail closed；新增 3 个签名/端点单测。
+- Web 政策页：同步条、上次同步本地化时间、待审核/冲突计数、候选卡片、字段级 diff、批准/拒绝、busy 态；无候选隐藏面板；移动端 390px 与亮/暗主题适配。
+
+### Changed
+
+- Web 版本 `0.9.0-m5d`；政策文案拆到 `content/i18n/policies/` 命名空间，Policies 路由仍懒加载；`tools/arch-check.mjs` 更新为 39 命令 / 23 工具 / 56 schema / 21 错误码。
+- 新增错误码 `PROVIDER_UNCONFIGURED`（HTTP 409 / cliExit 3 / `error.providerUnconfigured`）；401/403 映射 `PROVIDER_AUTH`，429 `RATE_LIMITED`，5xx `PROVIDER_ERROR`，超时/网络分别 `TIMEOUT/NETWORK`。
+- JS gzip 预算 100 → 101 KB、总 gzip 121 → 122 KB；entry 80、vendor 130、route 24、CSS 21 未放宽。
+- CLI `policies provenance --allow-write` 恢复真实写入路径；CLI 实测 `policies candidates`、`policies sync`（304）、`policies decide`、`policies provenance` 均通过。
+
+### Fixed
+
+- Axum 候选列表查询参数改为显式字符串解析，避免 `invalid type: string "20", expected i64`。
+- 政策列表两处动态 provenance 标签改用 `tp()`，不再显示 `policies.provenance.unverified` 原始 key。
+- 候选 diff 行改为紧凑两列；上次同步时间从原始 ISO 串改为 `formatDateTime` 本地化显示。
+
+### Verification
+
+- `./tools/verify.sh` exit 0：**158 Rust + 10 Web**；契约 **39 命令 / 23 工具 / 56 schema / 21 错误码**；schema v16 / 31 表；workspace members=12。
+- 预算：入口 **77.27 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **100.35 / 101 KB**、CSS gzip **20.81 / 21 KB**、总 gzip **121.15 / 122 KB**；Policies 路由 15.88 / 24 KB。
+- HTTP 端到端：保存 `policy` 连接 → 同步入队 1 个候选（`changed=1/queued=1/conflict=0`）→ 政策详情未变 → 候选列表返回字段 diff → 批准后落库且 provenance=`unverified`；第二次同步返回 304，feed 收到 `if_none_match=feed-etag-*`。
+- Web 端到端：候选 2 页面批准后政策 notes 更新；候选 3 页面拒绝后政策不变；空候选面板自动隐藏；候选 4 展示字段 diff、390px 无横向溢出、亮/暗主题与移动端通过。
+- CLI 端到端：`policies candidates --status all` 返回真实候选；`policies sync --allow-write` 返回 `notModified=true`；`policies decide 4 --action reject` 返回 rejected 且政策不变；`policies provenance 1 --status unverified --allow-write` 写回成功。
+
 ## [0.9.0-m5c] - 2026-11-20
 
 ### Added

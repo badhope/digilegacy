@@ -1,0 +1,66 @@
+{
+  "title": "PolicyCandidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "platformId",
+    "name",
+    "fetchedAt",
+    "source",
+    "status",
+    "hash",
+    "changedFields",
+    "diff",
+    "reviewedAt",
+    "reviewedBy"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "platformId": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "fetchedAt": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "conflict",
+        "approved",
+        "rejected"
+      ]
+    },
+    "hash": {
+      "type": "string"
+    },
+    "changedFields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "diff": {
+      "type": "array",
+      "items": {
+        "$ref": "policy.candidate.diff.output.json"
+      }
+    },
+    "reviewedAt": {
+      "type": "string"
+    },
+    "reviewedBy": {
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

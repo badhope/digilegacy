@@ -144,6 +144,22 @@
     "bulkThreshold": null
   },
   {
+    "name": "policies.candidates.list",
+    "command": "policies.candidates.list",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/policy.candidates.list.input.json",
+    "outputSchema": "schemas/policy.candidates.list.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
     "name": "runs.list",
     "command": "agent.runs.list",
     "permission": "read",

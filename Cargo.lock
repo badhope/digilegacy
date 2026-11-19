@@ -502,6 +502,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -519,11 +520,13 @@ version = "0.9.0"
 dependencies = [
  "base64 0.23.1",
  "chrono",
+ "hmac",
  "reqwest",
  "rustls",
  "rustls-native-certs",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]

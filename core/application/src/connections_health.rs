@@ -24,16 +24,16 @@ const ENV_KINDS: [&str; 8] = [
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct StoredConfig {
-    endpoint: String,
+pub(crate) struct StoredConfig {
+    pub(crate) endpoint: String,
     #[serde(default)]
-    token: Option<String>,
+    pub(crate) token: Option<String>,
     #[serde(default)]
-    username: Option<String>,
+    pub(crate) username: Option<String>,
     #[serde(default)]
-    from: Option<String>,
+    pub(crate) from: Option<String>,
     #[serde(default)]
-    security: Option<String>,
+    pub(crate) security: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -168,7 +168,7 @@ fn host_port(host_env: &str, port_env: &str, default_port: u16) -> Option<String
 
 /// Resolve the endpoint of an environment-managed channel. Never returns a
 /// credential-bearing URL to the client; it is used for probes only.
-fn env_endpoint(kind: &str) -> Option<String> {
+pub(crate) fn env_endpoint(kind: &str) -> Option<String> {
     match kind {
         "llm" => env_value("DIGILEGACY_LLM_BASE_URL"),
         "policy" => env_value("DIGILEGACY_POLICY_URL"),
@@ -182,7 +182,7 @@ fn env_endpoint(kind: &str) -> Option<String> {
     }
 }
 
-fn env_token(kind: &str) -> Option<String> {
+pub(crate) fn env_token(kind: &str) -> Option<String> {
     match kind {
         "llm" => env_value("DIGILEGACY_LLM_API_KEY"),
         "webhook" => env_value("DIGILEGACY_WEBHOOK_TOKEN"),
@@ -277,6 +277,26 @@ impl Application {
         Ok(json!({ "id": id, "kind": kind, "label": label }))
     }
 
+    /// Resolve the first enabled policy connection for remote sync. Saved rows
+    /// win over environment variables; credentials are never returned to the UI.
+    pub(crate) fn policy_sync_target(
+        &self,
+    ) -> Result<Option<(String, Option<String>)>, PlatformError> {
+        let page = connections::list(self.store()).map_err(map_domain)?;
+        for item in page
+            .items
+            .iter()
+            .filter(|item| item.kind == "policy" && item.enabled)
+        {
+            let config = self.load_connection_config(item)?.unwrap_or_default();
+            if config.endpoint.trim().is_empty() {
+                continue;
+            }
+            return Ok(Some((config.endpoint, config.token)));
+        }
+        Ok(env_endpoint("policy").map(|endpoint| (endpoint, env_token("policy"))))
+    }
+
     /// Resolve the first enabled saved HTTP notification channel.
     pub(crate) fn saved_http_notification_target(
         &self,
@@ -332,7 +352,7 @@ impl Application {
         .map_err(PlatformError::invalid_args)
     }
 
-    fn load_connection_config(
+    pub(crate) fn load_connection_config(
         &self,
         row: &connections::Connection,
     ) -> Result<Option<StoredConfig>, PlatformError> {

@@ -40,18 +40,19 @@
 | 最终通知发件箱 | 已做完（M5-A：final 阶段持久化、收件人去重、Webhook 投递、失败可见、Web/CLI/HTTP/MCP 读取） |
 | 连接健康与通知渠道 | 已做完（M5-B：`connections.list/test`、真实探针、健康回写、飞书/企业微信投递、Web 连接页） |
 | 连接配置加密写接口 / SMTP 投递 | 已做完（M5-C：`connections.upsert/delete`、配置密钥、Web 新增/编辑/删除、SMTP 邮件投递） |
+| 政策远程同步 / 候选审核 | 已做完（M5-D：两阶段候选、ETag/304、HMAC 校验、Web 审核面板、HTTP/CLI） |
 | Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
 | 后台任务队列 / 运行进度 | 已做完（M3-G：审批后台执行、`jobs.get`、运行耗时、Web 静默轮询） |
 | Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
 | 桌面客户端 | 已取消（平台只保留 Web / CLI / MCP / HTTP） |
 
-当前版本：`0.9.0-m5c`。
+当前版本：`0.9.0-m5d`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
 M2 已落地：`core/application` 用例层接 M1 Store；HTTP/CLI/MCP 共享同一套领域调用；资产列表/详情/创建/更新、规划、概览、安全摘要、签到、运行记录均读真实表；Web 默认走 Platform API，资产筛选改为服务端查询与游标分页。
 
-M2-B 已落地：政策库 schema v10 起步（当前 v15，30 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
+M2-B 已落地：政策库 schema v10 起步（当前 v16，31 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
 
 M3 已落地九段：政策溯源写、平台写令牌与资产新增/编辑、审计链查询、Agent 审批队列、确定性 Agent Runtime、M3-F 的规划器/取消/预算/重试、M3-G 的审批后台 Job 化/运行进度/耗时，M3-H 的交付物后台导出，以及 M3-I 的 SSE snapshot 事件流与排队任务取消。规划器接 OpenAI 兼容接口（默认 DeepSeek），只生成注册工具步骤；人工确认后再启动，写操作仍进审批。取消会把待审批置为 `expired`，重试会创建新运行并保留旧记录。HTTP 审批改为先落审批、再入 durable `jobs` 队列，批准请求毫秒级返回；Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏时暂停。
 
@@ -64,6 +65,8 @@ M4-I 前端整合：新增/编辑资产共用 `AssetEditor` 与 `model.ts`，日
 M5-A 最终通知发件箱：schema v15 新增 `notification_outbox`；触发链只在 final 阶段入箱，按紧急联系人、主继承人和执行人去重，邮箱优先、其次电话/名称；没有接收人时写入 `blocked` 行而不是静默丢弃。投递走 `DIGILEGACY_WEBHOOK_URL`（可选 Bearer token），后台每 60 秒处理 pending，手动发送走 `POST /api/v1/notifications/send`（可选 `retryFailed` 重试失败行），HTTP 路径在 blocking 线程执行，避免阻塞 Tokio。Web 规划页显示最终通知、状态、失败原因与手动发送；CLI 提供 `notifications list/send`，MCP 只暴露只读列表。
 
 M5-C 连接配置写接口与 SMTP 投递：新增 `connections.upsert` / `connections.delete`，连接配置由 32 字节配置密钥加密（`DIGILEGACY_CONFIG_KEY_FILE`，缺省由数据库密钥经 HKDF 派生，域标签 `digilegacy/connection-config/v1`），密钥、token、用户名、发件人、SMTP 安全模式全部落在 `enc:v2` 加密 JSON 中，读模型不回显。环境连接只读，改/删返回 `CONFLICT`；新增同类型同标签冲突，编辑必须带 id，且不能改变连接类型。Web 连接页支持新增/编辑/删除、凭据只写不读、错误提示和 390px 单列布局。SMTP 支持隐式 TLS、STARTTLS、明文、AUTH PLAIN、UTF-8 主题与正文 dot-stuffing；通知通道新增 SMTP，优先已保存 SMTP 连接，再回退环境变量；自动顺序为已保存 HTTP → 环境 HTTP → SMTP。
+
+M5-D 政策远程同步与候选审核：schema v16 新增 `policy_sync_state`，并把同步改为两阶段；`policies.sync` 从已保存 `policy` 连接或 `DIGILEGACY_POLICY_URL/TOKEN` 拉取 feed，支持 `If-None-Match/304`、cursor、Bearer 与 HMAC-SHA256 `x-digilegacy-signature`，拉取只写 `policy_candidates`，不自动修改 `policies`。候选按平台 + 内容 SHA-256 去重，字段级 diff 给出 before/after，本地 provenance 已验证时新差异标 `conflict`。`policies.candidates.list` 分页返回待审/冲突候选和最近同步状态；`policies.candidate.decide` 批准后才解密 payload 落库、更新 `updated_at`、把 provenance 强制回 `unverified` 并提示重新核对，拒绝只改候选状态。Web 政策页新增同步条、候选计数、字段级 diff、批准/拒绝；HTTP/CLI/MCP 入口齐全，MCP 仅暴露只读候选列表。
 
 M5-B 连接健康与通知渠道：新增 `connections.list` 只读健康页与 `connections.test` 写权限探针（LLM/政策/SMTP/IMAP/心跳/Webhook/飞书/企业微信 8 类）；环境变量配置的连接以 `config_enc='env'` 仅存元数据，读模型不回传凭据；探针结果回写 `last_check_at/last_status/last_error`，成功不保留错误文本、错误统一脱敏 URL。通知投递从单一 Webhook 扩展为通用 Webhook / 飞书 / 企业微信文本消息，`DIGILEGACY_NOTIFY_CHANNEL` 显式选择、未设置时按已配置 URL 自动选择；HTTP 探针在普通 OS 线程执行，避免 reqwest blocking 内部 runtime 在 Tokio 关闭时 panic。Web 设置连接页显示类型、来源、最近检查、状态、失败原因和单行测试按钮；CLI 提供 `connections list/test`，MCP 只暴露只读列表。
 
@@ -118,7 +121,7 @@ core/
   foundation/      信封、错误、权限、CommandBus、trace id
   contracts/       生成后的命令/错误表
   security/        Vault 生命周期、恢复、备份、文件 KEK
-  store/           SQLCipher、schema v15、迁移、检查点、审计
+  store/           SQLCipher、schema v16、迁移、检查点、审计
   domains/         DOM-01..07 领域清单
   integrations/    邮件、云盘、LLM 等连接边界
   agent/           Run / Approval 状态机
@@ -218,12 +221,12 @@ node tools/bench/web-budget.mjs
 ./tools/bench/core-bus.sh
 ```
 
-M5-C 基线：
+M5-D 基线：
 
 - Web 测试 10 项（缓存 4 + 路由/页面 6）
-- Rust 测试 146 项：security 49、store 15、domains 27、application 26、integrations 4、server 14、foundation 5、render 2、agent 4
-- Web 总 gzip **119.25 KB / 121 KB**，JS gzip **98.75 KB / 100 KB**，CSS **20.50 KB / 21 KB**
-- 入口 chunk **79.31 KiB / 80 KB**，vendor **99.50 KiB / 130 KB**，Settings 路由 **17.46 KB / 24 KB**
+- Rust 测试 158 项：security 49、store 15、domains 31、application 30、integrations 7、server 15、foundation 5、render 2、agent 4
+- Web 总 gzip **121.15 KB / 122 KB**，JS gzip **100.35 KB / 101 KB**，CSS **20.81 KB / 21 KB**
+- 入口 chunk **77.27 KiB / 80 KB**，vendor **99.50 KiB / 130 KB**，Policies 路由 **15.88 KB / 24 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 
 ---

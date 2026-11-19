@@ -740,6 +740,199 @@
         }
       }
     },
+    "/api/v1/policies/sync": {
+      "post": {
+        "operationId": "policies.sync",
+        "summary": "从已保存或环境政策端点拉取远程政策，只入候选，不自动改库",
+        "tags": [
+          "policy"
+        ],
+        "x-command": "policies.sync",
+        "x-permission": "write",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/policy.sync.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/policy.sync.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/policies/candidates": {
+      "get": {
+        "operationId": "policies.candidates.list",
+        "summary": "分页读取政策同步候选与字段级 diff",
+        "tags": [
+          "policy"
+        ],
+        "x-command": "policies.candidates.list",
+        "x-permission": "read",
+        "x-requires-unlock": false,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/policy.candidates.list.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/policies/candidates/{id}/decide": {
+      "post": {
+        "operationId": "policies.candidate.decide",
+        "summary": "人工批准或拒绝一条政策同步候选；批准后才更新政策库",
+        "tags": [
+          "policy"
+        ],
+        "x-command": "policies.candidate.decide",
+        "x-permission": "write",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/policy.candidate.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/policy.candidate.decide.input"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/trigger/checkin": {
       "post": {
         "operationId": "trigger.checkin",
@@ -3726,6 +3919,189 @@
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
+      "policy.candidate.decide.input": {
+        "title": "PolicyCandidateDecideInput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "action"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policy.candidate.diff.output": {
+        "title": "PolicyCandidateDiff",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "before",
+          "after"
+        ],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "before": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policy.candidate.output": {
+        "title": "PolicyCandidate",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "platformId",
+          "name",
+          "fetchedAt",
+          "source",
+          "status",
+          "hash",
+          "changedFields",
+          "diff",
+          "reviewedAt",
+          "reviewedBy"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "platformId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fetchedAt": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "conflict",
+              "approved",
+              "rejected"
+            ]
+          },
+          "hash": {
+            "type": "string"
+          },
+          "changedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "diff": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/policy.candidate.diff.output"
+            }
+          },
+          "reviewedAt": {
+            "type": "string"
+          },
+          "reviewedBy": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policy.candidates.list.input": {
+        "title": "PolicyCandidatesListInput",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "all",
+              "pending",
+              "conflict",
+              "approved",
+              "rejected"
+            ],
+            "default": "pending"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policy.candidates.list.output": {
+        "title": "PolicyCandidatesListOutput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "nextCursor",
+          "total",
+          "lastSyncAt",
+          "lastStatus"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/policy.candidate.output"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "lastSyncAt": {
+            "type": "string"
+          },
+          "lastStatus": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
       "policy.output": {
         "title": "Policy",
         "type": "object",
@@ -3860,6 +4236,77 @@
           "note": {
             "type": "string",
             "default": ""
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policy.sync.input": {
+        "title": "PolicySyncInput",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "since": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policy.sync.output": {
+        "title": "PolicySyncOutput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "configured",
+          "source",
+          "fetched",
+          "changed",
+          "queued",
+          "conflict",
+          "skipped",
+          "notModified",
+          "cursor",
+          "lastSyncAt",
+          "message"
+        ],
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "fetched": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "changed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "queued": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "conflict": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "notModified": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "lastSyncAt": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

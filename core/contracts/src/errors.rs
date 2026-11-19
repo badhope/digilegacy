@@ -144,6 +144,13 @@ pub const ERRORS: &[ErrorSpec] = &[
         message_key: "error.configKeyMissing",
     },
     ErrorSpec {
+        code: "PROVIDER_UNCONFIGURED",
+        http: 409,
+        retryable: false,
+        cli_exit: 3,
+        message_key: "error.providerUnconfigured",
+    },
+    ErrorSpec {
         code: "INTERNAL",
         http: 500,
         retryable: true,

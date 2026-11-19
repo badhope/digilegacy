@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -10,11 +10,14 @@ import AssetTabs from "@/features/assets/AssetTabs.vue";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
+import { formatDateTime } from "@/shared/format";
+import { usePolicyI18n } from "./messages";
 import { useResource } from "@/platform/useResource";
 import { platformClient } from "@/platform/client";
-import type { Policy, ProvenanceStatus } from "@/platform/types";
+import type { Policy, PolicyCandidate, ProvenanceStatus } from "@/platform/types";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+const { tp } = usePolicyI18n();
 const route = useRoute();
 const query = ref(String(route.query.q ?? ""));
 const category = ref("");
@@ -38,6 +41,75 @@ const items = computed(() => data.value?.items ?? []);
 const total = computed(() => data.value?.total ?? items.value.length);
 const categories = computed(() => data.value?.categories ?? []);
 const nextCursor = computed(() => data.value?.nextCursor ?? null);
+const activeCandidates = ref<PolicyCandidate[]>([]);
+const candidatesLoading = ref(false);
+const candidatesError = ref<string | null>(null);
+const syncing = ref(false);
+const syncMessage = ref("");
+const syncError = ref<string | null>(null);
+const syncAt = ref("");
+const syncAtLabel = computed(() => (syncAt.value ? formatDateTime(syncAt.value, locale.value, true) : ""));
+const candidateBusy = ref("");
+const activeCandidateCount = computed(() => activeCandidates.value.length);
+
+async function reloadCandidates() {
+  candidatesLoading.value = true;
+  candidatesError.value = null;
+  const envelope = await platformClient.listPolicyCandidates({ status: "all", limit: 100 });
+  candidatesLoading.value = false;
+  if (!envelope.success || !envelope.data) {
+    candidatesError.value = envelope.message || envelope.code;
+    return;
+  }
+  activeCandidates.value = envelope.data.items.filter(
+    (item) => item.status === "pending" || item.status === "conflict",
+  );
+  syncAt.value = envelope.data.lastSyncAt;
+}
+
+async function syncPolicies() {
+  if (syncing.value) return;
+  syncing.value = true;
+  syncMessage.value = "";
+  syncError.value = null;
+  try {
+    const envelope = await platformClient.syncPolicies();
+    if (!envelope.success || !envelope.data) {
+      syncError.value = envelope.message || envelope.code;
+      return;
+    }
+    syncMessage.value = envelope.data.message;
+    syncAt.value = envelope.data.lastSyncAt;
+    await reloadCandidates();
+  } finally {
+    syncing.value = false;
+  }
+}
+
+async function decideCandidate(candidate: PolicyCandidate, action: "approve" | "reject") {
+  if (candidateBusy.value) return;
+  candidateBusy.value = candidate.id;
+  candidatesError.value = null;
+  try {
+    const envelope = await platformClient.decidePolicyCandidate({
+      id: candidate.id,
+      action,
+    });
+    if (!envelope.success || !envelope.data) {
+      candidatesError.value = envelope.message || envelope.code;
+      return;
+    }
+    if (action === "approve") {
+      selected.value = null;
+      await reload();
+    }
+    await reloadCandidates();
+  } finally {
+    candidateBusy.value = "";
+  }
+}
+
+onMounted(reloadCandidates);
 
 async function loadMore() {
   if (!nextCursor.value || loadingMore.value) return;
@@ -101,10 +173,14 @@ async function saveProvenance() {
       return;
     }
     selected.value = envelope.data;
-    provenanceSaved.value = t("policies.provenance.saved");
+    provenanceSaved.value = tp("policies.provenance.saved");
   } finally {
     provenanceSaving.value = false;
   }
+}
+
+function calculateCandidateTone(status: string): "planned" | "degraded" {
+  return status === "conflict" ? "degraded" : "planned";
 }
 
 function statusTone(status: ProvenanceStatus): "ready" | "planned" | "degraded" {
@@ -127,7 +203,7 @@ function splitList(value: string): string[] {
 
 <template>
   <div class="policies-page">
-    <PageHeader eyebrow="POLICY / LIBRARY" :title="t('policies.title')" :description="t('policies.description')">
+    <PageHeader eyebrow="POLICY / LIBRARY" :title="tp('policies.title')" :description="tp('policies.description')">
       <template #actions>
         <StatusPill tone="ready" :label="t('app.mode')" />
       </template>
@@ -138,17 +214,83 @@ function splitList(value: string): string[] {
     <div class="policy-toolbar">
       <label class="search-field">
         <AppIcon name="search" :size="16" />
-        <input v-model="query" type="search" :placeholder="t('policies.search')" />
+        <input v-model="query" type="search" :placeholder="tp('policies.search')" />
       </label>
       <label class="select-field">
-        <span>{{ t("policies.category") }}</span>
+        <span>{{ tp("policies.category") }}</span>
         <select v-model="category">
-          <option value="">{{ t("policies.category.all") }}</option>
+          <option value="">{{ tp("policies.category.all") }}</option>
           <option v-for="item in categories" :key="item" :value="item">{{ item }}</option>
         </select>
       </label>
-      <span class="policy-count mono">{{ t("policies.count", { count: total }) }}</span>
+      <span class="policy-count mono">{{ tp("policies.count", { count: total }) }}</span>
     </div>
+
+    <section class="policy-sync">
+      <div class="sync-copy">
+        <strong>{{ tp("policies.sync") }}</strong>
+        <span v-if="syncError" class="sync-error">{{ syncError }}</span>
+        <span v-else-if="syncMessage" class="sync-message">{{ syncMessage }}</span>
+        <span v-else class="muted">
+          {{ syncAt ? tp("policies.lastSync", { at: syncAtLabel }) : tp("policies.neverSynced") }}
+        </span>
+      </div>
+      <AppButton variant="primary" size="sm" :disabled="syncing" @click="syncPolicies">
+        {{ syncing ? t("common.loading") : tp("policies.syncAction") }}
+      </AppButton>
+    </section>
+
+    <section
+      v-if="candidatesError || activeCandidateCount"
+      class="candidate-panel"
+      aria-live="polite"
+    >
+      <header class="candidate-panel-head">
+        <strong>{{ tp("policies.candidates", { count: activeCandidateCount }) }}</strong>
+      </header>
+      <p v-if="candidatesError" class="sync-error">{{ candidatesError }}</p>
+      <article v-for="candidate in activeCandidates" :key="candidate.id" class="candidate-card">
+        <header class="candidate-head">
+          <div>
+            <strong>{{ candidate.name }}</strong>
+            <p class="mono">{{ candidate.platformId }} · {{ candidate.source }}</p>
+          </div>
+          <StatusPill
+            :tone="calculateCandidateTone(candidate.status)"
+            :label="
+              candidate.status === 'conflict'
+                ? tp('policies.candidateConflict')
+                : tp('policies.candidatePending')
+            "
+          />
+        </header>
+        <details class="candidate-diff">
+          <summary>{{ tp("policies.candidateFields", { count: candidate.changedFields.length }) }}</summary>
+          <div v-for="field in candidate.diff" :key="field.field" class="diff-row">
+            <span class="diff-field mono">{{ field.field }}</span>
+            <span class="diff-value">{{ field.before || "—" }} → {{ field.after || "—" }}</span>
+          </div>
+        </details>
+        <div class="candidate-actions">
+          <AppButton
+            variant="primary"
+            size="sm"
+            :disabled="candidateBusy === candidate.id"
+            @click="decideCandidate(candidate, 'approve')"
+          >
+            {{ candidateBusy === candidate.id ? t("common.loading") : tp("policies.approve") }}
+          </AppButton>
+          <AppButton
+            variant="ghost"
+            size="sm"
+            :disabled="candidateBusy === candidate.id"
+            @click="decideCandidate(candidate, 'reject')"
+          >
+            {{ tp("policies.reject") }}
+          </AppButton>
+        </div>
+      </article>
+    </section>
 
     <div v-if="loading" class="policy-loading" aria-busy="true">
       <div v-for="index in 5" :key="index" class="policy-skeleton">
@@ -167,7 +309,7 @@ function splitList(value: string): string[] {
 
     <template v-else>
       <div v-if="!items.length" class="policy-empty">
-        <EmptyState :title="t('policies.empty')" :note="t('policies.emptyHint')" />
+        <EmptyState :title="tp('policies.empty')" :note="tp('policies.emptyHint')" />
       </div>
 
       <div v-else class="policy-layout">
@@ -187,7 +329,7 @@ function splitList(value: string): string[] {
             <span class="policy-row-side">
               <StatusPill
                 :tone="statusTone(policy.provenance.status)"
-                :label="t(`policies.provenance.${policy.provenance.status}`)"
+                :label="tp(`policies.provenance.${policy.provenance.status}`)"
               />
               <AppIcon name="chevron-right" :size="14" />
             </span>
@@ -224,19 +366,19 @@ function splitList(value: string): string[] {
               </div>
               <StatusPill
                 :tone="statusTone(selected.provenance.status)"
-                :label="t(`policies.provenance.${selected.provenance.status}`)"
+                :label="tp(`policies.provenance.${selected.provenance.status}`)"
               />
             </div>
 
             <div class="detail-meta">
-              <div><span>{{ t("policies.difficulty") }}</span><strong>{{ selected.estimatedDifficulty || "—" }}</strong></div>
-              <div><span>{{ t("policies.time") }}</span><strong>{{ selected.estimatedTimeDays || "—" }}</strong></div>
-              <div><span>{{ t("policies.category") }}</span><strong>{{ selected.category }}</strong></div>
-              <div><span>{{ t("policies.form") }}</span><strong>{{ selected.inheritable ? "✓" : "—" }}</strong></div>
+              <div><span>{{ tp("policies.difficulty") }}</span><strong>{{ selected.estimatedDifficulty || "—" }}</strong></div>
+              <div><span>{{ tp("policies.time") }}</span><strong>{{ selected.estimatedTimeDays || "—" }}</strong></div>
+              <div><span>{{ tp("policies.category") }}</span><strong>{{ selected.category }}</strong></div>
+              <div><span>{{ tp("policies.form") }}</span><strong>{{ selected.inheritable ? "✓" : "—" }}</strong></div>
             </div>
 
             <section class="detail-block">
-              <h3>{{ t("policies.documents") }}</h3>
+              <h3>{{ tp("policies.documents") }}</h3>
               <ul v-if="splitList(selected.requiredDocuments).length" class="detail-list">
                 <li v-for="item in splitList(selected.requiredDocuments)" :key="item">{{ item }}</li>
               </ul>
@@ -244,22 +386,22 @@ function splitList(value: string): string[] {
             </section>
 
             <section class="detail-block">
-              <h3>{{ t("policies.process") }}</h3>
+              <h3>{{ tp("policies.process") }}</h3>
               <p class="pre-line">{{ selected.processDescription || "—" }}</p>
             </section>
 
             <section class="detail-block" v-if="selected.riskWarnings">
-              <h3>{{ t("policies.risk") }}</h3>
+              <h3>{{ tp("policies.risk") }}</h3>
               <p class="pre-line risk">{{ selected.riskWarnings }}</p>
             </section>
 
             <section class="detail-block" v-if="selected.monetizationPath">
-              <h3>{{ t("policies.monetization") }}</h3>
+              <h3>{{ tp("policies.monetization") }}</h3>
               <p class="pre-line">{{ selected.monetizationPath }}</p>
             </section>
 
             <section class="detail-block source-block">
-              <h3>{{ t("policies.source") }}</h3>
+              <h3>{{ tp("policies.source") }}</h3>
               <p class="mono">{{ selected.provenance.status }} · {{ selected.dataSource || selected.provenance.note }}</p>
               <div class="source-actions">
                 <a
@@ -269,7 +411,7 @@ function splitList(value: string): string[] {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {{ t("policies.sourceOpen") }} <AppIcon name="external" :size="13" />
+                  {{ tp("policies.sourceOpen") }} <AppIcon name="external" :size="13" />
                 </a>
                 <a
                   v-if="safeUrl(selected.inheritanceFormUrl)"
@@ -278,36 +420,36 @@ function splitList(value: string): string[] {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {{ t("policies.form") }} <AppIcon name="external" :size="13" />
+                  {{ tp("policies.form") }} <AppIcon name="external" :size="13" />
                 </a>
               </div>
             </section>
 
             <section class="provenance-editor">
-              <h3>{{ t("policies.provenance.edit") }}</h3>
-              <p class="muted">{{ t("policies.provenance.hint") }}</p>
+              <h3>{{ tp("policies.provenance.edit") }}</h3>
+              <p class="muted">{{ tp("policies.provenance.hint") }}</p>
               <div class="provenance-grid">
                 <label>
-                  <span>{{ t("policies.provenance.status") }}</span>
+                  <span>{{ tp("policies.provenance.status") }}</span>
                   <select v-model="provenanceStatus">
-                    <option value="unverified">{{ t("policies.provenance.unverified") }}</option>
-                    <option value="source_cited">{{ t("policies.provenance.source_cited") }}</option>
-                    <option value="verified">{{ t("policies.provenance.verified") }}</option>
-                    <option value="disputed">{{ t("policies.provenance.disputed") }}</option>
+                    <option value="unverified">{{ tp("policies.provenance.unverified") }}</option>
+                    <option value="source_cited">{{ tp("policies.provenance.source_cited") }}</option>
+                    <option value="verified">{{ tp("policies.provenance.verified") }}</option>
+                    <option value="disputed">{{ tp("policies.provenance.disputed") }}</option>
                   </select>
                 </label>
                 <label>
-                  <span>{{ t("policies.provenance.sourceUrl") }}</span>
+                  <span>{{ tp("policies.provenance.sourceUrl") }}</span>
                   <input v-model="provenanceSource" type="url" placeholder="https://" />
                 </label>
               </div>
               <label class="provenance-note">
-                <span>{{ t("policies.provenance.note") }}</span>
+                <span>{{ tp("policies.provenance.note") }}</span>
                 <textarea v-model="provenanceNote" rows="2" />
               </label>
               <div class="provenance-actions">
                 <AppButton variant="primary" size="sm" :disabled="provenanceSaving" @click="saveProvenance">
-                  {{ provenanceSaving ? t("policies.provenance.saving") : t("policies.provenance.save") }}
+                  {{ provenanceSaving ? tp("policies.provenance.saving") : tp("policies.provenance.save") }}
                 </AppButton>
                 <span v-if="provenanceSaved" class="provenance-saved">{{ provenanceSaved }}</span>
               </div>
@@ -319,7 +461,7 @@ function splitList(value: string): string[] {
           </template>
           <div v-else class="detail-placeholder">
             <AppIcon name="database" :size="26" />
-            <p>{{ t("policies.noSelection") }}</p>
+            <p>{{ tp("policies.noSelection") }}</p>
           </div>
         </section>
       </div>
@@ -329,6 +471,26 @@ function splitList(value: string): string[] {
 
 <style scoped>
 .policies-page { max-width: var(--content-max); margin: 0 auto; }
+.policy-sync { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.sync-copy { display: grid; min-width: 0; gap: 3px; }
+.sync-copy strong { font-size: 12px; letter-spacing: .03em; }
+.sync-copy .muted, .sync-message, .sync-error { overflow-wrap: anywhere; font-size: 10px; }
+.sync-message { color: var(--accent-strong); }
+.sync-error { color: var(--warning, #9a5b21); }
+.candidate-panel { display: grid; gap: 8px; margin-bottom: 14px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-soft); }
+.candidate-panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.candidate-panel-head strong { font-size: 12px; }
+.candidate-card { padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.candidate-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.candidate-head strong { font-size: 13px; }
+.candidate-head p { overflow: hidden; margin: 3px 0 0; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.candidate-diff { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 7px; }
+.candidate-diff summary { color: var(--accent-strong); font-size: 10px; cursor: pointer; }
+.diff-row { display: grid; grid-template-columns: minmax(96px, 140px) minmax(0, 1fr); gap: 10px; padding: 7px 0; border-top: 1px dashed var(--line); }
+.diff-row:first-child { margin-top: 6px; }
+.diff-field { align-self: start; color: var(--muted); font-size: 9px; overflow-wrap: anywhere; }
+.diff-value { min-width: 0; color: var(--ink); overflow-wrap: anywhere; font-size: 10px; line-height: 1.5; }
+.candidate-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
 .policy-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
 .search-field { display: flex; align-items: center; gap: 8px; min-width: 260px; padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .search-field input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; outline: none; }
@@ -380,5 +542,5 @@ function splitList(value: string): string[] {
 .policy-skeleton { display: grid; gap: 8px; padding: 14px; border-bottom: 1px solid var(--line); }
 .policy-empty { padding: 24px 0; }
 @media (max-width: 980px) { .policy-layout { grid-template-columns: 1fr; } .detail-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { .policy-toolbar { align-items: stretch; } .search-field { min-width: 100%; } .policy-count { margin-left: 0; } }
+@media (max-width: 560px) { .policy-toolbar { align-items: stretch; } .search-field { min-width: 100%; } .policy-count { margin-left: 0; } .policy-sync { align-items: flex-start; flex-direction: column; } .candidate-head { flex-direction: column; } .diff-row { grid-template-columns: 1fr; gap: 4px; } }
 </style>

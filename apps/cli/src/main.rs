@@ -426,6 +426,38 @@ enum PoliciesCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Pull a remote policy feed into candidates without changing the library.
+    Sync {
+        #[arg(long, default_value = "")]
+        since: String,
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// List policy sync candidates and their field diffs.
+    Candidates {
+        #[arg(long, default_value = "pending")]
+        status: String,
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+        #[arg(long)]
+        cursor: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Approve or reject one policy sync candidate.
+    Decide {
+        id: String,
+        #[arg(long, value_parser = ["approve", "reject"])]
+        action: String,
+        #[arg(long, default_value = "")]
+        note: String,
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
     /// Record a policy provenance check (metadata only).
     Provenance {
         id: String,
@@ -435,6 +467,8 @@ enum PoliciesCommand {
         source_url: String,
         #[arg(long, default_value = "")]
         note: String,
+        #[arg(long)]
+        allow_write: bool,
         #[arg(long)]
         json: bool,
     },
@@ -801,18 +835,55 @@ fn main() -> ExitCode {
             PoliciesCommand::Get { id, json: as_json } => {
                 run(&app, "policies.get", json!({ "id": id }), as_json, false)
             }
+            PoliciesCommand::Sync {
+                since,
+                allow_write,
+                json: as_json,
+            } => run(
+                &app,
+                "policies.sync",
+                json!({ "since": since }),
+                as_json,
+                allow_write,
+            ),
+            PoliciesCommand::Candidates {
+                status,
+                limit,
+                cursor,
+                json: as_json,
+            } => run(
+                &app,
+                "policies.candidates.list",
+                json!({ "status": status, "limit": limit, "cursor": cursor }),
+                as_json,
+                false,
+            ),
+            PoliciesCommand::Decide {
+                id,
+                action,
+                note,
+                allow_write,
+                json: as_json,
+            } => run(
+                &app,
+                "policies.candidate.decide",
+                json!({ "id": id, "action": action, "note": note }),
+                as_json,
+                allow_write,
+            ),
             PoliciesCommand::Provenance {
                 id,
                 status,
                 source_url,
                 note,
+                allow_write,
                 json: as_json,
             } => run(
                 &app,
                 "policies.provenance.set",
                 json!({ "id": id, "status": status, "sourceUrl": source_url, "note": note }),
                 as_json,
-                false,
+                allow_write,
             ),
         },
         Commands::Approvals { command } => match command {

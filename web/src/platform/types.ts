@@ -348,6 +348,50 @@ export interface PoliciesPage {
   categories: string[];
 }
 
+export type PolicyCandidateStatus = "pending" | "conflict" | "approved" | "rejected";
+
+export interface PolicyCandidateDiff {
+  field: string;
+  before: string;
+  after: string;
+}
+
+export interface PolicyCandidate {
+  id: string;
+  platformId: string;
+  name: string;
+  fetchedAt: string;
+  source: string;
+  status: PolicyCandidateStatus;
+  hash: string;
+  changedFields: string[];
+  diff: PolicyCandidateDiff[];
+  reviewedAt: string;
+  reviewedBy: string;
+}
+
+export interface PolicyCandidatePage {
+  items: PolicyCandidate[];
+  nextCursor: string | null;
+  total: number;
+  lastSyncAt: string;
+  lastStatus: string;
+}
+
+export interface PolicySyncResult {
+  configured: boolean;
+  source: string;
+  fetched: number;
+  changed: number;
+  queued: number;
+  conflict: number;
+  skipped: number;
+  notModified: boolean;
+  cursor: string;
+  lastSyncAt: string;
+  message: string;
+}
+
 export interface DeliverableExport {
   jobId: string;
   status: string;

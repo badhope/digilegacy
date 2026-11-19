@@ -14,6 +14,7 @@ use serde_json::{json, Value};
 pub mod connections_health;
 pub mod deliver;
 pub mod jobs;
+pub mod policy_sync;
 pub mod runtime;
 use digilegacy_foundation::PlatformError;
 use digilegacy_security::derive_domain_key;
@@ -188,6 +189,9 @@ impl Application {
             "policies.list" => self.policies_list(args),
             "policies.get" => self.policies_get(args),
             "policies.provenance.set" => self.policies_set_provenance(args),
+            "policies.sync" => self.policies_sync(args),
+            "policies.candidates.list" => self.policies_candidates_list(args),
+            "policies.candidate.decide" => self.policies_candidate_decide(args),
             "trigger.checkin" => self.checkin(),
             "trigger.configure" => self.configure_trigger(args),
             "trigger.evaluate" => self.evaluate_trigger(),

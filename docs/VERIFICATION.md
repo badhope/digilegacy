@@ -444,7 +444,7 @@ vendor raw      101.88 KB / 130 KB
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，33 commands / 30 表 / schema v15 |
+| Server | `GET /api/v1/health` | `200 OK`，39 commands / 31 表 / schema v16 |
 | Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |
@@ -544,3 +544,17 @@ M0 可以判定“工程壳完成”的条件：
 - `./tools/verify.sh` exit 0：**146 Rust + 10 Web**；workspace members=12；schema v15 / 30 表；Settings 路由 17.46 / 24 KB。
 - 预算：入口 **79.31 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **98.75 / 100 KB**、CSS gzip **20.50 / 21 KB**、总 gzip **119.25 / 121 KB**。JS/总 gzip 预算从 97/118 调到 100/121，用于新增管理表单与 SMTP 配置 UI；入口与 vendor 预算未放宽。
 - 复验命令：`./tools/verify.sh`；日志 `/tmp/m5c-verify.log`。
+### M5-D 政策远程同步与候选审核
+
+- schema v16 / 31 表：新增 `policy_sync_state`（`source/cursor/etag/last_sync_at/last_status/last_error`）；`policy_candidates(status, fetched_at)` 加索引。迁移 ledger 写 `v16_policy_sync_state`。
+- 契约扩至 **39 命令 / 23 工具 / 56 schema / 21 错误码**；新增 `policies.sync`（HTTP `POST /api/v1/policies/sync`、CLI `policies sync`）、`policies.candidates.list`（HTTP `GET /api/v1/policies/candidates`、CLI `policies candidates`、MCP 只读）、`policies.candidate.decide`（HTTP `POST /api/v1/policies/candidates/{id}/decide`、CLI `policies candidates decide`）；新增错误码 `PROVIDER_UNCONFIGURED`（HTTP 409 / cliExit 3）。
+- `policies.sync` 只写候选：本地 feed 返回 1 条修改后的支付宝政策，同步返回 `fetched=1/queued=1/changed=1/conflict=0/cursor=feed-cursor-1`，消息明确“政策库未改变”；随后 `GET /api/v1/policies/1` 的 `notes` 仍是旧值，证明拉取未自动落库。
+- 候选列表：`GET /api/v1/policies/candidates?status=all&limit=20` 返回 `total=1`、`lastSyncAt`、`lastStatus=ok`、候选 `platformId=1`、`name=支付宝`、`status=pending`、7 个 changedFields。
+- 批准：`POST /api/v1/policies/candidates/1/decide` body `{"action":"approve","note":"M5-D e2e"}` 返回 approved；政策 notes 更新，provenance 回 `unverified`，note 为“同步候选已批准；内容已更新，来源需重新核对”；审计新增 `policy.candidate.approve`、`policy.sync`。
+- ETag/304：第二次同步返回 `notModified=true/fetched=0/queued=0`，消息“远端未修改（304），没有入队候选”；feed 日志记录 `path=/v1/policies?since=feed-cursor-1` 与 `if_none_match=feed-etag-1`。
+- Web：政策页显示“待审核候选 1”、字段级 diff、批准/拒绝；候选 2 页面批准后政策 notes 更新，候选 3 页面拒绝后政策不变；全部审完后候选面板隐藏；候选 4 的 notes diff 在 390px 单列展开，`scrollWidth=390`，亮/暗主题均正常。截图见 `/tmp/bu-shot-52at11zj.png`、`/tmp/bu-shot-vwhh_qmy.png`、`/tmp/bu-shot-n36m6bji.png`。
+- CLI：`policies candidates --status all` 返回真实候选；`policies sync --allow-write` 返回 `notModified=true`；`policies decide 4 --action reject` 返回 rejected 且政策不变；`policies provenance 1 --status unverified --allow-write` 写回成功。
+- `./tools/verify.sh` exit 0：**158 Rust + 10 Web**；契约 **39 命令 / 23 工具 / 56 schema / 21 错误码**；schema v16 / 31 表；workspace members=12。
+- 预算：入口 **77.27 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **100.35 / 101 KB**、CSS gzip **20.81 / 21 KB**、总 gzip **121.15 / 122 KB**；Policies 路由 15.88 / 24 KB。
+- 签名校验单测覆盖 `sha256=<hex>`、`sha256:<hex>` 与裸 hex，以及缺失、篡改、非法 hex 的 fail-closed；未用带签名的远端 feed 做真实 HTTP 联调。普通 localhost 明文 HTTP feed（未签名）已验证 200/304、候选入队和审核链路。
+- 复验命令：`./tools/verify.sh`；日志 `/tmp/m5d-verify8.log`、`/tmp/m5d-feed.log`、`/tmp/m5d-server-8787.log`。

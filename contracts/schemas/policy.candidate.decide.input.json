@@ -1,0 +1,26 @@
+{
+  "title": "PolicyCandidateDecideInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "action"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "action": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "reject"
+      ]
+    },
+    "note": {
+      "type": "string",
+      "default": ""
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
