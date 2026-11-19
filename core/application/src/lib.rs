@@ -701,6 +701,34 @@ mod tests {
     }
 
     #[test]
+    fn runtime_cancel_marks_running_as_cancelling() {
+        let app = app();
+        let steps = json!([
+            { "tool": "overview.get", "args": {}, "status": "queued", "result": null, "error": "", "at": "" }
+        ]);
+        let steps_json = serde_json::to_string(&steps).unwrap();
+        let run_id = app
+            .store()
+            .write(|conn| {
+                conn.execute(
+                    "INSERT INTO agent_run_log (started_at, task, outcome, steps_json)
+                     VALUES (?1, '运行中取消', 'running', ?2)",
+                    rusqlite::params![chrono::Utc::now().to_rfc3339(), steps_json],
+                )?;
+                Ok(conn.last_insert_rowid())
+            })
+            .unwrap();
+        let cancelled = app
+            .dispatch("agent.runs.cancel", json!({ "id": run_id.to_string() }))
+            .unwrap();
+        assert_eq!(cancelled["status"], "cancelling");
+        let again = app
+            .dispatch("agent.runs.cancel", json!({ "id": run_id.to_string() }))
+            .unwrap();
+        assert_eq!(again["status"], "cancelling");
+    }
+
+    #[test]
     fn runtime_retry_creates_new_run_and_preserves_old() {
         let app = app();
         let run = app

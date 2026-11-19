@@ -71,8 +71,8 @@ cargo test --workspace            OK
 - render：2 个
 - server：12 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突、Runtime 启动/详情）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
-- store：15 个（schema v12 / 28 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- domains：14 个；application：16 个；agent：4 个；合计 117 个
+- store：15 个（schema v13 / 28 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
+- domains：14 个；application：18 个；agent：4 个；合计 119 个
 
 ### M1 安全与数据底座
 
@@ -99,7 +99,7 @@ core/domains: assets 3 + plan 2 + overview 1 + runs 1 + policy 3 = 10 tests
 core/application: 5 tests（读命令、CRUD+审计、签到、政策、交付）
 apps/server: 6 tests（真实读接口、写 token 门禁、404/403）
 core/render: 2 tests（纯文本转义、可信 body 页面壳）
-core/store: 15 tests（schema v12 / 28 表 / 迁移 / 加密 / 诊断）
+core/store: 15 tests（schema v13 / 28 表 / 迁移 / 加密 / 诊断）
 ```
 
 已实测：
@@ -317,6 +317,29 @@ CLI  usage summary --days 30
 - 没有导出 CSV/账单的入口；当前是运行时查询。
 - `byDay` 使用 UTC 日期切分，跨时区账单口径需后续统一。
 
+### M4-D 运行中协作取消
+
+```text
+agent.runs.cancel(id)
+  running          -> cancel_requested=1, outcome=cancelling
+  waiting_approval -> expire approvals, steps cancelled, outcome=cancelled
+executor
+  step boundary    -> cancel_requested? abandon + cancelled
+  finish           -> succeeded 落库受 cancel_requested 条件保护
+```
+
+已验证：
+
+- schema v13：`agent_run_log.cancel_requested`，仍 28 表；Store 15 项测试全绿。
+- Application 测试：手工 running 运行取消后状态 `cancelling`，重复取消仍返回 `cancelling`；`execute_from` 在取消置位后不执行步骤，直接落 `cancelled`。
+- 原有 `waiting_approval` 取消/审批过期测试继续通过。
+- Web `RunStatus` 增加 `cancelling`，运行详情按钮在取消中禁用并显示“取消中…”。
+
+未完成边界：
+
+- 取消依赖步骤边界，单个长工具调用无法被强制抢占；这是协作式取消，不是杀线程。
+- 后台 `agent.resume` 的 Job 仍只有 queued 可取消；运行本身可协作取消。
+
 ### M4-C 查询缓存与加载策略
 
 ```text
@@ -355,10 +378,10 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         107.93 KB / 110 KB
-JS gzip         89.51 KB / 90 KB
+总 gzip         107.99 KB / 110 KB
+JS gzip         89.58 KB / 90 KB
 CSS gzip        18.42 KB / 19 KB
-入口 raw        67.17 KB / 68 KB
+入口 raw        67.32 KB / 68 KB
 vendor raw      98.89 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```
@@ -367,7 +390,7 @@ vendor raw      98.89 KB / 130 KB
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，26 commands / 28 表 / schema v12 |
+| Server | `GET /api/v1/health` | `200 OK`，26 commands / 28 表 / schema v13 |
 | Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |

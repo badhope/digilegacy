@@ -66,7 +66,7 @@ export interface Plan {
   trigger: { mode: string; days: number; status: string };
 }
 
-export type RunStatus = "queued" | "running" | "waiting_approval" | "succeeded" | "failed" | "rejected" | "cancelled";
+export type RunStatus = "queued" | "running" | "cancelling" | "waiting_approval" | "succeeded" | "failed" | "rejected" | "cancelled";
 
 export interface AgentRun {
   id: string;

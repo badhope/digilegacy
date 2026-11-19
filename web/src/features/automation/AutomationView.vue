@@ -48,7 +48,7 @@ function tone(status: AgentRun["status"]): "ready" | "planned" | "degraded" | "d
   if (status === "succeeded") return "ready";
   if (status === "failed") return "danger";
   if (status === "waiting_approval") return "degraded";
-  if (status === "running") return "planned";
+  if (status === "running" || status === "cancelling") return "planned";
   return "neutral";
 }
 

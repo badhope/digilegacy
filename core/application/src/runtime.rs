@@ -100,30 +100,91 @@ fn elapsed_ms(app: &Application, run_id: i64) -> i64 {
         .unwrap_or(0)
 }
 
+fn cancel_requested(app: &Application, run_id: i64) -> bool {
+    app.store()
+        .read(|conn| {
+            conn.query_row(
+                "SELECT cancel_requested FROM agent_run_log WHERE id=?1",
+                [run_id],
+                |row| row.get::<_, i64>(0),
+            )
+        })
+        .map(|value| value != 0)
+        .unwrap_or(false)
+}
+
+fn request_cancel(app: &Application, run_id: i64) -> Result<(), PlatformError> {
+    app.store()
+        .write(|conn| {
+            conn.execute(
+                "UPDATE agent_run_log SET cancel_requested=1, outcome='cancelling' WHERE id=?1
+                 AND outcome NOT IN ('succeeded','failed','rejected','cancelled')",
+                [run_id],
+            )?;
+            Ok(())
+        })
+        .map_err(|e| internal(format!("写入取消请求失败: {e}")))?;
+    Ok(())
+}
+
+fn expire_approvals(app: &Application, run_id: i64) -> Result<(), PlatformError> {
+    app.store()
+        .write(|conn| {
+            let tx = conn.transaction()?;
+            tx.execute(
+                "UPDATE agent_approvals SET status='expired', decided_at=?2
+                 WHERE run_id=?1 AND status='pending'",
+                rusqlite::params![run_id.to_string(), now()],
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+        .map_err(|e| internal(format!("取消审批失败: {e}")))?;
+    Ok(())
+}
+
+fn abandon(
+    app: &Application,
+    run_id: i64,
+    steps: &mut [runs::RunStep],
+) -> Result<(), PlatformError> {
+    for step in steps.iter_mut() {
+        if matches!(step.status.as_str(), "queued" | "pending_approval") {
+            step.status = "cancelled".to_string();
+            step.at = now();
+        }
+    }
+    expire_approvals(app, run_id)?;
+    save(app, run_id, "cancelled", steps, "运行已取消")?;
+    app.audit("agent.run.cancelled", &run_id.to_string())?;
+    Ok(())
+}
+
 fn save(
     app: &Application,
     run_id: i64,
     outcome: &str,
     steps: &[runs::RunStep],
     final_text: &str,
-) -> Result<(), PlatformError> {
+) -> Result<bool, PlatformError> {
     let steps_json =
         serde_json::to_string(steps).map_err(|e| internal(format!("步骤序列化失败: {e}")))?;
     let used = tools_used(steps);
     let count = rounds(steps);
     let duration = elapsed_ms(app, run_id);
-    app.store()
+    let rows = app
+        .store()
         .write(|conn| {
-            conn.execute(
+            let rows = conn.execute(
                 "UPDATE agent_run_log
                  SET outcome=?2, rounds=?3, tools_used=?4, steps_json=?5, final_text=?6, duration_ms=?7
-                 WHERE id=?1",
+                 WHERE id=?1 AND NOT (cancel_requested=1 AND ?2='succeeded')",
                 rusqlite::params![run_id, outcome, count, used, steps_json, final_text, duration],
             )?;
-            Ok(())
+            Ok(rows)
         })
         .map_err(|e| internal(format!("运行记录写入失败: {e}")))?;
-    Ok(())
+    Ok(rows > 0)
 }
 
 fn object_key(args: &Value) -> String {
@@ -205,6 +266,10 @@ fn execute_from(
     start: usize,
 ) -> Result<(), PlatformError> {
     for index in start..steps.len() {
+        if cancel_requested(app, run_id) {
+            abandon(app, run_id, steps)?;
+            return Ok(());
+        }
         if steps[index].status != "queued" {
             continue;
         }
@@ -240,6 +305,12 @@ fn execute_from(
 
         if spec.permission == "write" {
             let approval_id = create_approval(app, run_id, index, &tool, &args)?;
+            if cancel_requested(app, run_id) {
+                steps[index].status = "cancelled".to_string();
+                steps[index].at = now();
+                abandon(app, run_id, steps)?;
+                return Ok(());
+            }
             steps[index].status = "pending_approval".to_string();
             steps[index].at = now();
             let message = format!("等待审批 {approval_id}: {tool}");
@@ -254,9 +325,17 @@ fn execute_from(
                 steps[index].result = Some(result);
                 steps[index].error.clear();
                 steps[index].at = now();
+                if cancel_requested(app, run_id) {
+                    abandon(app, run_id, steps)?;
+                    return Ok(());
+                }
                 save(app, run_id, "running", steps, "")?;
             }
             Err(error) => {
+                if cancel_requested(app, run_id) {
+                    abandon(app, run_id, steps)?;
+                    return Ok(());
+                }
                 steps[index].status = "failed".to_string();
                 steps[index].error = format!("{}: {}", error.code, error.message);
                 steps[index].at = now();
@@ -265,9 +344,16 @@ fn execute_from(
             }
         }
     }
+    if cancel_requested(app, run_id) {
+        abandon(app, run_id, steps)?;
+        return Ok(());
+    }
     let done = steps.iter().filter(|step| step.status == "done").count();
-    save(app, run_id, "succeeded", steps, &format!("完成 {done} 步"))?;
-    app.audit("agent.run.succeeded", &run_id.to_string())?;
+    if save(app, run_id, "succeeded", steps, &format!("完成 {done} 步"))? {
+        app.audit("agent.run.succeeded", &run_id.to_string())?;
+    } else {
+        abandon(app, run_id, steps)?;
+    }
     Ok(())
 }
 
@@ -392,12 +478,25 @@ pub fn cancel(app: &Application, args: Value) -> Result<Value, PlatformError> {
     let run_id = parse_run_id(id)?;
     let detail =
         runs::get(app.store(), id).map_err(|e| PlatformError::new("NOT_FOUND", e.to_string()))?;
+    if detail.status == "cancelling" {
+        return Ok(json!(detail));
+    }
     if matches!(
         detail.status.as_str(),
         "succeeded" | "failed" | "rejected" | "cancelled"
     ) {
         return Err(PlatformError::new("CONFLICT", "终态运行不能取消"));
     }
+    if detail.status == "running" {
+        request_cancel(app, run_id)?;
+        expire_approvals(app, run_id)?;
+        app.audit("agent.run.cancel_requested", &run_id.to_string())?;
+        return runs::get(app.store(), id)
+            .map(|detail| json!(detail))
+            .map_err(|e| PlatformError::new("INTERNAL", e.to_string()));
+    }
+
+    request_cancel(app, run_id)?;
     let mut steps = detail.steps;
     for step in &mut steps {
         if matches!(step.status.as_str(), "queued" | "pending_approval") {
@@ -405,18 +504,7 @@ pub fn cancel(app: &Application, args: Value) -> Result<Value, PlatformError> {
             step.at = now();
         }
     }
-    app.store()
-        .write(|conn| {
-            let tx = conn.transaction()?;
-            tx.execute(
-                "UPDATE agent_approvals SET status='expired', decided_at=?2
-                 WHERE run_id=?1 AND status='pending'",
-                rusqlite::params![run_id.to_string(), now()],
-            )?;
-            tx.commit()?;
-            Ok(())
-        })
-        .map_err(|e| internal(format!("取消审批失败: {e}")))?;
+    expire_approvals(app, run_id)?;
     save(app, run_id, "cancelled", &steps, "运行已取消")?;
     app.audit("agent.run.cancelled", &run_id.to_string())?;
     runs::get(app.store(), id)
@@ -476,6 +564,13 @@ pub fn resume(app: &Application, approval: &approvals::Approval) -> Result<(), P
         None => return Ok(()),
     };
 
+    if cancel_requested(app, run_id) {
+        steps[index].status = "cancelled".to_string();
+        steps[index].at = now();
+        abandon(app, run_id, &mut steps)?;
+        return Ok(());
+    }
+
     if approval.status == "rejected" {
         steps[index].status = "rejected".to_string();
         steps[index].at = now();
@@ -502,6 +597,10 @@ pub fn resume(app: &Application, approval: &approvals::Approval) -> Result<(), P
             steps[index].result = Some(result);
             steps[index].error.clear();
             steps[index].at = now();
+            if cancel_requested(app, run_id) {
+                abandon(app, run_id, &mut steps)?;
+                return Ok(());
+            }
             save(app, run_id, "running", &steps, "")?;
             app.audit("agent.run.resume", &run_id.to_string())?;
         }
@@ -515,4 +614,46 @@ pub fn resume(app: &Application, approval: &approvals::Approval) -> Result<(), P
     }
 
     execute_from(app, run_id, &mut steps, index + 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use digilegacy_store::Store;
+
+    fn app() -> Application {
+        Application::new(Arc::new(Store::open_in_memory(None).unwrap()))
+    }
+
+    #[test]
+    fn execute_from_abandons_when_cancel_requested() {
+        let app = app();
+        let mut steps = vec![runs::RunStep {
+            tool: "overview.get".to_string(),
+            args: json!({}),
+            status: "queued".to_string(),
+            result: None,
+            error: String::new(),
+            at: String::new(),
+        }];
+        let steps_json = serde_json::to_string(&steps).unwrap();
+        let run_id = app
+            .store()
+            .write(|conn| {
+                conn.execute(
+                    "INSERT INTO agent_run_log (started_at, task, outcome, steps_json)
+                     VALUES (?1, '协作取消', 'running', ?2)",
+                    rusqlite::params![now(), steps_json],
+                )?;
+                Ok(conn.last_insert_rowid())
+            })
+            .unwrap();
+        request_cancel(&app, run_id).unwrap();
+        execute_from(&app, run_id, &mut steps, 0).unwrap();
+        let detail = runs::get(app.store(), &run_id.to_string()).unwrap();
+        assert_eq!(detail.status, "cancelled");
+        assert_eq!(detail.steps[0].status, "cancelled");
+    }
 }

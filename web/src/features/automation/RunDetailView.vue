@@ -26,7 +26,7 @@ let eventSource: EventSource | undefined;
 let streamOpen = false;
 
 function isActive(status: RunStatus | undefined): boolean {
-  return status === "queued" || status === "running" || status === "waiting_approval";
+  return status === "queued" || status === "running" || status === "cancelling" || status === "waiting_approval";
 }
 
 function stopPolling() {
@@ -110,7 +110,7 @@ function tone(status: RunStatus): "ready" | "planned" | "degraded" | "danger" | 
   if (status === "succeeded") return "ready";
   if (status === "failed" || status === "rejected") return "danger";
   if (status === "waiting_approval") return "degraded";
-  if (status === "running") return "planned";
+  if (status === "running" || status === "cancelling") return "planned";
   return "neutral";
 }
 
@@ -168,12 +168,12 @@ function pretty(value: unknown): string {
         </AppButton>
         <StatusPill v-if="data" :tone="tone(data.status)" :label="t(`run.status.${data.status}`)" />
         <AppButton
-          v-if="data && ['running', 'waiting_approval'].includes(data.status)"
+          v-if="data && ['running', 'cancelling', 'waiting_approval'].includes(data.status)"
           variant="secondary"
           size="sm"
-          :disabled="acting"
+          :disabled="acting || data.status === 'cancelling'"
           @click="cancelRun"
-        >{{ t("runs.detail.cancel") }}</AppButton>
+        >{{ data.status === "cancelling" ? t("runs.detail.cancelling") : t("runs.detail.cancel") }}</AppButton>
         <AppButton
           v-if="data && ['failed', 'rejected', 'cancelled'].includes(data.status)"
           variant="primary"

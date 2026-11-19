@@ -382,5 +382,7 @@
   "automation.usage.tokens": "TOKENS",
   "automation.usage.cost": "COST",
   "automation.usage.unpriced": "{count} plans without pricing",
-  "automation.usage.empty": "No planner usage yet"
+  "automation.usage.empty": "No planner usage yet",
+  "run.status.cancelling": "Cancelling",
+  "runs.detail.cancelling": "Cancelling…"
 }

@@ -382,5 +382,7 @@
   "automation.usage.tokens": "TOKEN",
   "automation.usage.cost": "成本",
   "automation.usage.unpriced": "{count} 次规划未配置成本单价",
-  "automation.usage.empty": "暂无规划用量"
+  "automation.usage.empty": "暂无规划用量",
+  "run.status.cancelling": "取消中",
+  "runs.detail.cancelling": "取消中…"
 }

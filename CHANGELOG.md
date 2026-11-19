@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.8.4-m4d] - 2026-11-19
+
+### Added
+
+- schema v13：`agent_run_log.cancel_requested`，支持运行中协作取消；仍 28 表。
+- `agent.runs.cancel` 对 running 返回 `cancelling` 并置位；`waiting_approval` 仍即时取消并过期审批。
+- 执行器在步骤边界检查取消标志，保留已完成步骤、取消未执行步骤并写审计；`succeeded` 落库受取消条件保护。
+- Web `RunStatus` 增加 `cancelling`，运行详情显示“取消中…”并禁用重复取消。
+
+### Changed
+
+- 运行状态机新增 `cancelling`；契约 schema 同步。
+- 版本 `0.8.4-m4d`。
+
+### Verification
+
+- Rust 119 项、Web 10 项通过；全仓 verify 通过。
+- schema v13 / 28 表；Store 15 项测试全绿。
+- Application：running 取消返回 `cancelling`；`execute_from` 在取消置位后直接落 `cancelled`，未执行工具。
+- 预算：入口 68 KB、JS gzip 90 KB、总 gzip 110 KB。
+
+### Known limits
+
+- 协作式取消只在步骤边界生效，单个长工具调用不能被强制抢占。
+- 后台 `agent.resume` Job 仍只有 queued 可取消。
+
 ## [0.8.3-m4c] - 2026-11-19
 
 ### Added

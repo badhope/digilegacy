@@ -203,7 +203,8 @@ CREATE TABLE IF NOT EXISTS agent_run_log (
     tokens_out INTEGER DEFAULT 0,
     cost_micros INTEGER DEFAULT 0,
     cost_priced INTEGER DEFAULT 0,
-    plan_id TEXT DEFAULT ''
+    plan_id TEXT DEFAULT '',
+    cancel_requested INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS agent_plan_log (

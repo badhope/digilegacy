@@ -29,6 +29,7 @@
         "succeeded",
         "failed",
         "rejected",
+        "cancelling",
         "cancelled"
       ]
     },
