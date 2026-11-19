@@ -103,11 +103,13 @@ impl Application {
         let input: TestInput = parse(args)?;
         let page = connections::list(self.store()).map_err(map_domain)?;
         let row = if let Some(id) = input.id {
-            page.items
-                .iter()
-                .find(|item| item.id == id.to_string())
-                .cloned()
-                .ok_or_else(|| PlatformError::new("NOT_FOUND", format!("连接 {id} 不存在")))?
+            Some(
+                page.items
+                    .iter()
+                    .find(|item| item.id == id.to_string())
+                    .cloned()
+                    .ok_or_else(|| PlatformError::new("NOT_FOUND", format!("连接 {id} 不存在")))?,
+            )
         } else {
             page.items
                 .iter()
@@ -126,85 +128,92 @@ impl Application {
                         .find(|item| item.kind == input.kind && item.enabled)
                 })
                 .cloned()
-                .ok_or_else(|| {
-                    PlatformError::new("NOT_FOUND", format!("没有可测试的 {} 连接", input.kind))
-                })?
         };
 
-        // A stored row may only be tested as its own kind; ad-hoc endpoints are
-        // still bounded by the write token and never written back.
-        if row.kind != input.kind {
-            return Err(PlatformError::invalid_args(format!(
-                "连接 {} 的类型是 {}，不能用 {} 测试",
-                row.id, row.kind, input.kind
-            )));
-        }
-        let connection_id = row.id.clone();
-        if !row.enabled {
-            return Ok(json!({
-                "ok": false,
-                "status": "disabled",
-                "latencyMs": 0,
-                "message": "连接已停用",
-                "connectionId": connection_id,
-                "checkedAt": Utc::now().to_rfc3339(),
-            }));
+        if let Some(row) = &row {
+            if row.kind != input.kind {
+                return Err(PlatformError::invalid_args(format!(
+                    "连接 {} 的类型是 {}，不能用 {} 测试",
+                    row.id, row.kind, input.kind
+                )));
+            }
+            if !row.enabled {
+                return Ok(json!({
+                    "ok": false,
+                    "status": "disabled",
+                    "latencyMs": 0,
+                    "message": "连接已停用",
+                    "connectionId": row.id,
+                    "checkedAt": Utc::now().to_rfc3339(),
+                }));
+            }
         }
 
+        let connection_id = row.as_ref().map(|item| item.id.clone());
         let endpoint = input
             .endpoint
             .filter(|value| !value.trim().is_empty())
             .or_else(|| env_endpoint(&input.kind));
-        let (probe_result, checked) = match endpoint {
+        let mut checked_at = Utc::now().to_rfc3339();
+        let probe_result = match endpoint {
             Some(endpoint) => {
                 let token = env_token(&input.kind);
                 let probe_result = probe(&input.kind, &endpoint, token.as_deref());
-                let checked = connections::record_check(
-                    self.store(),
-                    &connection_id,
-                    &probe_result.status,
-                    if probe_result.ok {
-                        ""
-                    } else {
-                        &probe_result.message
-                    },
-                )
-                .map_err(map_domain)?;
-                (probe_result, checked)
+                if let Some(id) = connection_id.as_deref() {
+                    let checked = connections::record_check(
+                        self.store(),
+                        id,
+                        &probe_result.status,
+                        if probe_result.ok {
+                            ""
+                        } else {
+                            &probe_result.message
+                        },
+                    )
+                    .map_err(map_domain)?;
+                    checked_at = checked.last_check_at;
+                }
+                probe_result
             }
             None => {
-                let checked = connections::record_check(
-                    self.store(),
-                    &connection_id,
-                    "unconfigured",
-                    "未配置连接地址",
-                )
-                .map_err(map_domain)?;
-                (
-                    digilegacy_integrations::ProbeResult {
-                        ok: false,
-                        status: "unconfigured".to_string(),
-                        latency_ms: 0,
-                        message: "未配置连接地址".to_string(),
-                    },
-                    checked,
-                )
+                let probe_result = digilegacy_integrations::ProbeResult {
+                    ok: false,
+                    status: "unconfigured".to_string(),
+                    latency_ms: 0,
+                    message: "未配置连接地址".to_string(),
+                };
+                if let Some(id) = connection_id.as_deref() {
+                    let checked = connections::record_check(
+                        self.store(),
+                        id,
+                        &probe_result.status,
+                        &probe_result.message,
+                    )
+                    .map_err(map_domain)?;
+                    checked_at = checked.last_check_at;
+                }
+                probe_result
             }
         };
         self.audit(
             "connection.test",
             &format!(
                 "kind={};status={};connection={}",
-                input.kind, probe_result.status, connection_id
+                input.kind,
+                probe_result.status,
+                connection_id.as_deref().unwrap_or("-")
             ),
         )?;
-        Ok(json!({
+        let mut response = json!({
             "ok": probe_result.ok,
             "status": probe_result.status,
             "latencyMs": probe_result.latency_ms,
             "message": probe_result.message,
-            "connectionId": checked.id,
-            "checkedAt": checked.last_check_at,
-        }))
+            "checkedAt": checked_at,
+        });
+        if let Some(id) = connection_id {
+            response["connectionId"] = json!(id);
+        }
+        Ok(response)
     }
 }
