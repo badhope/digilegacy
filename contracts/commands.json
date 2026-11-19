@@ -307,13 +307,60 @@
       "output": "schemas/runs.list.output.json",
       "transports": {
         "ipc": true,
-        "cli": "agents runs",
+        "cli": "runs list",
         "http": "GET /api/v1/agent/runs",
         "mcp": true,
         "agent": true
       },
       "agentApproval": "none",
       "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "agent.runs.get",
+      "domain": "agent",
+      "summary": "读取 Agent 运行详情与步骤",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/id.input.json",
+      "output": "schemas/run.detail.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "runs get",
+        "http": "GET /api/v1/agent/runs/{id}",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "agent.runs.start",
+      "domain": "agent",
+      "summary": "启动一次确定性 Agent 运行",
+      "permission": "write",
+      "requiresUnlock": false,
+      "idempotent": false,
+      "input": "schemas/runs.start.input.json",
+      "output": "schemas/run.detail.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "runs start",
+        "http": "POST /api/v1/agent/runs",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
       "errors": [
         "INVALID_ARGS",
         "INTERNAL"

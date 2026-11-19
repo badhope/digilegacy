@@ -164,6 +164,24 @@
       "rate_limit": "60/min"
     },
     {
+      "name": "agent.runs.get",
+      "title": "读取 Agent 运行详情",
+      "description": "读取一次运行的任务、状态、逐步工具调用与结果；只读。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/id.input.json",
+      "output_schema": "schemas/run.detail.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "agent.runs.get",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "120/min"
+    },
+    {
       "name": "agent.approvals.list",
       "title": "读取 Agent 审批队列",
       "description": "按状态读取 Agent 写操作审批记录；只读，不代替人工决定。",

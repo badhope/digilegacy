@@ -1,0 +1,24 @@
+{
+  "title": "AgentRunStart",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task", "steps"],
+  "properties": {
+    "task": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tool"],
+        "properties": {
+          "tool": { "type": "string" },
+          "args": { "type": "object", "default": {} }
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

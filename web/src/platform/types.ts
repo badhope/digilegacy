@@ -66,13 +66,35 @@ export interface Plan {
   trigger: { mode: string; days: number; status: string };
 }
 
+export type RunStatus = "queued" | "running" | "waiting_approval" | "succeeded" | "failed" | "rejected" | "cancelled";
+
 export interface AgentRun {
   id: string;
-  status: "queued" | "running" | "waiting_approval" | "succeeded" | "failed" | "cancelled";
+  status: RunStatus;
   title: string;
   steps: number;
   startedAt: string;
   tokens: number;
+}
+
+export interface RunStep {
+  tool: string;
+  args: Record<string, unknown>;
+  status: "queued" | "pending_approval" | "done" | "failed" | "rejected";
+  result?: unknown;
+  error: string;
+  at: string;
+}
+
+export interface RunDetail {
+  id: string;
+  status: RunStatus;
+  task: string;
+  steps: RunStep[];
+  toolsUsed: string;
+  rounds: number;
+  startedAt: string;
+  finalText: string;
 }
 
 export interface AgentRuns {

@@ -1,6 +1,6 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
-import type { AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, Overview, Plan, PoliciesPage, Policy, SecurityStatus } from "./types";
+import type { AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, Overview, Plan, PoliciesPage, Policy, RunDetail, SecurityStatus } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -83,6 +83,9 @@ export const platformClient = {
     invoke<DeliverableExport>(COMMANDS.deliverExport, { kind, locale }),
   exportUrl: (path: string) => `${API_BASE}${path}`,
   listRuns: (args: Record<string, unknown> = {}) => invoke<AgentRuns>(COMMANDS.agentRunsList, args),
+  getRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsGet, { id }),
+  startRun: (task: string, steps: Array<{ tool: string; args: Record<string, unknown> }>) =>
+    invoke<RunDetail>(COMMANDS.agentRunsStart, { task, steps }),
   getSecurity: () => invoke<SecurityStatus>(COMMANDS.securityStatus),
   listAudit: (args: Record<string, unknown> = {}) => invoke<AuditPage>(COMMANDS.auditList, args),
   listApprovals: (args: Record<string, unknown> = {}) => invoke<ApprovalPage>(COMMANDS.agentApprovalsList, args),

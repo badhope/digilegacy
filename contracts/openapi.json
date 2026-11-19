@@ -802,6 +802,133 @@
             }
           }
         }
+      },
+      "post": {
+        "operationId": "agent.runs.start",
+        "summary": "启动一次确定性 Agent 运行",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "agent.runs.start",
+        "x-permission": "write",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/run.detail.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/runs.start.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/runs/{id}": {
+      "get": {
+        "operationId": "agent.runs.get",
+        "summary": "读取 Agent 运行详情与步骤",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "agent.runs.get",
+        "x-permission": "read",
+        "x-requires-unlock": false,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/run.detail.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ]
       }
     },
     "/api/v1/agent/approvals": {
@@ -2052,6 +2179,86 @@
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
+      "run.detail.output": {
+        "title": "AgentRunDetail",
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "task",
+          "steps",
+          "toolsUsed",
+          "rounds",
+          "startedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "waiting_approval",
+              "succeeded",
+              "failed",
+              "rejected",
+              "cancelled"
+            ]
+          },
+          "task": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "tool",
+                "status"
+              ],
+              "properties": {
+                "tool": {
+                  "type": "string"
+                },
+                "args": {
+                  "type": "object"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "queued",
+                    "pending_approval",
+                    "done",
+                    "failed",
+                    "rejected"
+                  ]
+                },
+                "result": {},
+                "error": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "toolsUsed": {
+            "type": "string"
+          },
+          "rounds": {
+            "type": "integer"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "finalText": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
       "runs.list.input": {
         "title": "RunsListInput",
         "type": "object",
@@ -2112,6 +2319,44 @@
                 },
                 "tokens": {
                   "type": "integer"
+                }
+              }
+            }
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "runs.start.input": {
+        "title": "AgentRunStart",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task",
+          "steps"
+        ],
+        "properties": {
+          "task": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "tool"
+              ],
+              "properties": {
+                "tool": {
+                  "type": "string"
+                },
+                "args": {
+                  "type": "object",
+                  "default": {}
                 }
               }
             }

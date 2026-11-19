@@ -2,6 +2,31 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.6-m3e] - 2026-11-19
+
+### Added
+
+- `agent.runs.start`（write）：按步骤执行注册工具；只读/草稿立即执行，`write` 工具创建审批并暂停，返回 `waiting_approval`。
+- `agent.runs.get`（read）：读取任务、状态、逐步工具调用、结果、工具集合与最终说明；HTTP `GET /api/v1/agent/runs/{id}`，CLI `runs get`，MCP 开放。
+- 确定性 Runtime：批准审批后从当前步骤恢复执行，拒绝则终止运行；步骤落 `agent_run_log.steps_json`，并写 `agent.run.start/succeeded/rejected/resume` 审计。
+- Tool Registry 双解析：`overview.get` 等工具名自动映射到 `app.overview` 等命令名；Runtime 只接受注册工具。
+- Web `/automation/runs/new` 新建运行、`/automation/runs/:id` 运行详情、`/automation/tools` 工具目录；自动化页增加“新建运行”。
+
+### Changed
+
+- `agent.runs.list` CLI 从 `runs --status` 改为 `runs list --status`。
+- 契约扩至 20 命令 / 16 工具 / 28 schema / 19 错误码；`arch-check` 同步。
+- Web 预算调整：入口 60→64 KB，JS 85→88 KB，CSS 17→19 KB；总 gzip 103.41 KB / 110 KB。
+- 版本 `0.7.6-m3e`。
+
+### Verification
+
+- `core/domains` 13 tests；`core/application` 7 tests；`apps/server` 12 tests；全仓 `./tools/verify.sh` 通过（`/tmp/digilegacy-verify-m3e.log`）。
+- HTTP 只读运行成功；写运行暂停生成 `appr_2_1`，批准后运行完成、资产 value 4200→5000。
+- Web 新建写运行后跳审批页，批准后运行完成、资产 value 5200。
+- CLI `runs get 2` 返回完整步骤；无 token 启动运行返回 401。
+- Web 总 gzip **103.41 KB / 110 KB**，入口 **61.81 KB / 64 KB**，vendor **98.88 KB / 130 KB**。
+
 ## [0.7.5-m3d] - 2026-11-19
 
 ### Added

@@ -9,6 +9,7 @@ use digilegacy_domains::{approvals, assets, audit, overview, plan, policy, runs,
 use serde_json::{json, Value};
 
 pub mod deliver;
+pub mod runtime;
 use digilegacy_foundation::PlatformError;
 use digilegacy_security::keyring::FileKeyring;
 use digilegacy_store::Store;
@@ -80,6 +81,8 @@ impl Application {
             "deliver.export" => self.deliver_export(args),
             "security.status" => self.security_status(),
             "agent.runs.list" => self.runs_list(args),
+            "agent.runs.get" => self.runs_get(args),
+            "agent.runs.start" => self.runs_start(args),
             "agent.approvals.list" => self.approvals_list(args),
             "agent.approvals.decide" => self.approvals_decide(args),
             other => Err(PlatformError::unsupported(other)),
@@ -164,6 +167,7 @@ impl Application {
         let input: approvals::DecideInput = parse(args)?;
         let approval = approvals::decide(&self.store, &input).map_err(map_domain)?;
         self.audit("agent.approval.decide", &approval.id)?;
+        runtime::resume(self, &approval)?;
         Ok(json!(approval))
     }
 
@@ -235,6 +239,20 @@ impl Application {
         deliver::read_export(&self.store, job_id)
     }
 
+    pub fn runs_get(&self, args: Value) -> Result<Value, PlatformError> {
+        let id = args
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| PlatformError::invalid_args("缺少 id"))?;
+        runs::get(&self.store, id)
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn runs_start(&self, args: Value) -> Result<Value, PlatformError> {
+        runtime::start(self, args)
+    }
+
     pub fn runs_list(&self, args: Value) -> Result<Value, PlatformError> {
         let status = args
             .get("status")
@@ -281,7 +299,7 @@ impl Application {
         }))
     }
 
-    fn audit(&self, kind: &str, subject: &str) -> Result<(), PlatformError> {
+    pub(crate) fn audit(&self, kind: &str, subject: &str) -> Result<(), PlatformError> {
         self.store
             .append_audit(kind, subject, "ok", "")
             .map(|_| ())
@@ -387,6 +405,94 @@ mod tests {
             .as_str()
             .unwrap()
             .is_empty());
+    }
+
+    #[test]
+    fn runtime_pauses_for_write_and_resumes_after_approval() {
+        let app = app();
+        let created = app
+            .dispatch(
+                "assets.create",
+                json!({
+                    "name": "主邮箱", "kind": "account",
+                    "platform": "示例邮箱", "value": "120", "note": "家人"
+                }),
+            )
+            .unwrap();
+        let asset_id = created["id"].as_str().unwrap().to_string();
+
+        let run = app
+            .dispatch(
+                "agent.runs.start",
+                json!({
+                    "task": "更新资产估值",
+                    "steps": [
+                        { "tool": "overview.get", "args": {} },
+                        { "tool": "assets.update", "args": {
+                            "id": asset_id, "name": "主邮箱", "kind": "account",
+                            "platform": "示例邮箱", "value": "180", "note": "家人"
+                        }}
+                    ]
+                }),
+            )
+            .unwrap();
+        assert_eq!(run["status"], "waiting_approval");
+        let run_id = run["id"].as_str().unwrap().to_string();
+        let approvals = app
+            .dispatch("agent.approvals.list", json!({ "status": "pending" }))
+            .unwrap();
+        assert_eq!(approvals["pending"], 1);
+        let approval_id = approvals["items"][0]["id"].as_str().unwrap().to_string();
+
+        let decided = app
+            .dispatch(
+                "agent.approvals.decide",
+                json!({ "id": approval_id, "decision": "approve", "reason": "核对无误" }),
+            )
+            .unwrap();
+        assert_eq!(decided["status"], "approved");
+
+        let detail = app
+            .dispatch("agent.runs.get", json!({ "id": run_id }))
+            .unwrap();
+        assert_eq!(detail["status"], "succeeded");
+        assert_eq!(detail["steps"][1]["status"], "done");
+        let asset = app
+            .dispatch("assets.get", json!({ "id": asset_id }))
+            .unwrap();
+        assert_eq!(asset["value"], "180");
+    }
+
+    #[test]
+    fn runtime_rejection_stops_run() {
+        let app = app();
+        let run = app
+            .dispatch(
+                "agent.runs.start",
+                json!({
+                    "task": "创建资产",
+                    "steps": [{ "tool": "assets.create", "args": {
+                        "name": "新资产", "kind": "other", "platform": "测试", "value": "1", "note": ""
+                    }}]
+                }),
+            )
+            .unwrap();
+        assert_eq!(run["status"], "waiting_approval");
+        let run_id = run["id"].as_str().unwrap().to_string();
+        let approvals = app
+            .dispatch("agent.approvals.list", json!({ "status": "pending" }))
+            .unwrap();
+        let approval_id = approvals["items"][0]["id"].as_str().unwrap().to_string();
+        app.dispatch(
+            "agent.approvals.decide",
+            json!({ "id": approval_id, "decision": "reject", "reason": "不需要" }),
+        )
+        .unwrap();
+        let detail = app
+            .dispatch("agent.runs.get", json!({ "id": run_id }))
+            .unwrap();
+        assert_eq!(detail["status"], "rejected");
+        assert_eq!(detail["steps"][0]["status"], "rejected");
     }
 
     #[test]

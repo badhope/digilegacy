@@ -212,6 +212,10 @@ pub fn find(code: &str) -> Option<&'static ErrorSpec> {
 `,
 );
 
+const rustToolRows = tools.tools
+  .map((tool) => `    ToolSpec { name: ${rstr(tool.name)}, command: ${rstr(tool.human_equivalent)} },`)
+  .join("\n");
+
 const rustCommandRows = commandList
   .map(
     (command) =>
@@ -237,8 +241,30 @@ pub const COMMANDS: &[CommandSpec] = &[
 ${rustCommandRows}
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ToolSpec {
+    pub name: &'static str,
+    pub command: &'static str,
+}
+
+pub const TOOLS: &[ToolSpec] = &[
+${rustToolRows}
+];
+
 pub fn find(name: &str) -> Option<&'static CommandSpec> {
     COMMANDS.iter().find(|command| command.name == name)
+}
+
+/// Accept both a Tool Registry name (overview.get) and its command name
+/// (app.overview), so runtime definitions and tool docs cannot drift.
+pub fn resolve_tool(name: &str) -> Option<&'static str> {
+    if let Some(command) = find(name) {
+        return Some(command.name);
+    }
+    TOOLS
+        .iter()
+        .find(|tool| tool.name == name)
+        .map(|tool| tool.command)
 }
 
 pub fn names() -> impl Iterator<Item = &'static str> {
@@ -341,7 +367,7 @@ export function mockInvoke(name: CommandName): unknown {
 const toolTsRows = tools.tools
   .map(
     (tool) =>
-      `  { name: ${rstr(tool.name)}, title: ${rstr(tool.title)}, description: ${rstr(tool.description)}, permission: ${rstr(tool.permission)}, approval: ${rstr(tool.approval)}, audit: ${tool.audit}, mcp: ${tool.mcp}, humanEquivalent: ${rstr(tool.human_equivalent)} },`,
+      `  { name: ${rstr(tool.name)}, title: ${rstr(tool.title)}, description: ${rstr(tool.description)}, permission: ${rstr(tool.permission)}, approval: ${rstr(tool.approval)}, audit: ${tool.audit}, mcp: ${tool.mcp}, humanEquivalent: ${rstr(tool.human_equivalent)}, inputSchema: ${rstr(tool.input_schema)}, outputSchema: ${rstr(tool.output_schema)}, availableTo: ${JSON.stringify(tool.available_to)}, rateLimit: ${rstr(tool.rate_limit)} },`,
   )
   .join("\n");
 write(
@@ -356,6 +382,10 @@ export interface ToolCatalogItem {
   audit: boolean;
   mcp: boolean;
   humanEquivalent: string;
+  inputSchema: string;
+  outputSchema: string;
+  availableTo: string[];
+  rateLimit: string;
 }
 
 export const TOOL_CATALOG: ToolCatalogItem[] = [

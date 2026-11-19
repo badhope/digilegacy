@@ -7,4 +7,6 @@ mod errors;
 mod generated;
 
 pub use errors::{find as find_error, ErrorSpec, ERRORS};
-pub use generated::{find as find_command, names, CommandSpec, COMMANDS};
+pub use generated::{
+    find as find_command, names, resolve_tool, CommandSpec, ToolSpec, COMMANDS, TOOLS,
+};

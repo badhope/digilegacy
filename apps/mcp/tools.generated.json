@@ -306,6 +306,35 @@
     }
   },
   {
+    "name": "agent.runs.get",
+    "title": "读取 Agent 运行详情",
+    "description": "读取一次运行的任务、状态、逐步工具调用与结果；只读。",
+    "inputSchema": {
+      "title": "IdInput",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "agent.runs.get"
+    }
+  },
+  {
     "name": "agent.approvals.list",
     "title": "读取 Agent 审批队列",
     "description": "按状态读取 Agent 写操作审批记录；只读，不代替人工决定。",

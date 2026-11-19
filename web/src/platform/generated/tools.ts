@@ -9,22 +9,27 @@ export interface ToolCatalogItem {
   audit: boolean;
   mcp: boolean;
   humanEquivalent: string;
+  inputSchema: string;
+  outputSchema: string;
+  availableTo: string[];
+  rateLimit: string;
 }
 
 export const TOOL_CATALOG: ToolCatalogItem[] = [
-  { name: "overview.get", title: "读取平台概览", description: "读取完成度、待办、审批数与运行态摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "app.overview" },
-  { name: "audit.list", title: "读取审计记录", description: "按时间倒序分页读取平台审计哈希链，可按事件类型过滤；只读。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "audit.list" },
-  { name: "assets.list", title: "列出资产", description: "按状态与关键词列出资产，返回游标分页结果。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "assets.list" },
-  { name: "assets.get", title: "读取资产详情", description: "按资产 ID 读取完整字段。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "assets.get" },
-  { name: "plan.get", title: "读取规划", description: "读取持有人、继承人与触发链摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "plan.get" },
-  { name: "policies.list", title: "读取政策库", description: "按分类与关键词读取平台继承政策、所需材料与办理流程。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "policies.list" },
-  { name: "policies.get", title: "读取单条政策", description: "按政策 ID 读取流程、材料、风险与溯源状态。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "policies.get" },
-  { name: "policies.provenance.set", title: "记录政策溯源", description: "由人或 Agent 记录政策来源的核实状态、来源 URL 与备注；不修改政策正文。", permission: "draft", approval: "none", audit: true, mcp: true, humanEquivalent: "policies.provenance.set" },
-  { name: "runs.list", title: "列出 Agent 运行", description: "读取运行状态、步骤数与成本摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "agent.runs.list" },
-  { name: "agent.approvals.list", title: "读取 Agent 审批队列", description: "按状态读取 Agent 写操作审批记录；只读，不代替人工决定。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "agent.approvals.list" },
-  { name: "security.status", title: "读取安全状态", description: "读取锁定状态、恢复配置与密钥摘要，不含密钥本身。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "security.status" },
-  { name: "assets.create", title: "创建资产", description: "创建一个资产；写操作需要人工审批。", permission: "write", approval: "required", audit: true, mcp: false, humanEquivalent: "assets.create" },
-  { name: "assets.update", title: "更新资产", description: "更新资产字段；写操作需要人工审批与 diff。", permission: "write", approval: "required", audit: true, mcp: false, humanEquivalent: "assets.update" },
-  { name: "trigger.checkin", title: "记录安全签到", description: "记录一次签到；写操作需要人工审批。", permission: "write", approval: "required", audit: true, mcp: false, humanEquivalent: "trigger.checkin" },
-  { name: "deliver.export", title: "导出交付物", description: "生成异步导出任务；只产出文件，不改业务最终态。", permission: "draft", approval: "none", audit: true, mcp: true, humanEquivalent: "deliver.export" },
+  { name: "overview.get", title: "读取平台概览", description: "读取完成度、待办、审批数与运行态摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "app.overview", inputSchema: "schemas/empty.input.json", outputSchema: "schemas/overview.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
+  { name: "audit.list", title: "读取审计记录", description: "按时间倒序分页读取平台审计哈希链，可按事件类型过滤；只读。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "audit.list", inputSchema: "schemas/audit.list.input.json", outputSchema: "schemas/audit.page.output.json", availableTo: ["builtin","external"], rateLimit: "120/min" },
+  { name: "assets.list", title: "列出资产", description: "按状态与关键词列出资产，返回游标分页结果。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "assets.list", inputSchema: "schemas/assets.list.input.json", outputSchema: "schemas/assets.list.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
+  { name: "assets.get", title: "读取资产详情", description: "按资产 ID 读取完整字段。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "assets.get", inputSchema: "schemas/id.input.json", outputSchema: "schemas/asset.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
+  { name: "plan.get", title: "读取规划", description: "读取持有人、继承人与触发链摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "plan.get", inputSchema: "schemas/empty.input.json", outputSchema: "schemas/plan.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
+  { name: "policies.list", title: "读取政策库", description: "按分类与关键词读取平台继承政策、所需材料与办理流程。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "policies.list", inputSchema: "schemas/policies.list.input.json", outputSchema: "schemas/policies.list.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
+  { name: "policies.get", title: "读取单条政策", description: "按政策 ID 读取流程、材料、风险与溯源状态。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "policies.get", inputSchema: "schemas/id.input.json", outputSchema: "schemas/policy.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
+  { name: "policies.provenance.set", title: "记录政策溯源", description: "由人或 Agent 记录政策来源的核实状态、来源 URL 与备注；不修改政策正文。", permission: "draft", approval: "none", audit: true, mcp: true, humanEquivalent: "policies.provenance.set", inputSchema: "schemas/policy.provenance.input.json", outputSchema: "schemas/policy.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
+  { name: "runs.list", title: "列出 Agent 运行", description: "读取运行状态、步骤数与成本摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "agent.runs.list", inputSchema: "schemas/runs.list.input.json", outputSchema: "schemas/runs.list.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
+  { name: "agent.runs.get", title: "读取 Agent 运行详情", description: "读取一次运行的任务、状态、逐步工具调用与结果；只读。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "agent.runs.get", inputSchema: "schemas/id.input.json", outputSchema: "schemas/run.detail.output.json", availableTo: ["builtin","external"], rateLimit: "120/min" },
+  { name: "agent.approvals.list", title: "读取 Agent 审批队列", description: "按状态读取 Agent 写操作审批记录；只读，不代替人工决定。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "agent.approvals.list", inputSchema: "schemas/approval.list.input.json", outputSchema: "schemas/approvals.page.output.json", availableTo: ["builtin","external"], rateLimit: "120/min" },
+  { name: "security.status", title: "读取安全状态", description: "读取锁定状态、恢复配置与密钥摘要，不含密钥本身。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "security.status", inputSchema: "schemas/empty.input.json", outputSchema: "schemas/security.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
+  { name: "assets.create", title: "创建资产", description: "创建一个资产；写操作需要人工审批。", permission: "write", approval: "required", audit: true, mcp: false, humanEquivalent: "assets.create", inputSchema: "schemas/asset.mutation.input.json", outputSchema: "schemas/asset.output.json", availableTo: ["builtin"], rateLimit: "30/min" },
+  { name: "assets.update", title: "更新资产", description: "更新资产字段；写操作需要人工审批与 diff。", permission: "write", approval: "required", audit: true, mcp: false, humanEquivalent: "assets.update", inputSchema: "schemas/asset.mutation.input.json", outputSchema: "schemas/asset.output.json", availableTo: ["builtin"], rateLimit: "30/min" },
+  { name: "trigger.checkin", title: "记录安全签到", description: "记录一次签到；写操作需要人工审批。", permission: "write", approval: "required", audit: true, mcp: false, humanEquivalent: "trigger.checkin", inputSchema: "schemas/empty.input.json", outputSchema: "schemas/checkin.output.json", availableTo: ["builtin"], rateLimit: "10/min" },
+  { name: "deliver.export", title: "导出交付物", description: "生成异步导出任务；只产出文件，不改业务最终态。", permission: "draft", approval: "none", audit: true, mcp: true, humanEquivalent: "deliver.export", inputSchema: "schemas/export.input.json", outputSchema: "schemas/job.output.json", availableTo: ["builtin","external"], rateLimit: "10/min" },
 ];

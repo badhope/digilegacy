@@ -91,7 +91,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/deliverables/export", post(deliver_export))
         .route("/api/v1/exports/{job_id}", get(download_export))
         .route("/api/v1/security", get(security_get))
-        .route("/api/v1/agent/runs", get(agent_runs))
+        .route("/api/v1/agent/runs", get(agent_runs).post(agent_runs_start))
+        .route("/api/v1/agent/runs/{id}", get(agent_run_detail))
         .route("/api/v1/agent/approvals", get(agent_approvals))
         .route(
             "/api/v1/agent/approvals/{id}/decide",
@@ -222,6 +223,21 @@ async fn policy_provenance_set(
 
 async fn security_get(State(state): State<AppState>) -> impl IntoResponse {
     dispatch(&state, "security.status", json!({}), None)
+}
+
+async fn agent_run_detail(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    dispatch(&state, "agent.runs.get", json!({ "id": id }), None)
+}
+
+async fn agent_runs_start(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "agent.runs.start", input, Some(&headers))
 }
 
 async fn agent_approvals(
@@ -419,6 +435,33 @@ mod tests {
         let data = envelope.0.data.clone().unwrap();
         assert_eq!(data["total"], 0);
         assert!(data["items"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn runtime_start_requires_token_and_exposes_run_detail() {
+        let state = test_app_with_token(Some("test-token"));
+        let (status, _) = dispatch(
+            &state,
+            "agent.runs.start",
+            json!({ "task": "读取概览", "steps": [{ "tool": "app.overview", "args": {} }] }),
+            None,
+        );
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+
+        let headers = write_headers("test-token");
+        let (status, envelope) = dispatch(
+            &state,
+            "agent.runs.start",
+            json!({ "task": "读取概览", "steps": [{ "tool": "app.overview", "args": {} }] }),
+            Some(&headers),
+        );
+        assert_eq!(status, StatusCode::OK);
+        let data = envelope.0.data.unwrap();
+        assert_eq!(data["status"], "succeeded");
+        let id = data["id"].as_str().unwrap().to_string();
+        let (status, envelope) = dispatch(&state, "agent.runs.get", json!({ "id": id }), None);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(envelope.0.data.unwrap()["steps"][0]["status"], "done");
     }
 
     #[test]

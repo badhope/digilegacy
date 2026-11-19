@@ -27,9 +27,10 @@
 | 真实领域服务 | 已接入（M2 资产/规划/触发/安全读链路 + 写用例） |
 | 政策库 | 已做完（M2-B 152 条 + M3 溯源写；审核工作台待做） |
 | 交付物导出 | 已做完（M2-B HTML 报告/清单/法律文本/工具包 + HTTP 下载） |
+| Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
 | 桌面 Tauri 窗口与托盘 | M3/M5 |
 
-当前版本：`0.7.5-m3d`。
+当前版本：`0.7.6-m3e`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
@@ -37,9 +38,9 @@ M2 已落地：`core/application` 用例层接 M1 Store；HTTP/CLI/MCP 共享同
 
 M2-B 已落地：政策库 schema v10（27 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
 
-M3 已落地四段：政策溯源写（`policies.provenance.set`，四态 + 审计）、平台写令牌与资产新增/编辑、审计链查询（游标 + 类型过滤 + 设置页），以及 Agent 审批队列（列表、批准/拒绝、写审计、Web 审批页）。审批只做人工决定，不代替 Agent Runtime 执行工具。
+M3 已落地五段：政策溯源写、平台写令牌与资产新增/编辑、审计链查询、Agent 审批队列，以及确定性 Agent Runtime（运行步骤、工具注册表、写操作审批暂停/恢复、运行详情与新建运行页）。批准审批后会由 Runtime 执行同一条运行，不再只改状态。
 
-契约规模：**18 个命令、15 个工具、26 个 schema、19 个错误码**。
+契约规模：**20 个命令、16 个工具、28 个 schema、19 个错误码**。
 
 ---
 
@@ -182,9 +183,9 @@ node tools/bench/web-budget.mjs
 
 M3 基线：
 
-- Rust 测试 99 项：security 49、store 15、domains 12、application 5、server 11、foundation 5、render 2（全仓 verify 通过）
-- Web 总 gzip **95.83 KB / 110 KB**，CSS **16.42 KB / 17 KB**
-- 入口 chunk **56.43 KB raw / 60 KB**，vendor **98.88 KB raw / 130 KB**
+- Rust 测试 103 项：security 49、store 15、domains 13、application 7、server 12、foundation 5、render 2（全仓 verify 通过）
+- Web 总 gzip **103.41 KB / 110 KB**，CSS **18.09 KB / 19 KB**
+- 入口 chunk **61.81 KB raw / 64 KB**，vendor **98.88 KB raw / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 
 ---

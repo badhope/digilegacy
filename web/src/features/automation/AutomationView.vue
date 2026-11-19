@@ -57,6 +57,10 @@ function openRun(run: AgentRun) {
       :description="t('automation.description')"
     >
       <template #actions>
+        <AppButton variant="primary" @click="router.push('/automation/runs/new')">
+          {{ t("automation.runs.new") }}
+          <AppIcon name="arrow-right" :size="14" />
+        </AppButton>
         <AppButton variant="secondary" @click="router.push('/automation/approvals')">
           {{ t("automation.approvals") }}
           <AppIcon name="arrow-right" :size="14" />

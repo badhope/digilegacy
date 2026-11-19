@@ -116,6 +116,22 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: false,
     },
     CommandSpec {
+        name: "agent.runs.get",
+        domain: "agent",
+        permission: "read",
+        http: "GET /api/v1/agent/runs/{id}",
+        requires_unlock: false,
+        audit: false,
+    },
+    CommandSpec {
+        name: "agent.runs.start",
+        domain: "agent",
+        permission: "write",
+        http: "POST /api/v1/agent/runs",
+        requires_unlock: false,
+        audit: true,
+    },
+    CommandSpec {
         name: "agent.approvals.list",
         domain: "agent",
         permission: "read",
@@ -157,8 +173,93 @@ pub const COMMANDS: &[CommandSpec] = &[
     },
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ToolSpec {
+    pub name: &'static str,
+    pub command: &'static str,
+}
+
+pub const TOOLS: &[ToolSpec] = &[
+    ToolSpec {
+        name: "overview.get",
+        command: "app.overview",
+    },
+    ToolSpec {
+        name: "audit.list",
+        command: "audit.list",
+    },
+    ToolSpec {
+        name: "assets.list",
+        command: "assets.list",
+    },
+    ToolSpec {
+        name: "assets.get",
+        command: "assets.get",
+    },
+    ToolSpec {
+        name: "plan.get",
+        command: "plan.get",
+    },
+    ToolSpec {
+        name: "policies.list",
+        command: "policies.list",
+    },
+    ToolSpec {
+        name: "policies.get",
+        command: "policies.get",
+    },
+    ToolSpec {
+        name: "policies.provenance.set",
+        command: "policies.provenance.set",
+    },
+    ToolSpec {
+        name: "runs.list",
+        command: "agent.runs.list",
+    },
+    ToolSpec {
+        name: "agent.runs.get",
+        command: "agent.runs.get",
+    },
+    ToolSpec {
+        name: "agent.approvals.list",
+        command: "agent.approvals.list",
+    },
+    ToolSpec {
+        name: "security.status",
+        command: "security.status",
+    },
+    ToolSpec {
+        name: "assets.create",
+        command: "assets.create",
+    },
+    ToolSpec {
+        name: "assets.update",
+        command: "assets.update",
+    },
+    ToolSpec {
+        name: "trigger.checkin",
+        command: "trigger.checkin",
+    },
+    ToolSpec {
+        name: "deliver.export",
+        command: "deliver.export",
+    },
+];
+
 pub fn find(name: &str) -> Option<&'static CommandSpec> {
     COMMANDS.iter().find(|command| command.name == name)
+}
+
+/// Accept both a Tool Registry name (overview.get) and its command name
+/// (app.overview), so runtime definitions and tool docs cannot drift.
+pub fn resolve_tool(name: &str) -> Option<&'static str> {
+    if let Some(command) = find(name) {
+        return Some(command.name);
+    }
+    TOOLS
+        .iter()
+        .find(|tool| tool.name == name)
+        .map(|tool| tool.command)
 }
 
 pub fn names() -> impl Iterator<Item = &'static str> {

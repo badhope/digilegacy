@@ -69,10 +69,10 @@ cargo test --workspace            OK
 
 - foundation：5 个
 - render：2 个
-- server：11 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突）
+- server：12 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突、Runtime 启动/详情）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
 - store：15 个（schema v10 / 27 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- domains：12 个；application：5 个
+- domains：13 个；application：7 个
 
 ### M1 安全与数据底座
 
@@ -149,8 +149,31 @@ Web /automation/approvals：状态筛选、diff、理由、批准/拒绝
 未完成边界：
 
 - 目前没有生产创建审批记录的入口；Agent Runtime 尚未写入 `agent_approvals`。
-- 审批通过不自动执行工具；执行器/运行详情/取消仍待 M3 后续。
+- 审批通过后由 Runtime 执行当前步骤；取消、预算与真实 LLM 规划仍待后续。
 - 审批页批量操作、影响条数、可回滚点未做。
+
+### M3-E 确定性 Agent Runtime
+
+```text
+agent.runs.start  POST /api/v1/agent/runs（write，需 Bearer）
+agent.runs.get    GET  /api/v1/agent/runs/{id}
+CLI runs start --task --steps；runs get <id>；runs list
+Web /automation/runs/new、/automation/runs/:id、/automation/tools
+```
+
+已实测：
+
+- 只读运行 `overview.get + assets.list` 返回 `succeeded`，步骤均 `done`。
+- 写运行 `overview.get + assets.update` 返回 `waiting_approval`，生成 `appr_2_1`；批准后运行变 `succeeded`，资产 value 从 4200 更新到 5000。
+- 从 Web 新建运行 `assets.update` 后跳转审批页；批准后同一运行完成，资产更新到 5200。
+- CLI `runs get 2` 返回任务、步骤与 `succeeded`；HTTP 无 token 启动返回 401。
+- 运行步骤落 `agent_run_log.steps_json`，审批通过后从当前步骤继续，拒绝则运行 `rejected`。
+- Tool Registry 名称与命令名双解析：`overview.get` 映射到 `app.overview`。
+
+未完成边界：
+
+- Runtime 是确定性步骤执行器，不接外部 LLM 规划；取消、预算、重试未做。
+- 运行详情未展示 token/成本；审批影响条数与回滚点未做。
 
 ### 未完成边界
 
@@ -169,9 +192,9 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         95.83 KB / 110 KB
-CSS gzip        16.42 KB / 17 KB
-入口 raw        56.43 KB / 60 KB
+总 gzip         103.41 KB / 110 KB
+CSS gzip        18.09 KB / 19 KB
+入口 raw        61.81 KB / 64 KB
 vendor raw      98.88 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```

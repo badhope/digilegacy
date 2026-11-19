@@ -74,14 +74,10 @@ enum Commands {
         #[command(subcommand)]
         command: SecurityCommand,
     },
-    /// Agent run history.
+    /// Agent run history and runtime.
     Runs {
-        #[arg(long, default_value = "all")]
-        status: String,
-        #[arg(long, default_value_t = 20)]
-        limit: i64,
-        #[arg(long)]
-        json: bool,
+        #[command(subcommand)]
+        command: RunsCommand,
     },
     /// Invoke one command through the shared application layer.
     Invoke {
@@ -90,6 +86,34 @@ enum Commands {
         args: String,
         #[arg(long)]
         allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum RunsCommand {
+    /// List runs (default all).
+    List {
+        #[arg(long, default_value = "all")]
+        status: String,
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Read one run with its step timeline.
+    Get {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Start a deterministic run. steps is a JSON array.
+    Start {
+        #[arg(long)]
+        task: String,
+        #[arg(long)]
+        steps: String,
         #[arg(long)]
         json: bool,
     },
@@ -450,17 +474,43 @@ fn main() -> ExitCode {
                 run(&app, "security.status", json!({}), as_json, false)
             }
         },
-        Commands::Runs {
-            status,
-            limit,
-            json: as_json,
-        } => run(
-            &app,
-            "agent.runs.list",
-            json!({ "status": status, "limit": limit }),
-            as_json,
-            false,
-        ),
+        Commands::Runs { command } => match command {
+            RunsCommand::List {
+                status,
+                limit,
+                json: as_json,
+            } => run(
+                &app,
+                "agent.runs.list",
+                json!({ "status": status, "limit": limit }),
+                as_json,
+                false,
+            ),
+            RunsCommand::Get { id, json: as_json } => {
+                run(&app, "agent.runs.get", json!({ "id": id }), as_json, false)
+            }
+            RunsCommand::Start {
+                task,
+                steps,
+                json: as_json,
+            } => {
+                let steps: Value = match serde_json::from_str(&steps) {
+                    Ok(value) => value,
+                    Err(error) => {
+                        return fail(PlatformError::invalid_args(format!(
+                            "--steps 不是合法 JSON: {error}"
+                        )));
+                    }
+                };
+                run(
+                    &app,
+                    "agent.runs.start",
+                    json!({ "task": task, "steps": steps }),
+                    as_json,
+                    true,
+                )
+            }
+        },
         Commands::Invoke {
             name,
             args,

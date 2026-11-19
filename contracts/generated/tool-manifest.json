@@ -144,6 +144,22 @@
     "bulkThreshold": null
   },
   {
+    "name": "agent.runs.get",
+    "command": "agent.runs.get",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/id.input.json",
+    "outputSchema": "schemas/run.detail.output.json",
+    "rateLimit": "120/min",
+    "bulkThreshold": null
+  },
+  {
     "name": "agent.approvals.list",
     "command": "agent.approvals.list",
     "permission": "read",
