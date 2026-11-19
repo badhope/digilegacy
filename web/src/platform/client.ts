@@ -88,8 +88,8 @@ export const platformClient = {
   getRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsGet, { id }),
   planRun: (task: string, maxSteps = 20) =>
     invoke<RunPlan>(COMMANDS.agentRunsPlan, { task, maxSteps }),
-  startRun: (task: string, steps: Array<{ tool: string; args: Record<string, unknown> }>, maxSteps = 20, maxWriteSteps = 5) =>
-    invoke<RunDetail>(COMMANDS.agentRunsStart, { task, steps, maxSteps, maxWriteSteps }),
+  startRun: (task: string, steps: Array<{ tool: string; args: Record<string, unknown> }>, maxSteps = 20, maxWriteSteps = 5, planId = "") =>
+    invoke<RunDetail>(COMMANDS.agentRunsStart, { task, steps, maxSteps, maxWriteSteps, ...(planId ? { planId } : {}) }),
   cancelRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsCancel, { id }),
   retryRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsRetry, { id }),
   getSecurity: () => invoke<SecurityStatus>(COMMANDS.securityStatus),

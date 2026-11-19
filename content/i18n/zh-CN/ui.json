@@ -370,5 +370,9 @@
   "runs.detail.duration": "耗时",
   "runs.detail.live": "运行中，每 1.5 秒静默刷新；切到后台自动暂停。",
   "deliverables.cancel": "取消导出",
-  "deliverables.cancelling": "取消中…"
+  "deliverables.cancelling": "取消中…",
+  "runs.detail.usage": "用量",
+  "runs.detail.costUnknown": "成本未配置",
+  "runs.start.planUsage": "输入 {input} / 输出 {output} tokens",
+  "runs.start.costUnknown": "成本未配置"
 }

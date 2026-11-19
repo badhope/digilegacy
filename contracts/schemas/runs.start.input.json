@@ -44,6 +44,9 @@
       "minimum": 0,
       "maximum": 20,
       "default": 5
+    },
+    "planId": {
+      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

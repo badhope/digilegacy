@@ -8,7 +8,13 @@
     "steps",
     "toolsUsed",
     "rounds",
-    "startedAt"
+    "startedAt",
+    "tokens",
+    "tokensIn",
+    "tokensOut",
+    "costMicros",
+    "usagePriced",
+    "planId"
   ],
   "properties": {
     "id": {
@@ -80,6 +86,28 @@
     "durationMs": {
       "type": "integer",
       "minimum": 0
+    },
+    "tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tokensIn": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tokensOut": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "costMicros": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "usagePriced": {
+      "type": "boolean"
+    },
+    "planId": {
+      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

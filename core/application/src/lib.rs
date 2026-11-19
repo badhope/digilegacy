@@ -520,6 +520,44 @@ mod tests {
     }
 
     #[test]
+    fn run_inherits_plan_usage() {
+        let app = app();
+        let usage = runs::Usage {
+            tokens_in: 120,
+            tokens_out: 45,
+            cost_micros: 330,
+            priced: true,
+        };
+        runs::record_plan(
+            app.store(),
+            "plan_test",
+            "读取概览",
+            "mock-model",
+            &usage,
+            "[]",
+        )
+        .unwrap();
+        let run = app
+            .dispatch(
+                "agent.runs.start",
+                json!({
+                    "task": "读取概览",
+                    "planId": "plan_test",
+                    "steps": [{ "tool": "overview.get", "args": {} }]
+                }),
+            )
+            .unwrap();
+        assert_eq!(run["status"], "succeeded");
+        assert_eq!(run["tokens"], 165);
+        assert_eq!(run["tokensIn"], 120);
+        assert_eq!(run["costMicros"], 330);
+        assert_eq!(run["usagePriced"], true);
+        assert_eq!(run["planId"], "plan_test");
+        let list = app.dispatch("agent.runs.list", json!({})).unwrap();
+        assert_eq!(list["items"][0]["tokens"], 165);
+    }
+
+    #[test]
     fn runtime_rejection_stops_run() {
         let app = app();
         let run = app

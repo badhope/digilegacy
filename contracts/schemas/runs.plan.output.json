@@ -4,7 +4,9 @@
   "additionalProperties": false,
   "required": [
     "steps",
-    "model"
+    "model",
+    "planId",
+    "usage"
   ],
   "properties": {
     "steps": {
@@ -29,6 +31,36 @@
     },
     "model": {
       "type": "string"
+    },
+    "planId": {
+      "type": "string"
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tokensIn",
+        "tokensOut",
+        "costMicros",
+        "priced"
+      ],
+      "properties": {
+        "tokensIn": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokensOut": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "costMicros": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "priced": {
+          "type": "boolean"
+        }
+      }
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

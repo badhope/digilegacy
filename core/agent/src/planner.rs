@@ -22,11 +22,53 @@ pub struct PlanStep {
     pub args: Value,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Usage {
+    pub tokens_in: i64,
+    pub tokens_out: i64,
+    pub cost_micros: i64,
+    pub priced: bool,
+}
+
+impl Usage {
+    fn from_provider(value: Option<&Value>, config: &PlannerConfig) -> Self {
+        let tokens_in = value
+            .and_then(|v| v.get("prompt_tokens"))
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            .max(0);
+        let tokens_out = value
+            .and_then(|v| v.get("completion_tokens"))
+            .and_then(Value::as_i64)
+            .unwrap_or(0)
+            .max(0);
+        let priced = tokens_in + tokens_out > 0
+            && (config.input_cost_micros_per_million > 0
+                || config.output_cost_micros_per_million > 0);
+        let cost_micros = if priced {
+            let input = tokens_in.saturating_mul(config.input_cost_micros_per_million) / 1_000_000;
+            let output =
+                tokens_out.saturating_mul(config.output_cost_micros_per_million) / 1_000_000;
+            input.saturating_add(output)
+        } else {
+            0
+        };
+        Self {
+            tokens_in,
+            tokens_out,
+            cost_micros,
+            priced,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Plan {
     pub steps: Vec<PlanStep>,
     pub model: String,
+    pub usage: Usage,
 }
 
 #[derive(Debug, Clone)]
@@ -35,6 +77,8 @@ pub struct PlannerConfig {
     pub api_key: String,
     pub model: String,
     pub timeout: Duration,
+    pub input_cost_micros_per_million: i64,
+    pub output_cost_micros_per_million: i64,
 }
 
 impl PlannerConfig {
@@ -52,11 +96,25 @@ impl PlannerConfig {
             .ok()
             .and_then(|value| value.parse::<u64>().ok())
             .unwrap_or(30);
+        let input_cost_micros_per_million =
+            env::var("DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION")
+                .ok()
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(0)
+                .max(0);
+        let output_cost_micros_per_million =
+            env::var("DIGILEGACY_LLM_OUTPUT_COST_MICROS_PER_MILLION")
+                .ok()
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(0)
+                .max(0);
         Ok(Self {
             base_url: base_url.trim().trim_end_matches('/').to_string(),
             api_key,
             model,
             timeout: Duration::from_secs(timeout.clamp(5, 120)),
+            input_cost_micros_per_million,
+            output_cost_micros_per_million,
         })
     }
 }
@@ -234,10 +292,12 @@ pub fn plan_with_config(
         .ok_or_else(|| {
             PlannerError::Provider("规划器响应缺少 choices[0].message.content".to_string())
         })?;
+    let usage = Usage::from_provider(payload.get("usage"), config);
     let steps = parse_plan(content, max_steps)?;
     Ok(Plan {
         steps,
         model: config.model.clone(),
+        usage,
     })
 }
 
@@ -249,6 +309,26 @@ pub fn plan(task: &str, max_steps: usize) -> Result<Plan, PlannerError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_provider_usage_and_prices_it() {
+        let config = PlannerConfig {
+            base_url: "http://x".into(),
+            api_key: "k".into(),
+            model: "m".into(),
+            timeout: Duration::from_secs(1),
+            input_cost_micros_per_million: 1_000_000,
+            output_cost_micros_per_million: 2_000_000,
+        };
+        let usage = Usage::from_provider(
+            Some(&json!({ "prompt_tokens": 120, "completion_tokens": 45 })),
+            &config,
+        );
+        assert_eq!(usage.tokens_in, 120);
+        assert_eq!(usage.tokens_out, 45);
+        assert_eq!(usage.cost_micros, 210);
+        assert!(usage.priced);
+    }
 
     #[test]
     fn parses_object_and_rejects_unknown_tools() {
@@ -280,7 +360,8 @@ mod tests {
             })
             .to_string();
             let body = serde_json::json!({
-                "choices": [{ "message": { "role": "assistant", "content": content } }]
+                "choices": [{ "message": { "role": "assistant", "content": content } }],
+                "usage": { "prompt_tokens": 10, "completion_tokens": 5 }
             })
             .to_string();
             let response = format!(
@@ -295,11 +376,16 @@ mod tests {
             api_key: "test-key".to_string(),
             model: "test-model".to_string(),
             timeout: Duration::from_secs(5),
+            input_cost_micros_per_million: 0,
+            output_cost_micros_per_million: 0,
         };
         let plan = plan_with_config(&config, "读取概览", 3).unwrap();
         assert_eq!(plan.model, "test-model");
         assert_eq!(plan.steps.len(), 1);
         assert_eq!(plan.steps[0].tool, "overview.get");
+        assert_eq!(plan.usage.tokens_in, 10);
+        assert_eq!(plan.usage.tokens_out, 5);
+        assert!(!plan.usage.priced);
     }
 
     #[test]

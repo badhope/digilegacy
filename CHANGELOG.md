@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.8.1-m4a] - 2026-11-19
+
+### Added
+
+- `agent_plan_log`（schema v12，28 表）：记录每次规划调用的模型、输入/输出 token、成本与定价状态。
+- `agent.runs.plan` 返回 `planId` 与 `usage`；`agent.runs.start` 支持 `planId`，把用量继承到 `agent_run_log`。
+- 运行列表/详情返回真实 `tokens`、`tokensIn`、`tokensOut`、`costMicros`、`usagePriced`、`planId`。
+- Web 新建运行页展示规划 token/成本；运行详情新增“用量”卡；未配置单价时明确显示“成本未配置”。
+
+### Changed
+
+- schema v12：`agent_run_log` 增加 `tokens_in`、`tokens_out`、`cost_micros`、`cost_priced`、`plan_id`。
+- 版本 `0.8.1-m4a`。
+- 契约 schema 扩展 `runs.plan.output`、`runs.start.input`、`run.detail.output`。
+
+### Verification
+
+- Rust 测试 **115 项**（application 15、agent 4）；全仓 verify 通过。
+- HTTP E2E：plan `321/87` tokens、`costMicros=495`；run #3 继承 `408 tokens`、`¥0.000495`。
+- Web E2E：新建运行页显示 `输入 321 / 输出 87 tokens · ¥0.000495`；运行 #4 显示 `408 tokens · ¥0.000495`。
+
+### Known limits
+
+- 成本只覆盖规划器调用，工具执行成本未计入。
+- 无按日/模型聚合报表。
+- 真实 DeepSeek/豆包 key 未配置，E2E 使用本地 mock provider。
+
 ## [0.8.0-m3i] - 2026-11-19
 
 ### Added

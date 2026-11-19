@@ -25,6 +25,8 @@ struct StartInput {
     max_steps: Option<usize>,
     #[serde(default)]
     max_write_steps: Option<usize>,
+    #[serde(default)]
+    plan_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -165,6 +167,8 @@ fn create_run(
     app: &Application,
     task: &str,
     steps: &[runs::RunStep],
+    plan_id: &str,
+    usage: &runs::Usage,
 ) -> Result<i64, PlatformError> {
     let started = now();
     let steps_json =
@@ -174,9 +178,19 @@ fn create_run(
         .write(|conn| {
             conn.execute(
                 "INSERT INTO agent_run_log
-                 (started_at, task, outcome, rounds, tools_used, steps_json, final_text)
-                 VALUES (?1, ?2, 'running', 0, '', ?3, '')",
-                rusqlite::params![started, task, steps_json],
+                 (started_at, task, outcome, rounds, tools_used, steps_json, final_text,
+                  tokens_in, tokens_out, cost_micros, cost_priced, plan_id)
+                 VALUES (?1, ?2, 'running', 0, '', ?3, '', ?4, ?5, ?6, ?7, ?8)",
+                rusqlite::params![
+                    started,
+                    task,
+                    steps_json,
+                    usage.tokens_in,
+                    usage.tokens_out,
+                    usage.cost_micros,
+                    if usage.priced { 1 } else { 0 },
+                    plan_id
+                ],
             )?;
             Ok(conn.last_insert_rowid())
         })
@@ -309,7 +323,14 @@ pub fn start(app: &Application, args: Value) -> Result<Value, PlatformError> {
             at: String::new(),
         })
         .collect();
-    let run_id = create_run(app, input.task.trim(), &steps)?;
+    let plan_id = input.plan_id.unwrap_or_default();
+    let usage = if plan_id.is_empty() {
+        runs::Usage::default()
+    } else {
+        runs::plan_usage(app.store(), &plan_id)
+            .ok_or_else(|| PlatformError::invalid_args("计划不存在或已过期"))?
+    };
+    let run_id = create_run(app, input.task.trim(), &steps, &plan_id, &usage)?;
     app.audit("agent.run.start", &run_id.to_string())?;
 
     let mut steps = steps;
@@ -327,12 +348,36 @@ pub fn plan(app: &Application, args: Value) -> Result<Value, PlatformError> {
     // The Application is synchronous and is called from async HTTP handlers.
     // Run the blocking planner on a dedicated thread so reqwest does not drop
     // its runtime inside the server's tokio worker.
-    let plan = std::thread::spawn(move || digilegacy_agent::planner::plan(&task, max_steps))
+    let plan_task = task.clone();
+    let plan = std::thread::spawn(move || digilegacy_agent::planner::plan(&plan_task, max_steps))
         .join()
         .map_err(|_| PlatformError::new("INTERNAL", "规划线程异常退出"))?
         .map_err(|error| PlatformError::new(error.code(), error.message()))?;
-    app.audit("agent.run.plan", "planner")?;
-    Ok(json!(plan))
+    let plan_id = format!("plan_{}", Utc::now().timestamp_nanos_opt().unwrap_or(0));
+    let steps_json = serde_json::to_string(&plan.steps)
+        .map_err(|error| internal(format!("计划序列化失败: {error}")))?;
+    let usage = runs::Usage {
+        tokens_in: plan.usage.tokens_in,
+        tokens_out: plan.usage.tokens_out,
+        cost_micros: plan.usage.cost_micros,
+        priced: plan.usage.priced,
+    };
+    runs::record_plan(
+        app.store(),
+        &plan_id,
+        &task,
+        &plan.model,
+        &usage,
+        &steps_json,
+    )
+    .map_err(|error| internal(format!("计划记录写入失败: {error}")))?;
+    app.audit("agent.run.plan", &plan_id)?;
+    Ok(json!({
+        "planId": plan_id,
+        "steps": plan.steps,
+        "model": plan.model,
+        "usage": usage,
+    }))
 }
 
 pub fn cancel(app: &Application, args: Value) -> Result<Value, PlatformError> {
@@ -400,7 +445,7 @@ pub fn retry(app: &Application, args: Value) -> Result<Value, PlatformError> {
             at: String::new(),
         })
         .collect();
-    let new_id = create_run(app, &detail.task, &steps)?;
+    let new_id = create_run(app, &detail.task, &steps, "", &runs::Usage::default())?;
     app.audit("agent.run.retry", &new_id.to_string())?;
     let mut steps = steps;
     execute_from(app, new_id, &mut steps, 0)?;

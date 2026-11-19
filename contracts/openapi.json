@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.8.0-m3i",
+    "version": "0.8.1-m4a",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -2609,7 +2609,13 @@
           "steps",
           "toolsUsed",
           "rounds",
-          "startedAt"
+          "startedAt",
+          "tokens",
+          "tokensIn",
+          "tokensOut",
+          "costMicros",
+          "usagePriced",
+          "planId"
         ],
         "properties": {
           "id": {
@@ -2681,6 +2687,28 @@
           "durationMs": {
             "type": "integer",
             "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokensIn": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokensOut": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "costMicros": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "usagePriced": {
+            "type": "boolean"
+          },
+          "planId": {
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -2784,7 +2812,9 @@
         "additionalProperties": false,
         "required": [
           "steps",
-          "model"
+          "model",
+          "planId",
+          "usage"
         ],
         "properties": {
           "steps": {
@@ -2809,6 +2839,36 @@
           },
           "model": {
             "type": "string"
+          },
+          "planId": {
+            "type": "string"
+          },
+          "usage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tokensIn",
+              "tokensOut",
+              "costMicros",
+              "priced"
+            ],
+            "properties": {
+              "tokensIn": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "tokensOut": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "costMicros": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "priced": {
+                "type": "boolean"
+              }
+            }
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -2859,6 +2919,9 @@
             "minimum": 0,
             "maximum": 20,
             "default": 5
+          },
+          "planId": {
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

@@ -129,6 +129,13 @@ function formatDuration(ms: number): string {
   return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
 }
 
+function formatUsage(): string {
+  if (!data.value || data.value.tokens <= 0) return "—";
+  const tokens = new Intl.NumberFormat(locale.value === "zh-CN" ? "zh-CN" : "en-US").format(data.value.tokens);
+  if (!data.value.usagePriced) return `${tokens} tokens · ${t("runs.detail.costUnknown")}`;
+  return `${tokens} tokens · ¥${(data.value.costMicros / 1_000_000).toFixed(6)}`;
+}
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return value || "—";
@@ -197,6 +204,7 @@ function pretty(value: unknown): string {
         <div><span>{{ t("runs.detail.rounds") }}</span><strong class="mono">{{ data.rounds }}</strong></div>
         <div><span>{{ t("runs.detail.tools") }}</span><strong class="mono">{{ data.toolsUsed || "—" }}</strong></div>
         <div><span>{{ t("runs.detail.duration") }}</span><strong class="mono">{{ formatDuration(data.durationMs) }}</strong></div>
+        <div><span>{{ t("runs.detail.usage") }}</span><strong class="mono">{{ formatUsage() }}</strong></div>
       </div>
 
       <p v-if="isActive(data.status)" class="run-live mono">{{ t("runs.detail.live") }}</p>
@@ -241,7 +249,7 @@ function pretty(value: unknown): string {
 .back-arrow { transform: rotate(180deg); }
 .run-detail-page { max-width: var(--content-max); margin: 0 auto; }
 .run-loading { padding: 10px 0; }
-.run-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; background: var(--line); }
+.run-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; background: var(--line); }
 .run-summary > div { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; background: var(--surface); }
 .run-summary span { color: var(--muted); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
 .run-summary strong { font-size: 13px; font-weight: 500; }

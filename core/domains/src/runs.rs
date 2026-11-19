@@ -1,5 +1,6 @@
 //! DOM-00 run history projection for the Agent workbench.
 
+use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -51,6 +52,82 @@ pub struct RunDetail {
     pub started_at: String,
     pub duration_ms: i64,
     pub final_text: String,
+    pub tokens: i64,
+    pub tokens_in: i64,
+    pub tokens_out: i64,
+    pub cost_micros: i64,
+    pub usage_priced: bool,
+    pub plan_id: String,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Usage {
+    pub tokens_in: i64,
+    pub tokens_out: i64,
+    pub cost_micros: i64,
+    pub priced: bool,
+}
+
+impl Usage {
+    pub fn total_tokens(&self) -> i64 {
+        self.tokens_in + self.tokens_out
+    }
+}
+
+/// Persist one planner call. The plan log is append-only and separate from run
+/// history so a plan that the user never starts still counts toward LLM usage.
+pub fn record_plan(
+    store: &Store,
+    id: &str,
+    task: &str,
+    model: &str,
+    usage: &Usage,
+    steps_json: &str,
+) -> Result<(), DomainError> {
+    store
+        .write(|conn| {
+            conn.execute(
+                "INSERT INTO agent_plan_log
+                 (id, created_at, task, model, tokens_in, tokens_out, cost_micros, priced, steps_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                rusqlite::params![
+                    id,
+                    chrono::Utc::now().to_rfc3339(),
+                    task,
+                    model,
+                    usage.tokens_in,
+                    usage.tokens_out,
+                    usage.cost_micros,
+                    if usage.priced { 1 } else { 0 },
+                    steps_json
+                ],
+            )?;
+            Ok(())
+        })
+        .map_err(DomainError::from)
+}
+
+pub fn plan_usage(store: &Store, id: &str) -> Option<Usage> {
+    store
+        .read(|conn| {
+            conn.query_row(
+                "SELECT tokens_in, tokens_out, cost_micros, priced
+                 FROM agent_plan_log WHERE id=?1",
+                [id],
+                |r| {
+                    Ok(Usage {
+                        tokens_in: r.get(0)?,
+                        tokens_out: r.get(1)?,
+                        cost_micros: r.get(2)?,
+                        priced: r.get::<_, i64>(3)? != 0,
+                    })
+                },
+            )
+            .optional()
+        })
+        .ok()
+        .flatten()
 }
 
 pub fn list(store: &Store, status: &str, limit: i64) -> Result<RunsPage, DomainError> {
@@ -59,7 +136,8 @@ pub fn list(store: &Store, status: &str, limit: i64) -> Result<RunsPage, DomainE
     store
         .read(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, started_at, task, outcome, rounds, duration_ms
+                "SELECT id, started_at, task, outcome, rounds, duration_ms,
+                        coalesce(tokens_in,0) + coalesce(tokens_out,0) AS tokens
                  FROM agent_run_log
                  WHERE (?1 = 'all' OR outcome = ?1)
                  ORDER BY id DESC LIMIT ?2",
@@ -73,7 +151,7 @@ pub fn list(store: &Store, status: &str, limit: i64) -> Result<RunsPage, DomainE
                         status: r.get(3)?,
                         steps: r.get(4)?,
                         duration_ms: r.get(5)?,
-                        tokens: 0,
+                        tokens: r.get(6)?,
                     })
                 })?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -90,7 +168,9 @@ pub fn get(store: &Store, id: &str) -> Result<RunDetail, DomainError> {
     store
         .read(|conn| {
             conn.query_row(
-                "SELECT id, started_at, task, outcome, rounds, tools_used, steps_json, final_text, duration_ms
+                "SELECT id, started_at, task, outcome, rounds, tools_used, steps_json, final_text, duration_ms,
+                        coalesce(tokens_in,0), coalesce(tokens_out,0), coalesce(cost_micros,0),
+                        coalesce(cost_priced,0), coalesce(plan_id,'')
                  FROM agent_run_log WHERE id=?1",
                 [id_num],
                 |r| {
@@ -105,6 +185,12 @@ pub fn get(store: &Store, id: &str) -> Result<RunDetail, DomainError> {
                         steps: parse_steps(&steps_json),
                         final_text: r.get(7)?,
                         duration_ms: r.get(8)?,
+                        tokens_in: r.get(9)?,
+                        tokens_out: r.get(10)?,
+                        tokens: r.get::<_, i64>(9)? + r.get::<_, i64>(10)?,
+                        cost_micros: r.get(11)?,
+                        usage_priced: r.get::<_, i64>(12)? != 0,
+                        plan_id: r.get(13)?,
                     })
                 },
             )

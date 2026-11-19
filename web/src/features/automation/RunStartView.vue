@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -7,6 +7,7 @@ import PageHeader from "@/shared/ui/PageHeader.vue";
 import SectionCard from "@/shared/ui/SectionCard.vue";
 import { useI18n } from "@/platform/i18n";
 import { platformClient } from "@/platform/client";
+import type { RunPlanUsage } from "@/platform/types";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -15,7 +16,33 @@ const stepsText = ref('[\n  { "tool": "app.overview", "args": {} }\n]');
 const submitting = ref(false);
 const planning = ref(false);
 const planModel = ref("");
+const planId = ref("");
+const planUsage = ref<RunPlanUsage | null>(null);
 const error = ref("");
+
+function invalidatePlan() {
+  planId.value = "";
+  planUsage.value = null;
+  planModel.value = "";
+}
+
+function formatTokens(value: number): string {
+  return new Intl.NumberFormat("zh-CN").format(value);
+}
+
+function formatCny(micros: number): string {
+  return `¥${(micros / 1_000_000).toFixed(6)}`;
+}
+
+const planUsageLabel = computed(() => {
+  const usage = planUsage.value;
+  if (!usage) return "";
+  const tokens = t("runs.start.planUsage", {
+    input: formatTokens(usage.tokensIn),
+    output: formatTokens(usage.tokensOut),
+  });
+  return usage.priced ? `${tokens} · ${formatCny(usage.costMicros)}` : `${tokens} · ${t("runs.start.costUnknown")}`;
+});
 
 async function generatePlan() {
   error.value = "";
@@ -33,6 +60,8 @@ async function generatePlan() {
     }
     stepsText.value = JSON.stringify(envelope.data.steps, null, 2);
     planModel.value = envelope.data.model;
+    planId.value = envelope.data.planId;
+    planUsage.value = envelope.data.usage;
   } finally {
     planning.value = false;
   }
@@ -55,7 +84,7 @@ async function submit() {
   }
   submitting.value = true;
   try {
-    const envelope = await platformClient.startRun(task.value.trim(), steps);
+    const envelope = await platformClient.startRun(task.value.trim(), steps, 20, 5, planId.value);
     if (!envelope.success || !envelope.data) {
       error.value = envelope.code === "AUTH_REQUIRED" ? t("runs.start.tokenRequired") : envelope.message || envelope.code;
       return;
@@ -86,14 +115,15 @@ async function submit() {
       <div class="run-form">
         <label>
           <span>{{ t("runs.start.task") }}</span>
-          <input v-model="task" type="text" maxlength="200" :placeholder="t('runs.start.taskPlaceholder')" />
+          <input v-model="task" type="text" maxlength="200" :placeholder="t('runs.start.taskPlaceholder')" @input="invalidatePlan" />
         </label>
         <label>
           <span>{{ t("runs.start.steps") }}</span>
-          <textarea v-model="stepsText" rows="9" spellcheck="false" />
+          <textarea v-model="stepsText" rows="9" spellcheck="false" @input="invalidatePlan" />
         </label>
         <p class="run-hint">{{ t("runs.start.hint") }}</p>
         <p v-if="planModel" class="run-plan-model mono">{{ t("runs.start.planModel", { model: planModel }) }}</p>
+        <p v-if="planUsageLabel" class="run-plan-model mono">{{ planUsageLabel }}</p>
         <div v-if="error" class="run-error">{{ error }}</div>
         <div class="run-actions">
           <AppButton variant="primary" :disabled="submitting || planning" @click="submit">

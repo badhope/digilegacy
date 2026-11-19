@@ -370,5 +370,9 @@
   "runs.detail.duration": "Duration",
   "runs.detail.live": "Active; silent refresh every 1.5s, paused when the tab is hidden.",
   "deliverables.cancel": "Cancel export",
-  "deliverables.cancelling": "Cancelling…"
+  "deliverables.cancelling": "Cancelling…",
+  "runs.detail.usage": "Usage",
+  "runs.detail.costUnknown": "cost not configured",
+  "runs.start.planUsage": "input {input} / output {output} tokens",
+  "runs.start.costUnknown": "cost not configured"
 }

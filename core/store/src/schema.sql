@@ -198,7 +198,24 @@ CREATE TABLE IF NOT EXISTS agent_run_log (
     rounds INTEGER DEFAULT 0,
     tools_used TEXT DEFAULT '',
     steps_json TEXT DEFAULT '[]',
-    duration_ms INTEGER DEFAULT 0
+    duration_ms INTEGER DEFAULT 0,
+    tokens_in INTEGER DEFAULT 0,
+    tokens_out INTEGER DEFAULT 0,
+    cost_micros INTEGER DEFAULT 0,
+    cost_priced INTEGER DEFAULT 0,
+    plan_id TEXT DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS agent_plan_log (
+    id TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    task TEXT NOT NULL,
+    model TEXT DEFAULT '',
+    tokens_in INTEGER DEFAULT 0,
+    tokens_out INTEGER DEFAULT 0,
+    cost_micros INTEGER DEFAULT 0,
+    priced INTEGER DEFAULT 0,
+    steps_json TEXT DEFAULT '[]'
 );
 
 CREATE TABLE IF NOT EXISTS heir_recovery (

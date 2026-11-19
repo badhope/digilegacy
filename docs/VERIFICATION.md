@@ -71,8 +71,8 @@ cargo test --workspace            OK
 - render：2 个
 - server：12 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突、Runtime 启动/详情）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
-- store：15 个（schema v11 / 27 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- domains：13 个；application：13 个；agent：3 个
+- store：15 个（schema v12 / 28 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
+- domains：13 个；application：15 个；agent：4 个；合计 115 个
 
 ### M1 安全与数据底座
 
@@ -99,7 +99,7 @@ core/domains: assets 3 + plan 2 + overview 1 + runs 1 + policy 3 = 10 tests
 core/application: 5 tests（读命令、CRUD+审计、签到、政策、交付）
 apps/server: 6 tests（真实读接口、写 token 门禁、404/403）
 core/render: 2 tests（纯文本转义、可信 body 页面壳）
-core/store: 15 tests（schema v11 / 27 表 / 迁移 / 加密 / 诊断）
+core/store: 15 tests（schema v12 / 28 表 / 迁移 / 加密 / 诊断）
 ```
 
 已实测：
@@ -270,6 +270,28 @@ jobs.cancel: queued → cancelled / CANCELLED + finishedAt；其余状态 CONFLI
 - `jobs.cancel` 只取消 `queued`；`running` 的导出任务无法中断，返回 `CONFLICT`。
 - token/成本仍未落库；`Run.tokens` 仍为 0，下一步需接真实 LLM usage。
 
+### M4-A Agent 用量账本
+
+```text
+agent.runs.plan  → provider usage → agent_plan_log（tokens/成本/定价状态）
+agent.runs.start → planId → agent_run_log（tokens_in/out/cost_micros/plan_id）
+agent.runs.list/get → tokens / costMicros / usagePriced / planId
+```
+
+已实测：
+
+- Mock OpenAI 兼容 provider 返回 `prompt_tokens=321`、`completion_tokens=87`；`agent.runs.plan` 返回 `planId`、`usage.costMicros=495`、`priced=true`。
+- HTTP 用该 `planId` 启动运行 #3，返回 `tokens=408`、`tokensIn=321`、`tokensOut=87`、`costMicros=495`、`usagePriced=true`、`planId` 正确。
+- Web 新建运行页显示“输入 321 / 输出 87 tokens · ¥0.000495”；点击开始后运行 #4 详情显示“用量 408 tokens · ¥0.000495”。
+- schema v12：`agent_plan_log` 新表，`agent_run_log` 增加 `tokens_in/tokens_out/cost_micros/cost_priced/plan_id`；共 28 表。
+- 单价由 `DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION` / `DIGILEGACY_LLM_OUTPUT_COST_MICROS_PER_MILLION` 配置；未配置时仍记 token，`priced=false`，UI 显示“成本未配置”。
+
+未完成边界：
+
+- 成本只覆盖规划器调用；工具执行的费用/外部 API 成本未计入。
+- 没有按日/模型聚合的用量报表；当前按计划记录与运行继承查询。
+- 真实 DeepSeek/豆包 key 未配置，E2E 使用本地 mock provider。
+
 ### 未完成边界
 
 - 政策审核工作台与批量核对尚未做；政策溯源写已支持四态与审计。
@@ -287,9 +309,10 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         105.81 KB / 110 KB
-CSS gzip        18.20 KB / 19 KB
-入口 raw        64.03 KB / 65 KB
+总 gzip         106.35 KB / 110 KB
+JS gzip         88.14 KB / 89 KB
+CSS gzip        18.21 KB / 19 KB
+入口 raw        64.41 KB / 65 KB
 vendor raw      98.89 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```
@@ -298,7 +321,7 @@ vendor raw      98.89 KB / 130 KB
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，25 commands / 27 表 / schema v11 |
+| Server | `GET /api/v1/health` | `200 OK`，25 commands / 28 表 / schema v12 |
 | Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |

@@ -97,6 +97,12 @@ export interface RunDetail {
   startedAt: string;
   durationMs: number;
   finalText: string;
+  tokens: number;
+  tokensIn: number;
+  tokensOut: number;
+  costMicros: number;
+  usagePriced: boolean;
+  planId: string;
 }
 
 export interface RunPlanStep {
@@ -104,9 +110,18 @@ export interface RunPlanStep {
   args: Record<string, unknown>;
 }
 
+export interface RunPlanUsage {
+  tokensIn: number;
+  tokensOut: number;
+  costMicros: number;
+  priced: boolean;
+}
+
 export interface RunPlan {
+  planId: string;
   steps: RunPlanStep[];
   model: string;
+  usage: RunPlanUsage;
 }
 
 export interface AgentRuns {
