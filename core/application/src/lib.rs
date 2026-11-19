@@ -1,0 +1,296 @@
+//! Application layer: use cases shared by HTTP, CLI and Agent tools.
+//!
+//! Entry points own transport permissions; this layer owns command semantics.
+//! It reads/writes one Store and never duplicates SQL in an app crate.
+
+#![forbid(unsafe_code)]
+
+use digilegacy_domains::{assets, overview, plan, runs, DomainError};
+use digilegacy_foundation::PlatformError;
+use digilegacy_security::keyring::FileKeyring;
+use digilegacy_store::Store;
+use serde_json::{json, Value};
+use std::sync::Arc;
+
+pub const STATUS: &str = "m2-read-write-core";
+
+pub struct Application {
+    store: Arc<Store>,
+}
+
+impl Application {
+    pub fn new(store: Arc<Store>) -> Self {
+        Self { store }
+    }
+
+    /// Open the local database from `DIGILEGACY_DB` / `DIGILEGACY_DB_KEY_FILE`.
+    /// Both server and CLI use this so a platform process and a CLI process
+    /// address the same file/key pair.
+    pub fn from_env() -> Result<Self, String> {
+        let db_path =
+            std::env::var("DIGILEGACY_DB").unwrap_or_else(|_| "data/digilegacy.db".to_string());
+        if let Some(parent) = std::path::Path::new(&db_path).parent() {
+            std::fs::create_dir_all(parent).map_err(|e| format!("创建数据目录失败: {e}"))?;
+        }
+        let store = match std::env::var("DIGILEGACY_DB_KEY_FILE") {
+            Ok(key_path) => {
+                let key = FileKeyring::new(key_path).load_or_create()?;
+                let key_ref: &[u8; 32] = &key;
+                Store::open(&db_path, Some(key_ref))
+            }
+            Err(_) => Store::open(&db_path, None),
+        }
+        .map_err(|e| format!("打开数据库失败: {e}"))?;
+        Ok(Self::new(Arc::new(store)))
+    }
+
+    pub fn store(&self) -> &Store {
+        &self.store
+    }
+
+    pub fn health(&self) -> Value {
+        json!({
+            "status": "ok",
+            "mode": "m2",
+            "version": env!("CARGO_PKG_VERSION"),
+            "contracts": digilegacy_contracts::COMMANDS.len(),
+            "schemaVersion": self.store.schema_version().unwrap_or(-1),
+            "tables": self.store.table_count().unwrap_or(-1),
+            "store": format!("{:?}", self.store.state()),
+        })
+    }
+
+    pub fn dispatch(&self, name: &str, args: Value) -> Result<Value, PlatformError> {
+        match name {
+            "app.overview" => self.overview(),
+            "assets.list" => self.assets_list(args),
+            "assets.get" => self.assets_get(args),
+            "assets.create" => self.assets_create(args),
+            "assets.update" => self.assets_update(args),
+            "plan.get" => self.plan(),
+            "trigger.checkin" => self.checkin(),
+            "security.status" => self.security_status(),
+            "agent.runs.list" => self.runs_list(args),
+            other => Err(PlatformError::unsupported(other)),
+        }
+    }
+
+    pub fn overview(&self) -> Result<Value, PlatformError> {
+        overview::get(&self.store)
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn assets_list(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: assets::ListInput = parse(args)?;
+        assets::list(&self.store, &input)
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn assets_get(&self, args: Value) -> Result<Value, PlatformError> {
+        let id = args
+            .get("id")
+            .and_then(|v| {
+                v.as_str()
+                    .map(ToOwned::to_owned)
+                    .or_else(|| Some(v.to_string()))
+            })
+            .ok_or_else(|| PlatformError::invalid_args("缺少 id"))?;
+        assets::get(&self.store, id.trim_matches('"'))
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn assets_create(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: assets::Mutation = parse(args)?;
+        let asset = assets::create(&self.store, &input).map_err(map_domain)?;
+        self.audit("asset.create", &asset.id)?;
+        Ok(json!(asset))
+    }
+
+    pub fn assets_update(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: assets::Mutation = parse(args)?;
+        let asset = assets::update(&self.store, &input).map_err(map_domain)?;
+        self.audit("asset.update", &asset.id)?;
+        Ok(json!(asset))
+    }
+
+    pub fn plan(&self) -> Result<Value, PlatformError> {
+        plan::get(&self.store)
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn checkin(&self) -> Result<Value, PlatformError> {
+        let now = chrono::Utc::now();
+        let interval = self
+            .store
+            .read(|conn| {
+                conn.query_row(
+                    "SELECT check_in_interval_days FROM dms_config WHERE id=1",
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )
+            })
+            .unwrap_or(30);
+        let checked = now.to_rfc3339();
+        let next = (now + chrono::Duration::days(interval)).to_rfc3339();
+        self.store
+            .write(|conn| {
+                let tx = conn.transaction()?;
+                tx.execute(
+                    "INSERT INTO check_in_log (checked_at, status, note) VALUES (?1,'ok','')",
+                    [&checked],
+                )?;
+                tx.execute(
+                    "UPDATE dms_config SET last_check_in=?1 WHERE id=1",
+                    [&checked],
+                )?;
+                tx.commit()?;
+                Ok(())
+            })
+            .map_err(|e| PlatformError::new("INTERNAL", e.to_string()))?;
+        self.audit("trigger.checkin", "")?;
+        Ok(json!({
+            "checkedInAt": checked,
+            "nextCheckAt": next,
+            "status": "ok",
+        }))
+    }
+
+    pub fn runs_list(&self, args: Value) -> Result<Value, PlatformError> {
+        let status = args
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or("all")
+            .to_string();
+        let limit = args.get("limit").and_then(Value::as_i64).unwrap_or(20);
+        runs::list(&self.store, &status, limit)
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn security_status(&self) -> Result<Value, PlatformError> {
+        let locked = matches!(
+            digilegacy_security::session::state(),
+            digilegacy_security::VaultState::Locked
+        );
+        let details = self
+            .store
+            .read(|conn| {
+                let recovery: i64 = conn
+                    .query_row(
+                        "SELECT CASE WHEN length(coalesce(recovery_seal,'')) > 0 THEN 1 ELSE 0 END
+                         FROM security_config WHERE id=1",
+                        [],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0);
+                let last_backup: String = conn
+                    .query_row(
+                        "SELECT coalesce(max(at),'') FROM audit_log WHERE kind LIKE 'backup%'",
+                        [],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or_default();
+                Ok((recovery, last_backup))
+            })
+            .map_err(|e| PlatformError::new("INTERNAL", e.to_string()))?;
+        Ok(json!({
+            "locked": locked,
+            "recoveryConfigured": details.0 != 0,
+            "keySource": "passphrase",
+            "lastBackupAt": details.1,
+        }))
+    }
+
+    fn audit(&self, kind: &str, subject: &str) -> Result<(), PlatformError> {
+        self.store
+            .append_audit(kind, subject, "ok", "")
+            .map(|_| ())
+            .map_err(|e| PlatformError::new("INTERNAL", format!("审计写入失败: {e}")))
+    }
+}
+
+fn parse<T: serde::de::DeserializeOwned>(args: Value) -> Result<T, PlatformError> {
+    serde_json::from_value(args).map_err(|e| PlatformError::invalid_args(e.to_string()))
+}
+
+fn map_domain(error: DomainError) -> PlatformError {
+    match error {
+        DomainError::NotFound(message) => PlatformError::new("NOT_FOUND", message),
+        DomainError::Invalid(message) => PlatformError::new("INVALID_ARGS", message),
+        DomainError::Store(digilegacy_store::StoreError::State(message)) => {
+            PlatformError::new("STORE_NOT_READY", message)
+        }
+        DomainError::Store(other) => PlatformError::new("INTERNAL", other.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn app() -> Application {
+        Application::new(Arc::new(Store::open_in_memory(None).unwrap()))
+    }
+
+    #[test]
+    fn read_commands_are_live() {
+        let app = app();
+        let data = app.dispatch("app.overview", json!({})).unwrap();
+        assert_eq!(data["assetsTotal"], 0);
+        let data = app.dispatch("plan.get", json!({})).unwrap();
+        assert_eq!(data["trigger"]["days"], 30);
+        let data = app.dispatch("assets.list", json!({})).unwrap();
+        assert_eq!(data["total"], 0);
+    }
+
+    #[test]
+    fn create_update_get_roundtrip_and_audit() {
+        let app = app();
+        let created = app
+            .dispatch(
+                "assets.create",
+                json!({
+                    "name": "主邮箱", "kind": "account",
+                    "platform": "示例邮箱", "value": "120", "note": "家人"
+                }),
+            )
+            .unwrap();
+        assert_eq!(created["name"], "主邮箱");
+        let id = created["id"].as_str().unwrap().to_string();
+
+        let page = app
+            .dispatch("assets.list", json!({ "status": "all", "q": "邮箱" }))
+            .unwrap();
+        assert_eq!(page["total"], 1);
+
+        let updated = app
+            .dispatch(
+                "assets.update",
+                json!({
+                    "id": id, "name": "主邮箱2", "kind": "account",
+                    "platform": "示例邮箱", "value": "150", "note": "新备注"
+                }),
+            )
+            .unwrap();
+        assert_eq!(updated["value"], "150");
+
+        let fetched = app.dispatch("assets.get", json!({ "id": id })).unwrap();
+        assert_eq!(fetched["name"], "主邮箱2");
+
+        let overview = app.dispatch("app.overview", json!({})).unwrap();
+        assert_eq!(overview["assetsTotal"], 1);
+        assert!(overview["activity"].as_array().unwrap().len() >= 2);
+    }
+
+    #[test]
+    fn checkin_updates_trigger() {
+        let app = app();
+        let data = app.dispatch("trigger.checkin", json!({})).unwrap();
+        assert_eq!(data["status"], "ok");
+        assert!(data["nextCheckAt"].as_str().unwrap().len() > 10);
+    }
+}

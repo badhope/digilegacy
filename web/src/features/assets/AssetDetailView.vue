@@ -54,7 +54,7 @@ function formatDate(value: string): string {
             :tone="data.status === 'active' ? 'ready' : 'planned'"
             :label="data.status === 'active' ? t('common.active') : t('common.archived')"
           />
-          <StatusPill tone="planned" :label="t('app.mode')" />
+          <StatusPill tone="ready" :label="t('app.mode')" />
         </template>
       </PageHeader>
 

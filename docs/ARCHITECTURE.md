@@ -22,30 +22,31 @@
         └───────────────┴─────────────┴─────────────┴───────────────┘
 ```
 
-M0 只实现壳与边界；领域服务在 M2 起接入，安全内核在 M1 迁入。
+M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真实领域，Web 默认走 Platform API。
 
 ## 2. Workspace 成员
 
-### core（8）
+### core（9）
 
-| crate | 职责 | M0 状态 |
+| crate | 职责 | M2 状态 |
 |---|---|---|
 | `core/foundation` | Envelope、错误、权限、CommandBus、trace id | 已实现 |
 | `core/contracts` | 生成后的命令/错误表 | 已实现 |
-| `core/security` | Vault/密钥/恢复边界 | 边界 |
-| `core/store` | SQLite/SQLCipher、迁移、仓储边界 | 边界 |
-| `core/domains` | DOM-01..07 领域清单 | 清单 |
+| `core/security` | Vault/密钥/恢复/备份/审计 | 已实现（M1） |
+| `core/store` | SQLite/SQLCipher、迁移、导入、检查点 | 已实现（M1） |
+| `core/domains` | assets/plan/overview/runs 真实领域 | 已实现（M2 首批） |
+| `core/application` | 用例层：共享 HTTP/CLI/MCP 的业务分派与审计 | 已实现（M2） |
 | `core/integrations` | 连接类型/状态 | 枚举 |
 | `core/agent` | Run/Approval 状态机 | 枚举 |
 | `core/render` | 纯函数文档渲染 | 已实现 |
 
 ### apps（4）
 
-| crate | 职责 | M0 状态 |
+| crate | 职责 | M2 状态 |
 |---|---|---|
-| `apps/server` | axum Platform API | health/commands/overview/invoke |
-| `apps/cli` | 本地命令入口 | commands/health/invoke |
-| `apps/mcp` | stdio JSON-RPC | initialize/tools list/resources |
+| `apps/server` | axum Platform API | health/commands + 真实读接口；写命令 token 门禁 |
+| `apps/cli` | 本地命令入口 | 真实 overview/assets/plan/security/runs；写入 `--allow-write` |
+| `apps/mcp` | stdio JSON-RPC | initialize/tools list；tools/call 接真实只读用例 |
 | `apps/desktop` | 桌面入口 | JSON 空壳，Tauri 留到 M3/M5 |
 
 ## 3. 依赖方向
@@ -53,7 +54,7 @@ M0 只实现壳与边界；领域服务在 M2 起接入，安全内核在 M1 迁
 硬规则：
 
 ```text
-apps/*  →  core/*
+apps/*  →  core/application  →  core/domains / core/store / core/security
 core/*  →  core/foundation, core/contracts
 core/*  ✗→  apps/*
 apps/*  ✗→  apps/*（除非明确的基础入口共享）
@@ -145,6 +146,7 @@ M0 未实现写权限 token，因此 HTTP `write` 返回 `401 AUTH_REQUIRED`，�
 
 - **M0**：`core/security`、`core/store` 只有边界；Web 使用 mock；不声称已加密。
 - **M1**：从 `legacy/app/src-tauri` 按模块迁入加密、Vault、恢复、备份、DB，不重写算法。
+- **M2**：`core/application` 统一用例分派；入口只做权限/传输；Web 读真实 API，资产筛选服务端化。
 - **数据归属**：单工作区抽象保留 `workspaces`，26 张表按领域拆；资产只维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。

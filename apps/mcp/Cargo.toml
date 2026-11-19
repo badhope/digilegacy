@@ -6,3 +6,5 @@ license.workspace = true
 
 [dependencies]
 serde_json.workspace = true
+digilegacy-application = { path = "../../core/application" }
+digilegacy-store = { path = "../../core/store" }

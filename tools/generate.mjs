@@ -311,6 +311,7 @@ const mcpTools = tools.tools
       destructiveHint: tool.permission === "write",
       idempotentHint: tool.idempotent,
     },
+    _meta: { "digilegacy/command": tool.human_equivalent },
   }));
 write("apps/mcp/tools.generated.json", JSON.stringify(mcpTools, null, 2) + "\n");
 

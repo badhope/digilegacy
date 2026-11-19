@@ -2,6 +2,41 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.0-m2] - 2026-11-19
+
+### Added
+
+- `core/application` 用例层：HTTP、CLI、MCP 共享同一套 `Application::dispatch`，入口不再各写业务分支。
+- `core/domains` 真实领域：资产列表/详情/创建/更新、规划摘要、概览投影、Agent 运行记录、安全摘要。
+- 资产领域适配 v9 `digital_assets`：`name/kind/platform/value/note` 映射旧列；平台自动落 `platforms`；空平台使用 `id=0` 占位。
+- 触发签到：写入 `check_in_log`、更新 `dms_config.last_check_in`、返回 `nextCheckAt` 并写审计。
+- HTTP 读接口：`/api/v1/overview`、`/assets`、`/assets/{id}`、`/plan`、`/security`、`/agent/runs`；写命令仍由 token 门禁拦截。
+- CLI 真实子命令：`overview`、`assets list/get/create/update`、`plan`、`security status`、`runs`；写命令要求 `--allow-write`。
+- MCP `tools/call` 接真实用例：工具 `_meta["digilegacy/command"]` 映射命令，失败返回 `isError=true` 与平台错误码。
+- Web 默认 live：`VITE_USE_MOCK=false`；资产搜索/状态筛选改为服务端查询，游标分页“加载更多”，前端不再重复过滤。
+- 安全设置页接 `security.status`：锁定状态、恢复配置、密钥来源、最近备份。
+- 架构门禁扩到 13 个 workspace 成员；`core/application` 纳入 core 边界检查。
+
+### Changed
+
+- 平台 API 的 `health` 返回 schema 版本、表数、Store 状态；`mode=m2`。
+- 前端状态文案从 M0 骨架切换为 M2 数据在线；活动时间改为本地时间；规划页补空态与触发状态本地化。
+- 概览、规划、自动化、设置页的错误标题改用通用数据错误，不再误报“能力未接入”。
+
+### Verification
+
+- `./tools/verify.sh` 通过，日志 `/tmp/digilegacy-verify-m2-final.log`。
+- Rust：security 49、store 15、domains 7、application 3、server 6、foundation 5、render 1。
+- Web：typecheck、6 tests、build、bundle 预算通过；总 gzip 80.60 KB / 110 KB。
+- CLI 实测创建资产返回真实 id；HTTP 实测 overview/assets/plan/security/runs 返回真实行；MCP 实测 `overview.get` 返回真实 envelope。
+
+### Known limitations
+
+- Web 写操作尚未接 HTTP 写 token / 解锁流程；资产创建与更新目前走 CLI 本地特权入口。
+- 资产领域暂未接批量导入导出、附件、凭据解密展示。
+- 政策库 152 条、交付物、审核、演练、SSE/Job 仍未开始。
+- vault 解锁未接 server/Web；`security.status` 会显示锁定，但元数据读链路可读。
+
 ## [0.7.0-m1] - 2026-11-19
 
 ### Added

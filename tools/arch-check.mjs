@@ -31,7 +31,7 @@ function parseMembers() {
 }
 
 const members = parseMembers();
-if (members.length !== 12) fail(`workspace members: expected 12, got ${members.length}`);
+if (members.length !== 13) fail(`workspace members: expected 13, got ${members.length}`);
 for (const member of members) {
   if (!exists(`${member}/Cargo.toml`)) fail(`workspace member missing Cargo.toml: ${member}`);
 }

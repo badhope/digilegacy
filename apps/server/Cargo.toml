@@ -13,3 +13,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 digilegacy-foundation = { path = "../../core/foundation" }
 digilegacy-contracts = { path = "../../core/contracts" }
+digilegacy-store = { path = "../../core/store" }
+digilegacy-security = { path = "../../core/security" }
+digilegacy-domains = { path = "../../core/domains" }
+digilegacy-application = { path = "../../core/application" }

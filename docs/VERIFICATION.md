@@ -92,6 +92,27 @@ core/store:
 M1 退出条件中的“加密、恢复、备份、迁移、审计全绿”已由上述单测覆盖；
 `integrity_check` 在 store 测试中返回 `ok`。
 
+### M2 真实领域与入口接线
+
+```text
+core/domains: assets 3 + plan 2 + overview 1 + runs 1 = 7 tests
+core/application: 3 tests（读命令、CRUD+审计、签到）
+apps/server: 6 tests（真实读接口、写 token 门禁、404/403）
+```
+
+已实测：
+
+- CLI 用真实 SQLite 创建资产，返回 id=1；`assets list --q 邮箱` 命中。
+- HTTP `/api/v1/{overview,assets,plan,security,agent/runs}` 返回真实行；`/assets` 返回 `items/nextCursor/total`。
+- MCP `tools/call -> overview.get` 经 `_meta["digilegacy/command"]` 映射到 `app.overview`，返回真实 envelope，不再伪造成功。
+- Web 在 `VITE_USE_MOCK=false` 下读取同一 API；资产搜索/状态筛选走服务端，分页用 `nextCursor` 追加。
+
+未完成边界：
+
+- Web 写入仍受 HTTP 写 token 和解锁流程阻塞；资产创建/更新目前走 CLI `--allow-write`。
+- 政策库、交付物、审核、演练、Job/SSE 未开始。
+- vault 解锁未接 server/Web；元数据读链路当前可读，敏感字段展示仍需解锁。
+
 ### Web
 
 ```text
@@ -103,10 +124,10 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         约 81.03 KB / 110 KB
-入口 raw        47.70 KB / 60 KB
+总 gzip         80.60 KB / 110 KB
+入口 raw        44.49 KB / 60 KB
 vendor raw      98.50 KB / 130 KB
-路由最大 raw    6.48 KB / 24 KB
+路由最大 raw    6.82 KB / 24 KB
 ```
 
 ### 运行态 smoke

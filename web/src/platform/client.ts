@@ -2,7 +2,7 @@ import { COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
 import type { AgentRuns, AssetsPage, Asset, Envelope, Overview, Plan, SecurityStatus } from "./types";
 
-const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 
 function traceId(): string {
@@ -33,6 +33,14 @@ async function invoke<T>(name: CommandName, args: Record<string, unknown> = {}):
   });
 
   const envelope = (await response.json()) as Envelope<T>;
+  if (!response.ok && envelope.success) {
+    return {
+      ...envelope,
+      success: false,
+      code: `HTTP_${response.status}`,
+      message: `Platform API 返回 HTTP ${response.status}`,
+    };
+  }
   return envelope;
 }
 
@@ -44,6 +52,6 @@ export const platformClient = {
   listAssets: (args: Record<string, unknown> = {}) => invoke<AssetsPage>(COMMANDS.assetsList, args),
   getAsset: (id: string) => invoke<Asset>(COMMANDS.assetsGet, { id }),
   getPlan: () => invoke<Plan>(COMMANDS.planGet),
-  listRuns: () => invoke<AgentRuns>(COMMANDS.agentRunsList),
+  listRuns: (args: Record<string, unknown> = {}) => invoke<AgentRuns>(COMMANDS.agentRunsList, args),
   getSecurity: () => invoke<SecurityStatus>(COMMANDS.securityStatus),
 };

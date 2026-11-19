@@ -7,12 +7,15 @@ import SectionCard from "@/shared/ui/SectionCard.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { COMMAND_NAMES } from "@/platform/generated/ipc";
 import { useI18n } from "@/platform/i18n";
+import { useResource } from "@/platform/useResource";
 import { useTheme } from "@/platform/theme";
+import { loadSecurity } from "./api";
 
 const route = useRoute();
 const router = useRouter();
 const { t, locale, setLocale } = useI18n();
 const { theme, setTheme } = useTheme();
+const { data: security, loading: securityLoading, error: securityError, reload: reloadSecurity } = useResource(loadSecurity);
 
 const sections = ["workspace", "appearance", "security", "data", "connections", "audit", "about"] as const;
 type Section = (typeof sections)[number];
@@ -30,7 +33,7 @@ function go(section: Section) {
   <div class="settings-page">
     <PageHeader eyebrow="SETTINGS / GLOBAL TOOLS" :title="t('settings.title')" :description="t('settings.description')">
       <template #actions>
-        <StatusPill tone="planned" :label="t('app.mode')" />
+        <StatusPill tone="ready" :label="t('app.mode')" />
       </template>
     </PageHeader>
 
@@ -88,7 +91,30 @@ function go(section: Section) {
         </SectionCard>
 
         <SectionCard v-else-if="active === 'security'" :title="t('settings.tab.security')" :subtitle="t('settings.tab.security.note')">
-          <div class="empty-note">{{ t("settings.tab.security.empty") }}</div>
+          <div v-if="securityLoading" class="empty-note">{{ t("common.loading") }}</div>
+          <div v-else-if="securityError" class="empty-note">{{ securityError }}</div>
+          <template v-else-if="security">
+            <div class="setting-row">
+              <span>{{ t("settings.security.locked") }}</span>
+              <StatusPill :tone="security.locked ? 'planned' : 'ready'" :label="security.locked ? t('settings.security.locked.yes') : t('settings.security.locked.no')" />
+            </div>
+            <div class="setting-row">
+              <span>{{ t("settings.security.recovery") }}</span>
+              <strong>{{ security.recoveryConfigured ? t("common.ready") : t("settings.security.notConfigured") }}</strong>
+            </div>
+            <div class="setting-row">
+              <span>{{ t("settings.security.keySource") }}</span>
+              <strong class="mono">{{ security.keySource === "passphrase" ? t("settings.security.key.passphrase") : security.keySource }}</strong>
+            </div>
+            <div class="setting-row">
+              <span>{{ t("settings.security.lastBackup") }}</span>
+              <strong class="mono">{{ security.lastBackupAt || t("settings.security.none") }}</strong>
+            </div>
+            <div class="setting-row">
+              <span>{{ t("settings.security.refresh") }}</span>
+              <button type="button" class="link-button" @click="reloadSecurity">{{ t("common.retry") }}</button>
+            </div>
+          </template>
         </SectionCard>
 
         <SectionCard v-else-if="active === 'data'" :title="t('settings.tab.data')" :subtitle="t('settings.tab.data.note')">
@@ -107,7 +133,7 @@ function go(section: Section) {
           <div class="about-grid">
             <div class="about-item">
               <span class="mono">{{ t("settings.about.version") }}</span>
-              <strong>0.7.0-m0</strong>
+              <strong>0.7.0-m2</strong>
             </div>
             <div class="about-item">
               <span class="mono">{{ t("settings.about.contracts") }}</span>

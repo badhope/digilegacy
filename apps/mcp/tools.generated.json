@@ -13,6 +13,9 @@
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "app.overview"
     }
   },
   {
@@ -56,6 +59,9 @@
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "assets.list"
     }
   },
   {
@@ -82,6 +88,9 @@
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "assets.get"
     }
   },
   {
@@ -98,6 +107,9 @@
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "plan.get"
     }
   },
   {
@@ -132,6 +144,9 @@
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "agent.runs.list"
     }
   },
   {
@@ -148,6 +163,9 @@
       "readOnlyHint": true,
       "destructiveHint": false,
       "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "security.status"
     }
   },
   {
@@ -186,6 +204,9 @@
       "readOnlyHint": false,
       "destructiveHint": false,
       "idempotentHint": false
+    },
+    "_meta": {
+      "digilegacy/command": "deliver.export"
     }
   }
 ]

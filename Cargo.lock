@@ -418,10 +418,25 @@ name = "digilegacy-agent"
 version = "0.7.0"
 
 [[package]]
+name = "digilegacy-application"
+version = "0.7.0"
+dependencies = [
+ "chrono",
+ "digilegacy-contracts",
+ "digilegacy-domains",
+ "digilegacy-foundation",
+ "digilegacy-security",
+ "digilegacy-store",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "digilegacy-cli"
 version = "0.7.0"
 dependencies = [
  "clap",
+ "digilegacy-application",
  "digilegacy-contracts",
  "digilegacy-foundation",
  "serde_json",
@@ -441,6 +456,13 @@ dependencies = [
 [[package]]
 name = "digilegacy-domains"
 version = "0.7.0"
+dependencies = [
+ "chrono",
+ "digilegacy-store",
+ "rusqlite",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "digilegacy-foundation"
@@ -459,6 +481,8 @@ version = "0.7.0"
 name = "digilegacy-mcp"
 version = "0.7.0"
 dependencies = [
+ "digilegacy-application",
+ "digilegacy-store",
  "serde_json",
 ]
 
@@ -492,8 +516,12 @@ name = "digilegacy-server"
 version = "0.7.0"
 dependencies = [
  "axum",
+ "digilegacy-application",
  "digilegacy-contracts",
+ "digilegacy-domains",
  "digilegacy-foundation",
+ "digilegacy-security",
+ "digilegacy-store",
  "serde",
  "serde_json",
  "tokio",

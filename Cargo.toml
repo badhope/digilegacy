@@ -6,6 +6,7 @@ members = [
   "core/security",
   "core/store",
   "core/domains",
+    "core/application",
   "core/integrations",
   "core/agent",
   "core/render",

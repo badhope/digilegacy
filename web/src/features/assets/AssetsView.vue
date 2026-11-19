@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -15,21 +15,42 @@ import { loadAssets } from "./api";
 
 const router = useRouter();
 const { t, locale } = useI18n();
-const { data, loading, error, reload } = useResource(loadAssets);
 const query = ref("");
 const status = ref<"all" | "active" | "archived">("all");
+const loadingMore = ref(false);
 
-const filtered = computed(() => {
-  const items = data.value?.items ?? [];
-  const keyword = query.value.trim().toLowerCase();
-  return items.filter((asset) => {
-    const statusMatch = status.value === "all" || asset.status === status.value;
-    const keywordMatch =
-      !keyword ||
-      [asset.name, asset.platform, asset.value, asset.note].some((value) => value.toLowerCase().includes(keyword));
-    return statusMatch && keywordMatch;
+const loadPage = () =>
+  loadAssets({
+    status: status.value,
+    limit: 50,
+    ...(query.value.trim() ? { q: query.value.trim() } : {}),
   });
+const { data, loading, error, reload } = useResource(loadPage);
+const items = computed(() => data.value?.items ?? []);
+const total = computed(() => data.value?.total ?? items.value.length);
+const nextCursor = computed(() => data.value?.nextCursor ?? null);
+
+let timer: ReturnType<typeof setTimeout> | undefined;
+watch([query, status], () => {
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(() => reload(), 250);
 });
+
+async function loadMore() {
+  if (!nextCursor.value || loadingMore.value) return;
+  loadingMore.value = true;
+  const envelope = await loadAssets({
+    status: status.value,
+    limit: 50,
+    cursor: nextCursor.value,
+  });
+  loadingMore.value = false;
+  if (!envelope.success || !envelope.data) return;
+  data.value = {
+    ...envelope.data,
+    items: [...items.value, ...envelope.data.items],
+  };
+}
 
 const kindKey = (kind: AssetKind) => `asset.kind.${kind}`;
 
@@ -48,7 +69,7 @@ function openAsset(asset: Asset) {
   <div class="assets-page">
     <PageHeader eyebrow="ASSETS / REGISTRY" :title="t('assets.title')" :description="t('assets.description')">
       <template #actions>
-        <StatusPill tone="planned" :label="t('app.mode')" />
+        <StatusPill tone="ready" :label="t('app.mode')" />
       </template>
     </PageHeader>
 
@@ -67,7 +88,7 @@ function openAsset(asset: Asset) {
 
     <ErrorState
       v-else-if="error"
-      :title="t('error.unsupported')"
+      :title="t('error.generic')"
       :message="error"
       :retry-label="t('common.retry')"
       @retry="reload"
@@ -87,10 +108,10 @@ function openAsset(asset: Asset) {
             <option value="archived">{{ t("common.archived") }}</option>
           </select>
         </label>
-        <span class="asset-count mono">{{ t("assets.count", { count: filtered.length }) }}</span>
+        <span class="asset-count mono">{{ t("assets.count", { count: total }) }}</span>
       </div>
 
-      <div v-if="filtered.length" class="asset-table-wrap">
+      <div v-if="items.length" class="asset-table-wrap">
         <table class="asset-table">
           <thead>
             <tr>
@@ -103,7 +124,7 @@ function openAsset(asset: Asset) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="asset in filtered" :key="asset.id" tabindex="0" @click="openAsset(asset)" @keydown.enter="openAsset(asset)">
+            <tr v-for="asset in items" :key="asset.id" tabindex="0" @click="openAsset(asset)" @keydown.enter="openAsset(asset)">
               <td>
                 <div class="asset-name">
                   <span class="asset-glyph"><AppIcon name="assets" :size="15" /></span>
@@ -128,7 +149,13 @@ function openAsset(asset: Asset) {
         </table>
       </div>
 
-      <EmptyState v-else :title="t('assets.table.empty')" :note="t('empty.note')" icon="assets">
+      <div v-if="nextCursor" class="load-more">
+        <AppButton variant="secondary" size="sm" :disabled="loadingMore" @click="loadMore">
+          {{ loadingMore ? t("common.loading") : t("common.loadMore") }}
+        </AppButton>
+      </div>
+
+      <EmptyState v-if="!items.length" :title="t('assets.table.empty')" :note="t('empty.note')" icon="assets">
         <template #action>
           <AppButton variant="secondary" size="sm" @click="query = ''; status = 'all'">{{ t("common.all") }}</AppButton>
         </template>
@@ -336,4 +363,10 @@ function openAsset(asset: Asset) {
     min-width: 720px;
   }
 }
+.load-more {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 4px;
+}
+
 </style>

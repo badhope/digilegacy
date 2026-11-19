@@ -82,10 +82,7 @@ impl PlatformError {
     }
 
     pub fn unsupported(feature: &str) -> Self {
-        Self::new(
-            "UNSUPPORTED",
-            format!("{feature} 尚未接入领域服务；M0 只提供契约与壳"),
-        )
+        Self::new("UNSUPPORTED", format!("{feature} 尚未接入平台用例层"))
     }
 
     pub fn cli_exit_code(&self) -> i32 {

@@ -1,16 +1,77 @@
-//! DigiLegacy MCP server — M0 skeleton.
+//! DigiLegacy MCP server — read/draft tools over the shared application layer.
 //!
-//! MCP exposes only read/draft tools generated from `contracts/tools.json`.
-//! `tools/call` is intentionally not connected to a domain handler in M0; it
-//! returns an MCP tool error, never a fake success.
+//! `tools/call` maps the generated tool manifest to its `human_equivalent`
+//! command and returns the real envelope inside MCP content. No fake success:
+//! failures set `isError: true` and include the platform error code.
 
+use digilegacy_application::Application;
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
+use std::sync::Arc;
 
 const TOOLS_JSON: &str = include_str!("../tools.generated.json");
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+struct Server {
+    app: Option<Arc<Application>>,
+    load_error: Option<String>,
+}
+
+impl Server {
+    fn new() -> Self {
+        match Application::from_env() {
+            Ok(app) => Self {
+                app: Some(Arc::new(app)),
+                load_error: None,
+            },
+            Err(error) => Self {
+                app: None,
+                load_error: Some(error),
+            },
+        }
+    }
+
+    fn tools(&self) -> Vec<Value> {
+        serde_json::from_str(TOOLS_JSON).unwrap_or_else(|_| Vec::new())
+    }
+
+    fn call(&self, name: &str, arguments: Value) -> Value {
+        let Some(app) = &self.app else {
+            return tool_content(
+                &format!(
+                    "平台数据层不可用：{}",
+                    self.load_error.as_deref().unwrap_or("unknown")
+                ),
+                true,
+            );
+        };
+        let tools = self.tools();
+        let Some(tool) = tools.iter().find(|tool| tool["name"] == name) else {
+            return tool_content(&format!("未知工具：{name}"), true);
+        };
+        let command = tool["_meta"]["digilegacy/command"]
+            .as_str()
+            .or_else(|| tool["human_equivalent"].as_str())
+            .unwrap_or(name);
+        match app.dispatch(command, arguments) {
+            Ok(data) => tool_content(
+                &serde_json::to_string_pretty(&data).unwrap_or_default(),
+                false,
+            ),
+            Err(error) => tool_content(
+                &serde_json::to_string_pretty(&json!({
+                    "code": error.code,
+                    "message": error.message,
+                }))
+                .unwrap_or_default(),
+                true,
+            ),
+        }
+    }
+}
+
 fn main() {
+    let server = Server::new();
     let stdin = io::stdin();
     let mut stdout = io::stdout();
     for line in stdin.lock().lines() {
@@ -42,22 +103,20 @@ fn main() {
                     }
                 }),
             ),
-            "notifications/initialized" => {
-                // Notification: no response is required.
-                continue;
-            }
+            "notifications/initialized" => continue,
             "ping" => success_response(id, json!({})),
-            "tools/list" => {
-                let tools: Value = serde_json::from_str(TOOLS_JSON).unwrap_or_else(|_| json!([]));
-                success_response(id, json!({ "tools": tools }))
-            }
+            "tools/list" => success_response(id, json!({ "tools": server.tools() })),
             "tools/call" => {
-                let name = request
-                    .get("params")
-                    .and_then(|params| params.get("name"))
+                let params = request.get("params").cloned().unwrap_or(Value::Null);
+                let name = params
+                    .get("name")
                     .and_then(Value::as_str)
                     .unwrap_or("unknown");
-                tool_error(id, name)
+                let arguments = params
+                    .get("arguments")
+                    .cloned()
+                    .unwrap_or_else(|| json!({}));
+                success_response(id, server.call(name, arguments))
             }
             "resources/list" => success_response(id, json!({ "resources": [] })),
             _ => error_response(id, -32601, "method not found"),
@@ -66,6 +125,13 @@ fn main() {
         let _ = writeln!(stdout, "{response}");
         let _ = stdout.flush();
     }
+}
+
+fn tool_content(text: &str, is_error: bool) -> Value {
+    json!({
+        "content": [{ "type": "text", "text": text }],
+        "isError": is_error
+    })
 }
 
 fn success_response(id: Value, result: Value) -> Value {
@@ -78,17 +144,4 @@ fn error_response(id: Value, code: i64, message: &str) -> Value {
         "id": id,
         "error": { "code": code, "message": message }
     })
-}
-
-fn tool_error(id: Value, name: &str) -> Value {
-    success_response(
-        id,
-        json!({
-            "content": [{
-                "type": "text",
-                "text": format!("工具 {name} 在 M0 只完成契约暴露；领域服务将在 M2/M5 接入。")
-            }],
-            "isError": true
-        }),
-    )
 }

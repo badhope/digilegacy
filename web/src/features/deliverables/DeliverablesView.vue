@@ -20,7 +20,7 @@ const kinds: Array<{ key: string; icon: IconName; tone: "planned" | "ready" }> =
   <div class="deliverables-page">
     <PageHeader eyebrow="DELIVERABLES / EXPORT" :title="t('deliverables.title')" :description="t('deliverables.description')">
       <template #actions>
-        <StatusPill tone="planned" :label="t('app.mode')" />
+        <StatusPill tone="ready" :label="t('app.mode')" />
       </template>
     </PageHeader>
 
@@ -32,7 +32,7 @@ const kinds: Array<{ key: string; icon: IconName; tone: "planned" | "ready" }> =
         </div>
         <h2>{{ t(kind.key) }}</h2>
         <p>{{ t("deliverables.readiness") }}</p>
-        <div class="deliverable-meta mono">M0 / CONTRACT</div>
+        <div class="deliverable-meta mono">M2 / CONTRACT</div>
       </article>
     </div>
 

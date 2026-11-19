@@ -17,8 +17,18 @@ const { t, locale } = useI18n();
 const { data, loading, error, reload } = useResource(loadPlan);
 
 const heirCount = computed(() => data.value?.heirs.length ?? 0);
+const triggerMode = computed(() => {
+  const mode = data.value?.trigger.mode ?? "";
+  return mode === "dms" ? t("planning.trigger.mode.dms") : mode;
+});
+const triggerStatus = computed(() => {
+  const status = data.value?.trigger.status ?? "";
+  const key = `planning.trigger.status.${status}`;
+  return t(key) === key ? status : t(key);
+});
 
 function formatDate(value: string): string {
+  if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return value;
   return new Intl.DateTimeFormat(locale.value, { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
@@ -29,7 +39,7 @@ function formatDate(value: string): string {
   <div class="planning-page">
     <PageHeader eyebrow="PLANNING / PEOPLE & TRIGGER" :title="t('planning.title')" :description="t('planning.description')">
       <template #actions>
-        <StatusPill tone="planned" :label="t('app.mode')" />
+        <StatusPill tone="ready" :label="t('app.mode')" />
       </template>
     </PageHeader>
 
@@ -43,7 +53,7 @@ function formatDate(value: string): string {
 
     <ErrorState
       v-else-if="error"
-      :title="t('error.unsupported')"
+      :title="t('error.generic')"
       :message="error"
       :retry-label="t('common.retry')"
       @retry="reload"
@@ -55,18 +65,19 @@ function formatDate(value: string): string {
           <div class="holder-block">
             <span class="holder-mark"><AppIcon name="shield" :size="21" /></span>
             <div>
-              <h3>{{ data.holder.name }}</h3>
+              <h3>{{ data.holder.name || t("planning.holder.empty") }}</h3>
               <p class="mono">{{ formatDate(data.holder.updatedAt) }}</p>
             </div>
           </div>
           <div class="plan-line">
             <span>{{ t("settings.workspace.mode") }}</span>
-            <StatusPill tone="planned" :label="t('app.mode')" />
+            <StatusPill tone="ready" :label="t('app.mode')" />
           </div>
         </SectionCard>
 
         <SectionCard :title="t('planning.heirs')" :subtitle="`${heirCount} ${t('overview.unit.people')}`">
-          <div class="heir-list">
+          <div v-if="!heirCount" class="heir-empty">{{ t("planning.heirs.empty") }}</div>
+          <div v-else class="heir-list">
             <div v-for="heir in data.heirs" :key="heir.id" class="heir-row">
               <span class="heir-avatar">{{ heir.name.slice(0, 1) }}</span>
               <span class="heir-copy">
@@ -81,7 +92,7 @@ function formatDate(value: string): string {
           <div class="trigger-chain">
             <div class="trigger-node active">
               <span class="node-dot" />
-              <span>{{ data.trigger.mode }}</span>
+              <span>{{ triggerMode }}</span>
             </div>
             <span class="trigger-line" />
             <div class="trigger-node">
@@ -91,12 +102,12 @@ function formatDate(value: string): string {
             <span class="trigger-line" />
             <div class="trigger-node">
               <span class="node-dot" />
-              <span>{{ data.trigger.status }}</span>
+              <span>{{ triggerStatus }}</span>
             </div>
           </div>
           <div class="trigger-foot">
             <AppIcon name="clock" :size="15" />
-            <span>{{ t("feature.scaffold.note") }}</span>
+            <span>{{ t("planning.trigger.note") }}</span>
           </div>
         </SectionCard>
       </div>
@@ -293,4 +304,10 @@ function formatDate(value: string): string {
     grid-template-columns: 1fr;
   }
 }
+.heir-empty {
+  padding: 18px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 </style>

@@ -1,0 +1,15 @@
+[package]
+name = "digilegacy-application"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+digilegacy-foundation = { path = "../foundation" }
+digilegacy-contracts = { path = "../contracts" }
+digilegacy-domains = { path = "../domains" }
+digilegacy-store = { path = "../store" }
+digilegacy-security = { path = "../security" }

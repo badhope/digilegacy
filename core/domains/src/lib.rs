@@ -6,6 +6,13 @@
 
 #![forbid(unsafe_code)]
 
+pub mod assets;
+pub mod overview;
+pub mod plan;
+pub mod runs;
+
+pub use assets::DomainError;
+
 pub const DOMAINS: &[(&str, &str)] = &[
     ("DOM-01", "assets"),
     ("DOM-02", "policy"),
@@ -16,4 +23,4 @@ pub const DOMAINS: &[(&str, &str)] = &[
     ("DOM-07", "drill"),
 ];
 
-pub const STATUS: &str = "planned";
+pub const STATUS: &str = "m2-assets-plan";

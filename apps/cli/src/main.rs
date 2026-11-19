@@ -1,24 +1,21 @@
-//! DigiLegacy CLI — M0 skeleton.
+//! DigiLegacy CLI — local entry point over the shared application layer.
 //!
-//! The CLI is a local entry point, not a second backend. It reads the same
-//! generated command manifest and dispatches through the same CommandBus.
-//! M0 exposes discovery + generic invoke; nested commands are generated help,
-//! then wired one by one in M2/M3.
+//! The CLI is not a second backend: every subcommand calls the same
+//! `Application` use case as HTTP. Writes require an explicit `--allow-write`
+//! because the CLI is the local privileged surface; HTTP writes still need a
+//! scoped token.
 
 mod generated;
 
 use clap::{Parser, Subcommand};
+use digilegacy_application::Application;
 use digilegacy_contracts as contracts;
-use digilegacy_foundation::{CommandBus, PlatformError};
+use digilegacy_foundation::{Envelope, PlatformError};
 use serde_json::{json, Value};
 use std::process::ExitCode;
 
 #[derive(Debug, Parser)]
-#[command(
-    name = "digilegacy-cli",
-    version,
-    about = "DigiLegacy platform CLI (M0 skeleton)"
-)]
+#[command(name = "digilegacy-cli", version, about = "DigiLegacy platform CLI")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -32,13 +29,116 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
-    /// Print a local health envelope.
-    Health,
-    /// Invoke one command through the shared CommandBus.
+    /// Print store and schema health.
+    Health {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Read the platform overview.
+    Overview {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Asset registry.
+    Assets {
+        #[command(subcommand)]
+        command: AssetsCommand,
+    },
+    /// Holder, heirs and trigger chain.
+    Plan {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Security status summary.
+    Security {
+        #[command(subcommand)]
+        command: SecurityCommand,
+    },
+    /// Agent run history.
+    Runs {
+        #[arg(long, default_value = "all")]
+        status: String,
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Invoke one command through the shared application layer.
     Invoke {
         name: String,
         #[arg(long, default_value = "{}")]
         args: String,
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum AssetsCommand {
+    /// List assets with server-side search and pagination.
+    List {
+        #[arg(long, default_value = "active")]
+        status: String,
+        #[arg(long, default_value = "")]
+        q: String,
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+        #[arg(long)]
+        cursor: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Read one asset.
+    Get {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Create one asset (local privileged surface).
+    Create {
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        kind: String,
+        #[arg(long, default_value = "")]
+        platform: String,
+        #[arg(long, default_value = "")]
+        value: String,
+        #[arg(long, default_value = "")]
+        note: String,
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Update one asset (local privileged surface).
+    Update {
+        id: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        kind: String,
+        #[arg(long, default_value = "")]
+        platform: String,
+        #[arg(long, default_value = "")]
+        value: String,
+        #[arg(long, default_value = "")]
+        note: String,
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum SecurityCommand {
+    /// Read lock/recovery/key-source summary.
+    Status {
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -51,6 +151,14 @@ fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
     };
+    let app = match Application::from_env() {
+        Ok(app) => app,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(5);
+        }
+    };
+
     match command {
         Commands::Registry { json: as_json } => {
             if as_json {
@@ -80,54 +188,150 @@ fn main() -> ExitCode {
             }
             ExitCode::SUCCESS
         }
-        Commands::Health => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&json!({
-                    "success": true,
-                    "code": "OK",
-                    "message": "ok",
-                    "data": { "status": "ok", "mode": "m0", "contracts": contracts::COMMANDS.len() },
-                    "traceId": digilegacy_foundation::trace_id(),
-                }))
-                .unwrap()
-            );
+        Commands::Health { json: as_json } => {
+            if as_json {
+                print_ok(app.health(), "ok");
+            } else {
+                println!(
+                    "ok · schema {} · {} tables",
+                    app.store().schema_version().unwrap_or(-1),
+                    app.store().table_count().unwrap_or(-1)
+                );
+            }
             ExitCode::SUCCESS
         }
-        Commands::Invoke { name, args } => {
+        Commands::Overview { json: as_json } => {
+            run(&app, "app.overview", json!({}), as_json, false)
+        }
+        Commands::Assets { command } => match command {
+            AssetsCommand::List {
+                status,
+                q,
+                limit,
+                cursor,
+                json: as_json,
+            } => run(
+                &app,
+                "assets.list",
+                json!({ "status": status, "q": q, "limit": limit, "cursor": cursor }),
+                as_json,
+                false,
+            ),
+            AssetsCommand::Get { id, json: as_json } => {
+                run(&app, "assets.get", json!({ "id": id }), as_json, false)
+            }
+            AssetsCommand::Create {
+                name,
+                kind,
+                platform,
+                value,
+                note,
+                allow_write,
+                json: as_json,
+            } => run(
+                &app,
+                "assets.create",
+                json!({
+                    "name": name, "kind": kind, "platform": platform,
+                    "value": value, "note": note
+                }),
+                as_json,
+                allow_write,
+            ),
+            AssetsCommand::Update {
+                id,
+                name,
+                kind,
+                platform,
+                value,
+                note,
+                allow_write,
+                json: as_json,
+            } => run(
+                &app,
+                "assets.update",
+                json!({
+                    "id": id, "name": name, "kind": kind, "platform": platform,
+                    "value": value, "note": note
+                }),
+                as_json,
+                allow_write,
+            ),
+        },
+        Commands::Plan { json: as_json } => run(&app, "plan.get", json!({}), as_json, false),
+        Commands::Security { command } => match command {
+            SecurityCommand::Status { json: as_json } => {
+                run(&app, "security.status", json!({}), as_json, false)
+            }
+        },
+        Commands::Runs {
+            status,
+            limit,
+            json: as_json,
+        } => run(
+            &app,
+            "agent.runs.list",
+            json!({ "status": status, "limit": limit }),
+            as_json,
+            false,
+        ),
+        Commands::Invoke {
+            name,
+            args,
+            allow_write,
+            json: as_json,
+        } => {
             let args: Value = match serde_json::from_str(&args) {
                 Ok(value) => value,
                 Err(error) => {
-                    let platform_error =
-                        PlatformError::invalid_args(format!("--args 不是合法 JSON: {error}"));
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&json!({
-                            "success": false,
-                            "code": platform_error.code,
-                            "message": platform_error.message,
-                            "data": null,
-                            "traceId": digilegacy_foundation::trace_id(),
-                        }))
-                        .unwrap()
-                    );
-                    return ExitCode::from(2);
+                    return fail(PlatformError::invalid_args(format!(
+                        "--args 不是合法 JSON: {error}"
+                    )));
                 }
             };
-            let bus = CommandBus::new();
-            let envelope = bus.dispatch(&name, args);
-            println!("{}", serde_json::to_string_pretty(&envelope).unwrap());
-            if envelope.success {
-                ExitCode::SUCCESS
-            } else {
-                ExitCode::from(error_exit_code(&envelope.code))
-            }
+            run(&app, &name, args, as_json, allow_write)
         }
     }
 }
 
-fn error_exit_code(code: &str) -> u8 {
-    digilegacy_contracts::find_error(code)
-        .map(|spec| spec.cli_exit.clamp(0, 255) as u8)
-        .unwrap_or(5)
+fn run(app: &Application, name: &str, args: Value, as_json: bool, allow_write: bool) -> ExitCode {
+    let spec = match contracts::find_command(name) {
+        Some(spec) => spec,
+        None => return fail(PlatformError::not_found(&format!("命令 {name}"))),
+    };
+    let permission = digilegacy_foundation::Permission::parse(spec.permission);
+    let needs_write = permission == Some(digilegacy_foundation::Permission::Write);
+    if needs_write && !allow_write {
+        return fail(PlatformError::new(
+            "FORBIDDEN",
+            "写命令需要 --allow-write；这是本地特权入口，HTTP 写入另需 token",
+        ));
+    }
+    match app.dispatch(name, args) {
+        Ok(data) => {
+            if as_json {
+                print_ok(data, "ok");
+            } else {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&data).unwrap_or_default()
+                );
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => fail(error),
+    }
+}
+
+fn print_ok(data: Value, message: &str) {
+    let envelope = Envelope::ok(data);
+    let mut value = serde_json::to_value(envelope).unwrap_or_else(|_| json!({}));
+    value["message"] = json!(message);
+    println!("{}", serde_json::to_string_pretty(&value).unwrap());
+}
+
+fn fail(error: PlatformError) -> ExitCode {
+    let envelope = Envelope::<Value>::err(error.clone());
+    println!("{}", serde_json::to_string_pretty(&envelope).unwrap());
+    ExitCode::from(error.cli_exit_code().clamp(0, 255) as u8)
 }

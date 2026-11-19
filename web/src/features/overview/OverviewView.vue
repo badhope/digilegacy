@@ -16,7 +16,7 @@ import type { ModuleStatus } from "@/platform/types";
 import { loadOverview } from "./api";
 
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { data, loading, error, reload } = useResource(loadOverview);
 
 const nextItems = computed(() => [
@@ -26,6 +26,17 @@ const nextItems = computed(() => [
 ]);
 
 const tone = (status: ModuleStatus) => (status === "ready" ? "ready" : status === "degraded" ? "degraded" : "planned");
+
+function formatTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return value;
+  return new Intl.DateTimeFormat(locale.value, {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
 </script>
 
 <template>
@@ -66,7 +77,7 @@ const tone = (status: ModuleStatus) => (status === "ready" ? "ready" : status ==
 
     <ErrorState
       v-else-if="error"
-      :title="t('error.unsupported')"
+      :title="t('error.generic')"
       :message="error"
       :retry-label="t('common.retry')"
       @retry="reload"
@@ -151,7 +162,7 @@ const tone = (status: ModuleStatus) => (status === "ready" ? "ready" : status ==
             </button>
           </div>
           <div class="next-footer">
-            <span class="mono">M0 / 3 ITEMS</span>
+            <span class="mono">M2 / 3 ITEMS</span>
             <span>{{ t("overview.next.subtitle") }}</span>
           </div>
         </SectionCard>
@@ -178,7 +189,7 @@ const tone = (status: ModuleStatus) => (status === "ready" ? "ready" : status ==
               <span class="activity-dot" />
               <div>
                 <p>{{ item.title }}</p>
-                <span class="mono">{{ item.at }}</span>
+                <span class="mono">{{ formatTime(item.at) }}</span>
               </div>
             </div>
           </div>

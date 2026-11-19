@@ -16,7 +16,7 @@ const { t } = useI18n();
         <span class="eyebrow">DIGILEGACY / LOCKED</span>
         <h1>{{ t("lock.title") }}</h1>
         <p>{{ t("lock.note") }}</p>
-        <StatusPill tone="planned" :label="t('app.mode')" />
+        <StatusPill tone="ready" :label="t('app.mode')" />
         <AppButton variant="primary" @click="unlockConsole()">
           {{ t("lock.action") }}
           <AppIcon name="arrow-right" :size="14" />

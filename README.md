@@ -24,12 +24,14 @@
 | 架构测试 / 性能基线 / CI / verify 脚本 | 已做完 |
 | 工程治理文档与模板 | 已做完 |
 | 安全内核 / 数据库 | 已做完（M1） |
-| 真实领域服务 | M2 接入 |
+| 真实领域服务 | 已接入（M2 资产/规划/触发/安全读链路 + 写用例） |
 | 桌面 Tauri 窗口与托盘 | M3/M5 |
 
-当前版本：`0.7.0-m1`。
+当前版本：`0.7.0-m2`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
+
+M2 已落地：`core/application` 用例层接 M1 Store；HTTP/CLI/MCP 共享同一套领域调用；资产列表/详情/创建/更新、规划、概览、安全摘要、签到、运行记录均读真实表；Web 默认走 Platform API，资产筛选改为服务端查询与游标分页。
 
 契约规模：**13 个命令、10 个工具、18 个 schema、19 个错误码**。
 
@@ -170,11 +172,11 @@ node tools/bench/web-budget.mjs
 ./tools/bench/core-bus.sh
 ```
 
-M1 基线：
+M2 基线：
 
-- Rust 测试：security 49、store 15（全仓 verify 通过）
-- Web 总 gzip 约 **81 KB**
-- 入口 chunk 约 **48 KB**，vendor 约 **98.5 KB**
+- Rust 测试：security 49、store 15、domains 7、application 3、server 6（全仓 verify 通过）
+- Web 总 gzip 约 **80.6 KB**
+- 入口 chunk 约 **44.5 KB**，vendor 约 **98.5 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线）
 
 ---

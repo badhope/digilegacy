@@ -59,7 +59,7 @@ function openRun(run: AgentRun) {
           {{ t("automation.approvals") }}
           <AppIcon name="arrow-right" :size="14" />
         </AppButton>
-        <StatusPill tone="planned" :label="t('app.mode')" />
+        <StatusPill tone="ready" :label="t('app.mode')" />
       </template>
     </PageHeader>
 
@@ -75,7 +75,7 @@ function openRun(run: AgentRun) {
 
     <ErrorState
       v-else-if="error"
-      :title="t('error.unsupported')"
+      :title="t('error.generic')"
       :message="error"
       :retry-label="t('common.retry')"
       @retry="reload"
