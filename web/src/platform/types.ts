@@ -121,6 +121,37 @@ export interface TriggerEventPage {
   total: number;
 }
 
+export type NotificationStatus = "pending" | "sent" | "failed" | "blocked";
+
+export interface NotificationItem {
+  id: string;
+  createdAt: string;
+  triggerEventId: number;
+  kind: string;
+  recipient: string;
+  recipientRole: string;
+  subject: string;
+  body: string;
+  status: NotificationStatus;
+  attempts: number;
+  lastError: string;
+  sentAt: string;
+}
+
+export interface NotificationPage {
+  items: NotificationItem[];
+  nextCursor: string | null;
+  total: number;
+}
+
+export interface NotificationSendResult {
+  configured: boolean;
+  sent: number;
+  failed: number;
+  pending: number;
+  errors: string[];
+}
+
 export interface Plan {
   holder: { name: string; updatedAt: string };
   heirs: Heir[];

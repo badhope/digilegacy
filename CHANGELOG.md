@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.9.0-m5a] - 2026-11-19
+
+### Added
+
+- 新增 `notification_outbox`（schema v15 / 30 表）：final 触发阶段持久化通知，唯一约束 `(trigger_event_id, recipient)`。
+- `core/domains/src/notify.rs`：收件人解析（紧急联系人/主继承人/执行人，邮箱优先）、去重、无接收人 `blocked`、pending/sent/failed 状态机。
+- `notifications.list/send`：HTTP/CLI/Web 接入；后台 worker 每 60 秒处理 pending；`retryFailed` 可将 failed 行重新排队；`DIGILEGACY_WEBHOOK_URL` + 可选 Bearer token。
+- Web 规划页“最终通知”发件箱：状态、失败原因、手动发送、未配置提示；CLI `notifications list/send`；MCP 只读列表。
+
+### Fixed
+
+- `POST /api/v1/notifications/send` 使用 `spawn_blocking` 执行 blocking webhook client，避免 Tokio 运行时 drop panic；实测发送成功。
+- 发送结果 `pending` 改为查询真实剩余量，不再受 50 条批次上限影响。
+- 诊断测试与 schema v15 / 30 表同步。
+- UI 里程碑标识更新为 M5；入口预算 76 → 80 KB，总 gzip 仍 115.42 / 118 KB。
+
+### Verification
+
+- `./tools/verify.sh` exit 0：**131 Rust + 10 Web**；契约 **33 命令 / 21 工具 / 45 schema / 19 错误码**；schema v15 / 30 表。
+- v14 数据库重启自动迁移 v15；final 评估生成 2 条通知；mock webhook 2 条成功并写审计；无 webhook 时 `configured=false`，无 panic。
+- Web 1920 桌面与 390px 移动端通知卡片无横向溢出。
+
 ## [0.8.9-m4i] - 2026-11-19
 
 ### Changed

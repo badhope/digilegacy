@@ -71,7 +71,7 @@ cargo test --workspace            OK
 - render：2 个
 - server：12 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突、Runtime 启动/详情）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
-- store：15 个（schema v14 / 29 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
+- store：15 个（schema v15 / 30 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
 - domains：17 个；application：19 个；agent：4 个；合计 123 个
 
 ### M1 安全与数据底座
@@ -99,7 +99,7 @@ core/domains: assets 3 + plan 2 + overview 1 + runs 1 + policy 3 = 10 tests
 core/application: 5 tests（读命令、CRUD+审计、签到、政策、交付）
 apps/server: 6 tests（真实读接口、写 token 门禁、404/403）
 core/render: 2 tests（纯文本转义、可信 body 页面壳）
-core/store: 15 tests（schema v14 / 29 表 / 迁移 / 加密 / 诊断）
+core/store: 15 tests（schema v15 / 30 表 / 迁移 / 加密 / 诊断）
 ```
 
 已实测：
@@ -444,7 +444,7 @@ vendor raw      101.88 KB / 130 KB
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，29 commands / 29 表 / schema v14 |
+| Server | `GET /api/v1/health` | `200 OK`，33 commands / 30 表 / schema v15 |
 | Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |
@@ -508,3 +508,14 @@ M0 可以判定“工程壳完成”的条件：
 - 移动端资产表隐藏平台/更新时间列，取消固定 720px 最小宽度，避免横向溢出。
 - 实测：共享编辑器在 `/assets` 与 `/assets/1` 均正常打开；日期渲染正常；创建/编辑逻辑未变。
 - `./tools/verify.sh` exit 0：127 Rust + 10 Web；契约仍 31/20/41/19；预算入口 75.51 KB / 76 KB、JS 94.48 KB / 97 KB、CSS 19.74 KB / 21 KB、总 114.22 KB / 118 KB。
+
+### M5-A 最终通知发件箱
+
+- schema v15 / 30 表新增 `notification_outbox`：`id/created_at/trigger_event_id/kind/recipient/recipient_role/subject/body/status/attempts/last_error/sent_at`，唯一约束 `(trigger_event_id, recipient)`。
+- `notify::enqueue_final` 只在 final 阶段生成；收件人取紧急联系人、主继承人、执行人，邮箱优先、其次电话/名称，按 recipient 去重；无接收人时写入 `blocked` 行并保留原因。
+- 状态机：`pending` → `sent` / `failed`；`blocked` 不投递。后台 worker 每 60 秒处理 pending；`DIGILEGACY_WEBHOOK_URL` 未配置时只入箱，手动发送返回 `configured=false + pending`。
+- HTTP `GET /api/v1/notifications` 只读；`POST /api/v1/notifications/send` 走写 token，服务端用 `spawn_blocking` 执行 blocking webhook client，避免 Tokio 运行时 drop panic；`retryFailed=true` 会先把 failed 行排回 pending。CLI `notifications list/send --retry-failed`；MCP 只暴露只读列表。
+- 实测：v14 数据库重启自动迁移到 v15 / 30 表；final 评估生成 2 条 pending；mock webhook 收到 2 条并置 `sent`，审计 `notification.send.auto` 记录 `sent=2;failed=0`；未配置 webhook 时手动发送返回 `configured=false/pending=1`，无 panic；failed 行经 `retryFailed` 回到 pending。
+- Web 规划页“最终通知”发件箱实测空态、2 条列表、状态 Pill、失败原因位置、发送按钮与未配置提示；1920 桌面与 390px 移动端均无横向溢出。
+- `./tools/verify.sh` exit 0：**131 Rust + 10 Web**；契约 **33 命令 / 21 工具 / 45 schema / 19 错误码**；schema v15 / 30 表。
+- 预算（因新增通知 i18n 与规划页逻辑，入口预算从 76 调到 80 KB）：入口 **77.91 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **95.50 / 97 KB**、CSS gzip **19.92 / 21 KB**、总 gzip **115.42 / 118 KB**。

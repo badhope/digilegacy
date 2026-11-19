@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use digilegacy_store::Store;
 
 use crate::assets::DomainError;
+use crate::notify;
 
 const MAX_DAYS: i64 = 365;
 const MAX_PAUSE_DAYS: i64 = 3650;
@@ -347,6 +348,10 @@ pub fn evaluate(store: &Store) -> Result<Trigger, DomainError> {
                             _ => "触发开始，进入第一等待阶段",
                         };
                         insert_event(conn, &now.to_rfc3339(), kind, stage, detail)?;
+                        if stage == 4 {
+                            let event_id = conn.last_insert_rowid();
+                            notify::enqueue_final(conn, &now.to_rfc3339(), event_id)?;
+                        }
                     }
                     conn.execute(
                         "UPDATE dms_config SET trigger_stage=?1 WHERE id=1",
@@ -519,6 +524,16 @@ mod tests {
         store
             .write(|conn| {
                 conn.execute("UPDATE dms_config SET enabled=1, check_in_interval_days=1, last_check_in='2026-01-01T00:00:00+00:00' WHERE id=1", [])?;
+                conn.execute(
+                    "INSERT INTO user_profile (full_name, emergency_contact_name, emergency_contact_email, created_at, updated_at)
+                     VALUES ('张三','李四','lisi@example.com','2026-01-01','2026-01-01')",
+                    [],
+                )?;
+                conn.execute(
+                    "INSERT INTO heirs (name, relation, email, created_at, updated_at)
+                     VALUES ('王五','子女','wangwu@example.com','2026-01-01','2026-01-01')",
+                    [],
+                )?;
                 Ok(())
             })
             .unwrap();
@@ -550,6 +565,12 @@ mod tests {
         )
         .unwrap();
         assert!(page.items.iter().any(|event| event.kind == "final"));
+        let notifications: i64 = store
+            .read(|conn| {
+                conn.query_row("SELECT count(*) FROM notification_outbox", [], |r| r.get(0))
+            })
+            .unwrap();
+        assert_eq!(notifications, 2);
     }
 
     #[test]

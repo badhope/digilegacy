@@ -638,6 +638,18 @@ const MOCK_DATA: Record<string, unknown> = {
     ],
     "nextCursor": null,
     "total": 3
+  },
+  "notifications.list": {
+    "items": [],
+    "nextCursor": null,
+    "total": 0
+  },
+  "notifications.send": {
+    "configured": false,
+    "sent": 0,
+    "failed": 0,
+    "pending": 0,
+    "errors": []
   }
 };
 

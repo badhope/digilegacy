@@ -37,18 +37,19 @@
 | 触发链完整生命周期 | 已做完（M4-G：`trigger.configure/evaluate/events.list`、四阶段等待、暂停/恢复、事件时间线） |
 | 资产发现与批量导入 | 已做完（M4-H：分类向导、36 条建议、已入库标记、同名同平台跳过） |
 | 前端整合与去重 | 已做完（M4-I：共享资产编辑器、统一日期格式、移动端表格收敛） |
+| 最终通知发件箱 | 已做完（M5-A：final 阶段持久化、收件人去重、Webhook 投递、失败可见、Web/CLI/HTTP/MCP 读取） |
 | Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
 | 后台任务队列 / 运行进度 | 已做完（M3-G：审批后台执行、`jobs.get`、运行耗时、Web 静默轮询） |
 | Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
 | 桌面客户端 | 已取消（平台只保留 Web / CLI / MCP / HTTP） |
 
-当前版本：`0.8.9-m4i`。
+当前版本：`0.9.0-m5a`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
 M2 已落地：`core/application` 用例层接 M1 Store；HTTP/CLI/MCP 共享同一套领域调用；资产列表/详情/创建/更新、规划、概览、安全摘要、签到、运行记录均读真实表；Web 默认走 Platform API，资产筛选改为服务端查询与游标分页。
 
-M2-B 已落地：政策库 schema v10 起步（当前 v14，29 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
+M2-B 已落地：政策库 schema v10 起步（当前 v15，30 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
 
 M3 已落地九段：政策溯源写、平台写令牌与资产新增/编辑、审计链查询、Agent 审批队列、确定性 Agent Runtime、M3-F 的规划器/取消/预算/重试、M3-G 的审批后台 Job 化/运行进度/耗时，M3-H 的交付物后台导出，以及 M3-I 的 SSE snapshot 事件流与排队任务取消。规划器接 OpenAI 兼容接口（默认 DeepSeek），只生成注册工具步骤；人工确认后再启动，写操作仍进审批。取消会把待审批置为 `expired`，重试会创建新运行并保留旧记录。HTTP 审批改为先落审批、再入 durable `jobs` 队列，批准请求毫秒级返回；Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏时暂停。
 
@@ -57,6 +58,8 @@ M4-G 触发链：schema v14 新增 `trigger_events` 与 `triggered_at/trigger_st
 M4-H 资产发现：`content/assets/catalog.json` 维护 8 个分类、36 条可解释建议；`assets.discover` 按分类/关键词返回建议并标记 `exists`，`assets.bulkCreate` 一次最多导入 50 项，同名同平台自动跳过。Web 新增 `/assets/discover` 三步向导（选分类 → 勾选 → 确认），CLI 新增 `assets discover` / `assets bulk-create --file`，HTTP 新增 `GET /api/v1/assets/discover` 与 `POST /api/v1/assets/bulk`。
 
 M4-I 前端整合：新增/编辑资产共用 `AssetEditor` 与 `model.ts`，日期时间统一走 `shared/format.ts`；资产详情去掉重复说明；资产页移除重复模式胶囊；移动端资产表隐藏平台/更新时间列，不再依赖 720px 横向滚动。
+
+M5-A 最终通知发件箱：schema v15 新增 `notification_outbox`；触发链只在 final 阶段入箱，按紧急联系人、主继承人和执行人去重，邮箱优先、其次电话/名称；没有接收人时写入 `blocked` 行而不是静默丢弃。投递走 `DIGILEGACY_WEBHOOK_URL`（可选 Bearer token），后台每 60 秒处理 pending，手动发送走 `POST /api/v1/notifications/send`（可选 `retryFailed` 重试失败行），HTTP 路径在 blocking 线程执行，避免阻塞 Tokio。Web 规划页显示最终通知、状态、失败原因与手动发送；CLI 提供 `notifications list/send`，MCP 只暴露只读列表。
 
 M4-E 规划签到：`plan.get` 补充 `lastCheckIn`/`nextCheckAt`，Web/CLI/HTTP 共用 `trigger.checkin`；规划页可直接完成签到，成功提示并静默刷新触发链，失败显示写令牌缺失或服务端错误。
 
@@ -109,7 +112,7 @@ core/
   foundation/      信封、错误、权限、CommandBus、trace id
   contracts/       生成后的命令/错误表
   security/        Vault 生命周期、恢复、备份、文件 KEK
-  store/           SQLCipher、schema v14、迁移、检查点、审计
+  store/           SQLCipher、schema v15、迁移、检查点、审计
   domains/         DOM-01..07 领域清单
   integrations/    邮件、云盘、LLM 等连接边界
   agent/           Run / Approval 状态机

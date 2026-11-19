@@ -1,0 +1,13 @@
+{
+  "title": "NotificationsSendInput",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "retryFailed": {
+      "type": "boolean",
+      "default": false,
+      "description": "重新排队 failed 行，再发送 pending"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

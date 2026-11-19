@@ -760,6 +760,54 @@
         "STORE_NOT_READY",
         "INTERNAL"
       ]
+    },
+    {
+      "name": "notifications.list",
+      "domain": "trigger",
+      "summary": "读取最终通知发件箱",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/notifications.list.input.json",
+      "output": "schemas/notifications.list.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "notifications list",
+        "http": "GET /api/v1/notifications",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "notifications.send",
+      "domain": "trigger",
+      "summary": "发送待发通知，可选重试失败行",
+      "permission": "write",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/notifications.send.input.json",
+      "output": "schemas/notifications.send.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "notifications send",
+        "http": "POST /api/v1/notifications/send",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "AUTH_REQUIRED",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
     }
   ]
 }

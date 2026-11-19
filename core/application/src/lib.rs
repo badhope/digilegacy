@@ -6,7 +6,7 @@
 #![forbid(unsafe_code)]
 
 use digilegacy_domains::{
-    approvals, assets, audit, discovery, overview, plan, policy, runs, usage, DomainError,
+    approvals, assets, audit, discovery, notify, overview, plan, policy, runs, usage, DomainError,
 };
 use serde_json::{json, Value};
 
@@ -19,6 +19,23 @@ use digilegacy_store::Store;
 use std::sync::Arc;
 
 pub const STATUS: &str = "m2-read-write-core";
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NotificationSendResult {
+    configured: bool,
+    sent: i64,
+    failed: i64,
+    pending: i64,
+    errors: Vec<String>,
+}
+
+fn webhook_url() -> Option<String> {
+    std::env::var("DIGILEGACY_WEBHOOK_URL")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
 
 #[derive(Clone)]
 pub struct Application {
@@ -87,6 +104,8 @@ impl Application {
             "trigger.configure" => self.configure_trigger(args),
             "trigger.evaluate" => self.evaluate_trigger(),
             "trigger.events.list" => self.trigger_events(args),
+            "notifications.list" => self.notifications_list(args),
+            "notifications.send" => self.notifications_send(args),
             "deliver.export" => self.deliver_export(args),
             "security.status" => self.security_status(),
             "agent.runs.list" => self.runs_list(args),
@@ -346,6 +365,157 @@ impl Application {
             .map_err(map_domain)
     }
 
+    pub fn notifications_list(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: notify::ListInput = parse(args)?;
+        notify::list(&self.store, &input)
+            .map(|page| json!(page))
+            .map_err(map_domain)
+    }
+
+    fn pending_notification_count(&self) -> i64 {
+        notify::list(
+            &self.store,
+            &notify::ListInput {
+                status: Some("pending".to_string()),
+                cursor: None,
+                limit: Some(1),
+            },
+        )
+        .map(|page| page.total)
+        .unwrap_or(0)
+    }
+
+    /// Flush pending notifications through the configured HTTP webhook.
+    /// The outbox is always authoritative; a failed send stays visible.
+    pub fn notifications_send(&self, args: Value) -> Result<Value, PlatformError> {
+        let retried = if args
+            .get("retryFailed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+        {
+            notify::retry_failed(&self.store).map_err(map_domain)?
+        } else {
+            0
+        };
+        let result = self.deliver_notifications();
+        if result.configured {
+            self.audit(
+                "notification.send",
+                &format!(
+                    "sent={};failed={};retried={retried}",
+                    result.sent, result.failed
+                ),
+            )?;
+        }
+        Ok(json!(result))
+    }
+
+    fn deliver_notifications(&self) -> NotificationSendResult {
+        let Some(url) = webhook_url() else {
+            let pending = self.pending_notification_count();
+            return NotificationSendResult {
+                configured: false,
+                sent: 0,
+                failed: 0,
+                pending,
+                errors: vec![],
+            };
+        };
+        let client = match reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+        {
+            Ok(client) => client,
+            Err(error) => {
+                return NotificationSendResult {
+                    configured: true,
+                    sent: 0,
+                    failed: 0,
+                    pending: 0,
+                    errors: vec![error.to_string()],
+                }
+            }
+        };
+        let pending = match notify::pending(&self.store) {
+            Ok(items) => items,
+            Err(error) => {
+                return NotificationSendResult {
+                    configured: true,
+                    sent: 0,
+                    failed: 0,
+                    pending: 0,
+                    errors: vec![error.to_string()],
+                }
+            }
+        };
+        let mut sent = 0;
+        let mut failed = 0;
+        let mut errors = Vec::new();
+        for item in pending {
+            let payload = json!({
+                "event": "digilegacy.trigger.final",
+                "id": item.id,
+                "kind": item.kind,
+                "recipient": item.recipient,
+                "recipientRole": item.recipient_role,
+                "subject": item.subject,
+                "body": item.body,
+                "createdAt": item.created_at,
+                "triggerEventId": item.trigger_event_id,
+            });
+            let mut request = client.post(&url).json(&payload);
+            if let Ok(token) = std::env::var("DIGILEGACY_WEBHOOK_TOKEN") {
+                if !token.is_empty() {
+                    request = request.bearer_auth(token);
+                }
+            }
+            match request.send() {
+                Ok(response) if response.status().is_success() => {
+                    let _ = notify::mark_sent(&self.store, &item.id);
+                    sent += 1;
+                }
+                Ok(response) => {
+                    let message = format!("HTTP {}", response.status());
+                    let _ = notify::mark_failed(&self.store, &item.id, &message);
+                    failed += 1;
+                    errors.push(format!("{}: {}", item.id, message));
+                }
+                Err(error) => {
+                    let _ = notify::mark_failed(&self.store, &item.id, &error.to_string());
+                    failed += 1;
+                    errors.push(format!("{}: {}", item.id, error));
+                }
+            }
+        }
+        let remaining = self.pending_notification_count();
+        NotificationSendResult {
+            configured: true,
+            sent,
+            failed,
+            pending: remaining,
+            errors,
+        }
+    }
+
+    /// Background tick for the outbox. It does nothing until a webhook is set.
+    pub fn notification_tick(&self) {
+        let result = self.deliver_notifications();
+        if result.configured && (result.sent > 0 || result.failed > 0) {
+            let _ = self.audit(
+                "notification.send.auto",
+                &format!("sent={};failed={}", result.sent, result.failed),
+            );
+        }
+    }
+
+    pub fn spawn_notification_worker(&self) {
+        let app = self.clone();
+        std::thread::spawn(move || loop {
+            app.notification_tick();
+            std::thread::sleep(std::time::Duration::from_secs(60));
+        });
+    }
+
     pub fn deliver_export(&self, args: Value) -> Result<Value, PlatformError> {
         let kind = args
             .get("kind")
@@ -492,6 +662,9 @@ mod tests {
         assert_eq!(data["trigger"]["days"], 30);
         let data = app.dispatch("assets.list", json!({})).unwrap();
         assert_eq!(data["total"], 0);
+        let data = app.dispatch("notifications.list", json!({})).unwrap();
+        assert_eq!(data["total"], 0);
+        assert!(data["items"].as_array().unwrap().is_empty());
     }
 
     #[test]

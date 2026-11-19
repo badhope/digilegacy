@@ -57,6 +57,7 @@ async fn main() {
     );
     jobs::spawn_worker((*application).clone());
     application.spawn_trigger_worker();
+    application.spawn_notification_worker();
     let write_token = std::env::var("DIGILEGACY_API_TOKEN")
         .ok()
         .filter(|token| !token.trim().is_empty());
@@ -95,6 +96,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/trigger", patch(trigger_configure))
         .route("/api/v1/trigger/evaluate", post(trigger_evaluate))
         .route("/api/v1/trigger/events", get(trigger_events))
+        .route("/api/v1/notifications", get(notifications_list))
+        .route("/api/v1/notifications/send", post(notifications_send))
         .route("/api/v1/policies", get(policies_list))
         .route("/api/v1/policies/{id}", get(policy_get))
         .route(
@@ -217,6 +220,34 @@ async fn trigger_configure(
 
 async fn trigger_evaluate(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
     dispatch(&state, "trigger.evaluate", json!({}), Some(&headers))
+}
+
+async fn notifications_list(
+    State(state): State<AppState>,
+    Query(query): Query<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "notifications.list", query, None)
+}
+
+async fn notifications_send(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Option<Json<Value>>,
+) -> Response {
+    let input = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    // HTTP delivery uses a blocking client; never build/drop it on the Tokio runtime.
+    match tokio::task::spawn_blocking(move || {
+        let (status, Json(envelope)) =
+            dispatch(&state, "notifications.send", input, Some(&headers));
+        (status, envelope)
+    })
+    .await
+    {
+        Ok((status, envelope)) => (status, Json(envelope)).into_response(),
+        Err(error) => {
+            error_response(PlatformError::new("INTERNAL", error.to_string())).into_response()
+        }
+    }
 }
 
 async fn trigger_events(
@@ -544,6 +575,14 @@ mod tests {
         let spec = contracts::find_command("assets.list").expect("assets.list");
         assert_eq!(spec.http, "GET /api/v1/assets");
         assert_eq!(spec.permission, "read");
+    }
+
+    #[test]
+    fn notifications_list_is_available_over_http() {
+        let app = test_app();
+        let (status, envelope) = dispatch(&app, "notifications.list", json!({}), None);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(envelope.data.as_ref().unwrap()["total"], 0);
     }
 
     #[test]

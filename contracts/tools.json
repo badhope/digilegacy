@@ -360,6 +360,24 @@
       ],
       "mcp": true,
       "rate_limit": "60/min"
+    },
+    {
+      "name": "notifications.list",
+      "title": "读取通知发件箱",
+      "description": "按状态与游标读取触发链最终通知的收件人、发送状态和失败原因；只读。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/notifications.list.input.json",
+      "output_schema": "schemas/notifications.list.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "notifications.list",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "60/min"
     }
   ]
 }

@@ -259,6 +259,22 @@ pub const COMMANDS: &[CommandSpec] = &[
         requires_unlock: false,
         audit: false,
     },
+    CommandSpec {
+        name: "notifications.list",
+        domain: "trigger",
+        permission: "read",
+        http: "GET /api/v1/notifications",
+        requires_unlock: false,
+        audit: false,
+    },
+    CommandSpec {
+        name: "notifications.send",
+        domain: "trigger",
+        permission: "write",
+        http: "POST /api/v1/notifications/send",
+        requires_unlock: false,
+        audit: true,
+    },
 ];
 
 pub fn find(name: &str) -> Option<&'static CommandSpec> {

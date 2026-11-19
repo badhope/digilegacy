@@ -54,6 +54,11 @@ enum Commands {
         #[command(subcommand)]
         command: TriggerCommand,
     },
+    /// Trigger final notification outbox.
+    Notifications {
+        #[command(subcommand)]
+        command: NotificationsCommand,
+    },
     /// Generate a deliverable export.
     Deliver {
         #[command(subcommand)]
@@ -101,6 +106,30 @@ enum Commands {
         args: String,
         #[arg(long)]
         allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum NotificationsCommand {
+    /// List outbox entries.
+    List {
+        #[arg(long, default_value = "all")]
+        status: String,
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+        #[arg(long)]
+        cursor: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Flush pending entries through DIGILEGACY_WEBHOOK_URL.
+    Send {
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long)]
+        retry_failed: bool,
         #[arg(long)]
         json: bool,
     },
@@ -588,6 +617,31 @@ fn main() -> ExitCode {
                 json!({ "cursor": if cursor.is_empty() { None } else { Some(cursor) }, "limit": limit }),
                 as_json,
                 false,
+            ),
+        },
+        Commands::Notifications { command } => match command {
+            NotificationsCommand::List {
+                status,
+                limit,
+                cursor,
+                json: as_json,
+            } => run(
+                &app,
+                "notifications.list",
+                json!({ "status": status, "limit": limit, "cursor": cursor }),
+                as_json,
+                false,
+            ),
+            NotificationsCommand::Send {
+                allow_write,
+                retry_failed,
+                json: as_json,
+            } => run(
+                &app,
+                "notifications.send",
+                json!({ "retryFailed": retry_failed }),
+                as_json,
+                allow_write,
             ),
         },
         Commands::Deliver { command } => match command {

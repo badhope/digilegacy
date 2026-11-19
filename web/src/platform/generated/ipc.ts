@@ -35,6 +35,8 @@ export const COMMANDS = {
   triggerConfigure: "trigger.configure",
   triggerEvaluate: "trigger.evaluate",
   triggerEventsList: "trigger.events.list",
+  notificationsList: "notifications.list",
+  notificationsSend: "notifications.send",
 } as const;
 
 export type CommandName = (typeof COMMANDS)[keyof typeof COMMANDS];
@@ -71,6 +73,8 @@ export const COMMAND_PERMISSION: Record<CommandName, Permission> = {
   "trigger.configure": "write",
   "trigger.evaluate": "write",
   "trigger.events.list": "read",
+  "notifications.list": "read",
+  "notifications.send": "write",
 };
 
 export const COMMAND_HTTP: Record<CommandName, string> = {
@@ -105,6 +109,8 @@ export const COMMAND_HTTP: Record<CommandName, string> = {
   "trigger.configure": "PATCH /api/v1/trigger",
   "trigger.evaluate": "POST /api/v1/trigger/evaluate",
   "trigger.events.list": "GET /api/v1/trigger/events",
+  "notifications.list": "GET /api/v1/notifications",
+  "notifications.send": "POST /api/v1/notifications/send",
 };
 
 export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
@@ -139,6 +145,8 @@ export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
   "trigger.configure": true,
   "trigger.evaluate": true,
   "trigger.events.list": false,
+  "notifications.list": false,
+  "notifications.send": false,
 };
 
 export const COMMAND_AUDIT: Record<CommandName, boolean> = {
@@ -173,6 +181,8 @@ export const COMMAND_AUDIT: Record<CommandName, boolean> = {
   "trigger.configure": true,
   "trigger.evaluate": true,
   "trigger.events.list": false,
+  "notifications.list": false,
+  "notifications.send": true,
 };
 
 export const COMMAND_TOOL: Record<CommandName, string | null> = {
@@ -207,6 +217,8 @@ export const COMMAND_TOOL: Record<CommandName, string | null> = {
   "trigger.configure": null,
   "trigger.evaluate": null,
   "trigger.events.list": "trigger.events.list",
+  "notifications.list": "notifications.list",
+  "notifications.send": null,
 };
 
 export const COMMAND_NAMES = Object.values(COMMANDS);

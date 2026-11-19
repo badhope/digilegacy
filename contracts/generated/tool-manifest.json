@@ -315,5 +315,21 @@
     "outputSchema": "schemas/trigger.events.output.json",
     "rateLimit": "60/min",
     "bulkThreshold": null
+  },
+  {
+    "name": "notifications.list",
+    "command": "notifications.list",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/notifications.list.input.json",
+    "outputSchema": "schemas/notifications.list.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
   }
 ]

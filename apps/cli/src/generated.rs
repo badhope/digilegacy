@@ -32,6 +32,8 @@ pub const COMMAND_LINES: &[&str] = &[
     "trigger configure",
     "trigger evaluate",
     "trigger events",
+    "notifications list",
+    "notifications send",
 ];
 
 pub fn print_help() {

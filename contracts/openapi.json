@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.8.9-m4i",
+    "version": "0.9.0-m5a",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -1949,6 +1949,124 @@
           }
         }
       }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "operationId": "notifications.list",
+        "summary": "读取最终通知发件箱",
+        "tags": [
+          "trigger"
+        ],
+        "x-command": "notifications.list",
+        "x-permission": "read",
+        "x-requires-unlock": false,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/notifications.list.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/send": {
+      "post": {
+        "operationId": "notifications.send",
+        "summary": "发送待发通知，可选重试失败行",
+        "tags": [
+          "trigger"
+        ],
+        "x-command": "notifications.send",
+        "x-permission": "write",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/notifications.send.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/notifications.send.input"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2759,6 +2877,170 @@
           },
           "generatedAt": {
             "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "notifications.list.input": {
+        "title": "NotificationsListInput",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "all",
+              "pending",
+              "sent",
+              "failed",
+              "blocked"
+            ]
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "notifications.list.output": {
+        "title": "NotificationPage",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "nextCursor",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "createdAt",
+                "triggerEventId",
+                "kind",
+                "recipient",
+                "recipientRole",
+                "subject",
+                "body",
+                "status",
+                "attempts",
+                "lastError",
+                "sentAt"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "triggerEventId": {
+                  "type": "integer"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "recipient": {
+                  "type": "string"
+                },
+                "recipientRole": {
+                  "type": "string"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "sent",
+                    "failed",
+                    "blocked"
+                  ]
+                },
+                "attempts": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "lastError": {
+                  "type": "string"
+                },
+                "sentAt": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "notifications.send.input": {
+        "title": "NotificationsSendInput",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "retryFailed": {
+            "type": "boolean",
+            "default": false,
+            "description": "重新排队 failed 行，再发送 pending"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "notifications.send.output": {
+        "title": "NotificationSendResult",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "configured",
+          "sent",
+          "failed",
+          "pending",
+          "errors"
+        ],
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "sent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

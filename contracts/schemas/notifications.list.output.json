@@ -1,0 +1,33 @@
+{
+  "title": "NotificationPage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items", "nextCursor", "total"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "createdAt", "triggerEventId", "kind", "recipient", "recipientRole", "subject", "body", "status", "attempts", "lastError", "sentAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "createdAt": { "type": "string" },
+          "triggerEventId": { "type": "integer" },
+          "kind": { "type": "string" },
+          "recipient": { "type": "string" },
+          "recipientRole": { "type": "string" },
+          "subject": { "type": "string" },
+          "body": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "sent", "failed", "blocked"] },
+          "attempts": { "type": "integer", "minimum": 0 },
+          "lastError": { "type": "string" },
+          "sentAt": { "type": "string" }
+        }
+      }
+    },
+    "nextCursor": { "type": ["string", "null"] },
+    "total": { "type": "integer", "minimum": 0 }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

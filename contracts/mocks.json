@@ -636,6 +636,18 @@
       "created": 2,
       "skipped": 0,
       "items": []
+    },
+    "notifications.list": {
+      "items": [],
+      "nextCursor": null,
+      "total": 0
+    },
+    "notifications.send": {
+      "configured": false,
+      "sent": 0,
+      "failed": 0,
+      "pending": 0,
+      "errors": []
     }
   }
 }

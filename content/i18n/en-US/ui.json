@@ -1,7 +1,7 @@
 {
   "app.name": "DigiLegacy",
   "app.tagline": "Digital legacy platform",
-  "app.mode": "M4 live data",
+  "app.mode": "M5 live data",
   "nav.overview": "Overview",
   "nav.assets": "Assets",
   "nav.planning": "Planning",
@@ -149,7 +149,7 @@
   "error.unsupported": "This capability is not connected yet",
   "error.generic": "Request failed. Try again later.",
   "app.workspace": "Single workspace",
-  "app.workspace.note": "M4 · API platform",
+  "app.workspace.note": "M5 · API platform",
   "topbar.menu": "Menu",
   "agent.drawer.title": "Agent workbench",
   "agent.drawer.subtitle": "Read tools are ready; writes require approval.",
@@ -437,5 +437,18 @@
   "assets.discover.skippedLabel": "Skipped",
   "assets.discover.addMore": "Discover more",
   "assets.discover.viewAssets": "View assets",
-  "common.remove": "Remove"
+  "common.remove": "Remove",
+  "planning.notifications.title": "Final notifications",
+  "planning.notifications.subtitle": "The final trigger stage writes to the outbox; the platform sends when a webhook is configured, and failed rows can be retried.",
+  "planning.notifications.count": "Latest {count}",
+  "planning.notifications.send": "Send pending",
+  "planning.notifications.sending": "Sending…",
+  "planning.notifications.sent": "Sent {sent}, failed {failed}, remaining {pending}",
+  "planning.notifications.notConfigured": "Webhook not configured: notifications stay in the outbox until DIGILEGACY_WEBHOOK_URL is set.",
+  "planning.notifications.empty": "No final notifications yet",
+  "planning.notifications.noRecipient": "No recipient configured",
+  "planning.notification.status.pending": "Pending",
+  "planning.notification.status.sent": "Sent",
+  "planning.notification.status.failed": "Failed",
+  "planning.notification.status.blocked": "No recipient"
 }

@@ -147,7 +147,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M0**：`core/security`、`core/store` 只有边界；Web 使用 mock；不声称已加密。
 - **M1**：从旧桌面端按模块迁入加密、Vault、恢复、备份、DB，不重写算法；迁移完成后旧源码已删除。
 - **M2**：`core/application` 统一用例分派；入口只做权限/传输；Web 读真实 API，资产筛选服务端化。
-- **M2-B**：schema v10 起步（当前 v11，27 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
+- **M2-B**：schema v10 起步（当前 v15，30 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
 - **M3 第一切片**：`policies.provenance.set` 允许 `unverified/source_cited/verified/disputed` 四态，来源为空回退官方 URL，写 `policy_provenance` 并追加审计 `policy.provenance.set`；HTTP `PATCH /api/v1/policies/{id}/provenance`，CLI `policies provenance`，Web 在详情内编辑。
 - **M3-B**：HTTP `write` Bearer token（`DIGILEGACY_API_TOKEN`）；Web 连接设置存 `sessionStorage` 并只对 `write` 命令附加；资产新增/编辑表单接 `assets.create/update`，写后刷新列表并留审计。
 - **M3-C**：`audit.list` 读审计链（游标 + 类型过滤），HTTP `GET /api/v1/audit`，CLI `audit list`，Web 设置审计页显示时间/类型/对象/结果/hash 前缀。
@@ -159,6 +159,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M4-G**：schema v14 新增 `trigger_events` 与 `dms_config.triggered_at/trigger_stage`。`trigger.configure` 管开关、间隔和暂停；`trigger.evaluate` 按 stage1/2/3 等待期推进并幂等写事件；`trigger.checkin` 清空触发状态；`trigger.events.list` 提供时间线。Web 规划页接配置、暂停/恢复、评估和事件；HTTP/CLI/MCP 共用同一用例；server 启动 30 分钟自动评估线程，仅在状态/阶段变化时写 `trigger.evaluate.auto` 审计。
 - **M4-H**：资产发现与批量导入。`content/assets/catalog.json` 是 8 分类/36 建议的静态目录；`assets.discover` 读取目录并按 name+platform 标记 `exists`，`assets.bulkCreate` 预校验后逐项查重、最多 50 项；Web `/assets/discover` 三步向导，CLI `assets discover` / `assets bulk-create`，HTTP `GET /api/v1/assets/discover` / `POST /api/v1/assets/bulk`。schema 不变。
 - **M4-I**：前端整合。资产新增/编辑共用 `AssetEditor` 与 `model.ts`，日期/时间统一走 `shared/format.ts`；详情移除重复说明，资产页移除重复模式胶囊，移动端表格隐藏次要列并取消固定 720px 宽度。
+- **M5-A**：schema v15 新增 `notification_outbox`（30 表）。触发链只在 final 阶段调用 `notify::enqueue_final`，按紧急联系人、主继承人、执行人去重，邮箱优先、其次电话/名称；无接收人时写 `blocked` 行。`notifications.list` 只读分页；`notifications.send` 通过 `DIGILEGACY_WEBHOOK_URL` 投递 pending，支持可选 Bearer token，后台 60 秒 worker 自动处理，失败写 `last_error` 并保留可见状态。HTTP 发送在 `spawn_blocking` 中执行，避免 reqwest blocking client 落入 Tokio 运行时。Web 规划页展示最终通知、状态、失败原因和手动发送；CLI `notifications list/send`，MCP 仅暴露只读列表。
 - **M4-F**：删除 `legacy/` 旧应用与 `apps/desktop` 空壳，工作区收敛为 12 个成员；平台只保留 server/CLI/MCP/Web 入口。旧备份导入 `legacy_import` 作为迁移能力保留。
 - **M4-E**：`plan.get` 返回 `trigger.lastCheckIn/nextCheckAt`；`trigger.checkin` 由 Web、CLI、HTTP 共用，写入 `check_in_log` 与 `dms_config.last_check_in`，审计后刷新触发链。规划页提供签到按钮、状态提示与上次/下次签到时间。
 - **M4-D**：schema v13 给 `agent_run_log` 增加 `cancel_requested`。`agent.runs.cancel` 对 running 写 `cancelling` 并置位，执行器在步骤边界检查并收口；未执行步骤标记 `cancelled`，已完成步骤保留；`succeeded` 落库带取消条件保护。Web 状态增加 `cancelling`，取消按钮在取消中禁用。
@@ -166,7 +167,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M4-B**：`agent.usage.summary` 按 `days=1..90` 汇总 `agent_plan_log` 的 token/成本与 `agent_run_log` 的运行数；token 只读计划表，运行数单独读，避免运行继承 token 双计。输出 `totals`、`byDay`、`byModel`，HTTP `GET /api/v1/agent/usage`，CLI `usage summary`，Web 自动化页展示近 30 天。
 - **M4-A**：`agent_plan_log`（schema v12，28 表）记录每次规划调用的模型、输入/输出 token、成本与定价状态；`agent.runs.plan` 返回 `planId`/`usage`，`agent.runs.start` 通过 `planId` 继承到 `agent_run_log`，`agent.runs.list/get` 返回真实 `tokens`、`costMicros` 与 `usagePriced`。成本单价由 `DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION` 与 `..._OUTPUT_...` 配置（每百万 token 的微元），未配置时只记 token、成本标记为未定价，不伪造金额。
 - **M3-I**：`GET /api/v1/events?runId=` 或 `?jobId=` 提供 SSE `snapshot` 流，服务端 500ms 读一次当前状态并只在变化时推送，15s keepalive；Web 运行详情与交付页优先用 `EventSource`，连接失败自动回退 1.5s 轮询。`jobs.cancel` 只允许取消 `queued` 任务，置 `cancelled`/`CANCELLED` 并写 `job.cancel` 审计；运行中或终态返回 `CONFLICT`。
-- **数据归属**：单工作区抽象保留 `workspaces`，29 张表按领域拆；资产与政策各维护一份事实。
+- **数据归属**：单工作区抽象保留 `workspaces`，30 张表按领域拆；资产与政策各维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。
 

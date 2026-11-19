@@ -12,7 +12,7 @@ import { formatDate } from "@/shared/format";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import { platformClient } from "@/platform/client";
-import type { TriggerEvent } from "@/platform/types";
+import type { NotificationItem, TriggerEvent } from "@/platform/types";
 import { loadPlan } from "./api";
 
 const router = useRouter();
@@ -41,6 +41,11 @@ const triggerNotice = ref("");
 const events = ref<TriggerEvent[]>([]);
 const eventsLoading = ref(false);
 const eventsError = ref("");
+const notifications = ref<NotificationItem[]>([]);
+const notificationsLoading = ref(false);
+const notificationsError = ref("");
+const notificationsNotice = ref("");
+const notifying = ref(false);
 
 watch(
   data,
@@ -69,7 +74,61 @@ async function loadEvents() {
   }
 }
 
-onMounted(loadEvents);
+async function loadNotifications() {
+  notificationsLoading.value = true;
+  notificationsError.value = "";
+  try {
+    const envelope = await platformClient.listNotifications({ limit: 10 });
+    if (!envelope.success || !envelope.data) {
+      notificationsError.value = envelope.message || envelope.code;
+      return;
+    }
+    notifications.value = envelope.data.items;
+  } catch (cause) {
+    notificationsError.value = cause instanceof Error ? cause.message : "notifications failed";
+  } finally {
+    notificationsLoading.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadEvents();
+  void loadNotifications();
+});
+
+function notificationStatus(status: string): string {
+  const key = `planning.notification.status.${status}`;
+  return t(key) === key ? status : t(key);
+}
+
+function notificationTone(status: string): "ready" | "planned" | "danger" | "warn" {
+  if (status === "sent") return "ready";
+  if (status === "failed") return "danger";
+  if (status === "blocked") return "warn";
+  return "planned";
+}
+
+async function sendNotifications() {
+  notifying.value = true;
+  notificationsNotice.value = "";
+  notificationsError.value = "";
+  try {
+    const envelope = await platformClient.sendNotifications({ retryFailed: true });
+    if (!envelope.success || !envelope.data) {
+      notificationsError.value = envelope.code === "AUTH_REQUIRED" ? t("runs.detail.tokenRequired") : envelope.message || envelope.code;
+      return;
+    }
+    const result = envelope.data;
+    notificationsNotice.value = result.configured
+      ? t("planning.notifications.sent", { sent: result.sent, failed: result.failed, pending: result.pending })
+      : t("planning.notifications.notConfigured");
+    await loadNotifications();
+  } catch (cause) {
+    notificationsError.value = cause instanceof Error ? cause.message : "notification send failed";
+  } finally {
+    notifying.value = false;
+  }
+}
 
 function eventKind(kind: string): string {
   const key = `planning.event.kind.${kind}`;
@@ -124,6 +183,7 @@ async function evaluateTrigger() {
     triggerNotice.value = t("planning.trigger.evaluated", { status: triggerStatus.value });
     await refresh();
     await loadEvents();
+    await loadNotifications();
   } catch (cause) {
     triggerError.value = cause instanceof Error ? cause.message : "trigger evaluation failed";
   } finally {
@@ -295,6 +355,37 @@ async function checkIn() {
             </div>
           </div>
         </div>
+      </SectionCard>
+
+      <SectionCard
+        class="notification-outbox"
+        :title="t('planning.notifications.title')"
+        :subtitle="t('planning.notifications.subtitle')"
+      >
+        <div class="notification-head">
+          <span class="mono notification-count">{{ t("planning.notifications.count", { count: notifications.length }) }}</span>
+          <AppButton variant="secondary" size="sm" :disabled="notifying" @click="sendNotifications">
+            {{ notifying ? t("planning.notifications.sending") : t("planning.notifications.send") }}
+          </AppButton>
+        </div>
+        <div v-if="notificationsLoading" class="events-loading" aria-busy="true">
+          <SkeletonBlock width="100%" height="42px" />
+          <SkeletonBlock width="80%" height="42px" />
+        </div>
+        <div v-else-if="notificationsError" class="events-error">{{ notificationsError }}</div>
+        <div v-else-if="!notifications.length" class="events-empty">{{ t("planning.notifications.empty") }}</div>
+        <div v-else class="notification-list">
+          <div v-for="item in notifications" :key="item.id" class="notification-row">
+            <StatusPill :tone="notificationTone(item.status)" :label="notificationStatus(item.status)" />
+            <div class="notification-copy">
+              <strong>{{ item.recipient || t("planning.notifications.noRecipient") }}</strong>
+              <small>{{ item.recipientRole }} · {{ item.subject }}</small>
+              <p v-if="item.lastError">{{ item.lastError }}</p>
+            </div>
+            <span class="mono notification-time">{{ formatDate(item.createdAt, locale) }}</span>
+          </div>
+        </div>
+        <div v-if="notificationsNotice" class="trigger-notice">{{ notificationsNotice }}</div>
       </SectionCard>
 
       <div class="planning-note">
@@ -554,4 +645,75 @@ async function checkIn() {
   font-size: 13px;
 }
 
+.notification-outbox {
+  margin-top: 16px;
+}
+
+.notification-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.notification-count {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.notification-list {
+  display: grid;
+  gap: 8px;
+}
+
+.notification-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.notification-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.notification-copy strong,
+.notification-copy small,
+.notification-copy p {
+  overflow-wrap: anywhere;
+}
+
+.notification-copy small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.notification-copy p {
+  margin: 0;
+  color: var(--danger, #b42318);
+  font-size: 11px;
+}
+
+.notification-time {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .notification-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .notification-row .status-pill {
+    grid-column: 1 / -1;
+  }
+}
 </style>

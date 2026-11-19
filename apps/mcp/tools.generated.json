@@ -547,5 +547,44 @@
     "_meta": {
       "digilegacy/command": "trigger.events.list"
     }
+  },
+  {
+    "name": "notifications.list",
+    "title": "读取通知发件箱",
+    "description": "按状态与游标读取触发链最终通知的收件人、发送状态和失败原因；只读。",
+    "inputSchema": {
+      "title": "NotificationsListInput",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "all",
+            "pending",
+            "sent",
+            "failed",
+            "blocked"
+          ]
+        },
+        "cursor": {
+          "type": "string"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "notifications.list"
+    }
   }
 ]

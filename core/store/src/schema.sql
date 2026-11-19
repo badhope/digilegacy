@@ -1,5 +1,5 @@
--- DigiLegacy schema v9.
--- 26 tables. The v8 lineage is preserved; new tables are additive so an old
+-- DigiLegacy schema v15.
+-- 30 tables. The v8 lineage is preserved; new tables are additive so an old
 -- database can be migrated without recreating it.
 
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -163,6 +163,24 @@ CREATE TABLE IF NOT EXISTS trigger_events (
     stage INTEGER NOT NULL DEFAULT 0,
     detail TEXT DEFAULT ''
 );
+
+CREATE TABLE IF NOT EXISTS notification_outbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    trigger_event_id INTEGER NOT NULL DEFAULT 0,
+    kind TEXT NOT NULL DEFAULT 'trigger.final',
+    recipient TEXT NOT NULL DEFAULT '',
+    recipient_role TEXT NOT NULL DEFAULT '',
+    subject TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT NOT NULL DEFAULT '',
+    sent_at TEXT DEFAULT '',
+    UNIQUE(trigger_event_id, recipient)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_status ON notification_outbox(status, id);
 
 CREATE TABLE IF NOT EXISTS connections (
     id INTEGER PRIMARY KEY,
