@@ -2,6 +2,13 @@
 
 [English](../../CHANGELOG.md) | 简体中文
 
+## [0.9.0-m5f] - 2026-11-20
+
+### Fixed
+
+- 新增本地 rustls SMTP 服务器联调：STARTTLS 与隐式 TLS 均完成真实握手、证书校验、TLS 后 `EHLO`、`AUTH PLAIN`、`MAIL/RCPT/DATA` 和中文正文投递。
+- SMTP 行读取从逐字节 Latin-1 字符拼接改为按原始字节解码 UTF-8，避免中文正文在测试服务器与错误响应中被拆坏。
+
 ## [0.9.0-m5e] - 2026-11-20
 
 ### Security

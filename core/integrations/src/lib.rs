@@ -8,6 +8,7 @@
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::{Duration, Instant};
 
+use rustls::pki_types::CertificateDer;
 use serde::Serialize;
 
 pub const MODULE_FAMILY: &str = "INT";
@@ -376,7 +377,26 @@ fn split_host_port(value: &str, default_port: u16) -> Result<(String, u16), Stri
     Ok((value.to_string(), default_port))
 }
 
-fn tls_client_config() -> Result<std::sync::Arc<rustls::ClientConfig>, String> {
+fn build_tls_config(
+    roots: rustls::RootCertStore,
+) -> Result<std::sync::Arc<rustls::ClientConfig>, String> {
+    let provider = rustls::crypto::ring::default_provider();
+    let config = rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(provider))
+        .with_safe_default_protocol_versions()
+        .map_err(|error| format!("初始化 TLS 失败: {error}"))?
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+    Ok(std::sync::Arc::new(config))
+}
+
+fn tls_client_config(
+    extra_roots: &[CertificateDer<'static>],
+) -> Result<std::sync::Arc<rustls::ClientConfig>, String> {
+    if !extra_roots.is_empty() {
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add_parsable_certificates(extra_roots.iter().cloned());
+        return build_tls_config(roots);
+    }
     static CONFIG: std::sync::OnceLock<std::sync::Arc<rustls::ClientConfig>> =
         std::sync::OnceLock::new();
     if let Some(config) = CONFIG.get() {
@@ -388,13 +408,7 @@ fn tls_client_config() -> Result<std::sync::Arc<rustls::ClientConfig>, String> {
     if roots.is_empty() {
         return Err("没有可用的系统 CA 证书".to_string());
     }
-    let provider = rustls::crypto::ring::default_provider();
-    let config = rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(provider))
-        .with_safe_default_protocol_versions()
-        .map_err(|error| format!("初始化 TLS 失败: {error}"))?
-        .with_root_certificates(roots)
-        .with_no_client_auth();
-    let config = std::sync::Arc::new(config);
+    let config = build_tls_config(roots)?;
     let _ = CONFIG.set(config.clone());
     Ok(config)
 }
@@ -402,10 +416,11 @@ fn tls_client_config() -> Result<std::sync::Arc<rustls::ClientConfig>, String> {
 fn tls_stream(
     tcp: std::net::TcpStream,
     host: &str,
+    extra_roots: &[CertificateDer<'static>],
 ) -> Result<rustls::StreamOwned<rustls::ClientConnection, std::net::TcpStream>, String> {
     let server_name = rustls::pki_types::ServerName::try_from(host.to_string())
         .map_err(|_| "SMTP 主机名不合法".to_string())?;
-    let connection = rustls::ClientConnection::new(tls_client_config()?, server_name)
+    let connection = rustls::ClientConnection::new(tls_client_config(extra_roots)?, server_name)
         .map_err(|error| format!("建立 TLS 连接失败: {error}"))?;
     Ok(rustls::StreamOwned::new(connection, tcp))
 }
@@ -414,19 +429,18 @@ trait ReadWrite: std::io::Read + std::io::Write {}
 impl<T: std::io::Read + std::io::Write> ReadWrite for T {}
 
 fn read_line(stream: &mut dyn ReadWrite) -> Result<String, String> {
-    let mut line = String::new();
+    let mut bytes = Vec::new();
     for _ in 0..8192 {
         let mut byte = [0u8; 1];
         match stream.read(&mut byte) {
             Ok(0) => return Err("SMTP 连接提前关闭".to_string()),
-            Ok(_) => {
-                if byte[0] == b'\n' {
-                    return Ok(line);
+            Ok(_) if byte[0] == b'\n' => {
+                if bytes.last() == Some(&b'\r') {
+                    bytes.pop();
                 }
-                if byte[0] != b'\r' {
-                    line.push(char::from(byte[0]));
-                }
+                return Ok(String::from_utf8_lossy(&bytes).into_owned());
             }
+            Ok(_) => bytes.push(byte[0]),
             Err(error) => return Err(format!("读取 SMTP 响应失败: {error}")),
         }
     }
@@ -567,6 +581,16 @@ fn auth_and_send(
 /// Send one UTF-8 text email through SMTP. Supports implicit TLS, STARTTLS,
 /// plaintext, and AUTH PLAIN. Never logs or returns the password.
 pub fn send_smtp(target: &SmtpTarget, to: &str, subject: &str, body: &str) -> Result<(), String> {
+    send_smtp_inner(target, to, subject, body, &[])
+}
+
+fn send_smtp_inner(
+    target: &SmtpTarget,
+    to: &str,
+    subject: &str,
+    body: &str,
+    extra_roots: &[CertificateDer<'static>],
+) -> Result<(), String> {
     let address = if target.host.contains(':') {
         format!("[{}]:{}", target.host, target.port)
     } else {
@@ -579,7 +603,7 @@ pub fn send_smtp(target: &SmtpTarget, to: &str, subject: &str, body: &str) -> Re
     tcp.set_write_timeout(Some(std::time::Duration::from_secs(10)))
         .map_err(|error| format!("设置 SMTP 写超时失败: {error}"))?;
     if target.tls {
-        let mut stream = tls_stream(tcp, &target.host)?;
+        let mut stream = tls_stream(tcp, &target.host, extra_roots)?;
         greet(&mut stream)?;
         return auth_and_send(&mut stream, target, to, subject, body);
     }
@@ -587,7 +611,7 @@ pub fn send_smtp(target: &SmtpTarget, to: &str, subject: &str, body: &str) -> Re
         greet(&mut tcp)?;
         smtp_command(&mut tcp, &format!("EHLO {}", target.host), &[250])?;
         smtp_command(&mut tcp, "STARTTLS", &[220])?;
-        let mut stream = tls_stream(tcp, &target.host)?;
+        let mut stream = tls_stream(tcp, &target.host, extra_roots)?;
         return auth_and_send(&mut stream, target, to, subject, body);
     }
     greet(&mut tcp)?;
@@ -597,8 +621,86 @@ pub fn send_smtp(target: &SmtpTarget, to: &str, subject: &str, body: &str) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
     use std::net::TcpListener;
+    use std::sync::Arc;
     use std::thread;
+
+    fn test_cert_and_key() -> (
+        rustls::pki_types::CertificateDer<'static>,
+        PrivateKeyDer<'static>,
+    ) {
+        let rcgen::CertifiedKey { cert, signing_key } =
+            rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
+        (
+            cert.der().clone(),
+            PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(signing_key.serialize_der())),
+        )
+    }
+
+    fn test_server_config(
+        cert: rustls::pki_types::CertificateDer<'static>,
+        key: PrivateKeyDer<'static>,
+    ) -> Arc<rustls::ServerConfig> {
+        let provider = rustls::crypto::ring::default_provider();
+        Arc::new(
+            rustls::ServerConfig::builder_with_provider(Arc::new(provider))
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_no_client_auth()
+                .with_single_cert(vec![cert], key)
+                .unwrap(),
+        )
+    }
+
+    fn reply(stream: &mut dyn ReadWrite, text: &str) {
+        stream.write_all(text.as_bytes()).unwrap();
+        stream.flush().unwrap();
+    }
+
+    fn run_smtp_session(
+        stream: &mut dyn ReadWrite,
+        send_greeting: bool,
+        stop_on_starttls: bool,
+    ) -> String {
+        if send_greeting {
+            reply(stream, "220 local\r\n");
+        }
+        let mut data_mode = false;
+        let mut body = String::new();
+        while let Ok(line) = read_line(stream) {
+            if data_mode {
+                if line.trim_end() == "." {
+                    reply(stream, "250 queued\r\n");
+                    data_mode = false;
+                } else {
+                    body.push_str(&line);
+                    body.push('\n');
+                }
+                continue;
+            }
+            let command = line.trim_end().to_ascii_uppercase();
+            if command.starts_with("EHLO") {
+                reply(stream, "250-localhost\r\n250-8BITMIME\r\n250 OK\r\n");
+            } else if command.starts_with("MAIL") || command.starts_with("RCPT") {
+                reply(stream, "250 OK\r\n");
+            } else if command == "DATA" {
+                reply(stream, "354 go ahead\r\n");
+                data_mode = true;
+            } else if command.starts_with("AUTH") {
+                reply(stream, "235 authenticated\r\n");
+            } else if command == "QUIT" {
+                reply(stream, "221 bye\r\n");
+                break;
+            } else if command == "STARTTLS" && stop_on_starttls {
+                reply(stream, "220 ready\r\n");
+                return body;
+            } else {
+                reply(stream, "250 OK\r\n");
+            }
+        }
+        body
+    }
 
     #[test]
     fn unknown_kind_is_a_structured_error() {
@@ -687,6 +789,81 @@ mod tests {
         let body = worker.join().unwrap();
         assert!(body.contains("heir@example.com"));
         assert!(body.contains("Content-Type: text/plain; charset=UTF-8"));
+    }
+
+    #[test]
+    fn smtp_delivery_works_against_a_local_starttls_server() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (cert, key) = test_cert_and_key();
+        let server_config = test_server_config(cert.clone(), key);
+        let worker = thread::spawn(move || {
+            let (socket, _) = listener.accept().unwrap();
+            let mut plain = socket;
+            let before_tls = run_smtp_session(&mut plain, true, true);
+            assert!(before_tls.is_empty());
+            let mut tls = rustls::StreamOwned::new(
+                rustls::ServerConnection::new(server_config).unwrap(),
+                plain,
+            );
+            run_smtp_session(&mut tls, false, false)
+        });
+        let target = SmtpTarget::parse(
+            &format!("localhost:{}", addr.port()),
+            Some("starttls"),
+            Some("user@example.com".to_string()),
+            Some("secret".to_string()),
+            Some("sender@example.com".to_string()),
+        )
+        .unwrap();
+        send_smtp_inner(
+            &target,
+            "heir@example.com",
+            "遗产通知",
+            "请查收这份执行清单。",
+            &[cert],
+        )
+        .unwrap();
+        let body = worker.join().unwrap();
+        assert!(body.contains("To: heir@example.com"));
+        assert!(body.contains("Content-Type: text/plain; charset=UTF-8"));
+        assert!(body.contains("请查收这份执行清单。"));
+    }
+
+    #[test]
+    fn smtp_delivery_works_against_a_local_implicit_tls_server() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let (cert, key) = test_cert_and_key();
+        let server_config = test_server_config(cert.clone(), key);
+        let worker = thread::spawn(move || {
+            let (socket, _) = listener.accept().unwrap();
+            let mut tls = rustls::StreamOwned::new(
+                rustls::ServerConnection::new(server_config).unwrap(),
+                socket,
+            );
+            run_smtp_session(&mut tls, true, false)
+        });
+        let target = SmtpTarget::parse(
+            &format!("localhost:{}", addr.port()),
+            Some("tls"),
+            Some("user@example.com".to_string()),
+            Some("secret".to_string()),
+            Some("sender@example.com".to_string()),
+        )
+        .unwrap();
+        send_smtp_inner(
+            &target,
+            "heir@example.com",
+            "遗产通知",
+            "请查收这份执行清单。",
+            &[cert],
+        )
+        .unwrap();
+        let body = worker.join().unwrap();
+        assert!(body.contains("To: heir@example.com"));
+        assert!(body.contains("Content-Type: text/plain; charset=UTF-8"));
+        assert!(body.contains("请查收这份执行清单。"));
     }
 
     #[test]

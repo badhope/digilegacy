@@ -573,3 +573,16 @@ M0 可以判定“工程壳完成”的条件：
 - 预算保持：入口 **77.27 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **100.35 / 101 KB**、CSS gzip **20.80 / 21 KB**、总 gzip **121.15 / 122 KB**；Policies 路由 15.88 / 24 KB。
 - 已知边界：当前拦截字面地址，尚未在 DNS 解析后校验解析结果，也没有完整的出站 allowlist/DNS rebinding 防护；真实 STARTTLS/TLS SMTP 服务器联调仍未做。
 - 复验命令：`./tools/verify.sh`；日志 `/tmp/m5e-verify.log`。
+
+### M5-F SMTP STARTTLS 与隐式 TLS 真实联调
+
+- `core/integrations` 的 TLS 客户端支持测试注入额外根证书；生产路径仍只使用系统 CA，不改变公开 `send_smtp` API。
+- 新增本地 rustls SMTP 测试服务器，测试时用 `rcgen` 在内存生成 localhost 自签证书（不落仓库，只信任测试客户端），覆盖：
+  - 隐式 TLS：TCP 连接后直接握手，完成 `EHLO`、`AUTH PLAIN`、`MAIL/RCPT/DATA`、中文正文与 `QUIT`。
+  - STARTTLS：明文 `EHLO` → `STARTTLS 220` → TLS 握手 → TLS 后重发 `EHLO` → `AUTH PLAIN` → 投递；验证了 RFC 3207 要求。
+  - 证书校验：测试客户端显式信任测试证书；未信任时握手失败。
+- 修复 SMTP 行读取的 UTF-8 处理：从逐字节 Latin-1 拼接改为收集原始字节后统一解码，中文正文与错误响应不再被拆坏。
+- `./tools/verify.sh` exit 0：**164 Rust + 10 Web**；契约 **39 命令 / 23 工具 / 56 schema / 21 错误码**；schema v16 / 31 表；workspace members=12。
+- 预算：入口 **77.27 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **100.34 / 101 KB**、CSS gzip **20.81 / 21 KB**、总 gzip **121.15 / 122 KB**；Policies 路由 15.88 / 24 KB。
+- 已知边界：测试证书只用于本地测试，不是生产凭据；真实邮件服务商的 STARTTLS/隐式 TLS 互操作仍建议在发布前用实际账号做一次人工验收。
+- 复验命令：`./tools/verify.sh`；日志 `/tmp/m5f-verify.log`。

@@ -27,6 +27,8 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 - Remote policy updates no longer overwrite the library without review.
 - Mobile tables no longer depend on a fixed-width horizontal scroll.
 - Dynamic labels no longer leak raw translation keys.
+- SMTP delivery is covered against local STARTTLS and implicit TLS servers, including certificate verification and the post-TLS `EHLO`.
+- SMTP response/body lines are decoded as UTF-8 bytes instead of per-byte Latin-1 characters, so non-ASCII message bodies survive the wire.
 
 ### Security
 
@@ -40,5 +42,4 @@ The project previously shipped the security kernel, encrypted storage, recovery 
 
 ## Unreleased
 
-- Real STARTTLS and implicit TLS mail server testing.
 - DNS-resolved private address checks and a configurable outbound allowlist for deployments that need more than literal-IP blocking.
