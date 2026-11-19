@@ -52,6 +52,8 @@ async function loadMore() {
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 watch([query, category], () => {
+  selected.value = null;
+  detailError.value = null;
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => reload(), 250);
 });

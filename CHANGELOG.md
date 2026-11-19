@@ -26,7 +26,7 @@
 
 - `./tools/verify.sh` 全绿，日志 `/tmp/digilegacy-verify-m2b.log`。
 - Rust：security 49、store 15、domains 9、application 5、server 6、foundation 5、render 2。
-- Web：typecheck、6 tests、build、bundle 预算通过；总 gzip **87.30 KB / 110 KB**，入口 raw 48.77 KB / 60 KB，vendor raw 98.88 KB / 130 KB。
+- Web：typecheck、6 tests、build、bundle 预算通过；总 gzip **87.29 KB / 110 KB**，入口 raw 48.77 KB / 60 KB，vendor raw 98.88 KB / 130 KB。
 - CLI：`policies list --q 支付宝` 命中；`policies get 1` 返回支付宝与 `unverified`；`deliver export --kind report` 生成 HTML。
 - HTTP：政策列表/详情返回真实行；`POST /api/v1/deliverables/export` 返回 `jobId`；`GET /api/v1/exports/{jobId}` 返回 `text/html` 附件。
 - 浏览器：政策页 152 条、详情可展开、深/亮主题正常；交付页点击生成后出现文件名与下载链接。

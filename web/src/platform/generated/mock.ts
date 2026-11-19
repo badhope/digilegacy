@@ -239,6 +239,142 @@ const MOCK_DATA: Record<string, unknown> = {
       "status": "已启用"
     }
   },
+  "policies.list": {
+    "items": [
+      {
+        "id": "1",
+        "name": "支付宝",
+        "nameEn": "Alipay",
+        "category": "支付金融",
+        "subtype": "移动支付",
+        "hasProperty": true,
+        "hasPersonality": false,
+        "inheritable": true,
+        "requiredDocuments": "死亡证明、继承公证书、继承人身份证；5万元以下免公证",
+        "processDescription": "参照银行存款管理（2025新规）。联系支付宝客服95188，余额、余额宝资金可依法继承",
+        "estimatedDifficulty": "中等",
+        "officialPolicyUrl": "https://help.alipay.com",
+        "estimatedTimeDays": "30-90天",
+        "notes": "5万以下走简易继承程序（2025银行新规）",
+        "dataSource": "2025《简化小额存款继承流程指导意见》：支付宝/微信余额参照银行存款管理；每年节省公证费用超10亿元（中国人民银行）",
+        "inheritanceFormUrl": "",
+        "monetizationPath": "余额/余额宝资金可依法继承过户：向客服 95188 提交死亡证明+继承公证书+继承人身份证，5 万元以下通常免公证，资金划转至继承人账户。",
+        "legalTemplateIds": "inheritance-declaration,platform-application,will-digital",
+        "riskWarnings": "余额宝等理财按申请时点净值结算，存在价差；大额需继承权公证。",
+        "tags": "需公证,高价值,可继承",
+        "provenance": {
+          "status": "unverified",
+          "sourceUrl": "https://help.alipay.com",
+          "verifiedAt": "",
+          "note": "2025《简化小额存款继承流程指导意见》：支付宝/微信余额参照银行存款管理；每年节省公证费用超10亿元（中国人民银行）"
+        }
+      },
+      {
+        "id": "80",
+        "name": "微信公众号",
+        "nameEn": "WeChat Official Account",
+        "category": "内容创作",
+        "subtype": "创作平台",
+        "hasProperty": true,
+        "hasPersonality": true,
+        "inheritable": false,
+        "requiredDocuments": "公众号可迁移",
+        "processDescription": "类型不同政策不同。个人号不支持继承，可迁移至新主体。企业号按企业流程处理",
+        "estimatedDifficulty": "困难",
+        "officialPolicyUrl": "https://mp.weixin.qq.com",
+        "estimatedTimeDays": "60-180天",
+        "notes": "有商业价值的公众号（有广告收入和有粉丝）可申请主体变更",
+        "dataSource": "",
+        "inheritanceFormUrl": "",
+        "monetizationPath": "",
+        "legalTemplateIds": "",
+        "riskWarnings": "",
+        "tags": "",
+        "provenance": {
+          "status": "unverified",
+          "sourceUrl": "https://mp.weixin.qq.com",
+          "verifiedAt": "",
+          "note": ""
+        }
+      },
+      {
+        "id": "138",
+        "name": "微博大V",
+        "nameEn": "Weibo Influencer",
+        "category": "内容创作",
+        "subtype": "自媒体",
+        "hasProperty": true,
+        "hasPersonality": true,
+        "inheritable": true,
+        "requiredDocuments": "死亡证明、继承公证书",
+        "processDescription": "可申请纪念账号或收益权转移",
+        "estimatedDifficulty": "中等",
+        "officialPolicyUrl": "https://weibo.com",
+        "estimatedTimeDays": "60-120天",
+        "notes": "有商业价值的账号",
+        "dataSource": "",
+        "inheritanceFormUrl": "",
+        "monetizationPath": "",
+        "legalTemplateIds": "",
+        "riskWarnings": "",
+        "tags": "",
+        "provenance": {
+          "status": "unverified",
+          "sourceUrl": "https://weibo.com",
+          "verifiedAt": "",
+          "note": ""
+        }
+      }
+    ],
+    "nextCursor": null,
+    "total": 152,
+    "categories": [
+      "内容创作",
+      "出行住宿",
+      "存储云服务",
+      "学习与考试",
+      "工具订阅",
+      "支付金融",
+      "政务服务",
+      "汽车服务",
+      "游戏",
+      "生活工具",
+      "生活服务",
+      "电商",
+      "知识付费",
+      "社交通讯",
+      "金融证券",
+      "音视频"
+    ]
+  },
+  "policies.get": {
+    "id": "80",
+    "name": "微信公众号",
+    "nameEn": "WeChat Official Account",
+    "category": "内容创作",
+    "subtype": "创作平台",
+    "hasProperty": true,
+    "hasPersonality": true,
+    "inheritable": false,
+    "requiredDocuments": "公众号可迁移",
+    "processDescription": "类型不同政策不同。个人号不支持继承，可迁移至新主体。企业号按企业流程处理",
+    "estimatedDifficulty": "困难",
+    "officialPolicyUrl": "https://mp.weixin.qq.com",
+    "estimatedTimeDays": "60-180天",
+    "notes": "有商业价值的公众号（有广告收入和有粉丝）可申请主体变更",
+    "dataSource": "",
+    "inheritanceFormUrl": "",
+    "monetizationPath": "",
+    "legalTemplateIds": "",
+    "riskWarnings": "",
+    "tags": "",
+    "provenance": {
+      "status": "unverified",
+      "sourceUrl": "https://mp.weixin.qq.com",
+      "verifiedAt": "",
+      "note": ""
+    }
+  },
   "trigger.checkin": {
     "checkedInAt": "2026-11-19T09:00:00+08:00",
     "nextCheckAt": "2027-02-17T09:00:00+08:00",
@@ -246,8 +382,11 @@ const MOCK_DATA: Record<string, unknown> = {
   },
   "deliver.export": {
     "jobId": "job_demo_01",
-    "status": "queued",
-    "progress": 0
+    "status": "succeeded",
+    "progress": 1,
+    "fileName": "job_demo_01.html",
+    "downloadUrl": "/api/v1/exports/job_demo_01",
+    "generatedAt": "2026-11-19T10:00:00+08:00"
   },
   "agent.runs.list": {
     "items": [
