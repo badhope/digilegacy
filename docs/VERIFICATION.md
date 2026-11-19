@@ -72,7 +72,7 @@ cargo test --workspace            OK
 - server：12 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突、Runtime 启动/详情）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
 - store：15 个（schema v11 / 27 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- domains：13 个；application：12 个；agent：3 个
+- domains：13 个；application：13 个；agent：3 个
 
 ### M1 安全与数据底座
 
@@ -223,6 +223,29 @@ Web                 审批页后台提示 + jobId；运行页 1.5s 静默轮询�
 - CLI 审批默认仍同步（可显式 `--background`）；HTTP 已全量后台化。
 - 规划器只对本地 mock provider 验证，真实 DeepSeek/豆包 key 未配置。
 
+### M3-H 交付物后台导出
+
+```text
+deliver.export  wait=false → jobs（kind=deliver.export）→ jobId
+Worker          deliver::run_job → HTML + deliverable_exports → jobs::finish
+Web             DeliverablesView 轮询 jobs.get，完成后显示下载
+CLI             deliver export 默认同步；--background 入队
+```
+
+已实测：
+
+- HTTP `POST /api/v1/deliverables/export` **1.462 ms** 返回 `status=queued`、`jobId`，不阻塞请求。
+- `jobs.get` 轮询到 `succeeded`、`progress=1`、`result.fileName=job_..._deliver_export.html`；`GET /api/v1/exports/{jobId}` 返回 `200`、1912 bytes HTML。
+- Web 交付页点击“生成”：0.5 秒显示 jobId 与“生成中”，2 秒后自动变为“已生成 + 下载 HTML”。
+- CLI `deliver export --kind report --background` 返回 `queued`；`jobs get` 返回 `succeeded` 与文件名。
+- 失败路径由 `jobs::fail` 记录 `error_code`；`requeue_stale` 覆盖 `agent.resume` 与 `deliver.export`。
+
+未完成边界：
+
+- 交付物进度仍是 1.5 秒轮询，不是 SSE。
+- 导出任务未支持取消；重复生成会创建多个 job。
+- 后台导出只记录 job 状态，未把 `duration_ms` 写入交付物表。
+
 ### 未完成边界
 
 - 政策审核工作台与批量核对尚未做；政策溯源写已支持四态与审计。
@@ -240,9 +263,9 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         104.98 KB / 110 KB
+总 gzip         105.33 KB / 110 KB
 CSS gzip        18.20 KB / 19 KB
-入口 raw        63.80 KB / 64 KB
+入口 raw        63.84 KB / 64 KB
 vendor raw      98.89 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```

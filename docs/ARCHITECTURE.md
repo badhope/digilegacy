@@ -156,6 +156,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M3-E**：`agent.runs.start/get` 驱动确定性 Runtime：按步骤执行注册工具，只读/草稿立即执行，`write` 工具创建审批并暂停；批准后从当前步骤继续执行，拒绝则终止。运行步骤落 `agent_run_log.steps_json`，Web `/automation/runs/new`、`/automation/runs/:id`、`/automation/tools` 接真实数据。
 - **M3-F**：`agent.runs.plan` 用 OpenAI 兼容接口（默认 DeepSeek，`DIGILEGACY_LLM_BASE_URL/API_KEY/MODEL`）把任务拆成注册工具步骤，只返回计划、不执行；Web 人工确认后再 `start`。`agent.runs.cancel` 终止未终态运行并把待审批置 `expired`；`agent.runs.retry` 为 failed/rejected/cancelled 运行创建新运行并保留旧记录；`maxSteps/maxWriteSteps` 在启动前做静态预算校验。
 - **M3-G**：HTTP 审批改为后台执行：`approvals_decide(background=true)` 只更新审批状态、写 `agent.approval.decide` 审计、把 `agent.resume` 入 durable `jobs` 队列并返回 `jobId`；server 启动单进程 Worker，250ms 轮询、回收超过 120 秒的 `running` 僵尸任务。`jobs.get` 提供状态/进度/结果/错误的统一读取；`agent_run_log` 增加 `duration_ms`（schema v11，仍 27 表）。Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏暂停；审批页显示“后台执行 + jobId + 查看运行”。
+- **M3-H**：`deliver.export` 支持 `wait=false`：HTTP/Web 入队 `jobs`（kind=`deliver.export`）并立即返回 `jobId`；Worker 调 `deliver::run_job` 生成 HTML、写 `deliverable_exports`，由 `jobs::finish` 标记成功；失败落 `error_code`。Web 交付页 1.5 秒轮询 `jobs.get`，完成后显示下载；CLI 默认同步，`--background` 可入队。`requeue_stale` 同时回收 `agent.resume` 与 `deliver.export`。
 - **数据归属**：单工作区抽象保留 `workspaces`，27 张表按领域拆；资产与政策各维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。

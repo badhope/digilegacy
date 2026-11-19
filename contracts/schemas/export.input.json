@@ -22,6 +22,11 @@
         "zh-CN",
         "en-US"
       ]
+    },
+    "wait": {
+      "type": "boolean",
+      "default": true,
+      "description": "true 同步生成；false 入队并返回 jobId"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

@@ -2,6 +2,29 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.9-m3h] - 2026-11-19
+
+### Added
+
+- `deliver.export` 支持 `wait=false`：HTTP/Web 入队 `jobs`（kind=`deliver.export`）并立即返回 `jobId`、`status=queued`；Worker 生成 HTML、写 `deliverable_exports`，`jobs.get` 返回文件名/下载地址。
+- Web 交付页轮询 `jobs.get`：0.5 秒显示 jobId 与“生成中”，完成后自动切换为“已生成 + 下载 HTML”；失败显示 `errorCode`。
+- CLI `deliver export --background` 可入队；默认仍同步，保持脚本兼容。
+- `requeue_stale` 覆盖 `agent.resume` 与 `deliver.export`，僵尸任务回收不再只针对审批恢复。
+- 失败路径统一落 `jobs.error_code`，同步导出失败也会标记 job `failed`。
+
+### Changed
+
+- `export.input.json` 增加可选 `wait` 布尔，默认 true；HTTP 两条入口强制 false。
+- 版本 `0.7.9-m3h`。
+
+### Verification
+
+- Rust 测试 **112 项**：security 49、store 15、domains 13、application 13、agent 3、server 12、foundation 5、render 2；全仓 `./tools/verify.sh` 通过。
+- HTTP `POST /api/v1/deliverables/export` **1.462 ms** 返回 `queued` + `jobId`；`jobs.get` 轮询到 `succeeded`；`GET /api/v1/exports/{jobId}` 返回 `200`、1912 bytes HTML。
+- Web 交付页 0.5 秒显示后台 jobId，2 秒后自动出现下载链接。
+- CLI `deliver export --background` 返回 queued，`jobs get` 返回 succeeded 与文件名。
+- Web 总 gzip **105.33 KB / 110 KB**，CSS **18.20 KB / 19 KB**，入口 **63.84 KB / 64 KB**，vendor **98.89 KB / 130 KB**。
+
 ## [0.7.8-m3g] - 2026-11-19
 
 ### Added

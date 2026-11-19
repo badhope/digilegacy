@@ -149,6 +149,9 @@ async fn invoke(
     if request.name == "agent.approvals.decide" {
         args["background"] = json!(true);
     }
+    if request.name == "deliver.export" {
+        args["wait"] = json!(false);
+    }
     dispatch(&state, &request.name, args, Some(&headers))
 }
 
@@ -199,7 +202,7 @@ async fn deliver_export(
     dispatch(
         &state,
         "deliver.export",
-        json!({ "kind": input.kind, "locale": input.locale }),
+        json!({ "kind": input.kind, "locale": input.locale, "wait": false }),
         Some(&headers),
     )
 }

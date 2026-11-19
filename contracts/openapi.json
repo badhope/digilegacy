@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.7.8-m3g",
+    "version": "0.7.9-m3h",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -2044,6 +2044,11 @@
               "zh-CN",
               "en-US"
             ]
+          },
+          "wait": {
+            "type": "boolean",
+            "default": true,
+            "description": "true 同步生成；false 入队并返回 jobId"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

@@ -157,9 +157,22 @@ export interface DeliverableExport {
   jobId: string;
   status: string;
   progress: number;
-  fileName: string;
-  downloadUrl: string;
-  generatedAt: string;
+  fileName?: string;
+  downloadUrl?: string;
+  generatedAt?: string;
+}
+
+export interface JobDetail {
+  jobId: string;
+  kind: string;
+  status: string;
+  progress: number;
+  payload: Record<string, unknown>;
+  result: Record<string, unknown>;
+  errorCode: string;
+  createdAt: string;
+  updatedAt: string;
+  finishedAt: string;
 }
 
 export interface SecurityStatus {

@@ -1,6 +1,6 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
-import type { AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus } from "./types";
+import type { AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, JobDetail, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -80,7 +80,8 @@ export const platformClient = {
   setPolicyProvenance: (args: { id: string; status: string; sourceUrl?: string; note?: string }) =>
     invoke<Policy>(COMMANDS.policiesProvenanceSet, args),
   exportDeliverable: (kind: string, locale = "zh-CN") =>
-    invoke<DeliverableExport>(COMMANDS.deliverExport, { kind, locale }),
+    invoke<DeliverableExport>(COMMANDS.deliverExport, { kind, locale, wait: false }),
+  getJob: (id: string) => invoke<JobDetail>(COMMANDS.jobsGet, { id }),
   exportUrl: (path: string) => `${API_BASE}${path}`,
   listRuns: (args: Record<string, unknown> = {}) => invoke<AgentRuns>(COMMANDS.agentRunsList, args),
   getRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsGet, { id }),

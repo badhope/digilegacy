@@ -105,7 +105,7 @@ fn claim_next(store: &Store) -> Result<Option<Job>, PlatformError> {
         .map_err(|e| internal(format!("领取任务失败: {e}")))
 }
 
-fn finish(store: &Store, id: &str, result: Value) -> Result<(), PlatformError> {
+pub(crate) fn finish(store: &Store, id: &str, result: Value) -> Result<(), PlatformError> {
     let finished = now();
     store
         .write(|conn| {
@@ -121,7 +121,12 @@ fn finish(store: &Store, id: &str, result: Value) -> Result<(), PlatformError> {
     Ok(())
 }
 
-fn fail(store: &Store, id: &str, code: &str, message: &str) -> Result<(), PlatformError> {
+pub(crate) fn fail(
+    store: &Store,
+    id: &str,
+    code: &str,
+    message: &str,
+) -> Result<(), PlatformError> {
     let finished = now();
     let result = json!({ "error": message });
     store
@@ -144,7 +149,7 @@ fn requeue_stale(store: &Store) -> Result<(), PlatformError> {
         .write(|conn| {
             conn.execute(
                 "UPDATE jobs SET status='queued', updated_at=?2
-                 WHERE kind='agent.resume' AND status='running' AND updated_at < ?1",
+                 WHERE kind IN ('agent.resume','deliver.export') AND status='running' AND updated_at < ?1",
                 rusqlite::params![cutoff, now()],
             )?;
             Ok(())
@@ -172,6 +177,7 @@ fn execute(app: &Application, job: &Job) -> Result<Value, PlatformError> {
                 "runStatus": run.status,
             }))
         }
+        "deliver.export" => crate::deliver::run_job(app.store(), &job.id),
         other => Err(PlatformError::new(
             "UNSUPPORTED",
             format!("未知任务类型: {other}"),

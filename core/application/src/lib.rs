@@ -255,9 +255,20 @@ impl Application {
             .get("locale")
             .and_then(Value::as_str)
             .unwrap_or("zh-CN");
-        let result = deliver::export(&self.store, kind, locale)?;
-        self.audit("deliver.export", result["jobId"].as_str().unwrap_or(""))?;
-        Ok(result)
+        let wait = args.get("wait").and_then(Value::as_bool).unwrap_or(true);
+        if wait {
+            let result = deliver::export(&self.store, kind, locale)?;
+            self.audit("deliver.export", result["jobId"].as_str().unwrap_or(""))?;
+            return Ok(result);
+        }
+        let job_id = deliver::enqueue(&self.store, kind, locale)?;
+        self.audit("deliver.export", &job_id)?;
+        Ok(json!({
+            "jobId": job_id,
+            "status": "queued",
+            "progress": 0.0,
+            "downloadUrl": format!("/api/v1/exports/{job_id}"),
+        }))
     }
 
     pub fn read_export(&self, job_id: &str) -> Result<(String, Vec<u8>), PlatformError> {

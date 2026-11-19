@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, onUnmounted, reactive, ref } from "vue";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
@@ -22,7 +22,55 @@ const kinds: Array<{ kind: "report" | "checklist" | "legal" | "toolkit"; key: st
 const busy = ref<string | null>(null);
 const errors = reactive<Record<string, string>>({});
 const results = reactive<Record<string, DeliverableExport | undefined>>({});
-const generated = computed(() => Object.values(results).filter((item): item is DeliverableExport => Boolean(item)));
+const generated = computed(() =>
+  Object.values(results).filter((item): item is DeliverableExport => item?.status === "succeeded"),
+);
+const pollers = new Map<string, number>();
+
+function stopPoll(kind: string) {
+  const timer = pollers.get(kind);
+  if (timer !== undefined) {
+    window.clearInterval(timer);
+    pollers.delete(kind);
+  }
+}
+
+async function refreshJob(kind: string, jobId: string) {
+  const envelope = await platformClient.getJob(jobId);
+  if (!envelope.success || !envelope.data) {
+    errors[kind] = envelope.message || envelope.code;
+    stopPoll(kind);
+    return;
+  }
+  const job = envelope.data;
+  if (job.status === "succeeded") {
+    results[kind] = {
+      jobId,
+      status: "succeeded",
+      progress: 1,
+      ...(job.result as Partial<DeliverableExport>),
+    };
+    stopPoll(kind);
+    return;
+  }
+  if (job.status === "failed" || job.status === "cancelled") {
+    errors[kind] = job.errorCode || job.status;
+    delete results[kind];
+    stopPoll(kind);
+    return;
+  }
+  results[kind] = { jobId, status: job.status, progress: job.progress };
+}
+
+function startPoll(kind: string, jobId: string) {
+  stopPoll(kind);
+  pollers.set(
+    kind,
+    window.setInterval(() => {
+      if (document.visibilityState !== "hidden") void refreshJob(kind, jobId);
+    }, 1500),
+  );
+}
 
 async function generate(kind: string) {
   if (busy.value) return;
@@ -35,12 +83,18 @@ async function generate(kind: string) {
       return;
     }
     results[kind] = envelope.data;
+    if (envelope.data.status !== "succeeded") startPoll(kind, envelope.data.jobId);
   } catch (cause) {
     errors[kind] = cause instanceof Error ? cause.message : t("deliverables.error");
   } finally {
     busy.value = null;
   }
 }
+
+onUnmounted(() => {
+  for (const timer of pollers.values()) window.clearInterval(timer);
+  pollers.clear();
+});
 </script>
 
 <template>
@@ -56,24 +110,29 @@ async function generate(kind: string) {
         <div class="deliverable-top">
           <span class="deliverable-icon"><AppIcon :name="kind.icon" :size="19" /></span>
           <StatusPill
-            :tone="results[kind.kind] ? 'ready' : 'planned'"
-            :label="results[kind.kind] ? t('deliverables.generated') : t('deliverables.ready')"
+            :tone="results[kind.kind]?.status === 'succeeded' ? 'ready' : 'planned'"
+            :label="results[kind.kind]?.status === 'succeeded' ? t('deliverables.generated') : results[kind.kind] ? t('deliverables.generating') : t('deliverables.ready')"
           />
         </div>
         <h2>{{ t(kind.key) }}</h2>
         <p>{{ t("deliverables.boundary") }}</p>
 
-        <div v-if="results[kind.kind]" class="deliverable-result">
+        <div v-if="results[kind.kind]?.status === 'succeeded'" class="deliverable-result">
           <span class="mono">{{ results[kind.kind]?.fileName }}</span>
           <a
+            v-if="results[kind.kind]?.downloadUrl"
             class="deliverable-download"
-            :href="platformClient.exportUrl(results[kind.kind]!.downloadUrl)"
+            :href="platformClient.exportUrl(results[kind.kind]!.downloadUrl!)"
             target="_blank"
             rel="noopener"
           >
             <AppIcon name="external" :size="14" />
             {{ t("deliverables.download") }}
           </a>
+        </div>
+        <div v-else-if="results[kind.kind]" class="deliverable-result">
+          <span class="mono">{{ results[kind.kind]?.jobId }}</span>
+          <span class="deliverable-meta">{{ t("deliverables.generating") }}</span>
         </div>
         <p v-if="errors[kind.kind]" class="deliverable-error">{{ errors[kind.kind] }}</p>
 

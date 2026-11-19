@@ -27,12 +27,13 @@
 | 真实领域服务 | 已接入（M2 资产/规划/触发/安全读链路 + 写用例） |
 | 政策库 | 已做完（M2-B 152 条 + M3 溯源写；审核工作台待做） |
 | 交付物导出 | 已做完（M2-B HTML 报告/清单/法律文本/工具包 + HTTP 下载） |
+| 交付物后台导出 | 已做完（M3-H：`deliver.export` 入队、Worker 生成、Web 轮询） |
 | Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
 | 后台任务队列 / 运行进度 | 已做完（M3-G：审批后台执行、`jobs.get`、运行耗时、Web 静默轮询） |
 | Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
 | 桌面 Tauri 窗口与托盘 | M3/M5 |
 
-当前版本：`0.7.8-m3g`。
+当前版本：`0.7.9-m3h`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
@@ -40,7 +41,9 @@ M2 已落地：`core/application` 用例层接 M1 Store；HTTP/CLI/MCP 共享同
 
 M2-B 已落地：政策库 schema v10 起步（当前 v11，27 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
 
-M3 已落地七段：政策溯源写、平台写令牌与资产新增/编辑、审计链查询、Agent 审批队列、确定性 Agent Runtime、M3-F 的规划器/取消/预算/重试，以及 M3-G 的审批后台 Job 化、运行进度与耗时。规划器接 OpenAI 兼容接口（默认 DeepSeek），只生成注册工具步骤；人工确认后再启动，写操作仍进审批。取消会把待审批置为 `expired`，重试会创建新运行并保留旧记录。HTTP 审批改为先落审批、再入 durable `jobs` 队列，批准请求毫秒级返回；Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏时暂停。
+M3 已落地八段：政策溯源写、平台写令牌与资产新增/编辑、审计链查询、Agent 审批队列、确定性 Agent Runtime、M3-F 的规划器/取消/预算/重试、M3-G 的审批后台 Job 化/运行进度/耗时，以及 M3-H 的交付物后台导出。规划器接 OpenAI 兼容接口（默认 DeepSeek），只生成注册工具步骤；人工确认后再启动，写操作仍进审批。取消会把待审批置为 `expired`，重试会创建新运行并保留旧记录。HTTP 审批改为先落审批、再入 durable `jobs` 队列，批准请求毫秒级返回；Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏时暂停。
+
+M3-H 把 `deliver.export` 的后台路径接到同一 `jobs` 队列：HTTP/Web 只返回 `jobId` 与 `queued`，Worker 生成 HTML 并写 `deliverable_exports`；Web 交付页轮询 `jobs.get`，完成后出现下载链接。CLI 默认同步，`deliver export --background` 可入队。
 
 契约规模：**24 个命令、17 个工具、31 个 schema、19 个错误码**。
 
@@ -185,9 +188,9 @@ node tools/bench/web-budget.mjs
 
 M3 基线：
 
-- Rust 测试 111 项：security 49、store 15、domains 13、application 12、agent 3、server 12、foundation 5、render 2（M3-G 全仓 verify 通过）
-- Web 总 gzip **104.98 KB / 110 KB**，CSS **18.20 KB / 19 KB**
-- 入口 chunk **63.80 KB raw / 64 KB**，vendor **98.89 KB raw / 130 KB**
+- Rust 测试 112 项：security 49、store 15、domains 13、application 13、agent 3、server 12、foundation 5、render 2（M3-G 全仓 verify 通过）
+- Web 总 gzip **105.33 KB / 110 KB**，CSS **18.20 KB / 19 KB**
+- 入口 chunk **63.84 KB raw / 64 KB**，vendor **98.89 KB raw / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 
 ---

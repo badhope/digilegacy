@@ -371,26 +371,50 @@ fn hash(bytes: &[u8]) -> String {
         .collect()
 }
 
-pub fn export(store: &Store, kind: &str, locale: &str) -> Result<Value, PlatformError> {
-    if !matches!(kind, "report" | "checklist" | "legal" | "toolkit") {
-        return Err(PlatformError::invalid_args(format!(
-            "未知交付物类型: {kind}"
-        )));
-    }
-    if !matches!(locale, "zh-CN" | "en-US") {
-        return Err(PlatformError::invalid_args(format!("未知语言: {locale}")));
-    }
+pub fn enqueue(store: &Store, kind: &str, locale: &str) -> Result<String, PlatformError> {
+    validate(kind, locale)?;
+    let job_id = format!(
+        "job_{}_{}_deliver_export",
+        Utc::now().timestamp_millis(),
+        JOB_COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    let created = Utc::now().to_rfc3339();
+    store
+        .write(|conn| {
+            conn.execute(
+                "INSERT INTO jobs (id,kind,status,progress,payload_json,result_json,created_at,updated_at)
+                 VALUES (?1,'deliver.export','queued',0,?2,'{}',?3,?3)",
+                rusqlite::params![job_id, json!({ "kind": kind, "locale": locale }).to_string(), created],
+            )?;
+            Ok(())
+        })
+        .map_err(|e| PlatformError::new("INTERNAL", format!("交付任务入队失败: {e}")))?;
+    Ok(job_id)
+}
+
+pub fn run_job(store: &Store, job_id: &str) -> Result<Value, PlatformError> {
+    let payload = store
+        .read(|conn| {
+            conn.query_row(
+                "SELECT payload_json FROM jobs WHERE id=?1 AND kind='deliver.export'",
+                [job_id],
+                |row| row.get::<_, String>(0),
+            )
+        })
+        .map_err(|e| PlatformError::new("INTERNAL", format!("读取交付任务失败: {e}")))?;
+    let payload: Value = serde_json::from_str(&payload).unwrap_or_else(|_| json!({}));
+    let kind = payload.get("kind").and_then(Value::as_str).unwrap_or("");
+    let locale = payload
+        .get("locale")
+        .and_then(Value::as_str)
+        .unwrap_or("zh-CN");
+    validate(kind, locale)?;
+
     let data = collect(store)?;
     let (title, body) = build_body(kind, locale, &data)?;
     let html = render_page(&title, &body, locale);
     let bytes = html.as_bytes();
     let now = Utc::now();
-    let job_id = format!(
-        "job_{}_{}_{}",
-        now.timestamp_millis(),
-        JOB_COUNTER.fetch_add(1, Ordering::Relaxed),
-        kind
-    );
     let dir = export_dir(store);
     std::fs::create_dir_all(&dir)
         .map_err(|e| PlatformError::new("IO", format!("创建导出目录失败: {e}")))?;
@@ -399,13 +423,10 @@ pub fn export(store: &Store, kind: &str, locale: &str) -> Result<Value, Platform
     let hash = hash(bytes);
     let generated_at = now.to_rfc3339();
 
+    std::fs::write(&path, bytes)
+        .map_err(|e| PlatformError::new("IO", format!("写入交付物失败: {e}")))?;
     store
         .write(|conn| {
-            conn.execute(
-                "INSERT INTO jobs (id,kind,status,progress,payload_json,result_json,created_at,updated_at)
-                 VALUES (?1,?2,'queued',0,'{}','{}',?3,?3)",
-                rusqlite::params![job_id, kind, generated_at],
-            )?;
             conn.execute(
                 "INSERT INTO deliverable_exports (kind,locale,generated_at,template_version,file_hash,path)
                  VALUES (?1,?2,?3,'m2-html-v1',?4,?5)",
@@ -415,42 +436,42 @@ pub fn export(store: &Store, kind: &str, locale: &str) -> Result<Value, Platform
         })
         .map_err(|e| PlatformError::new("INTERNAL", e.to_string()))?;
 
-    if let Err(error) = std::fs::write(&path, bytes) {
-        let _ = store.write(|conn| {
-            conn.execute(
-                "UPDATE jobs SET status='failed', error_code='IO', updated_at=?2 WHERE id=?1",
-                rusqlite::params![job_id, Utc::now().to_rfc3339()],
-            )?;
-            Ok(())
-        });
-        return Err(PlatformError::new("IO", format!("写入交付物失败: {error}")));
-    }
-
-    let result = json!({
-        "path": path.to_string_lossy(),
-        "fileName": file_name,
-        "kind": kind,
-        "locale": locale,
-        "hash": hash,
-    });
-    store
-        .write(|conn| {
-            conn.execute(
-                "UPDATE jobs SET status='succeeded', progress=1, result_json=?2, updated_at=?3 WHERE id=?1",
-                rusqlite::params![job_id, result.to_string(), Utc::now().to_rfc3339()],
-            )?;
-            Ok(())
-        })
-        .map_err(|e| PlatformError::new("INTERNAL", e.to_string()))?;
-
     Ok(json!({
         "jobId": job_id,
+        "path": path.to_string_lossy(),
         "status": "succeeded",
         "progress": 1.0,
         "fileName": file_name,
         "downloadUrl": format!("/api/v1/exports/{job_id}"),
         "generatedAt": generated_at,
+        "hash": hash,
     }))
+}
+
+pub fn export(store: &Store, kind: &str, locale: &str) -> Result<Value, PlatformError> {
+    let job_id = enqueue(store, kind, locale)?;
+    match run_job(store, &job_id) {
+        Ok(result) => {
+            crate::jobs::finish(store, &job_id, result.clone())?;
+            Ok(result)
+        }
+        Err(error) => {
+            let _ = crate::jobs::fail(store, &job_id, &error.code, &error.message);
+            Err(error)
+        }
+    }
+}
+
+fn validate(kind: &str, locale: &str) -> Result<(), PlatformError> {
+    if !matches!(kind, "report" | "checklist" | "legal" | "toolkit") {
+        return Err(PlatformError::invalid_args(format!(
+            "未知交付物类型: {kind}"
+        )));
+    }
+    if !matches!(locale, "zh-CN" | "en-US") {
+        return Err(PlatformError::invalid_args(format!("未知语言: {locale}")));
+    }
+    Ok(())
 }
 
 pub fn read_export(store: &Store, job_id: &str) -> Result<(String, Vec<u8>), PlatformError> {
@@ -495,6 +516,7 @@ pub fn read_export(store: &Store, job_id: &str) -> Result<(String, Vec<u8>), Pla
 mod tests {
     use super::*;
     use digilegacy_domains::policy;
+    use std::sync::Arc;
 
     fn temp_store(tag: &str) -> Store {
         let path = std::env::temp_dir().join(format!(
@@ -503,6 +525,27 @@ mod tests {
             Utc::now().timestamp_micros()
         ));
         Store::open(path, None).unwrap()
+    }
+
+    #[test]
+    fn async_export_runs_through_job_queue() {
+        let store = temp_store("async");
+        policy::seed_if_empty(&store).unwrap();
+        let app = crate::Application::new(Arc::new(store));
+        let job_id = enqueue(app.store(), "report", "zh-CN").unwrap();
+        assert_eq!(
+            crate::jobs::get(app.store(), &job_id).unwrap().status,
+            "queued"
+        );
+        assert!(crate::jobs::run_one(&app).unwrap());
+        let detail = crate::jobs::get(app.store(), &job_id).unwrap();
+        assert_eq!(detail.status, "succeeded");
+        assert!(detail.result["fileName"]
+            .as_str()
+            .unwrap()
+            .ends_with(".html"));
+        let (_, bytes) = read_export(app.store(), &job_id).unwrap();
+        assert!(bytes.starts_with(b"<!doctype html>"));
     }
 
     #[test]

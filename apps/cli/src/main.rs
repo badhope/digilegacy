@@ -225,6 +225,9 @@ enum DeliverCommand {
         kind: String,
         #[arg(long, default_value = "zh-CN")]
         locale: String,
+        /// Enqueue the export and return a job id instead of waiting.
+        #[arg(long)]
+        background: bool,
         #[arg(long)]
         json: bool,
     },
@@ -434,11 +437,12 @@ fn main() -> ExitCode {
             DeliverCommand::Export {
                 kind,
                 locale,
+                background,
                 json: as_json,
             } => run(
                 &app,
                 "deliver.export",
-                json!({ "kind": kind, "locale": locale }),
+                json!({ "kind": kind, "locale": locale, "wait": !background }),
                 as_json,
                 false,
             ),
