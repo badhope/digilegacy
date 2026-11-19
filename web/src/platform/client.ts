@@ -1,6 +1,6 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
-import type { AgentRuns, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, Overview, Plan, PoliciesPage, Policy, SecurityStatus } from "./types";
+import type { AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, Overview, Plan, PoliciesPage, Policy, SecurityStatus } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -85,4 +85,7 @@ export const platformClient = {
   listRuns: (args: Record<string, unknown> = {}) => invoke<AgentRuns>(COMMANDS.agentRunsList, args),
   getSecurity: () => invoke<SecurityStatus>(COMMANDS.securityStatus),
   listAudit: (args: Record<string, unknown> = {}) => invoke<AuditPage>(COMMANDS.auditList, args),
+  listApprovals: (args: Record<string, unknown> = {}) => invoke<ApprovalPage>(COMMANDS.agentApprovalsList, args),
+  decideApproval: (id: string, decision: "approve" | "reject", reason = "") =>
+    invoke<Approval>(COMMANDS.agentApprovalsDecide, { id, decision, reason }),
 };

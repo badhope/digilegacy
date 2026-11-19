@@ -24,6 +24,7 @@ pub const ASSET_KINDS: &[&str] = &[
 pub enum DomainError {
     NotFound(String),
     Invalid(String),
+    Conflict(String),
     Store(StoreError),
 }
 
@@ -36,7 +37,7 @@ impl From<StoreError> for DomainError {
 impl std::fmt::Display for DomainError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NotFound(s) | Self::Invalid(s) => f.write_str(s),
+            Self::NotFound(s) | Self::Invalid(s) | Self::Conflict(s) => f.write_str(s),
             Self::Store(e) => f.write_str(&e.to_string()),
         }
     }

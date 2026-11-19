@@ -3,6 +3,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "id",
     "decision"
   ],
   "properties": {
@@ -16,6 +17,9 @@
     "reason": {
       "type": "string",
       "maxLength": 500
+    },
+    "id": {
+      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

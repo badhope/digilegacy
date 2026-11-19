@@ -1,0 +1,27 @@
+{
+  "title": "ApprovalPage",
+  "type": "object",
+  "required": ["items", "pending"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "runId", "tool", "status", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "runId": { "type": "string" },
+          "tool": { "type": "string" },
+          "objectKey": { "type": "string" },
+          "diff": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "approved", "rejected", "expired"] },
+          "reason": { "type": "string" },
+          "createdAt": { "type": "string" },
+          "decidedAt": { "type": "string" }
+        }
+      }
+    },
+    "pending": { "type": "integer" }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

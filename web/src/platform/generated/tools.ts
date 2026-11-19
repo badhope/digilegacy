@@ -21,6 +21,7 @@ export const TOOL_CATALOG: ToolCatalogItem[] = [
   { name: "policies.get", title: "读取单条政策", description: "按政策 ID 读取流程、材料、风险与溯源状态。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "policies.get" },
   { name: "policies.provenance.set", title: "记录政策溯源", description: "由人或 Agent 记录政策来源的核实状态、来源 URL 与备注；不修改政策正文。", permission: "draft", approval: "none", audit: true, mcp: true, humanEquivalent: "policies.provenance.set" },
   { name: "runs.list", title: "列出 Agent 运行", description: "读取运行状态、步骤数与成本摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "agent.runs.list" },
+  { name: "agent.approvals.list", title: "读取 Agent 审批队列", description: "按状态读取 Agent 写操作审批记录；只读，不代替人工决定。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "agent.approvals.list" },
   { name: "security.status", title: "读取安全状态", description: "读取锁定状态、恢复配置与密钥摘要，不含密钥本身。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "security.status" },
   { name: "assets.create", title: "创建资产", description: "创建一个资产；写操作需要人工审批。", permission: "write", approval: "required", audit: true, mcp: false, humanEquivalent: "assets.create" },
   { name: "assets.update", title: "更新资产", description: "更新资产字段；写操作需要人工审批与 diff。", permission: "write", approval: "required", audit: true, mcp: false, humanEquivalent: "assets.update" },

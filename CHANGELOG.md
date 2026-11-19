@@ -2,6 +2,28 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.5-m3d] - 2026-11-19
+
+### Added
+
+- `agent.approvals.list`（read）与 `agent.approvals.decide`（write）：`agent_approvals` 队列读取，按状态过滤；批准/拒绝只能从 `pending` 转移一次，非 pending 返回 `409 CONFLICT`。
+- `agent.approvals.decide` 写审计 `agent.approval.decide`；审批只记录人工决定，不执行工具本身。
+- HTTP `GET /api/v1/agent/approvals`、`POST /api/v1/agent/approvals/{id}/decide`；CLI `approvals list/decide`；Web `/automation/approvals` 审批页与自动化页真实待批队列。
+- `DomainError::Conflict` 与 `CONFLICT` 错误映射。
+
+### Changed
+
+- 契约扩至 18 命令 / 15 工具 / 26 schema / 19 错误码；`arch-check` 同步。
+- Web CSS 预算从 16 KB 调至 17 KB（审批页 2.2 KB CSS，总 gzip 仍 95.83 KB / 110 KB）。
+- 版本 `0.7.5-m3d`。
+
+### Verification
+
+- `core/domains` 12 tests；`apps/server` 11 tests；全仓 `./tools/verify.sh` 通过（`/tmp/digilegacy-verify-m3d.log`）。
+- HTTP 无 token 审批返回 401；带 token 批准 200，二次拒绝 409；CLI 待批从 2 降到 1；审计出现 2 条 `agent.approval.decide`。
+- 浏览器审批页批准后待批归零、空态出现；自动化页接入真实待批队列。
+- Web 总 gzip **95.83 KB / 110 KB**，入口 **56.43 KB / 60 KB**，vendor **98.88 KB / 130 KB**。
+
 ## [0.7.4-m3c] - 2026-11-19
 
 ### Added

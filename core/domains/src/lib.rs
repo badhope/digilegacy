@@ -6,6 +6,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod approvals;
 pub mod assets;
 pub mod audit;
 pub mod overview;

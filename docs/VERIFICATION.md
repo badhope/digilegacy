@@ -69,10 +69,10 @@ cargo test --workspace            OK
 
 - foundation：5 个
 - render：2 个
-- server：10 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取）
+- server：11 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
 - store：15 个（schema v10 / 27 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- domains：11 个；application：5 个
+- domains：12 个；application：5 个
 
 ### M1 安全与数据底座
 
@@ -128,10 +128,33 @@ deliver.export：report/checklist/legal/toolkit 四类 HTML，jobs + deliverable
 - 审计页：`GET /api/v1/audit` 返回真实 14 条，`limit=2` 返回 `nextCursor`；`kind=asset.update` 过滤为 1 条；Web 设置 → 审计显示哈希链记录。
 - Web 交付页生成后显示文件名与下载链接；资产详情可跳转对应平台政策。
 
+### M3-D Agent 审批队列
+
+```text
+agent.approvals.list   GET  /api/v1/agent/approvals?status=pending
+agent.approvals.decide POST /api/v1/agent/approvals/{id}/decide（write，需 Bearer）
+CLI approvals list --status pending | approvals decide <id> --decision approve|reject
+Web /automation/approvals：状态筛选、diff、理由、批准/拒绝
+```
+
+已实测：
+
+- `approvals` 表种子 2 条 pending：`appr_seed_1`（assets.update）、`appr_seed_2`（policies.provenance.set）。
+- HTTP 无 token 决定返回 401 `AUTH_REQUIRED`；带 token 批准返回 200，`status=approved`、`decidedAt` 非空。
+- 二次决定返回 409 `CONFLICT`；CLI `approvals list --status pending` 从 2 条降为 1 条。
+- 审计 `GET /api/v1/audit?kind=agent.approval.decide` 返回 2 条，subject 分别为两个审批 id。
+- 浏览器审批页批准后待批从 1 变 0，空态出现；自动化页侧栏读取真实待批工具。
+- `core/domains` 审批测试 1 项、server 审批测试 1 项覆盖状态只能转移一次。
+
 未完成边界：
 
-- Web 写入仍受 HTTP 写 token 和解锁流程阻塞；资产创建/更新目前走 CLI `--allow-write`。
-- 政策溯源已支持写：`policies.provenance.set`（draft）写四态与审计；Web 详情可编辑，CLI/HTTP 实测通过。审核工作台与批量核对尚未做。
+- 目前没有生产创建审批记录的入口；Agent Runtime 尚未写入 `agent_approvals`。
+- 审批通过不自动执行工具；执行器/运行详情/取消仍待 M3 后续。
+- 审批页批量操作、影响条数、可回滚点未做。
+
+### 未完成边界
+
+- 政策审核工作台与批量核对尚未做；政策溯源写已支持四态与审计。
 - 交付物同步生成，未接 SSE/轮询进度、取消与后台队列。
 - vault 解锁未接 server/Web；元数据读链路当前可读，敏感字段展示仍需解锁。
 
@@ -146,18 +169,19 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         87.29 KB / 110 KB
-入口 raw        48.77 KB / 60 KB
+总 gzip         95.83 KB / 110 KB
+CSS gzip        16.42 KB / 17 KB
+入口 raw        56.43 KB / 60 KB
 vendor raw      98.88 KB / 130 KB
-路由最大 raw    7.03 KB / 24 KB
+路由最大 raw    8.96 KB / 24 KB
 ```
 
 ### 运行态 smoke
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，13 commands |
-| Server | `GET /api/v1/overview` | `501 UNSUPPORTED`（M0 预期） |
+| Server | `GET /api/v1/health` | `200 OK`，18 commands / 27 表 / schema v10 |
+| Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |
 | Server | `connections.test` | `403 FORBIDDEN` |

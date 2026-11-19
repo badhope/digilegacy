@@ -116,11 +116,19 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: false,
     },
     CommandSpec {
+        name: "agent.approvals.list",
+        domain: "agent",
+        permission: "read",
+        http: "GET /api/v1/agent/approvals",
+        requires_unlock: false,
+        audit: false,
+    },
+    CommandSpec {
         name: "agent.approvals.decide",
         domain: "agent",
         permission: "write",
         http: "POST /api/v1/agent/approvals/{id}/decide",
-        requires_unlock: true,
+        requires_unlock: false,
         audit: true,
     },
     CommandSpec {

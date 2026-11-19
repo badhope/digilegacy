@@ -97,14 +97,13 @@ const routes: RouteRecordRaw[] = [
   {
     path: "/automation/approvals",
     name: "approvals",
-    component: () => import("@/features/scaffold/ScaffoldView.vue"),
+    component: () => import("@/features/automation/ApprovalsView.vue"),
     meta: {
       titleKey: "automation.approvals.title",
       eyebrowKey: "automation.eyebrow",
       descriptionKey: "automation.approvals.subtitle",
-      readinessKey: "feature.automation.readiness",
       modules: ["AGT-03", "WEB-09"],
-      commands: ["agent.approvals.decide", "agent.runs.list"],
+      commands: ["agent.approvals.list", "agent.approvals.decide"],
     },
   },
   {

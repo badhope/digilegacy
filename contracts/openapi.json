@@ -804,6 +804,60 @@
         }
       }
     },
+    "/api/v1/agent/approvals": {
+      "get": {
+        "operationId": "agent.approvals.list",
+        "summary": "列出 Agent 写操作审批队列",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "agent.approvals.list",
+        "x-permission": "read",
+        "x-requires-unlock": false,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/approvals.page.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agent/approvals/{id}/decide": {
       "post": {
         "operationId": "agent.approvals.decide",
@@ -813,7 +867,7 @@
         ],
         "x-command": "agent.approvals.decide",
         "x-permission": "write",
-        "x-requires-unlock": true,
+        "x-requires-unlock": false,
         "x-audit": true,
         "responses": {
           "200": {
@@ -1069,6 +1123,7 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "id",
           "decision"
         ],
         "properties": {
@@ -1082,6 +1137,28 @@
           "reason": {
             "type": "string",
             "maxLength": 500
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "approval.list.input": {
+        "title": "ApprovalListInput",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "rejected",
+              "expired",
+              "all"
+            ],
+            "default": "pending"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -1092,7 +1169,10 @@
         "additionalProperties": false,
         "required": [
           "id",
+          "runId",
+          "tool",
           "status",
+          "createdAt",
           "decidedAt"
         ],
         "properties": {
@@ -1110,6 +1190,86 @@
           },
           "decidedAt": {
             "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "diff": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "approvals.page.output": {
+        "title": "ApprovalPage",
+        "type": "object",
+        "required": [
+          "items",
+          "pending"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "runId",
+                "tool",
+                "status",
+                "createdAt"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "runId": {
+                  "type": "string"
+                },
+                "tool": {
+                  "type": "string"
+                },
+                "objectKey": {
+                  "type": "string"
+                },
+                "diff": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "approved",
+                    "rejected",
+                    "expired"
+                  ]
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "decidedAt": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "pending": {
+            "type": "integer"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

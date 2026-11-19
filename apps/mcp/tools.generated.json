@@ -306,6 +306,38 @@
     }
   },
   {
+    "name": "agent.approvals.list",
+    "title": "读取 Agent 审批队列",
+    "description": "按状态读取 Agent 写操作审批记录；只读，不代替人工决定。",
+    "inputSchema": {
+      "title": "ApprovalListInput",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "approved",
+            "rejected",
+            "expired",
+            "all"
+          ],
+          "default": "pending"
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "agent.approvals.list"
+    }
+  },
+  {
     "name": "security.status",
     "title": "读取安全状态",
     "description": "读取锁定状态、恢复配置与密钥摘要，不含密钥本身。",

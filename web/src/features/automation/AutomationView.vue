@@ -11,6 +11,7 @@ import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
+import { platformClient } from "@/platform/client";
 import { TOOL_CATALOG } from "@/platform/generated/tools";
 import type { AgentRun, AgentRuns } from "@/platform/types";
 import { loadRuns } from "./api";
@@ -18,10 +19,11 @@ import { loadRuns } from "./api";
 const router = useRouter();
 const { t, locale } = useI18n();
 const { data, loading, error, reload } = useResource(loadRuns);
+const approvalResource = useResource(() => platformClient.listApprovals({ status: "pending" }));
 const readTools = computed(() => TOOL_CATALOG.filter((tool) => tool.mcp));
 
-const waitingRuns = computed(() => data.value?.items.filter((run) => run.status === "waiting_approval") ?? []);
-const waiting = computed(() => waitingRuns.value.length);
+const approvals = computed(() => approvalResource.data.value?.items ?? []);
+const waiting = computed(() => approvalResource.data.value?.pending ?? approvals.value.length);
 const failed = computed(() => data.value?.items.filter((run) => run.status === "failed").length ?? 0);
 
 function tone(status: AgentRun["status"]): "ready" | "planned" | "degraded" | "danger" | "neutral" {
@@ -119,12 +121,12 @@ function openRun(run: AgentRun) {
 
         <div class="automation-side">
           <SectionCard :title="t('automation.approvals.title')" :subtitle="t('automation.approvals.subtitle')">
-            <div v-if="waitingRuns.length" class="approval-list">
-              <div v-for="run in waitingRuns" :key="run.id" class="approval-run">
+            <div v-if="approvals.length" class="approval-list">
+              <div v-for="approval in approvals" :key="approval.id" class="approval-run">
                 <span class="approval-icon"><AppIcon name="clock" :size="16" /></span>
                 <div>
-                  <strong>{{ run.title }}</strong>
-                  <p class="mono">{{ run.id }} · {{ t("run.status.waiting_approval") }}</p>
+                  <strong class="mono">{{ approval.tool }}</strong>
+                  <p class="mono">{{ approval.runId }} · {{ approval.objectKey }}</p>
                 </div>
               </div>
             </div>

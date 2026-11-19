@@ -164,6 +164,24 @@
       "rate_limit": "60/min"
     },
     {
+      "name": "agent.approvals.list",
+      "title": "读取 Agent 审批队列",
+      "description": "按状态读取 Agent 写操作审批记录；只读，不代替人工决定。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/approval.list.input.json",
+      "output_schema": "schemas/approvals.page.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "agent.approvals.list",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "120/min"
+    },
+    {
       "name": "security.status",
       "title": "读取安全状态",
       "description": "读取锁定状态、恢复配置与密钥摘要，不含密钥本身。",

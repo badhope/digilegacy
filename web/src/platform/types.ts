@@ -150,3 +150,20 @@ export interface AuditPage {
   nextCursor: string | null;
   total: number;
 }
+
+export interface Approval {
+  id: string;
+  runId: string;
+  tool: string;
+  objectKey: string;
+  diff: string;
+  status: "pending" | "approved" | "rejected" | "expired";
+  reason: string;
+  createdAt: string;
+  decidedAt: string;
+}
+
+export interface ApprovalPage {
+  items: Approval[];
+  pending: number;
+}

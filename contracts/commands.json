@@ -320,17 +320,40 @@
       ]
     },
     {
+      "name": "agent.approvals.list",
+      "domain": "agent",
+      "summary": "列出 Agent 写操作审批队列",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/approval.list.input.json",
+      "output": "schemas/approvals.page.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "approvals list",
+        "http": "GET /api/v1/agent/approvals",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "agent.approvals.decide",
       "domain": "agent",
       "summary": "人工批准或拒绝 Agent 写操作",
       "permission": "write",
-      "requiresUnlock": true,
+      "requiresUnlock": false,
       "idempotent": false,
       "input": "schemas/approval.decide.input.json",
       "output": "schemas/approval.output.json",
       "transports": {
         "ipc": true,
-        "cli": "agents approve",
+        "cli": "approvals decide",
         "http": "POST /api/v1/agent/approvals/{id}/decide",
         "mcp": false,
         "agent": false

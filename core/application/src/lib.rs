@@ -5,7 +5,7 @@
 
 #![forbid(unsafe_code)]
 
-use digilegacy_domains::{assets, audit, overview, plan, policy, runs, DomainError};
+use digilegacy_domains::{approvals, assets, audit, overview, plan, policy, runs, DomainError};
 use serde_json::{json, Value};
 
 pub mod deliver;
@@ -80,6 +80,8 @@ impl Application {
             "deliver.export" => self.deliver_export(args),
             "security.status" => self.security_status(),
             "agent.runs.list" => self.runs_list(args),
+            "agent.approvals.list" => self.approvals_list(args),
+            "agent.approvals.decide" => self.approvals_decide(args),
             other => Err(PlatformError::unsupported(other)),
         }
     }
@@ -150,6 +152,19 @@ impl Application {
         policy::get(&self.store, id.trim_matches('"'))
             .map(|data| json!(data))
             .map_err(map_domain)
+    }
+
+    pub fn approvals_list(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: approvals::ListInput = parse(args)?;
+        let page = approvals::list(&self.store, &input).map_err(map_domain)?;
+        Ok(json!(page))
+    }
+
+    pub fn approvals_decide(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: approvals::DecideInput = parse(args)?;
+        let approval = approvals::decide(&self.store, &input).map_err(map_domain)?;
+        self.audit("agent.approval.decide", &approval.id)?;
+        Ok(json!(approval))
     }
 
     pub fn audit_list(&self, args: Value) -> Result<Value, PlatformError> {
@@ -282,6 +297,7 @@ fn map_domain(error: DomainError) -> PlatformError {
     match error {
         DomainError::NotFound(message) => PlatformError::new("NOT_FOUND", message),
         DomainError::Invalid(message) => PlatformError::new("INVALID_ARGS", message),
+        DomainError::Conflict(message) => PlatformError::new("CONFLICT", message),
         DomainError::Store(digilegacy_store::StoreError::State(message)) => {
             PlatformError::new("STORE_NOT_READY", message)
         }

@@ -4,7 +4,10 @@
   "additionalProperties": false,
   "required": [
     "id",
+    "runId",
+    "tool",
     "status",
+    "createdAt",
     "decidedAt"
   ],
   "properties": {
@@ -21,6 +24,24 @@
       ]
     },
     "decidedAt": {
+      "type": "string"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "tool": {
+      "type": "string"
+    },
+    "objectKey": {
+      "type": "string"
+    },
+    "diff": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "createdAt": {
       "type": "string"
     }
   },

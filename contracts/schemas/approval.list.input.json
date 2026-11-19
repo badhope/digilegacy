@@ -1,0 +1,9 @@
+{
+  "title": "ApprovalListInput",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "status": { "type": "string", "enum": ["pending", "approved", "rejected", "expired", "all"], "default": "pending" }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

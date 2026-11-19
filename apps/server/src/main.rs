@@ -16,7 +16,7 @@ use axum::{
     Router,
 };
 use digilegacy_application::Application;
-use digilegacy_domains::{assets, audit, policy};
+use digilegacy_domains::{approvals, assets, audit, policy};
 use digilegacy_foundation::{Envelope, Permission, PlatformError};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -92,6 +92,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/exports/{job_id}", get(download_export))
         .route("/api/v1/security", get(security_get))
         .route("/api/v1/agent/runs", get(agent_runs))
+        .route("/api/v1/agent/approvals", get(agent_approvals))
+        .route(
+            "/api/v1/agent/approvals/{id}/decide",
+            post(agent_approval_decide),
+        )
         .route("/api/v1/invoke", post(invoke))
         .with_state(state)
         .fallback(not_found)
@@ -217,6 +222,23 @@ async fn policy_provenance_set(
 
 async fn security_get(State(state): State<AppState>) -> impl IntoResponse {
     dispatch(&state, "security.status", json!({}), None)
+}
+
+async fn agent_approvals(
+    State(state): State<AppState>,
+    Query(input): Query<approvals::ListInput>,
+) -> impl IntoResponse {
+    dispatch(&state, "agent.approvals.list", json!(input), None)
+}
+
+async fn agent_approval_decide(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(mut input): Json<Value>,
+) -> impl IntoResponse {
+    input["id"] = json!(id);
+    dispatch(&state, "agent.approvals.decide", input, Some(&headers))
 }
 
 async fn agent_runs(
@@ -397,6 +419,49 @@ mod tests {
         let data = envelope.0.data.clone().unwrap();
         assert_eq!(data["total"], 0);
         assert!(data["items"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn approvals_list_and_decide_transition_once() {
+        let state = test_app_with_token(Some("test-token"));
+        state
+            .app
+            .store()
+            .write(|conn| {
+                conn.execute(
+                    "INSERT INTO agent_approvals (id, run_id, tool, object_key, diff_json, status, created_at)
+                     VALUES ('appr_1','run_1','assets.update','3','{}','pending','t1')",
+                    [],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        let (status, envelope) = dispatch(
+            &state,
+            "agent.approvals.list",
+            json!({ "status": "pending" }),
+            None,
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(envelope.0.data.unwrap()["pending"], 1);
+
+        let headers = write_headers("test-token");
+        let (status, envelope) = dispatch(
+            &state,
+            "agent.approvals.decide",
+            json!({ "id": "appr_1", "decision": "approve", "reason": "ok" }),
+            Some(&headers),
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(envelope.0.data.unwrap()["status"], "approved");
+
+        let (status, _) = dispatch(
+            &state,
+            "agent.approvals.decide",
+            json!({ "id": "appr_1", "decision": "reject" }),
+            Some(&headers),
+        );
+        assert_eq!(status, StatusCode::CONFLICT);
     }
 
     #[test]

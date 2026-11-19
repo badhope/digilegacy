@@ -59,6 +59,11 @@ enum Commands {
         #[command(subcommand)]
         command: PoliciesCommand,
     },
+    /// Agent approvals.
+    Approvals {
+        #[command(subcommand)]
+        command: ApprovalsCommand,
+    },
     /// Audit hash-chain records.
     Audit {
         #[command(subcommand)]
@@ -191,6 +196,27 @@ enum PoliciesCommand {
         source_url: String,
         #[arg(long, default_value = "")]
         note: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ApprovalsCommand {
+    /// List approvals (default pending).
+    List {
+        #[arg(long, default_value = "pending")]
+        status: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Approve or reject one pending Agent write.
+    Decide {
+        id: String,
+        #[arg(long, value_parser = ["approve", "reject"])]
+        decision: String,
+        #[arg(long, default_value = "")]
+        reason: String,
         #[arg(long)]
         json: bool,
     },
@@ -379,6 +405,30 @@ fn main() -> ExitCode {
                 json!({ "id": id, "status": status, "sourceUrl": source_url, "note": note }),
                 as_json,
                 false,
+            ),
+        },
+        Commands::Approvals { command } => match command {
+            ApprovalsCommand::List {
+                status,
+                json: as_json,
+            } => run(
+                &app,
+                "agent.approvals.list",
+                json!({ "status": status }),
+                as_json,
+                false,
+            ),
+            ApprovalsCommand::Decide {
+                id,
+                decision,
+                reason,
+                json: as_json,
+            } => run(
+                &app,
+                "agent.approvals.decide",
+                json!({ "id": id, "decision": decision, "reason": reason }),
+                as_json,
+                true,
             ),
         },
         Commands::Audit { command } => match command {
