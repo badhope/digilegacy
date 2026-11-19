@@ -1,0 +1,84 @@
+{
+  "title": "ConnectionPage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items",
+    "total"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "enabled",
+          "lastCheckAt",
+          "lastStatus",
+          "lastError",
+          "updatedAt",
+          "source"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "llm",
+              "policy",
+              "smtp",
+              "imap",
+              "heartbeat",
+              "webhook",
+              "feishu",
+              "wecom"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lastCheckAt": {
+            "type": "string"
+          },
+          "lastStatus": {
+            "type": "string",
+            "enum": [
+              "unconfigured",
+              "ok",
+              "degraded",
+              "error",
+              "disabled"
+            ]
+          },
+          "lastError": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "env",
+              "imported"
+            ]
+          }
+        }
+      }
+    },
+    "total": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

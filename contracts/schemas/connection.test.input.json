@@ -13,7 +13,10 @@
         "policy",
         "smtp",
         "imap",
-        "heartbeat"
+        "heartbeat",
+        "webhook",
+        "feishu",
+        "wecom"
       ]
     },
     "label": {
@@ -23,6 +26,11 @@
     "endpoint": {
       "type": "string",
       "format": "uri"
+    },
+    "id": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "可选：已保存连接 id，测试后写入健康状态"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

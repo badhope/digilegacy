@@ -152,6 +152,35 @@ export interface NotificationSendResult {
   errors: string[];
 }
 
+export type ConnectionKind = "llm" | "policy" | "smtp" | "imap" | "heartbeat" | "webhook" | "feishu" | "wecom";
+export type ConnectionStatus = "unconfigured" | "ok" | "degraded" | "error" | "disabled";
+
+export interface ConnectionItem {
+  id: string;
+  kind: ConnectionKind;
+  label: string;
+  enabled: boolean;
+  lastCheckAt: string;
+  lastStatus: ConnectionStatus;
+  lastError: string;
+  updatedAt: string;
+  source: "env" | "imported";
+}
+
+export interface ConnectionPage {
+  items: ConnectionItem[];
+  total: number;
+}
+
+export interface ConnectionTestResult {
+  ok: boolean;
+  status: ConnectionStatus;
+  latencyMs: number;
+  message: string;
+  connectionId?: string;
+  checkedAt?: string;
+}
+
 export interface Plan {
   holder: { name: string; updatedAt: string };
   heirs: Heir[];

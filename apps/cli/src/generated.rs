@@ -25,6 +25,7 @@ pub const COMMAND_LINES: &[&str] = &[
     "approvals list",
     "approvals decide",
     "security status",
+    "connections list",
     "connections test",
     "diagnostics export",
     "jobs get",

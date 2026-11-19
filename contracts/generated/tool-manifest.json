@@ -331,5 +331,21 @@
     "outputSchema": "schemas/notifications.list.output.json",
     "rateLimit": "60/min",
     "bulkThreshold": null
+  },
+  {
+    "name": "connections.list",
+    "command": "connections.list",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/empty.input.json",
+    "outputSchema": "schemas/connections.list.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
   }
 ]

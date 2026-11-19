@@ -455,6 +455,7 @@ dependencies = [
  "digilegacy-contracts",
  "digilegacy-domains",
  "digilegacy-foundation",
+ "digilegacy-integrations",
  "digilegacy-render",
  "digilegacy-security",
  "digilegacy-store",
@@ -504,6 +505,11 @@ dependencies = [
 [[package]]
 name = "digilegacy-integrations"
 version = "0.9.0"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "digilegacy-mcp"

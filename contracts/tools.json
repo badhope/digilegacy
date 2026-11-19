@@ -378,6 +378,24 @@
       ],
       "mcp": true,
       "rate_limit": "60/min"
+    },
+    {
+      "name": "connections.list",
+      "title": "读取外部连接",
+      "description": "读取平台外部连接的 kind、标签、启停与最近健康状态；不返回凭据。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/empty.input.json",
+      "output_schema": "schemas/connections.list.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "connections.list",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "60/min"
     }
   ]
 }

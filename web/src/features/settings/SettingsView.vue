@@ -10,7 +10,9 @@ import { platformClient } from "@/platform/client";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import { useTheme } from "@/platform/theme";
-import { loadAudit, loadSecurity } from "./api";
+import { formatDateTime } from "@/shared/format";
+import { loadAudit, loadConnections, loadSecurity } from "./api";
+import type { ConnectionItem, ConnectionKind, ConnectionStatus } from "@/platform/types";
 
 const route = useRoute();
 const router = useRouter();
@@ -19,6 +21,53 @@ const { theme, setTheme } = useTheme();
 const { data: security, loading: securityLoading, error: securityError, reload: reloadSecurity } = useResource(loadSecurity);
 const auditKind = ref("");
 const audit = useResource(() => loadAudit({ limit: 20, ...(auditKind.value ? { kind: auditKind.value } : {}) }));
+const {
+  data: connections,
+  loading: connectionsLoading,
+  error: connectionsLoadError,
+  reload: reloadConnections,
+  refresh: refreshConnections,
+} = useResource(loadConnections);
+const CONNECTION_KIND_LABELS: Record<ConnectionKind, { zh: string; en: string }> = {
+  llm: { zh: "LLM", en: "LLM" },
+  policy: { zh: "政策", en: "Policy" },
+  smtp: { zh: "SMTP", en: "SMTP" },
+  imap: { zh: "IMAP", en: "IMAP" },
+  heartbeat: { zh: "心跳", en: "Heartbeat" },
+  webhook: { zh: "Webhook", en: "Webhook" },
+  feishu: { zh: "飞书", en: "Feishu" },
+  wecom: { zh: "企业微信", en: "WeCom" },
+};
+const CONNECTION_STATUS_LABELS: Record<ConnectionStatus, { zh: string; en: string }> = {
+  unconfigured: { zh: "未配置", en: "Unconfigured" },
+  ok: { zh: "正常", en: "OK" },
+  degraded: { zh: "降级", en: "Degraded" },
+  error: { zh: "错误", en: "Error" },
+  disabled: { zh: "已停用", en: "Disabled" },
+};
+const connectionCopy = computed(() =>
+  locale.value === "zh-CN"
+    ? { test: "测试", testing: "测试中…", tokenRequired: "缺少平台写令牌" }
+    : { test: "Test", testing: "Testing…", tokenRequired: "Write token required" },
+);
+function connectionKindLabel(kind: ConnectionKind): string {
+  const label = CONNECTION_KIND_LABELS[kind] ?? { zh: kind, en: kind };
+  return locale.value === "zh-CN" ? label.zh : label.en;
+}
+function connectionStatusLabel(status: ConnectionStatus): string {
+  const label = CONNECTION_STATUS_LABELS[status] ?? { zh: status, en: status };
+  return locale.value === "zh-CN" ? label.zh : label.en;
+}
+function connectionSourceLabel(item: ConnectionItem): string {
+  return item.label === "env" ? item.source.toUpperCase() : `${item.label} · ${item.source}`;
+}
+function connectionRowStatus(item: ConnectionItem): string {
+  return item.enabled ? connectionStatusLabel(item.lastStatus) : CONNECTION_STATUS_LABELS.disabled[locale.value === "zh-CN" ? "zh" : "en"];
+}
+
+const testingId = ref<string | null>(null);
+const connectionNotice = ref("");
+const connectionError = ref("");
 
 const writeToken = ref(platformClient.getWriteToken());
 const tokenSaved = ref(false);
@@ -30,6 +79,36 @@ function clearWriteToken() {
   writeToken.value = "";
   platformClient.setWriteToken("");
   tokenSaved.value = true;
+}
+
+function connectionTone(status: ConnectionItem["lastStatus"]): "ready" | "degraded" | "danger" | "planned" {
+  if (status === "ok") return "ready";
+  if (status === "degraded") return "degraded";
+  if (status === "error") return "danger";
+  return "planned";
+}
+
+async function testConnection(item: ConnectionItem) {
+  testingId.value = item.id;
+  connectionNotice.value = "";
+  connectionError.value = "";
+  try {
+    const envelope = await platformClient.testConnection({ kind: item.kind, id: Number(item.id) });
+    if (!envelope.success || !envelope.data) {
+      connectionError.value =
+        envelope.code === "AUTH_REQUIRED" || envelope.code === "FORBIDDEN"
+          ? connectionCopy.value.tokenRequired
+          : envelope.message || envelope.code;
+      return;
+    }
+    const result = envelope.data;
+    connectionNotice.value = `${result.status} · ${result.latencyMs} ms · ${result.message}`;
+    await refreshConnections();
+  } catch (cause) {
+    connectionError.value = cause instanceof Error ? cause.message : "error";
+  } finally {
+    testingId.value = null;
+  }
 }
 
 const sections = ["workspace", "appearance", "security", "data", "connections", "audit", "about"] as const;
@@ -150,7 +229,39 @@ function go(section: Section) {
             <button type="button" class="link-button" @click="clearWriteToken">{{ t("settings.connections.clear") }}</button>
           </div>
           <div v-if="tokenSaved" class="empty-note">{{ t("settings.connections.saved") }}</div>
-          <div class="empty-note">{{ t("settings.connections.empty") }}</div>
+
+          <div class="connection-toolbar">
+            <button type="button" class="link-button" @click="reloadConnections()">{{ t("common.refresh") }}</button>
+          </div>
+          <div v-if="connectionsLoading" class="empty-note">{{ t("common.loading") }}</div>
+          <div v-else-if="connectionsLoadError" class="empty-note">{{ connectionsLoadError }}</div>
+          <div v-else-if="!connections?.items.length" class="empty-note">{{ t("settings.connections.empty") }}</div>
+          <div v-else class="connection-list">
+            <div v-for="item in connections.items" :key="item.id" class="connection-row">
+              <div class="connection-main">
+                <strong>{{ connectionKindLabel(item.kind) }}</strong>
+                <span class="mono">{{ connectionSourceLabel(item) }}</span>
+              </div>
+              <StatusPill
+                :tone="item.enabled ? connectionTone(item.lastStatus) : 'planned'"
+                :label="connectionRowStatus(item)"
+              />
+              <span class="mono connection-checked">
+                {{ item.lastCheckAt ? formatDateTime(item.lastCheckAt, locale) : "—" }}
+              </span>
+              <button
+                type="button"
+                class="link-button"
+                :disabled="!item.enabled || testingId === item.id"
+                @click="testConnection(item)"
+              >
+                {{ testingId === item.id ? connectionCopy.testing : connectionCopy.test }}
+              </button>
+              <p v-if="item.lastError" class="connection-error">{{ item.lastError }}</p>
+            </div>
+          </div>
+          <div v-if="connectionNotice" class="connection-notice">{{ connectionNotice }}</div>
+          <div v-if="connectionError" class="connection-error">{{ connectionError }}</div>
         </SectionCard>
 
         <SectionCard v-else-if="active === 'audit'" :title="t('settings.tab.audit')" :subtitle="t('settings.tab.audit.note')">
@@ -199,7 +310,7 @@ function go(section: Section) {
           <div class="about-grid">
             <div class="about-item">
               <span class="mono">{{ t("settings.about.version") }}</span>
-              <strong>0.9.0-m5a</strong>
+              <strong>0.9.0-m5b</strong>
             </div>
             <div class="about-item">
               <span class="mono">{{ t("settings.about.contracts") }}</span>
@@ -367,6 +478,26 @@ function go(section: Section) {
   font-size: 11px;
 }
 
+.connection-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 0 8px; border-top: 1px solid var(--line); }
+.connection-toolbar .setting-hint { margin: 0; }
+.connection-list { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.connection-row { display: grid; grid-template-columns: minmax(150px, 1.5fr) auto auto auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.connection-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.connection-main strong { color: var(--ink); font-size: 12px; font-weight: 600; }
+.connection-main .mono { color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+.connection-checked { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.connection-row .link-button:disabled { cursor: not-allowed; opacity: 0.55; }
+.connection-notice { margin-top: 10px; padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-strong); font-size: 11px; overflow-wrap: anywhere; }
+.connection-error { grid-column: 1 / -1; margin: 0; color: var(--danger); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.connection-row .connection-error { padding-bottom: 2px; }
+
+@media (max-width: 640px) {
+  .connection-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; }
+  .connection-checked { grid-column: 1; }
+  .connection-row .link-button { justify-self: end; }
+  .token-form { flex-wrap: wrap; }
+  .connection-toolbar { align-items: flex-start; }
+}
 @media (max-width: 900px) {
   .settings-shell {
     grid-template-columns: 1fr;

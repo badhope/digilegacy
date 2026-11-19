@@ -519,3 +519,15 @@ M0 可以判定“工程壳完成”的条件：
 - Web 规划页“最终通知”发件箱实测空态、2 条列表、状态 Pill、失败原因位置、发送按钮与未配置提示；1920 桌面与 390px 移动端均无横向溢出。
 - `./tools/verify.sh` exit 0：**131 Rust + 10 Web**；契约 **33 命令 / 21 工具 / 45 schema / 19 错误码**；schema v15 / 30 表。
 - 预算（因新增通知 i18n 与规划页逻辑，入口预算从 76 调到 80 KB）：入口 **77.91 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **95.50 / 97 KB**、CSS gzip **19.92 / 21 KB**、总 gzip **115.42 / 118 KB**。
+
+### M5-B 连接健康与通知渠道
+
+- 新增 `connections.list`：HTTP `GET /api/v1/connections`，读模型返回 `id/kind/label/enabled/lastCheckAt/lastStatus/lastError/updatedAt/source`，不返回 `config_enc` 或任何凭据；`source=env` 只由 `config_enc='env'` 标记推导。
+- `connections.test` 改为 write + `agentApproval=required`，HTTP `POST /api/v1/connections/test` 需要 `DIGILEGACY_API_TOKEN`；无 token 实测 401 `AUTH_REQUIRED`，带 `test-write-token` 实测 Webhook 返回 `ok=true/status=ok/HTTP 200` 并回写 `last_status=ok`。
+- 8 类探针：`llm`（`/models`）、`policy`/`heartbeat`（GET）、`webhook`/`feishu`/`wecom`（POST 对应 payload）、`smtp`/`imap`（TCP 连通性）。失败 URL 脱敏，成功不把 `HTTP 200` 写进 `last_error`。
+- 通知通道实测：`DIGILEGACY_NOTIFY_CHANNEL=feishu` + `DIGILEGACY_FEISHU_WEBHOOK_URL` 投递 1 条，sink 收到 `{"msg_type":"text","content":{"text":"【M5-B 通道验证】..."}}`，发件箱置 `sent`；`wecom` 同样收到 `{"msgtype":"text","text":{"content":"..."}}` 并置 `sent`。临时 outbox 行与测试通道元数据已清理。
+- Web Settings → 连接页实测桌面 1920 与移动端 390px：连接列表、状态、最近检查、失败原因、测试按钮均正常；390px `scrollWidth=390`，无横向溢出；点击测试后绿色 `ok · 3 ms · HTTP 200` 提示。
+- CLI `connections list --json` 返回真实连接；`connections test --kind webhook --id 2 --allow-write --json` 返回 `ok=true/HTTP 200`；无 `--allow-write` 返回 `FORBIDDEN`。
+- M5-B 修复：reqwest blocking 探针改为普通 OS 线程创建/销毁，避免 Tokio `spawn_blocking` 关闭内部 runtime 时 panic；首次实现曾返回空 HTTP body，修复后 curl 与 Web 均拿到完整 JSON。
+- `./tools/verify.sh` exit 0：**138 Rust + 10 Web**；契约 **34 命令 / 22 工具 / 46 schema / 19 错误码**；schema v15 / 30 表。
+- 预算：入口 **78.85 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **96.84 / 97 KB**、CSS gzip **20.24 / 21 KB**、总 gzip **117.08 / 118 KB**；Settings 路由 11.26 / 24 KB。

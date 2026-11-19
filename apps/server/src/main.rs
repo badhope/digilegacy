@@ -96,6 +96,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/trigger", patch(trigger_configure))
         .route("/api/v1/trigger/evaluate", post(trigger_evaluate))
         .route("/api/v1/trigger/events", get(trigger_events))
+        .route("/api/v1/connections", get(connections_list))
+        .route("/api/v1/connections/test", post(connections_test))
         .route("/api/v1/notifications", get(notifications_list))
         .route("/api/v1/notifications/send", post(notifications_send))
         .route("/api/v1/policies", get(policies_list))
@@ -227,6 +229,35 @@ async fn notifications_list(
     Query(query): Query<Value>,
 ) -> impl IntoResponse {
     dispatch(&state, "notifications.list", query, None)
+}
+
+async fn connections_list(
+    State(state): State<AppState>,
+    Query(query): Query<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "connections.list", query, None)
+}
+
+async fn connections_test(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Option<Json<Value>>,
+) -> Response {
+    let input = body.map(|Json(value)| value).unwrap_or_else(|| json!({}));
+    // Probes are blocking; run them off the Tokio runtime.
+    match tokio::task::spawn_blocking(move || {
+        let (status, Json(envelope)) = dispatch(&state, "connections.test", input, Some(&headers));
+        (status, envelope)
+    })
+    .await
+    {
+        Ok((status, envelope)) => (status, Json(envelope)).into_response(),
+        Err(error) => {
+            let envelope =
+                Envelope::<Value>::err(PlatformError::new("INTERNAL", error.to_string()));
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(envelope)).into_response()
+        }
+    }
 }
 
 async fn notifications_send(
@@ -628,12 +659,10 @@ mod tests {
     }
 
     #[test]
-    fn key_and_network_commands_are_forbidden_over_http() {
+    fn connections_test_is_writable_but_requires_a_write_token() {
         let app = test_app();
-        assert_eq!(
-            dispatch(&app, "connections.test", json!({}), None).0,
-            StatusCode::FORBIDDEN
-        );
+        let (status, _) = dispatch(&app, "connections.test", json!({"kind": "webhook"}), None);
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 
     #[test]

@@ -38,12 +38,13 @@
 | 资产发现与批量导入 | 已做完（M4-H：分类向导、36 条建议、已入库标记、同名同平台跳过） |
 | 前端整合与去重 | 已做完（M4-I：共享资产编辑器、统一日期格式、移动端表格收敛） |
 | 最终通知发件箱 | 已做完（M5-A：final 阶段持久化、收件人去重、Webhook 投递、失败可见、Web/CLI/HTTP/MCP 读取） |
+| 连接健康与通知渠道 | 已做完（M5-B：`connections.list/test`、真实探针、健康回写、飞书/企业微信投递、Web 连接页） |
 | Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
 | 后台任务队列 / 运行进度 | 已做完（M3-G：审批后台执行、`jobs.get`、运行耗时、Web 静默轮询） |
 | Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
 | 桌面客户端 | 已取消（平台只保留 Web / CLI / MCP / HTTP） |
 
-当前版本：`0.9.0-m5a`。
+当前版本：`0.9.0-m5b`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
@@ -61,6 +62,8 @@ M4-I 前端整合：新增/编辑资产共用 `AssetEditor` 与 `model.ts`，日
 
 M5-A 最终通知发件箱：schema v15 新增 `notification_outbox`；触发链只在 final 阶段入箱，按紧急联系人、主继承人和执行人去重，邮箱优先、其次电话/名称；没有接收人时写入 `blocked` 行而不是静默丢弃。投递走 `DIGILEGACY_WEBHOOK_URL`（可选 Bearer token），后台每 60 秒处理 pending，手动发送走 `POST /api/v1/notifications/send`（可选 `retryFailed` 重试失败行），HTTP 路径在 blocking 线程执行，避免阻塞 Tokio。Web 规划页显示最终通知、状态、失败原因与手动发送；CLI 提供 `notifications list/send`，MCP 只暴露只读列表。
 
+M5-B 连接健康与通知渠道：新增 `connections.list` 只读健康页与 `connections.test` 写权限探针（LLM/政策/SMTP/IMAP/心跳/Webhook/飞书/企业微信 8 类）；环境变量配置的连接以 `config_enc='env'` 仅存元数据，读模型不回传凭据；探针结果回写 `last_check_at/last_status/last_error`，成功不保留错误文本、错误统一脱敏 URL。通知投递从单一 Webhook 扩展为通用 Webhook / 飞书 / 企业微信文本消息，`DIGILEGACY_NOTIFY_CHANNEL` 显式选择、未设置时按已配置 URL 自动选择；HTTP 探针在普通 OS 线程执行，避免 reqwest blocking 内部 runtime 在 Tokio 关闭时 panic。Web 设置连接页显示类型、来源、最近检查、状态、失败原因和单行测试按钮；CLI 提供 `connections list/test`，MCP 只暴露只读列表。
+
 M4-E 规划签到：`plan.get` 补充 `lastCheckIn`/`nextCheckAt`，Web/CLI/HTTP 共用 `trigger.checkin`；规划页可直接完成签到，成功提示并静默刷新触发链，失败显示写令牌缺失或服务端错误。
 
 M4-D 协作取消：schema v13 给 `agent_run_log` 增加 `cancel_requested`。取消运行中的任务先写 `cancelling` 并置位，执行器在每个步骤前后检查；发现取消就终止后续步骤、保留已完成步骤、把未执行步骤标记 `cancelled` 并写审计。`succeeded` 的落库也受取消标志拦截，避免刚取消又被成功覆盖。
@@ -73,7 +76,7 @@ M4-A 把用量账本接上：`agent.runs.plan` 从 OpenAI 兼容响应的 `usage
 
 M3-H 把 `deliver.export` 的后台路径接到同一 `jobs` 队列：HTTP/Web 只返回 `jobId` 与 `queued`，Worker 生成 HTML 并写 `deliverable_exports`；Web 交付页轮询 `jobs.get`，完成后出现下载链接。CLI 默认同步，`deliver export --background` 可入队。
 
-契约规模：**26 个命令、18 个工具、33 个 schema、19 个错误码**。
+契约规模：**34 个命令、22 个工具、46 个 schema、19 个错误码**。
 
 ---
 

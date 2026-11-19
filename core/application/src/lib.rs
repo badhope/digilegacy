@@ -10,6 +10,7 @@ use digilegacy_domains::{
 };
 use serde_json::{json, Value};
 
+pub mod connections_health;
 pub mod deliver;
 pub mod jobs;
 pub mod runtime;
@@ -30,11 +31,70 @@ struct NotificationSendResult {
     errors: Vec<String>,
 }
 
-fn webhook_url() -> Option<String> {
-    std::env::var("DIGILEGACY_WEBHOOK_URL")
+fn env_value(name: &str) -> Option<String> {
+    std::env::var(name)
         .ok()
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
+}
+
+#[derive(Debug, Clone)]
+struct NotificationTarget {
+    channel: String,
+    url: String,
+    token: Option<String>,
+}
+
+/// Resolve one notification channel. An explicit `DIGILEGACY_NOTIFY_CHANNEL`
+/// wins; otherwise auto-select the first configured webhook channel.
+fn notification_target() -> Option<NotificationTarget> {
+    let channel = env_value("DIGILEGACY_NOTIFY_CHANNEL").unwrap_or_else(|| {
+        if env_value("DIGILEGACY_FEISHU_WEBHOOK_URL").is_some() {
+            "feishu".to_string()
+        } else if env_value("DIGILEGACY_WECOM_WEBHOOK_URL").is_some() {
+            "wecom".to_string()
+        } else {
+            "webhook".to_string()
+        }
+    });
+    let url = match channel.as_str() {
+        "webhook" => env_value("DIGILEGACY_WEBHOOK_URL"),
+        "feishu" => env_value("DIGILEGACY_FEISHU_WEBHOOK_URL"),
+        "wecom" => env_value("DIGILEGACY_WECOM_WEBHOOK_URL"),
+        _ => None,
+    }?;
+    let token =
+        env_value("DIGILEGACY_WEBHOOK_TOKEN").or_else(|| env_value("DIGILEGACY_NOTIFY_TOKEN"));
+    Some(NotificationTarget {
+        channel,
+        url,
+        token,
+    })
+}
+
+fn notification_payload(channel: &str, item: &notify::Notification) -> Value {
+    let text = format!("【{}】\n{}", item.subject, item.body);
+    match channel {
+        "feishu" => json!({
+            "msg_type": "text",
+            "content": { "text": text },
+        }),
+        "wecom" => json!({
+            "msgtype": "text",
+            "text": { "content": text },
+        }),
+        _ => json!({
+            "event": "digilegacy.trigger.final",
+            "id": item.id,
+            "kind": item.kind,
+            "recipient": item.recipient,
+            "recipientRole": item.recipient_role,
+            "subject": item.subject,
+            "body": item.body,
+            "createdAt": item.created_at,
+            "triggerEventId": item.trigger_event_id,
+        }),
+    }
 }
 
 #[derive(Clone)]
@@ -67,6 +127,7 @@ impl Application {
         .map_err(|e| format!("打开数据库失败: {e}"))?;
         let app = Self::new(Arc::new(store));
         policy::seed_if_empty(app.store()).map_err(|e| format!("政策库初始化失败: {e}"))?;
+        app.seed_environment_connections()?;
         Ok(app)
     }
 
@@ -104,6 +165,8 @@ impl Application {
             "trigger.configure" => self.configure_trigger(args),
             "trigger.evaluate" => self.evaluate_trigger(),
             "trigger.events.list" => self.trigger_events(args),
+            "connections.list" => self.connections_list(args),
+            "connections.test" => self.connections_test(args),
             "notifications.list" => self.notifications_list(args),
             "notifications.send" => self.notifications_send(args),
             "deliver.export" => self.deliver_export(args),
@@ -411,7 +474,7 @@ impl Application {
     }
 
     fn deliver_notifications(&self) -> NotificationSendResult {
-        let Some(url) = webhook_url() else {
+        let Some(target) = notification_target() else {
             let pending = self.pending_notification_count();
             return NotificationSendResult {
                 configured: false,
@@ -452,22 +515,10 @@ impl Application {
         let mut failed = 0;
         let mut errors = Vec::new();
         for item in pending {
-            let payload = json!({
-                "event": "digilegacy.trigger.final",
-                "id": item.id,
-                "kind": item.kind,
-                "recipient": item.recipient,
-                "recipientRole": item.recipient_role,
-                "subject": item.subject,
-                "body": item.body,
-                "createdAt": item.created_at,
-                "triggerEventId": item.trigger_event_id,
-            });
-            let mut request = client.post(&url).json(&payload);
-            if let Ok(token) = std::env::var("DIGILEGACY_WEBHOOK_TOKEN") {
-                if !token.is_empty() {
-                    request = request.bearer_auth(token);
-                }
+            let payload = notification_payload(&target.channel, &item);
+            let mut request = client.post(&target.url).json(&payload);
+            if let Some(token) = target.token.as_deref().filter(|value| !value.is_empty()) {
+                request = request.bearer_auth(token);
             }
             match request.send() {
                 Ok(response) if response.status().is_success() => {
@@ -665,6 +716,41 @@ mod tests {
         let data = app.dispatch("notifications.list", json!({})).unwrap();
         assert_eq!(data["total"], 0);
         assert!(data["items"].as_array().unwrap().is_empty());
+        let data = app.dispatch("connections.list", json!({})).unwrap();
+        assert_eq!(data["total"], 0);
+        assert!(data["items"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn notification_payloads_match_channel_envelopes() {
+        let item = notify::Notification {
+            id: "7".to_string(),
+            created_at: "2026-11-19T10:00:00+08:00".to_string(),
+            trigger_event_id: 3,
+            kind: "final".to_string(),
+            recipient: "heir@example.com".to_string(),
+            recipient_role: "heir".to_string(),
+            subject: "遗产交接".to_string(),
+            body: "请查收".to_string(),
+            status: "pending".to_string(),
+            attempts: 0,
+            last_error: String::new(),
+            sent_at: String::new(),
+        };
+        let generic = notification_payload("webhook", &item);
+        assert_eq!(generic["event"], "digilegacy.trigger.final");
+        let feishu = notification_payload("feishu", &item);
+        assert_eq!(feishu["msg_type"], "text");
+        assert!(feishu["content"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("遗产交接"));
+        let wecom = notification_payload("wecom", &item);
+        assert_eq!(wecom["msgtype"], "text");
+        assert!(wecom["text"]["content"]
+            .as_str()
+            .unwrap()
+            .contains("遗产交接"));
     }
 
     #[test]

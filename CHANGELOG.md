@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.9.0-m5b] - 2026-11-19
+
+### Added
+
+- `connections.list` 只读连接健康页与 `connections.test` 写权限真实探针：LLM / 政策 / SMTP / IMAP / 心跳 / 通用 Webhook / 飞书 / 企业微信 8 类。
+- 环境变量连接以 `config_enc='env'` 仅存元数据；`core/domains/src/connections.rs` 提供列表、单条读取、健康回写和环境种子；读模型不返回配置。
+- 通知通道扩展：通用 Webhook 保留原 payload；飞书 `msg_type=text`；企业微信 `msgtype=text`；`DIGILEGACY_NOTIFY_CHANNEL` 显式选择，未设置时按已配置 URL 自动选择。
+- Web 设置连接页：写令牌、连接列表、来源、最近检查、状态、失败原因、单行测试按钮、成功/失败提示。
+- CLI `connections list/test`；MCP 仅暴露只读 `connections.list`；HTTP `GET /api/v1/connections` 与写 token 保护的 `POST /api/v1/connections/test`。
+
+### Fixed
+
+- `connections.test` 从 `network` 权限改为 `write`，HTTP 走 `DIGILEGACY_API_TOKEN`，避免网络命令被 HTTP 永久 403，同时保留出站探针的显式授权。
+- reqwest blocking 探针改在普通 OS 线程创建/销毁，修复从 Tokio `spawn_blocking` 关闭内部 runtime 时的 panic；HTTP 测试返回完整 JSON，不再空响应。
+- 探针错误统一脱敏 URL，防止 Webhook token 进入 `last_error`、列表或审计；成功状态不保留 `HTTP 200` 作为错误文本。
+- 启动时只启用当前环境可见的通道，不用 CLI 的局部环境反向停用服务端已存在连接。
+
+### Verification
+
+- `./tools/verify.sh` exit 0：**138 Rust + 10 Web**；契约 **34 命令 / 22 工具 / 46 schema / 19 错误码**；schema v15 / 30 表。
+- 实测 Webhook 探针返回 `ok · HTTP 200` 并回写 `last_status=ok`；Connections 页面桌面与 390px 移动端均无横向溢出，移动端 `scrollWidth=390`。
+- 实测飞书与企业微信各投递 1 条真实文本 payload，发件箱置 `sent`；通知测试行与临时通道元数据已清理。
+- 预算：入口 **78.85 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **96.84 / 97 KB**、CSS gzip **20.24 / 21 KB**、总 gzip **117.08 / 118 KB**。
+
 ## [0.9.0-m5a] - 2026-11-19
 
 ### Added

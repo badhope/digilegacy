@@ -581,11 +581,17 @@ const MOCK_DATA: Record<string, unknown> = {
     "keySource": "os",
     "lastBackupAt": "2026-11-19T02:00:00+08:00"
   },
+  "connections.list": {
+    "items": [],
+    "total": 0
+  },
   "connections.test": {
     "ok": true,
     "status": "ok",
     "latencyMs": 42,
-    "message": "连接可用（演示）"
+    "message": "连接可用（演示）",
+    "connectionId": "1",
+    "checkedAt": "2026-11-19T10:00:00+08:00"
   },
   "diagnostics.export": {
     "jobId": "job_demo_02",

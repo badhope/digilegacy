@@ -1,7 +1,7 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
 import { cachedQuery, clearQueryCache, invalidateQuery, queryCacheKey } from "./queryCache";
-import type { UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, DiscoveryResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, NotificationPage, NotificationSendResult, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
+import type { UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, ConnectionKind, ConnectionPage, ConnectionTestResult, DiscoveryResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, NotificationPage, NotificationSendResult, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -106,6 +106,9 @@ export const platformClient = {
     write<Trigger>(COMMANDS.triggerConfigure, args, ["plan", "trigger.events", "overview"]),
   evaluateTrigger: () => write<Trigger>(COMMANDS.triggerEvaluate, {}, ["plan", "trigger.events", "overview"]),
   triggerEvents: (args: Record<string, unknown> = {}) => read<TriggerEventPage>(COMMANDS.triggerEventsList, args, "trigger.events"),
+  listConnections: (args: Record<string, unknown> = {}) => read<ConnectionPage>(COMMANDS.connectionsList, args, "connections"),
+  testConnection: (args: { kind: ConnectionKind; id?: number; label?: string; endpoint?: string }) =>
+    write<ConnectionTestResult>(COMMANDS.connectionsTest, args, ["connections"]),
   listNotifications: (args: Record<string, unknown> = {}) => read<NotificationPage>(COMMANDS.notificationsList, args, "notifications"),
   sendNotifications: (args: Record<string, unknown> = {}) => write<NotificationSendResult>(COMMANDS.notificationsSend, args, ["notifications"]),
   checkin: () => write<CheckinResult>(COMMANDS.triggerCheckin, {}, ["plan", "trigger.events", "overview", "audit"]),

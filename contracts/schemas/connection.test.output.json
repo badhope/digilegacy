@@ -20,6 +20,14 @@
     },
     "message": {
       "type": "string"
+    },
+    "connectionId": {
+      "type": "string",
+      "description": "被更新健康状态的连接 id"
+    },
+    "checkedAt": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

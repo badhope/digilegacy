@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.9.0-m5a",
+    "version": "0.9.0-m5b",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -1500,16 +1500,70 @@
         }
       }
     },
+    "/api/v1/connections": {
+      "get": {
+        "operationId": "connections.list",
+        "summary": "读取外部连接与最近健康状态",
+        "tags": [
+          "connections"
+        ],
+        "x-command": "connections.list",
+        "x-permission": "read",
+        "x-requires-unlock": false,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/connections.list.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/connections/test": {
       "post": {
         "operationId": "connections.test",
-        "summary": "测试外部连接，不保存配置",
+        "summary": "测试并记录外部连接健康，不保存配置",
         "tags": [
           "connections"
         ],
         "x-command": "connections.test",
-        "x-permission": "network",
-        "x-requires-unlock": true,
+        "x-permission": "write",
+        "x-requires-unlock": false,
         "x-audit": true,
         "responses": {
           "200": {
@@ -2694,7 +2748,10 @@
               "policy",
               "smtp",
               "imap",
-              "heartbeat"
+              "heartbeat",
+              "webhook",
+              "feishu",
+              "wecom"
             ]
           },
           "label": {
@@ -2704,6 +2761,11 @@
           "endpoint": {
             "type": "string",
             "format": "uri"
+          },
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "可选：已保存连接 id，测试后写入健康状态"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -2730,6 +2792,98 @@
           },
           "message": {
             "type": "string"
+          },
+          "connectionId": {
+            "type": "string",
+            "description": "被更新健康状态的连接 id"
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "connections.list.output": {
+        "title": "ConnectionPage",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "label",
+                "enabled",
+                "lastCheckAt",
+                "lastStatus",
+                "lastError",
+                "updatedAt",
+                "source"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "llm",
+                    "policy",
+                    "smtp",
+                    "imap",
+                    "heartbeat",
+                    "webhook",
+                    "feishu",
+                    "wecom"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "lastCheckAt": {
+                  "type": "string"
+                },
+                "lastStatus": {
+                  "type": "string",
+                  "enum": [
+                    "unconfigured",
+                    "ok",
+                    "degraded",
+                    "error",
+                    "disabled"
+                  ]
+                },
+                "lastError": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "env",
+                    "imported"
+                  ]
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

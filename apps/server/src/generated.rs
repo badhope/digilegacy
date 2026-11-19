@@ -204,11 +204,19 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: false,
     },
     CommandSpec {
+        name: "connections.list",
+        domain: "connections",
+        permission: "read",
+        http: "GET /api/v1/connections",
+        requires_unlock: false,
+        audit: false,
+    },
+    CommandSpec {
         name: "connections.test",
         domain: "connections",
-        permission: "network",
+        permission: "write",
         http: "POST /api/v1/connections/test",
-        requires_unlock: true,
+        requires_unlock: false,
         audit: true,
     },
     CommandSpec {

@@ -59,6 +59,11 @@ enum Commands {
         #[command(subcommand)]
         command: NotificationsCommand,
     },
+    /// External connections and health probes.
+    Connections {
+        #[command(subcommand)]
+        command: ConnectionsCommand,
+    },
     /// Generate a deliverable export.
     Deliver {
         #[command(subcommand)]
@@ -124,12 +129,36 @@ enum NotificationsCommand {
         #[arg(long)]
         json: bool,
     },
-    /// Flush pending entries through DIGILEGACY_WEBHOOK_URL.
+    /// Flush pending entries through the configured notification channel.
     Send {
         #[arg(long)]
         allow_write: bool,
         #[arg(long)]
         retry_failed: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum ConnectionsCommand {
+    /// List connection metadata and last health.
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Probe a connection and persist its health.
+    Test {
+        #[arg(long)]
+        kind: String,
+        #[arg(long)]
+        id: Option<i64>,
+        #[arg(long)]
+        label: Option<String>,
+        #[arg(long)]
+        endpoint: Option<String>,
+        #[arg(long)]
+        allow_write: bool,
         #[arg(long)]
         json: bool,
     },
@@ -617,6 +646,30 @@ fn main() -> ExitCode {
                 json!({ "cursor": if cursor.is_empty() { None } else { Some(cursor) }, "limit": limit }),
                 as_json,
                 false,
+            ),
+        },
+        Commands::Connections { command } => match command {
+            ConnectionsCommand::List { json: as_json } => {
+                run(&app, "connections.list", json!({}), as_json, false)
+            }
+            ConnectionsCommand::Test {
+                kind,
+                id,
+                label,
+                endpoint,
+                allow_write,
+                json: as_json,
+            } => run(
+                &app,
+                "connections.test",
+                json!({
+                    "kind": kind,
+                    "id": id,
+                    "label": label,
+                    "endpoint": endpoint
+                }),
+                as_json,
+                allow_write,
             ),
         },
         Commands::Notifications { command } => match command {

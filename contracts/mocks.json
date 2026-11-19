@@ -281,7 +281,9 @@
       "ok": true,
       "status": "ok",
       "latencyMs": 42,
-      "message": "连接可用（演示）"
+      "message": "连接可用（演示）",
+      "connectionId": "1",
+      "checkedAt": "2026-11-19T10:00:00+08:00"
     },
     "assets.create": {
       "id": "ast_01",
@@ -648,6 +650,10 @@
       "failed": 0,
       "pending": 0,
       "errors": []
+    },
+    "connections.list": {
+      "items": [],
+      "total": 0
     }
   }
 }

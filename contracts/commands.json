@@ -591,11 +591,35 @@
       ]
     },
     {
+      "name": "connections.list",
+      "domain": "connections",
+      "summary": "读取外部连接与最近健康状态",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/connections.list.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "connections list",
+        "http": "GET /api/v1/connections",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "connections.test",
       "domain": "connections",
-      "summary": "测试外部连接，不保存配置",
-      "permission": "network",
-      "requiresUnlock": true,
+      "summary": "测试并记录外部连接健康，不保存配置",
+      "permission": "write",
+      "requiresUnlock": false,
       "idempotent": true,
       "input": "schemas/connection.test.input.json",
       "output": "schemas/connection.test.output.json",
@@ -606,13 +630,15 @@
         "mcp": false,
         "agent": false
       },
-      "agentApproval": "none",
+      "agentApproval": "required",
       "audit": true,
       "errors": [
         "INVALID_ARGS",
         "FORBIDDEN",
         "NETWORK",
         "TIMEOUT",
+        "AUTH_REQUIRED",
+        "NOT_FOUND",
         "INTERNAL"
       ]
     },

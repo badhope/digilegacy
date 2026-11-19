@@ -204,11 +204,19 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: false,
     },
     CommandSpec {
+        name: "connections.list",
+        domain: "connections",
+        permission: "read",
+        http: "GET /api/v1/connections",
+        requires_unlock: false,
+        audit: false,
+    },
+    CommandSpec {
         name: "connections.test",
         domain: "connections",
-        permission: "network",
+        permission: "write",
         http: "POST /api/v1/connections/test",
-        requires_unlock: true,
+        requires_unlock: false,
         audit: true,
     },
     CommandSpec {
@@ -309,6 +317,7 @@ pub const TOOLS: &[ToolSpec] = &[
     ToolSpec { name: "jobs.get", command: "jobs.get", permission: "read", title: "读取后台任务", description: "按任务 ID 读取后台执行状态、进度、结果与错误。", input_schema: "{\n  \"title\": \"IdInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"id\"\n  ],\n  \"properties\": {\n    \"id\": {\n      \"type\": \"string\",\n      \"minLength\": 1,\n      \"maxLength\": 64\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "trigger.events.list", command: "trigger.events.list", permission: "read", title: "读取触发链时间线", description: "按游标分页读取 DMS 触发链事件，只读。", input_schema: "{\n  \"title\": \"TriggerEventsInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"cursor\": {\n      \"type\": [\n        \"string\",\n        \"null\"\n      ]\n    },\n    \"limit\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 100\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "notifications.list", command: "notifications.list", permission: "read", title: "读取通知发件箱", description: "按状态与游标读取触发链最终通知的收件人、发送状态和失败原因；只读。", input_schema: "{\n  \"title\": \"NotificationsListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"status\": {\n      \"type\": \"string\",\n      \"enum\": [\"all\", \"pending\", \"sent\", \"failed\", \"blocked\"]\n    },\n    \"cursor\": { \"type\": \"string\" },\n    \"limit\": { \"type\": \"integer\", \"minimum\": 1, \"maximum\": 100 }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "connections.list", command: "connections.list", permission: "read", title: "读取外部连接", description: "读取平台外部连接的 kind、标签、启停与最近健康状态；不返回凭据。", input_schema: "{\n  \"title\": \"EmptyInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
 ];
 
 pub fn find(name: &str) -> Option<&'static CommandSpec> {

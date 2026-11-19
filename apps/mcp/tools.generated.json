@@ -586,5 +586,24 @@
     "_meta": {
       "digilegacy/command": "notifications.list"
     }
+  },
+  {
+    "name": "connections.list",
+    "title": "读取外部连接",
+    "description": "读取平台外部连接的 kind、标签、启停与最近健康状态；不返回凭据。",
+    "inputSchema": {
+      "title": "EmptyInput",
+      "type": "object",
+      "additionalProperties": false,
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "connections.list"
+    }
   }
 ]
