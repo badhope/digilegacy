@@ -171,7 +171,7 @@ node tools/bench/web-budget.mjs
 M0 基线：
 
 - Web 总 gzip 约 **81 KB**
-- 入口 chunk 约 **41 KB**，vendor 约 **98.5 KB**
+- 入口 chunk 约 **48 KB**，vendor 约 **98.5 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线）
 
 ---

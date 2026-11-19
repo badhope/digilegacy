@@ -162,7 +162,7 @@ M0 未实现写权限 token，因此 HTTP `write` 返回 `401 AUTH_REQUIRED`，�
 
 已设预算：
 
-- Web 总 gzip 约 81 KB；入口 41 KB；vendor 98.5 KB raw。
+- Web 总 gzip 约 81 KB；入口约 48 KB；vendor 98.5 KB raw。
 - CommandBus 约 250 ns/op（M0 release 基线）。
 - 路由级拆包；页面级 CSS 随路由加载。
 - 长任务走 Job/SSE，不让 HTTP 请求阻塞（M2+）。
