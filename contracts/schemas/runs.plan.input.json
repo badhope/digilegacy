@@ -1,0 +1,22 @@
+{
+  "title": "AgentRunPlanInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task"
+  ],
+  "properties": {
+    "task": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "maxSteps": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 20
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

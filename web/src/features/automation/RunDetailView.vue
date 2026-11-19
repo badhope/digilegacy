@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -18,6 +18,39 @@ const router = useRouter();
 const { t, locale } = useI18n();
 const runId = computed(() => String(route.params.id ?? ""));
 const { data, loading, error, reload } = useResource(() => platformClient.getRun(runId.value));
+watch(runId, () => reload());
+const acting = ref(false);
+const actionError = ref("");
+
+async function cancelRun() {
+  actionError.value = "";
+  acting.value = true;
+  try {
+    const envelope = await platformClient.cancelRun(runId.value);
+    if (!envelope.success) {
+      actionError.value = envelope.code === "AUTH_REQUIRED" ? t("runs.detail.tokenRequired") : envelope.message || envelope.code;
+      return;
+    }
+    reload();
+  } finally {
+    acting.value = false;
+  }
+}
+
+async function retryRun() {
+  actionError.value = "";
+  acting.value = true;
+  try {
+    const envelope = await platformClient.retryRun(runId.value);
+    if (!envelope.success || !envelope.data) {
+      actionError.value = envelope.code === "AUTH_REQUIRED" ? t("runs.detail.tokenRequired") : envelope.message || envelope.code;
+      return;
+    }
+    router.push(`/automation/runs/${envelope.data.id}`);
+  } finally {
+    acting.value = false;
+  }
+}
 
 function tone(status: RunStatus): "ready" | "planned" | "degraded" | "danger" | "neutral" {
   if (status === "succeeded") return "ready";
@@ -31,7 +64,7 @@ function stepTone(status: RunStep["status"]): "ready" | "planned" | "degraded" |
   if (status === "done") return "ready";
   if (status === "failed" || status === "rejected") return "danger";
   if (status === "pending_approval") return "degraded";
-  if (status === "queued") return "neutral";
+  if (status === "queued" || status === "cancelled") return "neutral";
   return "planned";
 }
 
@@ -66,8 +99,24 @@ function pretty(value: unknown): string {
           {{ t("runs.detail.back") }}
         </AppButton>
         <StatusPill v-if="data" :tone="tone(data.status)" :label="t(`run.status.${data.status}`)" />
+        <AppButton
+          v-if="data && ['running', 'waiting_approval'].includes(data.status)"
+          variant="secondary"
+          size="sm"
+          :disabled="acting"
+          @click="cancelRun"
+        >{{ t("runs.detail.cancel") }}</AppButton>
+        <AppButton
+          v-if="data && ['failed', 'rejected', 'cancelled'].includes(data.status)"
+          variant="primary"
+          size="sm"
+          :disabled="acting"
+          @click="retryRun"
+        >{{ t("runs.detail.retry") }}</AppButton>
       </template>
     </PageHeader>
+
+    <div v-if="actionError" class="run-error-banner">{{ actionError }}</div>
 
     <div v-if="loading" class="run-loading">
       <SkeletonBlock width="100%" height="180px" />
@@ -132,6 +181,7 @@ function pretty(value: unknown): string {
 .run-summary > div { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; background: var(--surface); }
 .run-summary span { color: var(--muted); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
 .run-summary strong { font-size: 13px; font-weight: 500; }
+.run-error-banner { margin-bottom: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--danger, #b42318); font-size: 12px; }
 .run-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--ink-soft); font-size: 12px; }
 .step-list { display: grid; gap: 10px; }
 .step-card { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }

@@ -13,6 +13,7 @@ digilegacy-contracts = { path = "../contracts" }
 digilegacy-domains = { path = "../domains" }
 digilegacy-store = { path = "../store" }
 digilegacy-security = { path = "../security" }
+digilegacy-agent = { path = "../agent" }
 digilegacy-render = { path = "../render" }
 sha2.workspace = true
 rusqlite.workspace = true

@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.7.0-m0",
-    "description": "Generated from contracts/commands.json. M0 skeleton: read paths are declared, domain services land in M2."
+    "version": "0.7.7-m3f",
+    "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
     {
@@ -929,6 +929,220 @@
             }
           }
         ]
+      }
+    },
+    "/api/v1/agent/plan": {
+      "post": {
+        "operationId": "agent.runs.plan",
+        "summary": "用平台配置的 OpenAI 兼容模型把任务拆成注册工具步骤，不执行",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "agent.runs.plan",
+        "x-permission": "draft",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/runs.plan.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/runs.plan.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/runs/{id}/cancel": {
+      "post": {
+        "operationId": "agent.runs.cancel",
+        "summary": "取消未终态运行，并把该运行的待审批置为过期",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "agent.runs.cancel",
+        "x-permission": "write",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/run.detail.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/id.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/runs/{id}/retry": {
+      "post": {
+        "operationId": "agent.runs.retry",
+        "summary": "为 failed/rejected/cancelled 运行创建新运行并重新执行",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "agent.runs.retry",
+        "x-permission": "write",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/run.detail.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/id.input"
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/agent/approvals": {
@@ -2326,6 +2540,63 @@
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
+      "runs.plan.input": {
+        "title": "AgentRunPlanInput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task"
+        ],
+        "properties": {
+          "task": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "maxSteps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 20
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "runs.plan.output": {
+        "title": "AgentRunPlan",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "steps",
+          "model"
+        ],
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "tool"
+              ],
+              "properties": {
+                "tool": {
+                  "type": "string"
+                },
+                "args": {
+                  "type": "object",
+                  "default": {}
+                }
+              }
+            },
+            "maxItems": 20
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
       "runs.start.input": {
         "title": "AgentRunStart",
         "type": "object",
@@ -2360,6 +2631,18 @@
                 }
               }
             }
+          },
+          "maxSteps": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "default": 20
+          },
+          "maxWriteSteps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 20,
+            "default": 5
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

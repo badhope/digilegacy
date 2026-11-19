@@ -55,10 +55,10 @@ const tools = JSON.parse(read("contracts/tools.json")).tools;
 const errors = JSON.parse(read("contracts/errors.json")).errors;
 const schemas = fs.readdirSync(path.join(root, "contracts/schemas")).filter((name) => name.endsWith(".json"));
 
-if (commands.length !== 20) fail(`commands: expected 20, got ${commands.length}`);
+if (commands.length !== 23) fail(`commands: expected 23, got ${commands.length}`);
 if (tools.length !== 16) fail(`tools: expected 16, got ${tools.length}`);
 if (errors.length !== 19) fail(`errors: expected 19, got ${errors.length}`);
-if (schemas.length !== 28) fail(`schemas: expected 28, got ${schemas.length}`);
+if (schemas.length !== 30) fail(`schemas: expected 30, got ${schemas.length}`);
 notes.push(`contracts: ${commands.length} commands, ${tools.length} tools, ${schemas.length} schemas, ${errors.length} errors`);
 
 const commandNames = new Set();
@@ -80,7 +80,7 @@ for (const command of commands) {
   }
   // Orchestrator commands are invoked by a human; their own write steps still
   // create approvals in the runtime.
-  const orchestrators = new Set(["agent.approvals.decide", "agent.runs.start"]);
+  const orchestrators = new Set(["agent.approvals.decide", "agent.runs.start", "agent.runs.cancel", "agent.runs.retry"]);
   if (command.permission === "write" && command.agentApproval !== "required" && !orchestrators.has(command.name)) {
     fail(`write command must require approval: ${command.name}`);
   }

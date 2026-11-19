@@ -1,6 +1,6 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
-import type { AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, Overview, Plan, PoliciesPage, Policy, RunDetail, SecurityStatus } from "./types";
+import type { AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -84,8 +84,12 @@ export const platformClient = {
   exportUrl: (path: string) => `${API_BASE}${path}`,
   listRuns: (args: Record<string, unknown> = {}) => invoke<AgentRuns>(COMMANDS.agentRunsList, args),
   getRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsGet, { id }),
-  startRun: (task: string, steps: Array<{ tool: string; args: Record<string, unknown> }>) =>
-    invoke<RunDetail>(COMMANDS.agentRunsStart, { task, steps }),
+  planRun: (task: string, maxSteps = 20) =>
+    invoke<RunPlan>(COMMANDS.agentRunsPlan, { task, maxSteps }),
+  startRun: (task: string, steps: Array<{ tool: string; args: Record<string, unknown> }>, maxSteps = 20, maxWriteSteps = 5) =>
+    invoke<RunDetail>(COMMANDS.agentRunsStart, { task, steps, maxSteps, maxWriteSteps }),
+  cancelRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsCancel, { id }),
+  retryRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsRetry, { id }),
   getSecurity: () => invoke<SecurityStatus>(COMMANDS.securityStatus),
   listAudit: (args: Record<string, unknown> = {}) => invoke<AuditPage>(COMMANDS.auditList, args),
   listApprovals: (args: Record<string, unknown> = {}) => invoke<ApprovalPage>(COMMANDS.agentApprovalsList, args),

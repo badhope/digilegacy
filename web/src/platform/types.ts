@@ -80,7 +80,7 @@ export interface AgentRun {
 export interface RunStep {
   tool: string;
   args: Record<string, unknown>;
-  status: "queued" | "pending_approval" | "done" | "failed" | "rejected";
+  status: "queued" | "pending_approval" | "done" | "failed" | "rejected" | "cancelled";
   result?: unknown;
   error: string;
   at: string;
@@ -95,6 +95,16 @@ export interface RunDetail {
   rounds: number;
   startedAt: string;
   finalText: string;
+}
+
+export interface RunPlanStep {
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+export interface RunPlan {
+  steps: RunPlanStep[];
+  model: string;
 }
 
 export interface AgentRuns {

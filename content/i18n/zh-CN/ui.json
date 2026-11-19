@@ -341,7 +341,7 @@
   "runs.start.title": "新建运行",
   "runs.start.subtitle": "按步骤调用注册工具；写操作会自动进入人工审批。",
   "runs.start.formTitle": "运行定义",
-  "runs.start.formSubtitle": "确定性执行，不依赖外部模型；每一步都留运行记录。",
+  "runs.start.formSubtitle": "步骤可由 AI 规划，人工确认后确定性执行；每一步都留运行记录。",
   "runs.start.task": "任务名称",
   "runs.start.taskPlaceholder": "例如：更新资产估值并核对概览",
   "runs.start.steps": "步骤 JSON",
@@ -355,5 +355,13 @@
   "tools.count": "{count} 个工具",
   "tools.search": "搜索工具名或标题",
   "tools.empty": "没有匹配工具",
-  "tools.emptyNote": "调整权限筛选或搜索词。"
+  "tools.emptyNote": "调整权限筛选或搜索词。",
+  "runs.start.plan": "AI 生成步骤",
+  "runs.start.planning": "生成中…",
+  "runs.start.planModel": "规划器：{model}",
+  "runs.start.plannerMissing": "规划器未配置：请设置 DIGILEGACY_LLM_BASE_URL 与 DIGILEGACY_LLM_API_KEY",
+  "runs.detail.cancel": "取消运行",
+  "runs.detail.retry": "重试运行",
+  "runs.detail.tokenRequired": "需要写令牌：请在设置中填入 DIGILEGACY_API_TOKEN",
+  "runs.step.cancelled": "已取消"
 }

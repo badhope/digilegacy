@@ -367,6 +367,85 @@
       ]
     },
     {
+      "name": "agent.runs.plan",
+      "domain": "agent",
+      "summary": "用平台配置的 OpenAI 兼容模型把任务拆成注册工具步骤，不执行",
+      "permission": "draft",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/runs.plan.input.json",
+      "output": "schemas/runs.plan.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "runs plan",
+        "http": "POST /api/v1/agent/plan",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "UNSUPPORTED",
+        "NETWORK",
+        "TIMEOUT",
+        "PROVIDER_AUTH",
+        "PROVIDER_ERROR",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "agent.runs.cancel",
+      "domain": "agent",
+      "summary": "取消未终态运行，并把该运行的待审批置为过期",
+      "permission": "write",
+      "requiresUnlock": false,
+      "idempotent": false,
+      "input": "schemas/id.input.json",
+      "output": "schemas/run.detail.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "runs cancel",
+        "http": "POST /api/v1/agent/runs/{id}/cancel",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "AUTH_REQUIRED",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "agent.runs.retry",
+      "domain": "agent",
+      "summary": "为 failed/rejected/cancelled 运行创建新运行并重新执行",
+      "permission": "write",
+      "requiresUnlock": false,
+      "idempotent": false,
+      "input": "schemas/id.input.json",
+      "output": "schemas/run.detail.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "runs retry",
+        "http": "POST /api/v1/agent/runs/{id}/retry",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "INVALID_ARGS",
+        "AUTH_REQUIRED",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "agent.approvals.list",
       "domain": "agent",
       "summary": "列出 Agent 写操作审批队列",

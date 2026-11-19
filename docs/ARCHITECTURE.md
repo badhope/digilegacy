@@ -22,7 +22,7 @@
         └───────────────┴─────────────┴─────────────┴───────────────┘
 ```
 
-M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真实领域，Web 默认走 Platform API；M2-B 加入政策库与交付物导出；M3 加入政策溯源写、写令牌、审计查询、Agent 审批队列与确定性 Runtime。
+M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真实领域，Web 默认走 Platform API；M2-B 加入政策库与交付物导出；M3 加入政策溯源写、写令牌、审计查询、Agent 审批队列、确定性 Runtime 与任务规划/取消/预算/重试。
 
 ## 2. Workspace 成员
 
@@ -35,6 +35,7 @@ M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真
 | `core/security` | Vault/密钥/恢复/备份/审计 | 已实现（M1） |
 | `core/store` | SQLite/SQLCipher、迁移、导入、检查点 | 已实现（M1） |
 | `core/domains` | assets/plan/overview/runs/policy/audit/approvals 真实领域 | 已实现（M2 首批 + M2-B 政策库 + M3 溯源写/审计/审批/运行详情） |
+| `core/agent` | 规划器与 Agent 状态词汇 | 已实现（M3-F OpenAI 兼容规划器） |
 | `core/application` | 用例层：共享 HTTP/CLI/MCP 的业务分派、审计、交付导出 | 已实现（M2/M2-B） |
 | `core/integrations` | 连接类型/状态 | 枚举 |
 | `core/agent` | Run/Approval 状态机 | 枚举 |
@@ -153,6 +154,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M3-C**：`audit.list` 读审计链（游标 + 类型过滤），HTTP `GET /api/v1/audit`，CLI `audit list`，Web 设置审计页显示时间/类型/对象/结果/hash 前缀。
 - **M3-D**：`agent.approvals.list/decide` 管理 Agent 写操作审批队列；决定更新 `agent_approvals` 状态并写 `agent.approval.decide` 审计；HTTP `GET /api/v1/agent/approvals`、`POST /api/v1/agent/approvals/{id}/decide`，CLI `approvals list/decide`，Web `/automation/approvals`。
 - **M3-E**：`agent.runs.start/get` 驱动确定性 Runtime：按步骤执行注册工具，只读/草稿立即执行，`write` 工具创建审批并暂停；批准后从当前步骤继续执行，拒绝则终止。运行步骤落 `agent_run_log.steps_json`，Web `/automation/runs/new`、`/automation/runs/:id`、`/automation/tools` 接真实数据。
+- **M3-F**：`agent.runs.plan` 用 OpenAI 兼容接口（默认 DeepSeek，`DIGILEGACY_LLM_BASE_URL/API_KEY/MODEL`）把任务拆成注册工具步骤，只返回计划、不执行；Web 人工确认后再 `start`。`agent.runs.cancel` 终止未终态运行并把待审批置 `expired`；`agent.runs.retry` 为 failed/rejected/cancelled 运行创建新运行并保留旧记录；`maxSteps/maxWriteSteps` 在启动前做静态预算校验。
 - **数据归属**：单工作区抽象保留 `workspaces`，27 张表按领域拆；资产与政策各维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。

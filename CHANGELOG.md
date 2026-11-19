@@ -2,6 +2,34 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.7-m3f] - 2026-11-19
+
+### Added
+
+- `agent.runs.plan`（draft）：用 OpenAI 兼容接口（默认 DeepSeek）把任务拆成注册工具步骤，只生成计划、不执行；工具目录给规划器带上权限、标题、说明和输入 schema。HTTP `POST /api/v1/agent/plan`，CLI `runs plan`，Web 新建运行页“AI 生成步骤”。
+- `agent.runs.cancel`（write）：取消未终态运行，步骤置 `cancelled`，该运行的 pending 审批置 `expired`，写 `agent.run.cancelled` 审计；HTTP `POST /api/v1/agent/runs/{id}/cancel`，CLI `runs cancel`，Web 运行详情“取消运行”。
+- `agent.runs.retry`（write）：为 failed/rejected/cancelled 运行创建新运行，保留旧运行记录；HTTP `POST /api/v1/agent/runs/{id}/retry`，CLI `runs retry`，Web 运行详情“重试运行”。
+- `agent.runs.start` 增加 `maxSteps` / `maxWriteSteps` 静态预算；超过预算直接返回 `INVALID_ARGS`，不会创建运行。
+- 规划器错误映射稳定：未配置 `UNSUPPORTED`、网络 `NETWORK`、超时 `TIMEOUT`、认证 `PROVIDER_AUTH`、服务端 `PROVIDER_ERROR`、返回结构非法 `INVALID_ARGS`。
+- 运行详情路由参数变化时自动重载，修复重试后跳转仍显示旧运行的前端问题。
+
+### Changed
+
+- `ToolSpec` 扩展为 `name/command/permission/title/description/input_schema`，生成器把工具输入 schema 嵌入 Rust 契约。
+- 契约扩至 **23 命令 / 16 工具 / 30 schema / 19 错误码**；`arch-check` 同步，取消/重试加入编排命令例外。
+- 版本 `0.7.7-m3f`。
+
+### Verification
+
+- Rust 测试 **109 项**：security 49、store 15、domains 13、application 10、agent 3、server 12、foundation 5、render 2；全仓 `./tools/verify.sh` 通过（`/tmp/digilegacy-verify-m3f.log`）。
+- 本地 OpenAI 兼容 mock 规划器实测：`POST /api/v1/agent/plan` 返回 `model=mock-planner` 与 `overview.get + assets.list` 两步。
+- Web 新建运行页“AI 生成步骤”填充步骤 JSON，显示规划器模型；启动后运行完成。
+- HTTP 写运行取消后步骤 `cancelled`、审批 `expired`；对过期审批再次决定返回 `409 CONFLICT`。
+- HTTP 拒绝运行后 `runs retry` 返回新运行 `waiting_approval`，旧运行仍为 `rejected`；Web 重试跳转新运行。
+- HTTP 超预算写运行返回 `400 INVALID_ARGS`（2 个写步骤 / 预算 1）。
+- CLI `runs plan` / `runs retry` / `runs cancel` 实测通过。
+- Web 总 gzip **104.15 KB / 110 KB**，CSS **18.12 KB / 19 KB**，入口 **62.82 KB / 64 KB**，vendor **98.88 KB / 130 KB**。
+
 ## [0.7.6-m3e] - 2026-11-19
 
 ### Added

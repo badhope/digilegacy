@@ -83,6 +83,9 @@ impl Application {
             "agent.runs.list" => self.runs_list(args),
             "agent.runs.get" => self.runs_get(args),
             "agent.runs.start" => self.runs_start(args),
+            "agent.runs.plan" => runtime::plan(self, args),
+            "agent.runs.cancel" => runtime::cancel(self, args),
+            "agent.runs.retry" => runtime::retry(self, args),
             "agent.approvals.list" => self.approvals_list(args),
             "agent.approvals.decide" => self.approvals_decide(args),
             other => Err(PlatformError::unsupported(other)),
@@ -251,6 +254,10 @@ impl Application {
 
     pub fn runs_start(&self, args: Value) -> Result<Value, PlatformError> {
         runtime::start(self, args)
+    }
+
+    pub fn runs_plan(&self, args: Value) -> Result<Value, PlatformError> {
+        runtime::plan(self, args)
     }
 
     pub fn runs_list(&self, args: Value) -> Result<Value, PlatformError> {
@@ -493,6 +500,128 @@ mod tests {
             .unwrap();
         assert_eq!(detail["status"], "rejected");
         assert_eq!(detail["steps"][0]["status"], "rejected");
+    }
+
+    #[test]
+    fn runtime_budget_rejects_too_many_writes() {
+        let app = app();
+        let error = app
+            .dispatch(
+                "agent.runs.start",
+                json!({
+                    "task": "批量创建",
+                    "maxWriteSteps": 1,
+                    "steps": [
+                        { "tool": "assets.create", "args": { "name": "A", "kind": "other" } },
+                        { "tool": "assets.create", "args": { "name": "B", "kind": "other" } }
+                    ]
+                }),
+            )
+            .unwrap_err();
+        assert_eq!(error.code, "INVALID_ARGS");
+        assert!(error.message.contains("预算"));
+    }
+
+    #[test]
+    fn runtime_cancel_expires_pending_approval() {
+        let app = app();
+        let run = app
+            .dispatch(
+                "agent.runs.start",
+                json!({
+                    "task": "取消写运行",
+                    "steps": [{ "tool": "assets.create", "args": {
+                        "name": "待取消", "kind": "other", "platform": "", "value": "", "note": ""
+                    }}]
+                }),
+            )
+            .unwrap();
+        let run_id = run["id"].as_str().unwrap().to_string();
+        let cancelled = app
+            .dispatch("agent.runs.cancel", json!({ "id": run_id }))
+            .unwrap();
+        assert_eq!(cancelled["status"], "cancelled");
+        assert_eq!(cancelled["steps"][0]["status"], "cancelled");
+
+        let approvals = app
+            .dispatch("agent.approvals.list", json!({ "status": "all" }))
+            .unwrap();
+        let item = approvals["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["runId"] == run_id)
+            .unwrap();
+        assert_eq!(item["status"], "expired");
+        let error = app
+            .dispatch(
+                "agent.approvals.decide",
+                json!({ "id": item["id"], "decision": "approve", "reason": "" }),
+            )
+            .unwrap_err();
+        assert_eq!(error.code, "CONFLICT");
+    }
+
+    #[test]
+    fn runtime_retry_creates_new_run_and_preserves_old() {
+        let app = app();
+        let run = app
+            .dispatch(
+                "agent.runs.start",
+                json!({
+                    "task": "重试写运行",
+                    "steps": [{ "tool": "assets.create", "args": {
+                        "name": "重试资产", "kind": "other", "platform": "", "value": "", "note": ""
+                    }}]
+                }),
+            )
+            .unwrap();
+        let old_id = run["id"].as_str().unwrap().to_string();
+        let approvals = app
+            .dispatch("agent.approvals.list", json!({ "status": "pending" }))
+            .unwrap();
+        let approval_id = approvals["items"][0]["id"].as_str().unwrap().to_string();
+        app.dispatch(
+            "agent.approvals.decide",
+            json!({ "id": approval_id, "decision": "reject", "reason": "先不建" }),
+        )
+        .unwrap();
+        let old = app
+            .dispatch("agent.runs.get", json!({ "id": old_id }))
+            .unwrap();
+        assert_eq!(old["status"], "rejected");
+
+        let retried = app
+            .dispatch("agent.runs.retry", json!({ "id": old_id }))
+            .unwrap();
+        assert_ne!(retried["id"], old_id);
+        assert_eq!(retried["status"], "waiting_approval");
+        let new_id = retried["id"].as_str().unwrap().to_string();
+        let approvals = app
+            .dispatch("agent.approvals.list", json!({ "status": "pending" }))
+            .unwrap();
+        let approval_id = approvals["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|item| item["runId"] == new_id)
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        app.dispatch(
+            "agent.approvals.decide",
+            json!({ "id": approval_id, "decision": "approve", "reason": "同意重试" }),
+        )
+        .unwrap();
+        let new = app
+            .dispatch("agent.runs.get", json!({ "id": new_id }))
+            .unwrap();
+        assert_eq!(new["status"], "succeeded");
+        let old = app
+            .dispatch("agent.runs.get", json!({ "id": old_id }))
+            .unwrap();
+        assert_eq!(old["status"], "rejected");
     }
 
     #[test]

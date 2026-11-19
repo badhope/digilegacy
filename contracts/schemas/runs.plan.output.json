@@ -1,0 +1,35 @@
+{
+  "title": "AgentRunPlan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "steps",
+    "model"
+  ],
+  "properties": {
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tool"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string"
+          },
+          "args": {
+            "type": "object",
+            "default": {}
+          }
+        }
+      },
+      "maxItems": 20
+    },
+    "model": {
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

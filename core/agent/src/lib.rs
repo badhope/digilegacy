@@ -1,9 +1,11 @@
-//! Agent runtime boundary (AGT-01..04).
+//! Agent runtime boundary (AGT-01..05).
 //!
 //! The Agent may only act through Tool Registry / CommandBus. A write always
 //! creates an Approval; a Run is auditable. M0 fixes the state machine terms.
 
 #![forbid(unsafe_code)]
+
+pub mod planner;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunState {

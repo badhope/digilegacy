@@ -93,6 +93,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/security", get(security_get))
         .route("/api/v1/agent/runs", get(agent_runs).post(agent_runs_start))
         .route("/api/v1/agent/runs/{id}", get(agent_run_detail))
+        .route("/api/v1/agent/runs/{id}/cancel", post(agent_run_cancel))
+        .route("/api/v1/agent/runs/{id}/retry", post(agent_run_retry))
+        .route("/api/v1/agent/plan", post(agent_plan))
         .route("/api/v1/agent/approvals", get(agent_approvals))
         .route(
             "/api/v1/agent/approvals/{id}/decide",
@@ -230,6 +233,36 @@ async fn agent_run_detail(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     dispatch(&state, "agent.runs.get", json!({ "id": id }), None)
+}
+
+async fn agent_plan(State(state): State<AppState>, Json(input): Json<Value>) -> impl IntoResponse {
+    dispatch(&state, "agent.runs.plan", input, None)
+}
+
+async fn agent_run_cancel(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    dispatch(
+        &state,
+        "agent.runs.cancel",
+        json!({ "id": id }),
+        Some(&headers),
+    )
+}
+
+async fn agent_run_retry(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    dispatch(
+        &state,
+        "agent.runs.retry",
+        json!({ "id": id }),
+        Some(&headers),
+    )
 }
 
 async fn agent_runs_start(

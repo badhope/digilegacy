@@ -72,7 +72,7 @@ cargo test --workspace            OK
 - server：12 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突、Runtime 启动/详情）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
 - store：15 个（schema v10 / 27 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- domains：13 个；application：7 个
+- domains：13 个；application：10 个；agent：3 个
 
 ### M1 安全与数据底座
 
@@ -149,7 +149,7 @@ Web /automation/approvals：状态筛选、diff、理由、批准/拒绝
 未完成边界：
 
 - 目前没有生产创建审批记录的入口；Agent Runtime 尚未写入 `agent_approvals`。
-- 审批通过后由 Runtime 执行当前步骤；取消、预算与真实 LLM 规划仍待后续。
+- 审批通过后由 Runtime 执行当前步骤；取消、预算、重试与 LLM 规划已在 M3-F 补齐。
 - 审批页批量操作、影响条数、可回滚点未做。
 
 ### M3-E 确定性 Agent Runtime
@@ -170,9 +170,30 @@ Web /automation/runs/new、/automation/runs/:id、/automation/tools
 - 运行步骤落 `agent_run_log.steps_json`，审批通过后从当前步骤继续，拒绝则运行 `rejected`。
 - Tool Registry 名称与命令名双解析：`overview.get` 映射到 `app.overview`。
 
+### M3-F 规划、取消、预算与重试
+
+```text
+agent.runs.plan    POST /api/v1/agent/plan（draft）
+agent.runs.cancel  POST /api/v1/agent/runs/{id}/cancel（write，需 Bearer）
+agent.runs.retry   POST /api/v1/agent/runs/{id}/retry（write，需 Bearer）
+CLI runs plan --task --max-steps；runs cancel <id>；runs retry <id>
+Web /automation/runs/new 的“AI 生成步骤”；运行详情的“取消运行/重试运行”
+```
+
+已实测：
+
+- 本地 OpenAI 兼容 mock 规划器返回 `model=mock-planner` 与 `overview.get + assets.list`；Web 点击“AI 生成步骤”后步骤 JSON 被填回，并显示规划器模型。
+- `agent.runs.cancel` 将运行置 `cancelled`、步骤置 `cancelled`，该运行 pending 审批变 `expired`；对过期审批再次 decide 返回 `409 CONFLICT`。
+- `agent.runs.retry` 对 `rejected` 运行创建新运行并进入 `waiting_approval`；旧运行仍保持 `rejected`。
+- `maxWriteSteps=1` 的 2 个写步骤运行在启动前返回 `400 INVALID_ARGS`，不创建运行。
+- CLI `runs plan`、`runs retry 10`、`runs cancel 11` 均返回预期结果。
+- 运行详情监听路由参数变化，重试跳转新运行后会重新加载，不再残留旧运行内容。
+
 未完成边界：
 
-- Runtime 是确定性步骤执行器，不接外部 LLM 规划；取消、预算、重试未做。
+- 规划器需要外部 OpenAI 兼容端点与 key；未配置时明确返回 `UNSUPPORTED`，不会伪造计划。
+- 取消是协作式：已同步进入执行的单个工具不会被中断；审批决定仍同步执行工具。
+- 预算只在启动前静态校验，不落库、不做运行时动态消耗。
 - 运行详情未展示 token/成本；审批影响条数与回滚点未做。
 
 ### 未完成边界
@@ -192,9 +213,9 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         103.41 KB / 110 KB
-CSS gzip        18.09 KB / 19 KB
-入口 raw        61.81 KB / 64 KB
+总 gzip         104.15 KB / 110 KB
+CSS gzip        18.12 KB / 19 KB
+入口 raw        62.82 KB / 64 KB
 vendor raw      98.88 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```
@@ -203,7 +224,7 @@ vendor raw      98.88 KB / 130 KB
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，18 commands / 27 表 / schema v10 |
+| Server | `GET /api/v1/health` | `200 OK`，23 commands / 27 表 / schema v10 |
 | Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |

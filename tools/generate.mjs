@@ -213,7 +213,11 @@ pub fn find(code: &str) -> Option<&'static ErrorSpec> {
 );
 
 const rustToolRows = tools.tools
-  .map((tool) => `    ToolSpec { name: ${rstr(tool.name)}, command: ${rstr(tool.human_equivalent)} },`)
+  .map((tool) => {
+    const command = commandList.find((item) => item.name === tool.human_equivalent);
+    const schema = fs.readFileSync(path.join(ROOT, "contracts", tool.input_schema), "utf8").trim();
+    return `    ToolSpec { name: ${rstr(tool.name)}, command: ${rstr(tool.human_equivalent)}, permission: ${rstr(command?.permission ?? tool.permission)}, title: ${rstr(tool.title)}, description: ${rstr(tool.description)}, input_schema: ${rstr(schema)} },`;
+  })
   .join("\n");
 
 const rustCommandRows = commandList
@@ -245,6 +249,10 @@ ${rustCommandRows}
 pub struct ToolSpec {
     pub name: &'static str,
     pub command: &'static str,
+    pub permission: &'static str,
+    pub title: &'static str,
+    pub description: &'static str,
+    pub input_schema: &'static str,
 }
 
 pub const TOOLS: &[ToolSpec] = &[
@@ -492,8 +500,8 @@ const openapi = {
   openapi: "3.1.0",
   info: {
     title: "DigiLegacy Platform API",
-    version: "0.7.0-m0",
-    description: "Generated from contracts/commands.json. M0 skeleton: read paths are declared, domain services land in M2.",
+    version: "0.7.7-m3f",
+    description: "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents.",
   },
   servers: [{ url: "http://127.0.0.1:8787", description: "Local platform server" }],
   paths: openapiPaths,

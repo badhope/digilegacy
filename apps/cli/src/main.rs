@@ -108,12 +108,37 @@ enum RunsCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Plan a task with the configured OpenAI-compatible model.
+    Plan {
+        #[arg(long)]
+        task: String,
+        #[arg(long, default_value_t = 20)]
+        max_steps: usize,
+        #[arg(long)]
+        json: bool,
+    },
     /// Start a deterministic run. steps is a JSON array.
     Start {
         #[arg(long)]
         task: String,
         #[arg(long)]
         steps: String,
+        #[arg(long, default_value_t = 20)]
+        max_steps: usize,
+        #[arg(long, default_value_t = 5)]
+        max_write_steps: usize,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Cancel a non-terminal run and expire its pending approvals.
+    Cancel {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Retry a failed/rejected/cancelled run as a new run.
+    Retry {
+        id: String,
         #[arg(long)]
         json: bool,
     },
@@ -489,9 +514,22 @@ fn main() -> ExitCode {
             RunsCommand::Get { id, json: as_json } => {
                 run(&app, "agent.runs.get", json!({ "id": id }), as_json, false)
             }
+            RunsCommand::Plan {
+                task,
+                max_steps,
+                json: as_json,
+            } => run(
+                &app,
+                "agent.runs.plan",
+                json!({ "task": task, "maxSteps": max_steps }),
+                as_json,
+                false,
+            ),
             RunsCommand::Start {
                 task,
                 steps,
+                max_steps,
+                max_write_steps,
                 json: as_json,
             } => {
                 let steps: Value = match serde_json::from_str(&steps) {
@@ -505,10 +543,25 @@ fn main() -> ExitCode {
                 run(
                     &app,
                     "agent.runs.start",
-                    json!({ "task": task, "steps": steps }),
+                    json!({
+                        "task": task,
+                        "steps": steps,
+                        "maxSteps": max_steps,
+                        "maxWriteSteps": max_write_steps
+                    }),
                     as_json,
                     true,
                 )
+            }
+            RunsCommand::Cancel { id, json: as_json } => run(
+                &app,
+                "agent.runs.cancel",
+                json!({ "id": id }),
+                as_json,
+                true,
+            ),
+            RunsCommand::Retry { id, json: as_json } => {
+                run(&app, "agent.runs.retry", json!({ "id": id }), as_json, true)
             }
         },
         Commands::Invoke {

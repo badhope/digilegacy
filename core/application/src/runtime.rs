@@ -21,6 +21,18 @@ const MAX_STEPS: usize = 20;
 struct StartInput {
     task: String,
     steps: Vec<StepInput>,
+    #[serde(default)]
+    max_steps: Option<usize>,
+    #[serde(default)]
+    max_write_steps: Option<usize>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanInput {
+    pub task: String,
+    #[serde(default)]
+    pub max_steps: Option<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -125,6 +137,29 @@ fn create_approval(
     Ok(id)
 }
 
+fn create_run(
+    app: &Application,
+    task: &str,
+    steps: &[runs::RunStep],
+) -> Result<i64, PlatformError> {
+    let started = now();
+    let steps_json =
+        serde_json::to_string(steps).map_err(|e| internal(format!("步骤序列化失败: {e}")))?;
+    let run_id = app
+        .store()
+        .write(|conn| {
+            conn.execute(
+                "INSERT INTO agent_run_log
+                 (started_at, task, outcome, rounds, tools_used, steps_json, final_text)
+                 VALUES (?1, ?2, 'running', 0, '', ?3, '')",
+                rusqlite::params![started, task, steps_json],
+            )?;
+            Ok(conn.last_insert_rowid())
+        })
+        .map_err(|e| internal(format!("运行记录创建失败: {e}")))?;
+    Ok(run_id)
+}
+
 fn execute_from(
     app: &Application,
     run_id: i64,
@@ -204,9 +239,26 @@ pub fn start(app: &Application, args: Value) -> Result<Value, PlatformError> {
     if input.task.trim().is_empty() {
         return Err(PlatformError::invalid_args("缺少 task"));
     }
-    if input.steps.is_empty() || input.steps.len() > MAX_STEPS {
+    let max_steps = input.max_steps.unwrap_or(MAX_STEPS).clamp(1, MAX_STEPS);
+    if input.steps.is_empty() || input.steps.len() > max_steps {
         return Err(PlatformError::invalid_args(format!(
-            "steps 数量必须在 1..={MAX_STEPS}"
+            "steps 数量必须在 1..={max_steps}"
+        )));
+    }
+    let max_write_steps = input.max_write_steps.unwrap_or(5).clamp(0, MAX_STEPS);
+    let write_steps = input
+        .steps
+        .iter()
+        .filter(|step| {
+            digilegacy_contracts::resolve_tool(&step.tool)
+                .and_then(find_command)
+                .map(|spec| spec.permission == "write")
+                .unwrap_or(false)
+        })
+        .count();
+    if write_steps > max_write_steps {
+        return Err(PlatformError::invalid_args(format!(
+            "写操作步骤 {write_steps} 超过预算 {max_write_steps}"
         )));
     }
     for step in &input.steps {
@@ -221,7 +273,6 @@ pub fn start(app: &Application, args: Value) -> Result<Value, PlatformError> {
         }
     }
 
-    let started = now();
     let steps: Vec<runs::RunStep> = input
         .steps
         .iter()
@@ -234,25 +285,102 @@ pub fn start(app: &Application, args: Value) -> Result<Value, PlatformError> {
             at: String::new(),
         })
         .collect();
-    let steps_json =
-        serde_json::to_string(&steps).map_err(|e| internal(format!("步骤序列化失败: {e}")))?;
-    let run_id = app
-        .store()
-        .write(|conn| {
-            conn.execute(
-                "INSERT INTO agent_run_log
-                 (started_at, task, outcome, rounds, tools_used, steps_json, final_text)
-                 VALUES (?1, ?2, 'running', 0, '', ?3, '')",
-                rusqlite::params![started, input.task.trim(), steps_json],
-            )?;
-            Ok(conn.last_insert_rowid())
-        })
-        .map_err(|e| internal(format!("运行记录创建失败: {e}")))?;
+    let run_id = create_run(app, input.task.trim(), &steps)?;
     app.audit("agent.run.start", &run_id.to_string())?;
 
     let mut steps = steps;
     execute_from(app, run_id, &mut steps, 0)?;
     runs::get(app.store(), &run_id.to_string())
+        .map(|detail| json!(detail))
+        .map_err(|e| PlatformError::new("INTERNAL", e.to_string()))
+}
+
+pub fn plan(app: &Application, args: Value) -> Result<Value, PlatformError> {
+    let input: PlanInput = serde_json::from_value(args)
+        .map_err(|e| PlatformError::invalid_args(format!("规划参数无效: {e}")))?;
+    let max_steps = input.max_steps.unwrap_or(MAX_STEPS).clamp(1, MAX_STEPS);
+    let task = input.task.trim().to_string();
+    // The Application is synchronous and is called from async HTTP handlers.
+    // Run the blocking planner on a dedicated thread so reqwest does not drop
+    // its runtime inside the server's tokio worker.
+    let plan = std::thread::spawn(move || digilegacy_agent::planner::plan(&task, max_steps))
+        .join()
+        .map_err(|_| PlatformError::new("INTERNAL", "规划线程异常退出"))?
+        .map_err(|error| PlatformError::new(error.code(), error.message()))?;
+    app.audit("agent.run.plan", "planner")?;
+    Ok(json!(plan))
+}
+
+pub fn cancel(app: &Application, args: Value) -> Result<Value, PlatformError> {
+    let id = args
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| PlatformError::invalid_args("缺少 id"))?;
+    let run_id = parse_run_id(id)?;
+    let detail =
+        runs::get(app.store(), id).map_err(|e| PlatformError::new("NOT_FOUND", e.to_string()))?;
+    if matches!(
+        detail.status.as_str(),
+        "succeeded" | "failed" | "rejected" | "cancelled"
+    ) {
+        return Err(PlatformError::new("CONFLICT", "终态运行不能取消"));
+    }
+    let mut steps = detail.steps;
+    for step in &mut steps {
+        if matches!(step.status.as_str(), "queued" | "pending_approval") {
+            step.status = "cancelled".to_string();
+            step.at = now();
+        }
+    }
+    app.store()
+        .write(|conn| {
+            let tx = conn.transaction()?;
+            tx.execute(
+                "UPDATE agent_approvals SET status='expired', decided_at=?2
+                 WHERE run_id=?1 AND status='pending'",
+                rusqlite::params![run_id.to_string(), now()],
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+        .map_err(|e| internal(format!("取消审批失败: {e}")))?;
+    save(app, run_id, "cancelled", &steps, "运行已取消")?;
+    app.audit("agent.run.cancelled", &run_id.to_string())?;
+    runs::get(app.store(), id)
+        .map(|detail| json!(detail))
+        .map_err(|e| PlatformError::new("INTERNAL", e.to_string()))
+}
+
+pub fn retry(app: &Application, args: Value) -> Result<Value, PlatformError> {
+    let id = args
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| PlatformError::invalid_args("缺少 id"))?;
+    let detail =
+        runs::get(app.store(), id).map_err(|e| PlatformError::new("NOT_FOUND", e.to_string()))?;
+    if !matches!(detail.status.as_str(), "failed" | "rejected" | "cancelled") {
+        return Err(PlatformError::new(
+            "CONFLICT",
+            "只有 failed/rejected/cancelled 运行可以重试",
+        ));
+    }
+    let steps: Vec<runs::RunStep> = detail
+        .steps
+        .iter()
+        .map(|step| runs::RunStep {
+            tool: step.tool.clone(),
+            args: step.args.clone(),
+            status: "queued".to_string(),
+            result: None,
+            error: String::new(),
+            at: String::new(),
+        })
+        .collect();
+    let new_id = create_run(app, &detail.task, &steps)?;
+    app.audit("agent.run.retry", &new_id.to_string())?;
+    let mut steps = steps;
+    execute_from(app, new_id, &mut steps, 0)?;
+    runs::get(app.store(), &new_id.to_string())
         .map(|detail| json!(detail))
         .map_err(|e| PlatformError::new("INTERNAL", e.to_string()))
 }

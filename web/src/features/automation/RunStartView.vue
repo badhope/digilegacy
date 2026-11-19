@@ -13,7 +13,30 @@ const { t } = useI18n();
 const task = ref("");
 const stepsText = ref('[\n  { "tool": "app.overview", "args": {} }\n]');
 const submitting = ref(false);
+const planning = ref(false);
+const planModel = ref("");
 const error = ref("");
+
+async function generatePlan() {
+  error.value = "";
+  planModel.value = "";
+  if (!task.value.trim()) {
+    error.value = t("runs.start.taskRequired");
+    return;
+  }
+  planning.value = true;
+  try {
+    const envelope = await platformClient.planRun(task.value.trim());
+    if (!envelope.success || !envelope.data) {
+      error.value = envelope.code === "UNSUPPORTED" ? t("runs.start.plannerMissing") : envelope.message || envelope.code;
+      return;
+    }
+    stepsText.value = JSON.stringify(envelope.data.steps, null, 2);
+    planModel.value = envelope.data.model;
+  } finally {
+    planning.value = false;
+  }
+}
 
 async function submit() {
   error.value = "";
@@ -70,11 +93,15 @@ async function submit() {
           <textarea v-model="stepsText" rows="9" spellcheck="false" />
         </label>
         <p class="run-hint">{{ t("runs.start.hint") }}</p>
+        <p v-if="planModel" class="run-plan-model mono">{{ t("runs.start.planModel", { model: planModel }) }}</p>
         <div v-if="error" class="run-error">{{ error }}</div>
         <div class="run-actions">
-          <AppButton variant="primary" :disabled="submitting" @click="submit">
+          <AppButton variant="primary" :disabled="submitting || planning" @click="submit">
             {{ submitting ? t("runs.start.submitting") : t("runs.start.submit") }}
             <AppIcon name="arrow-right" :size="14" />
+          </AppButton>
+          <AppButton variant="secondary" :disabled="submitting || planning" @click="generatePlan">
+            {{ planning ? t("runs.start.planning") : t("runs.start.plan") }}
           </AppButton>
           <AppButton variant="ghost" @click="router.push('/automation/tools')">{{ t("runs.start.tools") }}</AppButton>
         </div>
@@ -92,6 +119,7 @@ async function submit() {
 .run-form input, .run-form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; }
 .run-form textarea { resize: vertical; font-family: var(--font-mono); line-height: 1.55; }
 .run-hint { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.run-plan-model { margin: 0; color: var(--muted); font-size: 10px; letter-spacing: 0.03em; }
 .run-error { padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--danger, #b42318); font-size: 12px; }
 .run-actions { display: flex; gap: 9px; }
 </style>

@@ -132,6 +132,30 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: true,
     },
     CommandSpec {
+        name: "agent.runs.plan",
+        domain: "agent",
+        permission: "draft",
+        http: "POST /api/v1/agent/plan",
+        requires_unlock: false,
+        audit: true,
+    },
+    CommandSpec {
+        name: "agent.runs.cancel",
+        domain: "agent",
+        permission: "write",
+        http: "POST /api/v1/agent/runs/{id}/cancel",
+        requires_unlock: false,
+        audit: true,
+    },
+    CommandSpec {
+        name: "agent.runs.retry",
+        domain: "agent",
+        permission: "write",
+        http: "POST /api/v1/agent/runs/{id}/retry",
+        requires_unlock: false,
+        audit: true,
+    },
+    CommandSpec {
         name: "agent.approvals.list",
         domain: "agent",
         permission: "read",
@@ -177,73 +201,29 @@ pub const COMMANDS: &[CommandSpec] = &[
 pub struct ToolSpec {
     pub name: &'static str,
     pub command: &'static str,
+    pub permission: &'static str,
+    pub title: &'static str,
+    pub description: &'static str,
+    pub input_schema: &'static str,
 }
 
 pub const TOOLS: &[ToolSpec] = &[
-    ToolSpec {
-        name: "overview.get",
-        command: "app.overview",
-    },
-    ToolSpec {
-        name: "audit.list",
-        command: "audit.list",
-    },
-    ToolSpec {
-        name: "assets.list",
-        command: "assets.list",
-    },
-    ToolSpec {
-        name: "assets.get",
-        command: "assets.get",
-    },
-    ToolSpec {
-        name: "plan.get",
-        command: "plan.get",
-    },
-    ToolSpec {
-        name: "policies.list",
-        command: "policies.list",
-    },
-    ToolSpec {
-        name: "policies.get",
-        command: "policies.get",
-    },
-    ToolSpec {
-        name: "policies.provenance.set",
-        command: "policies.provenance.set",
-    },
-    ToolSpec {
-        name: "runs.list",
-        command: "agent.runs.list",
-    },
-    ToolSpec {
-        name: "agent.runs.get",
-        command: "agent.runs.get",
-    },
-    ToolSpec {
-        name: "agent.approvals.list",
-        command: "agent.approvals.list",
-    },
-    ToolSpec {
-        name: "security.status",
-        command: "security.status",
-    },
-    ToolSpec {
-        name: "assets.create",
-        command: "assets.create",
-    },
-    ToolSpec {
-        name: "assets.update",
-        command: "assets.update",
-    },
-    ToolSpec {
-        name: "trigger.checkin",
-        command: "trigger.checkin",
-    },
-    ToolSpec {
-        name: "deliver.export",
-        command: "deliver.export",
-    },
+    ToolSpec { name: "overview.get", command: "app.overview", permission: "read", title: "读取平台概览", description: "读取完成度、待办、审批数与运行态摘要。", input_schema: "{\n  \"title\": \"EmptyInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "audit.list", command: "audit.list", permission: "read", title: "读取审计记录", description: "按时间倒序分页读取平台审计哈希链，可按事件类型过滤；只读。", input_schema: "{\n  \"title\": \"AuditListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"cursor\": { \"type\": [\"string\", \"null\"], \"default\": null },\n    \"limit\": { \"type\": \"integer\", \"minimum\": 1, \"maximum\": 100, \"default\": 20 },\n    \"kind\": { \"type\": [\"string\", \"null\"], \"default\": null }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "assets.list", command: "assets.list", permission: "read", title: "列出资产", description: "按状态与关键词列出资产，返回游标分页结果。", input_schema: "{\n  \"title\": \"AssetsListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"cursor\": {\n      \"type\": [\n        \"string\",\n        \"null\"\n      ]\n    },\n    \"limit\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 200,\n      \"default\": 50\n    },\n    \"status\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"active\",\n        \"archived\",\n        \"all\"\n      ],\n      \"default\": \"active\"\n    },\n    \"q\": {\n      \"type\": \"string\",\n      \"maxLength\": 120\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "assets.get", command: "assets.get", permission: "read", title: "读取资产详情", description: "按资产 ID 读取完整字段。", input_schema: "{\n  \"title\": \"IdInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"id\"\n  ],\n  \"properties\": {\n    \"id\": {\n      \"type\": \"string\",\n      \"minLength\": 1,\n      \"maxLength\": 64\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "plan.get", command: "plan.get", permission: "read", title: "读取规划", description: "读取持有人、继承人与触发链摘要。", input_schema: "{\n  \"title\": \"EmptyInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "policies.list", command: "policies.list", permission: "read", title: "读取政策库", description: "按分类与关键词读取平台继承政策、所需材料与办理流程。", input_schema: "{\n  \"title\": \"PoliciesListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"cursor\": { \"type\": [\"string\", \"null\"] },\n    \"limit\": { \"type\": \"integer\", \"minimum\": 1, \"maximum\": 100, \"default\": 50 },\n    \"category\": { \"type\": \"string\", \"default\": \"\" },\n    \"q\": { \"type\": \"string\", \"default\": \"\" }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "policies.get", command: "policies.get", permission: "read", title: "读取单条政策", description: "按政策 ID 读取流程、材料、风险与溯源状态。", input_schema: "{\n  \"title\": \"IdInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"id\"\n  ],\n  \"properties\": {\n    \"id\": {\n      \"type\": \"string\",\n      \"minLength\": 1,\n      \"maxLength\": 64\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "policies.provenance.set", command: "policies.provenance.set", permission: "draft", title: "记录政策溯源", description: "由人或 Agent 记录政策来源的核实状态、来源 URL 与备注；不修改政策正文。", input_schema: "{\n  \"title\": \"PolicyProvenanceInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\"id\", \"status\"],\n  \"properties\": {\n    \"id\": { \"type\": \"string\" },\n    \"status\": { \"type\": \"string\", \"enum\": [\"unverified\", \"source_cited\", \"verified\", \"disputed\"] },\n    \"sourceUrl\": { \"type\": \"string\", \"default\": \"\" },\n    \"note\": { \"type\": \"string\", \"default\": \"\" }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "runs.list", command: "agent.runs.list", permission: "read", title: "列出 Agent 运行", description: "读取运行状态、步骤数与成本摘要。", input_schema: "{\n  \"title\": \"RunsListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"status\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"active\",\n        \"succeeded\",\n        \"failed\",\n        \"all\"\n      ],\n      \"default\": \"all\"\n    },\n    \"limit\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 100,\n      \"default\": 20\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "agent.runs.get", command: "agent.runs.get", permission: "read", title: "读取 Agent 运行详情", description: "读取一次运行的任务、状态、逐步工具调用与结果；只读。", input_schema: "{\n  \"title\": \"IdInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"id\"\n  ],\n  \"properties\": {\n    \"id\": {\n      \"type\": \"string\",\n      \"minLength\": 1,\n      \"maxLength\": 64\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "agent.approvals.list", command: "agent.approvals.list", permission: "read", title: "读取 Agent 审批队列", description: "按状态读取 Agent 写操作审批记录；只读，不代替人工决定。", input_schema: "{\n  \"title\": \"ApprovalListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"status\": { \"type\": \"string\", \"enum\": [\"pending\", \"approved\", \"rejected\", \"expired\", \"all\"], \"default\": \"pending\" }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "security.status", command: "security.status", permission: "read", title: "读取安全状态", description: "读取锁定状态、恢复配置与密钥摘要，不含密钥本身。", input_schema: "{\n  \"title\": \"EmptyInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "assets.create", command: "assets.create", permission: "write", title: "创建资产", description: "创建一个资产；写操作需要人工审批。", input_schema: "{\n  \"title\": \"AssetMutation\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"name\",\n    \"kind\"\n  ],\n  \"properties\": {\n    \"id\": {\n      \"type\": \"string\"\n    },\n    \"name\": {\n      \"type\": \"string\",\n      \"minLength\": 1,\n      \"maxLength\": 120\n    },\n    \"kind\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"account\",\n        \"file\",\n        \"device\",\n        \"domain\",\n        \"subscription\",\n        \"physical\",\n        \"other\"\n      ]\n    },\n    \"platform\": {\n      \"type\": \"string\",\n      \"maxLength\": 80\n    },\n    \"value\": {\n      \"type\": \"string\",\n      \"maxLength\": 200\n    },\n    \"note\": {\n      \"type\": \"string\",\n      \"maxLength\": 2000\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "assets.update", command: "assets.update", permission: "write", title: "更新资产", description: "更新资产字段；写操作需要人工审批与 diff。", input_schema: "{\n  \"title\": \"AssetMutation\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"name\",\n    \"kind\"\n  ],\n  \"properties\": {\n    \"id\": {\n      \"type\": \"string\"\n    },\n    \"name\": {\n      \"type\": \"string\",\n      \"minLength\": 1,\n      \"maxLength\": 120\n    },\n    \"kind\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"account\",\n        \"file\",\n        \"device\",\n        \"domain\",\n        \"subscription\",\n        \"physical\",\n        \"other\"\n      ]\n    },\n    \"platform\": {\n      \"type\": \"string\",\n      \"maxLength\": 80\n    },\n    \"value\": {\n      \"type\": \"string\",\n      \"maxLength\": 200\n    },\n    \"note\": {\n      \"type\": \"string\",\n      \"maxLength\": 2000\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "trigger.checkin", command: "trigger.checkin", permission: "write", title: "记录安全签到", description: "记录一次签到；写操作需要人工审批。", input_schema: "{\n  \"title\": \"EmptyInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "deliver.export", command: "deliver.export", permission: "draft", title: "导出交付物", description: "生成异步导出任务；只产出文件，不改业务最终态。", input_schema: "{\n  \"title\": \"ExportInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"kind\",\n    \"locale\"\n  ],\n  \"properties\": {\n    \"kind\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"report\",\n        \"checklist\",\n        \"legal\",\n        \"toolkit\"\n      ]\n    },\n    \"locale\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"zh-CN\",\n        \"en-US\"\n      ]\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
 ];
 
 pub fn find(name: &str) -> Option<&'static CommandSpec> {
