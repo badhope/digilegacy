@@ -1,193 +1,76 @@
 # DigiLegacy
 
-数字遗产平台：把资产、继承人、触发链与交付物收进同一套平台能力里。
+English | [简体中文](README.zh-CN.md)
 
-**定位：API-first 平台。Web 控制台是主客户端，Agent 是平台的一类工具调用者，不是另一套后端。**
+**A self-hosted, API-first platform for planning and passing on digital assets.**
 
-- 平台负责：数据、权限、审批、审计、任务、导出与运行态。
-- Agent 负责：通过工具读取平台、生成草稿、发起待审批动作。
-- Web 负责：让人看见同一份数据、完成审批与编辑。
-- 本地部署不是卖点；平台主要接 API，本地只是部署形态之一。
+Digital legacy is usually scattered across notes, password managers and platform-specific rules. DigiLegacy brings it into one auditable workspace: what you own, who receives it, when it should be released, and what evidence was produced along the way.
 
-旧版应用已整体删除，不再作为新架构的一部分保留。旧路由全部 404，不做兼容重定向；安全内核与领域规则已按模块迁入并有测试覆盖。
+[Documentation](docs/README.md) · [Architecture](docs/ARCHITECTURE.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
----
+## Why DigiLegacy
 
-## 1. 当前状态
+- **One source of truth.** Assets, heirs, trigger state, platform policies and deliverables live in the same data model.
+- **Agentic, but not autonomous.** An Agent can read, plan and draft. Any action that changes data waits for a human decision.
+- **Private by design.** Sensitive fields are encrypted before they reach the database. The platform can run on your own machine or server.
+- **Auditable end to end.** Imports, approvals, policy changes and deliveries leave a trace you can inspect later.
 
-| 项 | 状态 |
+## What it does
+
+| Area | What you get |
 |---|---|
-| 仓库重组 | 已做完 |
-| 契约单一事实源 + 生成器 | 已做完 |
-| Rust workspace + 三入口空壳（server/CLI/MCP） | 已做完 |
-| Web 控制台壳（5 主入口 + 设置工具区） | 已做完 |
-| 架构测试 / 性能基线 / CI / verify 脚本 | 已做完 |
-| 工程治理文档与模板 | 已做完 |
-| 安全内核 / 数据库 | 已做完（M1） |
-| 真实领域服务 | 已接入（M2 资产/规划/触发/安全读链路 + 写用例） |
-| 政策库 | 已做完（M2-B 152 条 + M3 溯源写；审核工作台待做） |
-| 交付物导出 | 已做完（M2-B HTML 报告/清单/法律文本/工具包 + HTTP 下载） |
-| 交付物后台导出 | 已做完（M3-H：`deliver.export` 入队、Worker 生成、Web 轮询） |
-| SSE 事件流 / 任务取消 | 已做完（M3-I：运行与 Job snapshot、排队导出取消） |
-| Agent 用量账本 | 已做完（M4-A：规划器 token/成本落库，运行继承并展示） |
-| 用量汇总报表 | 已做完（M4-B：按日/模型汇总 token 与成本，运行数单独统计） |
-| 查询缓存与加载策略 | 已做完（M4-C：10s 读缓存、并发去重、写后按域失效、路由 hover 预取） |
-| 运行中协作取消 | 已做完（M4-D：`cancel_requested` 协作标志、步骤边界收口、succeeded 写入拦截） |
-| 规划签到闭环 | 已做完（M4-E：`trigger.checkin` Web 操作、上次/下次签到展示、写后静默刷新） |
-| 触发链完整生命周期 | 已做完（M4-G：`trigger.configure/evaluate/events.list`、四阶段等待、暂停/恢复、事件时间线） |
-| 资产发现与批量导入 | 已做完（M4-H：分类向导、36 条建议、已入库标记、同名同平台跳过） |
-| 前端整合与去重 | 已做完（M4-I：共享资产编辑器、统一日期格式、移动端表格收敛） |
-| 最终通知发件箱 | 已做完（M5-A：final 阶段持久化、收件人去重、Webhook 投递、失败可见、Web/CLI/HTTP/MCP 读取） |
-| 连接健康与通知渠道 | 已做完（M5-B：`connections.list/test`、真实探针、健康回写、飞书/企业微信投递、Web 连接页） |
-| 连接配置加密写接口 / SMTP 投递 | 已做完（M5-C：`connections.upsert/delete`、配置密钥、Web 新增/编辑/删除、SMTP 邮件投递） |
-| 政策远程同步 / 候选审核 | 已做完（M5-D：两阶段候选、ETag/304、HMAC 校验、Web 审核面板、HTTP/CLI） |
-| Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
-| 后台任务队列 / 运行进度 | 已做完（M3-G：审批后台执行、`jobs.get`、运行耗时、Web 静默轮询） |
-| Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
-| 桌面客户端 | 已取消（平台只保留 Web / CLI / MCP / HTTP） |
+| **Assets** | A structured inventory of accounts, subscriptions, devices and other digital property, with platform-specific inheritance notes. |
+| **Planning** | Heirs, executor, emergency contacts and a release chain that can pause, resume and record check-ins. |
+| **Delivery** | Human-readable reports, checklists, legal templates and a toolkit for the people who need to act. |
+| **Automation** | An Agent workspace backed by a tool registry. Read-only tools run immediately; write tools pause for approval. |
+| **Policy library** | Platform policies with provenance, plus a review queue for remote updates. Nothing is overwritten until a person approves it. |
+| **Operations** | Encrypted connections, delivery channels, background jobs, approvals and an audit hash chain. |
 
-当前版本：`0.9.0-m5d`。
-
-M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
-
-M2 已落地：`core/application` 用例层接 M1 Store；HTTP/CLI/MCP 共享同一套领域调用；资产列表/详情/创建/更新、规划、概览、安全摘要、签到、运行记录均读真实表；Web 默认走 Platform API，资产筛选改为服务端查询与游标分页。
-
-M2-B 已落地：政策库 schema v10 起步（当前 v16，31 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
-
-M3 已落地九段：政策溯源写、平台写令牌与资产新增/编辑、审计链查询、Agent 审批队列、确定性 Agent Runtime、M3-F 的规划器/取消/预算/重试、M3-G 的审批后台 Job 化/运行进度/耗时，M3-H 的交付物后台导出，以及 M3-I 的 SSE snapshot 事件流与排队任务取消。规划器接 OpenAI 兼容接口（默认 DeepSeek），只生成注册工具步骤；人工确认后再启动，写操作仍进审批。取消会把待审批置为 `expired`，重试会创建新运行并保留旧记录。HTTP 审批改为先落审批、再入 durable `jobs` 队列，批准请求毫秒级返回；Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏时暂停。
-
-M4-G 触发链：schema v14 新增 `trigger_events` 与 `triggered_at/trigger_stage`；`trigger.configure` 管理开关、签到间隔和暂停天数（暂停/关闭会中止当前触发），`trigger.evaluate` 按四阶段等待期幂等推进，`trigger.events.list` 返回只追加时间线；签到会清空触发状态并写事件。Web 规划页提供启用、间隔、暂停/恢复、评估与时间线；HTTP 提供 `PATCH /api/v1/trigger`、`POST /api/v1/trigger/evaluate`、`GET /api/v1/trigger/events`，CLI 提供 `trigger configure/evaluate/events`，MCP 只暴露事件时间线读取；server 每 30 分钟自动评估一次，关机期间不触发。
-
-M4-H 资产发现：`content/assets/catalog.json` 维护 8 个分类、36 条可解释建议；`assets.discover` 按分类/关键词返回建议并标记 `exists`，`assets.bulkCreate` 一次最多导入 50 项，同名同平台自动跳过。Web 新增 `/assets/discover` 三步向导（选分类 → 勾选 → 确认），CLI 新增 `assets discover` / `assets bulk-create --file`，HTTP 新增 `GET /api/v1/assets/discover` 与 `POST /api/v1/assets/bulk`。
-
-M4-I 前端整合：新增/编辑资产共用 `AssetEditor` 与 `model.ts`，日期时间统一走 `shared/format.ts`；资产详情去掉重复说明；资产页移除重复模式胶囊；移动端资产表隐藏平台/更新时间列，不再依赖 720px 横向滚动。
-
-M5-A 最终通知发件箱：schema v15 新增 `notification_outbox`；触发链只在 final 阶段入箱，按紧急联系人、主继承人和执行人去重，邮箱优先、其次电话/名称；没有接收人时写入 `blocked` 行而不是静默丢弃。投递走 `DIGILEGACY_WEBHOOK_URL`（可选 Bearer token），后台每 60 秒处理 pending，手动发送走 `POST /api/v1/notifications/send`（可选 `retryFailed` 重试失败行），HTTP 路径在 blocking 线程执行，避免阻塞 Tokio。Web 规划页显示最终通知、状态、失败原因与手动发送；CLI 提供 `notifications list/send`，MCP 只暴露只读列表。
-
-M5-C 连接配置写接口与 SMTP 投递：新增 `connections.upsert` / `connections.delete`，连接配置由 32 字节配置密钥加密（`DIGILEGACY_CONFIG_KEY_FILE`，缺省由数据库密钥经 HKDF 派生，域标签 `digilegacy/connection-config/v1`），密钥、token、用户名、发件人、SMTP 安全模式全部落在 `enc:v2` 加密 JSON 中，读模型不回显。环境连接只读，改/删返回 `CONFLICT`；新增同类型同标签冲突，编辑必须带 id，且不能改变连接类型。Web 连接页支持新增/编辑/删除、凭据只写不读、错误提示和 390px 单列布局。SMTP 支持隐式 TLS、STARTTLS、明文、AUTH PLAIN、UTF-8 主题与正文 dot-stuffing；通知通道新增 SMTP，优先已保存 SMTP 连接，再回退环境变量；自动顺序为已保存 HTTP → 环境 HTTP → SMTP。
-
-M5-D 政策远程同步与候选审核：schema v16 新增 `policy_sync_state`，并把同步改为两阶段；`policies.sync` 从已保存 `policy` 连接或 `DIGILEGACY_POLICY_URL/TOKEN` 拉取 feed，支持 `If-None-Match/304`、cursor、Bearer 与 HMAC-SHA256 `x-digilegacy-signature`，拉取只写 `policy_candidates`，不自动修改 `policies`。候选按平台 + 内容 SHA-256 去重，字段级 diff 给出 before/after，本地 provenance 已验证时新差异标 `conflict`。`policies.candidates.list` 分页返回待审/冲突候选和最近同步状态；`policies.candidate.decide` 批准后才解密 payload 落库、更新 `updated_at`、把 provenance 强制回 `unverified` 并提示重新核对，拒绝只改候选状态。Web 政策页新增同步条、候选计数、字段级 diff、批准/拒绝；HTTP/CLI/MCP 入口齐全，MCP 仅暴露只读候选列表。
-
-M5-B 连接健康与通知渠道：新增 `connections.list` 只读健康页与 `connections.test` 写权限探针（LLM/政策/SMTP/IMAP/心跳/Webhook/飞书/企业微信 8 类）；环境变量配置的连接以 `config_enc='env'` 仅存元数据，读模型不回传凭据；探针结果回写 `last_check_at/last_status/last_error`，成功不保留错误文本、错误统一脱敏 URL。通知投递从单一 Webhook 扩展为通用 Webhook / 飞书 / 企业微信文本消息，`DIGILEGACY_NOTIFY_CHANNEL` 显式选择、未设置时按已配置 URL 自动选择；HTTP 探针在普通 OS 线程执行，避免 reqwest blocking 内部 runtime 在 Tokio 关闭时 panic。Web 设置连接页显示类型、来源、最近检查、状态、失败原因和单行测试按钮；CLI 提供 `connections list/test`，MCP 只暴露只读列表。
-
-M4-E 规划签到：`plan.get` 补充 `lastCheckIn`/`nextCheckAt`，Web/CLI/HTTP 共用 `trigger.checkin`；规划页可直接完成签到，成功提示并静默刷新触发链，失败显示写令牌缺失或服务端错误。
-
-M4-D 协作取消：schema v13 给 `agent_run_log` 增加 `cancel_requested`。取消运行中的任务先写 `cancelling` 并置位，执行器在每个步骤前后检查；发现取消就终止后续步骤、保留已完成步骤、把未执行步骤标记 `cancelled` 并写审计。`succeeded` 的落库也受取消标志拦截，避免刚取消又被成功覆盖。
-
-M4-C 加载策略：平台读命令统一走 `queryCache`（默认 10 秒 TTL、同 key 并发去重、成功才缓存）；写命令按域失效 `assets/policies/agent.runs/agent.approvals/jobs/overview/agent.usage`，并统一失效审计。运行/Job 详情明确绕过缓存，SSE 与 1.5 秒兜底轮询保持实时。侧栏在 hover/focus 时预取目标路由 chunk，不改变首屏最小加载。
-
-M4-B 在账本上加汇总：`agent.usage.summary` 返回周期 totals、按日、按模型数据；token/成本只从 `agent_plan_log` 汇总，`agent_run_log` 只计运行数，避免运行继承 token 造成双计。HTTP `GET /api/v1/agent/usage`、CLI `usage summary`、Web 自动化页“用量”卡都走同一用例。
-
-M4-A 把用量账本接上：`agent.runs.plan` 从 OpenAI 兼容响应的 `usage` 读取输入/输出 token，按 `DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION` / `OUTPUT` 计算成本，写入 `agent_plan_log`；启动运行时通过 `planId` 继承到 `agent_run_log`，运行详情、运行列表返回真实 `tokens` 与 `costMicros`。未配置单价时仍记录 token，成本显示“未配置”，不伪造金额。
-
-M3-H 把 `deliver.export` 的后台路径接到同一 `jobs` 队列：HTTP/Web 只返回 `jobId` 与 `queued`，Worker 生成 HTML 并写 `deliverable_exports`；Web 交付页轮询 `jobs.get`，完成后出现下载链接。CLI 默认同步，`deliver export --background` 可入队。
-
-契约规模：**36 个命令、22 个工具、49 个 schema、20 个错误码**。
-
----
-
-## 2. 架构
+## Architecture at a glance
 
 ```text
-Web Console        Agent / MCP        CLI
-     │                 │               │
-     └────────────── Platform API / CommandBus ─────────┘
-                              │
-                    ┌─────────┴─────────┐
-                domains             agent runtime
-                    │                   │
-              store / security    approvals / audit
-                    │
-             integrations (mail, cloud, LLM, ...)
+Web console        CLI        MCP        HTTP clients
+      \             |          |            /
+       \            |          |           /
+        └────── Platform API / CommandBus ──────┘
+                           |
+                 domains and application
+                           |
+              store · security · integrations
+                           |
+                 audit · jobs · approvals
 ```
 
-### 核心约束
+The Web app, CLI, MCP server and HTTP API all call the same command layer. A command is described once in `contracts/`, then generated into Rust, TypeScript, OpenAPI and tool manifests. That keeps the interfaces from drifting.
 
-1. **契约先行**：命令、工具、错误、schema 只写在 `contracts/`，由 `tools/generate.mjs` 派生到 Web、Rust、CLI、HTTP、MCP、mock 与 OpenAPI。
-2. **一个 CommandBus**：Web、CLI、HTTP、MCP 不各写一套业务逻辑，最终都落到同一命令分发。
-3. **权限分档**：`read` / `draft` / `write` / `key` / `network` / `desktop`。
-   - HTTP：read/draft 开放；write 需写权限 token；key/network/desktop 永远 403。
-   - MCP：只暴露 read/draft。
-   - write 工具默认 `approval=required`，Agent 不能自批。
-4. **模块化单体**：M0-M2 不拆微服务。先保证一个进程内的领域边界、契约与测试，再按真实热点拆。
-5. **前端按入口拆包**：路由懒加载，骨架屏优先，避免全页 spinner 与大 bundle。
+The backend is a modular Rust monolith. The frontend is Vue 3 with route-level code splitting. The database is SQLCipher, with field-level encryption for secrets and personal data.
 
----
+## Quick start
 
-## 3. 仓库结构
-
-```text
-core/
-  foundation/      信封、错误、权限、CommandBus、trace id
-  contracts/       生成后的命令/错误表
-  security/        Vault 生命周期、恢复、备份、文件 KEK
-  store/           SQLCipher、schema v16、迁移、检查点、审计
-  domains/         DOM-01..07 领域清单
-  integrations/    邮件、云盘、LLM 等连接边界
-  agent/           Run / Approval 状态机
-  render/          纯函数文档渲染
-apps/
-  server/          axum Platform API
-  cli/             clap 本地入口
-  mcp/             stdio MCP server
-web/               Vue 3 + Vite 控制台
-contracts/         commands/tools/errors/schemas/mocks/openapi
-content/           i18n 文案
-tools/             生成器、架构门禁、性能基线、verify
-docs/              定位、架构、验收、ADR、RFC、v1.2 计划
-```
-
-### 五个主入口
-
-- `/overview` 概览
-- `/assets` 资产
-- `/planning` 规划
-- `/deliverables` 交付
-- `/automation` 自动化
-
-设置是右上角全局工具区，不占业务导航。旧路由 `/dashboard`、`/discover`、`/profile`、`/dms`、`/legal`、`/report`、`/heir`、`/review` 全部 404。
-
----
-
-## 4. 快速启动
-
-### 生成契约
+Prerequisites: Rust, Node.js and a C toolchain for SQLCipher.
 
 ```bash
+# 1. Generate the contract artifacts
 node tools/generate.mjs
-node tools/generate.mjs --check
-```
 
-### 启动平台 API
+# 2. Start the API
+DIGILEGACY_BIND=127.0.0.1:8787 \
+DIGILEGACY_API_TOKEN=change-me \
+cargo run -p digilegacy-server
 
-```bash
-source ~/.cargo/env
-DIGILEGACY_BIND=127.0.0.1:8787 DIGILEGACY_API_TOKEN=<write-token> cargo run -p digilegacy-server
-```
-
-`write` 命令要求 `Authorization: Bearer <write-token>`；`draft` 命令与读接口不要求。未设置 token 时 `write` 一律 401，不会假成功。
-
-```bash
-curl http://127.0.0.1:8787/api/v1/health
-```
-
-### 启动 Web 控制台
-
-```bash
+# 3. Start the Web console
 cd web
 npm install
 npm run dev
-# http://127.0.0.1:5173
 ```
 
-Web 默认走真实 API；需要无后端演示时设置 `VITE_USE_MOCK=true`。写操作先在 设置 → 连接 配置平台写令牌。
+Open `http://127.0.0.1:5173`. Write actions use the token configured in **Settings → Connections**.
 
-### CLI / MCP
+CLI and MCP are first-class local entry points:
 
 ```bash
-cargo run -p digilegacy-cli -- commands --json
 cargo run -p digilegacy-cli -- health
-cargo run -p digilegacy-cli -- invoke assets.list --args '{}'
+cargo run -p digilegacy-cli -- commands --json
 
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
@@ -195,56 +78,36 @@ printf '%s\n' \
   | cargo run -p digilegacy-mcp
 ```
 
----
+## Repository layout
 
-## 5. 验证
-
-```bash
-./tools/verify.sh
+```text
+core/          domain logic, contracts, storage, security, integrations
+apps/          HTTP server, CLI and MCP entry points
+web/           Vue console
+contracts/     commands, tools, errors, schemas and generated OpenAPI
+content/       policy data and translations
+docs/          product, architecture, operations and delivery docs
+tools/         generators, architecture checks and performance gates
 ```
 
-包含：
+## Documentation
 
-- 契约生成一致性
-- 架构门禁
-- `cargo fmt --check`
-- `cargo clippy --workspace --all-targets -- -D warnings`
-- `cargo test --workspace`
-- Web `typecheck` / `vitest` / `build`
-- Web bundle 预算
+- [Documentation index](docs/README.md)
+- [Product positioning](docs/POSITIONING.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Verification and release gates](docs/VERIFICATION.md)
+- [Governance](docs/GOVERNANCE.md)
+- [Architecture decisions](docs/adr/)
+- [简体中文文档](docs/zh-CN/README.md)
 
-单独命令：
+## Project status
 
-```bash
-node tools/arch-check.mjs
-node tools/bench/web-budget.mjs
-./tools/bench/core-bus.sh
-```
+The core product flows are implemented and the repository is under active development. The public interfaces are contract-driven, the test and release gates are in place, and the remaining work is tracked in the changelog and issue tracker.
 
-M5-D 基线：
+## Contributing
 
-- Web 测试 10 项（缓存 4 + 路由/页面 6）
-- Rust 测试 158 项：security 49、store 15、domains 31、application 30、integrations 7、server 15、foundation 5、render 2、agent 4
-- Web 总 gzip **121.15 KB / 122 KB**，JS gzip **100.35 KB / 101 KB**，CSS **20.81 KB / 21 KB**
-- 入口 chunk **77.27 KiB / 80 KB**，vendor **99.50 KiB / 130 KB**，Policies 路由 **15.88 KB / 24 KB**
-- CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing a command, schema or policy. Security reports should follow [SECURITY.md](SECURITY.md).
 
----
+## License
 
-## 6. 文档
-
-- [平台定位](docs/POSITIONING.md)
-- [架构说明](docs/ARCHITECTURE.md)
-- [验收与门禁](docs/VERIFICATION.md)
-- [DoR / DoD 与协作规则](docs/GOVERNANCE.md)
-- [ADR](docs/adr/)
-- [RFC 模板](docs/rfc/0001-template.md)
-- [v1.2 工程计划](docs/plan/README.md)
-
-计划口径：**54 个模块、80.5 人日 ≈ 16.1 周、26 张表、G01–G19 十九道门禁**。M3/M4 可并行，目标约 14.4 周。
-
----
-
-## 7. 许可证
-
-MIT。见 [LICENSE](LICENSE)。
+MIT. See [LICENSE](LICENSE).

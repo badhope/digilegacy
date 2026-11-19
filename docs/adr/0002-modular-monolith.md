@@ -1,46 +1,26 @@
-# ADR-0002：M0-M2 采用模块化单体，不拆微服务
+# ADR-0002: Start as a modular monolith
 
-- 状态：Accepted
-- 日期：2026-11-19
-- 决策人：架构负责人
-- 相关：G18、性能与部署
+- Status: Accepted
+- Date: 2026-11-19
 
-## 背景
+## Context
 
-项目处于重建期，真实负载、热点、数据边界都还没有稳定。过早拆微服务会引入网关、服务发现、分布式事务、跨服务审计和部署复杂度，但没有对应的收益。
+The product has clear domains, but the load pattern and deployment shape are still young. Splitting services now would add network boundaries, deployment overhead and distributed failure modes before there is evidence they are needed.
 
-## 决策
+## Decision
 
-M0-M2 采用单进程模块化单体：
+Keep one Rust workspace and one runtime process. Enforce boundaries inside the codebase: entry points depend on application services, application services depend on domains and infrastructure, and domains never depend on transport. A command bus is the only path from an entry point into business logic.
 
-- `core/` 按领域拆 crate，依赖方向固定。
-- `apps/` 是入口，不是业务层。
-- 所有入口走同一个 `CommandBus`。
-- 先保证模块边界、契约、测试与性能预算。
-- 只有出现明确的独立伸缩/隔离/团队边界需求时才拆服务。
+## Alternatives considered
 
-## 替代方案
+- Microservices per domain. Rejected: premature operational cost and cross-service transactions.
+- A single crate without internal boundaries. Rejected: it would make later extraction expensive and hide ownership.
+- Serverless functions. Rejected: poor fit for a local-first database and long-running jobs.
 
-- 一开始就拆 assets/plan/deliver/agent 服务：部署与调试成本过高。
-- 单体但无模块边界：会退化成大泥球。
-- 直接上事件总线：当前没有跨服务事件需求。
+## Consequences
 
-## 后果
+Deployment stays simple, tests are fast and transactions remain local. The team must actively prevent boundary erosion. If a domain later needs independent scaling, it can be extracted behind the existing command contract.
 
-好的方面：
+## Review trigger
 
-- 本地可一键启动，调试链路短。
-- 事务与审计在一个进程内更容易保证。
-- 可以先验证真实热点，再决定拆分。
-
-代价：
-
-- 单进程故障域较大，需要靠模块隔离与测试补偿。
-- 后续拆分需要提前设计命令边界和幂等性。
-- 数据库连接与长任务需要单独的隔离策略。
-
-## 复审条件
-
-- 单一领域需要独立伸缩或独立发布。
-- 单进程内存/CPU 成为可测量的瓶颈。
-- 多团队并行导致 crate 边界无法维持。
+Revisit when a domain has a genuinely different scaling, availability or compliance requirement, or when one process can no longer meet the measured load.

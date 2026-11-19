@@ -1,19 +1,19 @@
 name: Bug report
-description: 报告可复现的问题
+description: Report a reproducible problem
 title: "[bug] "
 labels: ["bug"]
 body:
   - type: textarea
     id: summary
     attributes:
-      label: 问题
-      description: 发生了什么，期望是什么
+      label: What happened
+      description: Describe the observed behavior and what you expected instead.
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: 复现步骤
+      label: Steps to reproduce
       placeholder: |
         1.
         2.
@@ -23,14 +23,14 @@ body:
   - type: input
     id: version
     attributes:
-      label: 版本 / 里程碑
-      placeholder: "0.7.0-m0"
+      label: Version / commit
+      placeholder: "main or release tag"
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
-      label: 日志 / 截图
-      description: 不要贴密钥、token、个人隐私
+      label: Logs / screenshots
+      description: Remove secrets, tokens and personal data before posting.
     validations:
       required: false

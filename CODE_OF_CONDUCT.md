@@ -1,5 +1,7 @@
 # Contributor Covenant Code of Conduct
 
+English | [简体中文](docs/zh-CN/CODE_OF_CONDUCT.md)
+
 ## Our pledge
 
 We as members, contributors, and maintainers pledge to make participation in this project a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.

@@ -1,50 +1,26 @@
-# ADR-0003：Web 是主客户端，Agent 通过工具驱动平台
+# ADR-0003: Web is the primary client; the Agent uses tools
 
-- 状态：Accepted
-- 日期：2026-11-19
-- 决策人：产品 + 架构
-- 相关：G15、G16、Agent Runtime
+- Status: Accepted
+- Date: 2026-11-19
 
-## 背景
+## Context
 
-产品容易被做成两种错误形态：
+It is easy to build an Agent product as a chat window with a private backend. That creates two truths: what the person sees and what the Agent can do. It also makes approval and audit cosmetic.
 
-1. 本地桌面工具，Web 只是附属页面。
-2. Agent 聊天壳，Agent 自己维护一套后端和状态。
+## Decision
 
-这两种都不符合“平台”的定位：平台需要统一的数据、权限、审批、审计和交付物，Web 与 Agent 只是不同客户端。
+The Web console is the primary place where a person inspects and changes data. The Agent is another client of the same platform, using the same commands and permission table. Read and draft tools may run directly. Write tools create an approval and pause. Key, network and desktop tools are never exposed to the Agent or MCP.
 
-## 决策
+## Alternatives considered
 
-- 平台是唯一事实源与执行者。
-- Web 控制台是主客户端：5 个主入口 + 设置工具区。
-- Agent 是一类工具调用者：读平台、生成草稿、发起待审批动作。
-- Agent 不拥有独立后端、独立数据库、独立权限表。
-- 写动作必须经过平台审批；Agent 不能自批。
-- CLI/MCP 是平台入口，不是第二套平台。
+- Agent-first chat UI. Rejected: poor fit for reviewing assets, diffs and documents.
+- Agent with a separate API. Rejected: guaranteed divergence and a larger security surface.
+- Fully autonomous write access. Rejected: unacceptable for irreversible legacy actions.
 
-## 替代方案
+## Consequences
 
-- Agent 直连数据库：权限与审计不可控。
-- Agent 专用 API：会形成第二套契约。
-- Web 只做聊天：无法完成资产/规划/交付的复杂操作。
+Every Agent action is visible in the same interface as a human action. Approval becomes a real state, not a warning. The Agent is less autonomous by design, and that is the point.
 
-## 后果
+## Review trigger
 
-好的方面：
-
-- 人和 Agent 看到同一份数据。
-- 审批、审计、权限只需实现一次。
-- Web 的页面动作可以在 manifest 中找到对应命令。
-
-代价：
-
-- Agent 的交互受平台命令粒度约束，需要设计好工具语义。
-- Web 需要承担较重的编辑/审批 UI。
-- 工具粒度不足时会显得笨重，需要在契约层迭代。
-
-## 复审条件
-
-- 出现平台命令无法表达的 Agent 工作流。
-- 外部 Agent 需要独立的租户/配额模型。
-- Web 与 Agent 的数据视图出现不可调和的冲突。
+Revisit only if a future client can consume the same command contract and approval model without creating a parallel data path.

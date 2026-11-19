@@ -1,15 +1,15 @@
-## 变更说明
+## Summary
 
-<!-- 一句话说明用户可见变化 -->
+<!-- One sentence describing the user-visible change. -->
 
-## 关联
+## Scope
 
-- 模块 / 命令：
-- 页面 / 入口：
-- ADR / RFC：
-- Issue：
+- Module / command:
+- Page / entry point:
+- ADR / RFC:
+- Issue:
 
-## 类型
+## Type
 
 - [ ] feat
 - [ ] fix
@@ -18,33 +18,33 @@
 - [ ] test
 - [ ] chore
 
-## 契约与权限
+## Contract and permissions
 
-- [ ] 改了 `contracts/*`，已运行 `node tools/generate.mjs`
-- [ ] 新增命令有 input/output schema
-- [ ] 写工具 `approval=required`
-- [ ] MCP 未暴露 `key/network/desktop`
-- [ ] 前端页面动作能在 manifest 找到对应命令
+- [ ] `contracts/*` changed and `node tools/generate.mjs` was run
+- [ ] New commands have input/output schemas
+- [ ] Write tools use `approval=required`
+- [ ] MCP does not expose key/network/desktop tools
+- [ ] Every frontend action maps to a command in the manifest
 
-## 验证
+## Verification
 
-- [ ] `./tools/verify.sh` 通过
-- [ ] Rust fmt/clippy/test 通过
-- [ ] Web typecheck/test/build 通过
-- [ ] 页面加载/空/错误三态已验证
-- [ ] bundle 预算未回退超过 20%
+- [ ] `./tools/verify.sh` passes
+- [ ] Rust format, clippy and tests pass
+- [ ] Web typecheck, tests and build pass
+- [ ] Loading, empty and error states were checked
+- [ ] Bundle budget did not regress beyond the allowed threshold
 
-## 数据与安全
+## Data and security
 
-- [ ] 无新增密钥/敏感信息
-- [ ] 数据库变更含迁移与回滚
-- [ ] 写操作有审计
-- [ ] 未把旧版代码直接拷入新包
+- [ ] No new secret or sensitive value is committed
+- [ ] Database changes include migration and rollback
+- [ ] Write actions have an audit path
+- [ ] Old application code was not copied into the new build
 
-## 截图 / 录屏
+## Screenshots / recordings
 
-<!-- 前端改动请附关键页面截图；不要只写“UI 已改” -->
+<!-- For UI changes, attach the key screen. Do not just say "UI updated". -->
 
-## 未覆盖项
+## Not covered
 
-<!-- 明确写出，不要用“后续优化”糊过去 -->
+<!-- State what is intentionally left out. -->

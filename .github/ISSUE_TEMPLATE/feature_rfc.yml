@@ -1,29 +1,32 @@
 name: Feature / RFC
-description: 提出新能力或方案讨论
+description: Propose a capability or an open design decision
 title: "[rfc] "
 labels: ["rfc"]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: 要解决的问题
+      label: Problem
+      description: What user or engineering problem does this solve?
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: 方案要点
+      label: Proposal
+      description: Describe the smallest useful shape of the change.
     validations:
       required: true
   - type: textarea
     id: impact
     attributes:
-      label: 契约 / 数据 / 权限影响
-      description: 新增命令、schema、写权限、迁移、Agent 工具
+      label: Contract / data / permission impact
+      description: New commands, schemas, write access, migrations or Agent tools.
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
-      label: 替代方案
-    validations: false
+      label: Alternatives considered
+    validations:
+      required: false

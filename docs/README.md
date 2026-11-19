@@ -1,19 +1,30 @@
-# 文档索引
+# Documentation
 
-| 文档 | 内容 |
-|---|---|
-| [POSITIONING.md](POSITIONING.md) | 平台定位、用户、非目标、成功标准 |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 模块化单体、crate、契约、权限、性能 |
-| [VERIFICATION.md](VERIFICATION.md) | G01–G19 门禁状态、M0–M5 验收结果 |
-| [GOVERNANCE.md](GOVERNANCE.md) | DoR/DoD、变更分级、评审规则 |
-| [adr/](adr/) | 已接受的架构决策 |
-| [rfc/](rfc/) | 方案讨论模板 |
-| [plan/](plan/) | v1.3 工程计划（54 模块 / 80.5 人日 / 31 表 / G01–G19） |
+English | [简体中文](zh-CN/README.md)
 
-## 阅读顺序
+## Start here
 
-1. 先读 `POSITIONING`，确认平台不是桌面工具、不是 Agent 聊天壳。
-2. 再读 `ARCHITECTURE`，确认入口与领域边界。
-3. 开工前读 `GOVERNANCE` 的 DoR。
-4. 合并前读 `VERIFICATION` 的门禁。
-5. 不可逆变更补 ADR/RFC。
+- [Product positioning](POSITIONING.md) explains what DigiLegacy is, who it serves and what it deliberately does not do.
+- [Architecture](ARCHITECTURE.md) describes the command layer, domain boundaries, data model, Agent approvals and deployment shape.
+- [Verification](VERIFICATION.md) covers the release gates and the manual path to smoke before shipping.
+- [Governance](GOVERNANCE.md) defines readiness, completion and review rules.
+- [Contributing](../CONTRIBUTING.md) explains how to make a change without breaking generated clients.
+- [Security](../SECURITY.md) explains how to report a vulnerability.
+- [Code of conduct](../CODE_OF_CONDUCT.md) sets the community expectations.
+
+## Decisions
+
+- [ADRs](adr/) record choices that are expensive to reverse.
+- [RFC template](rfc/0001-template.md) is the starting point for an open proposal.
+
+## Engineering archive
+
+The delivery plan and module register live in [plan/](plan/README.md). They are internal working notes, kept in Chinese, and are not required to use or contribute to the product. Public documentation is maintained in English with a Chinese translation under [zh-CN/](zh-CN/README.md).
+
+## Reading order
+
+1. Positioning — is this the right product?
+2. Architecture — where does this change belong?
+3. Governance — is the change ready and what counts as done?
+4. Verification — which gates and user paths must pass?
+5. ADR or RFC — does this decision need a record?

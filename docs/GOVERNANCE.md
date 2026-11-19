@@ -1,110 +1,76 @@
-# 工程治理
+# Governance
 
-## 1. 原则
+English | [简体中文](zh-CN/GOVERNANCE.md)
 
-1. **先定义，再实现**：需求、契约、验收标准先写清楚。
-2. **一个事实源**：命令/错误/schema 只在 `contracts/`。
-3. **入口不加业务**：Web、CLI、HTTP、MCP 都是同一平台的入口。
-4. **不可逆变更留痕**：schema、契约、加密、依赖升级必须有 ADR 或变更单。
-5. **不伪造完成**：空壳必须返回 `UNSUPPORTED` 或明确边界。
+The project is small enough to move quickly and sensitive enough that speed cannot come from skipping boundaries. These rules keep changes predictable.
 
-## 2. 角色
+## Principles
 
-| 角色 | 职责 |
+1. Define the user outcome, interface and acceptance criteria before implementation.
+2. Keep one source of truth: commands, errors and schemas live in `contracts/`.
+3. Entry points do not own business logic.
+4. Irreversible changes leave a decision record.
+5. Do not fake completion. An unsupported path fails explicitly.
+
+## Roles
+
+| Role | Responsibility |
 |---|---|
-| 产品/持有人 | 定义用户结果、优先级、验收口径 |
-| 架构负责人 | 契约、模块边界、ADR、跨域决策 |
-| 模块负责人 | 领域实现、测试、迁移与回滚 |
-| 前端负责人 | 入口、加载、可访问性、设计系统 |
-| 安全/数据负责人 | Vault、密钥、备份、迁移、审计 |
-| Reviewer | 独立审查契约、权限、数据影响与测试 |
+| Product owner | User outcomes, priority and acceptance criteria |
+| Architecture owner | Contracts, module boundaries, ADRs and cross-domain decisions |
+| Module owner | Domain implementation, tests, migrations and rollback |
+| Frontend owner | Entry points, loading behavior, accessibility and design system |
+| Security and data owner | Vault, keys, backups, migrations and audit |
+| Reviewer | Independent review of contracts, permissions, data impact and tests |
 
-小团队可以一人多角色，但**审批与实现不能由同一个 Agent 自批**。
+One person may hold several roles. The same Agent may not approve its own change.
 
-## 3. DoR（Definition of Ready）
+## Definition of Ready
 
-进入开发前必须满足：
+A change is ready when:
 
-- [ ] 有明确的用户结果，不是“优化一下”。
-- [ ] 对应模块编号（DOM/WEB/FND/…）和负责人。
-- [ ] 涉及的命令/工具/schema 已列出。
-- [ ] 权限档明确：`read/draft/write/key/network/desktop`。
-- [ ] 数据影响明确：新增/修改/删除哪些表与字段。
-- [ ] 验收标准可执行：命令、页面、错误态、性能预算。
-- [ ] 回滚方式明确：迁移回滚、开关、版本回退。
-- [ ] 风险与依赖已登记（外部 API、证书、政策来源）。
-- [ ] 不可逆变更已有 ADR/RFC 草稿。
+- The user outcome is concrete.
+- The owning module and owner are known.
+- Commands, tools and schemas are listed.
+- The permission class is stated.
+- Data impact is understood: tables, fields, migrations and rollback.
+- Acceptance covers commands, UI states, errors and performance.
+- External dependencies and risks are recorded.
+- Irreversible changes have an ADR or RFC draft.
 
-## 4. DoD（Definition of Done）
+## Definition of Done
 
-完成必须同时满足：
+A change is done when:
 
-### 代码
+- Business logic sits in domains or application code, not in an entry point.
+- Errors use contract error codes.
+- Write operations have permission, approval and audit boundaries.
+- New behavior has unit or integration coverage.
+- The UI covers loading, empty and error states.
+- Generated artifacts are current.
+- Architecture gates pass.
+- Documentation and changelog are updated.
+- No secret or sensitive value enters the work tree.
+- `./tools/verify.sh` passes.
 
-- [ ] 业务逻辑在 domains/core，不在入口层。
-- [ ] 没有第二套后端、没有 Agent 专用后门。
-- [ ] 错误使用契约错误码。
-- [ ] 写操作有权限、审批、审计边界。
+## Change classes
 
-### 测试
-
-- [ ] 新增/修改命令有单测或集成测试。
-- [ ] 前端页面覆盖加载、空、错误三态。
-- [ ] 契约生成一致性通过。
-- [ ] 架构门禁通过。
-- [ ] 关键路径有 smoke 或 E2E（按里程碑）。
-
-### 文档
-
-- [ ] 更新对应模块规格或 ADR。
-- [ ] 更新 `CHANGELOG.md`。
-- [ ] 用户可见变化写入 PR 描述。
-- [ ] 未覆盖项明确写出，不用“后续优化”糊过去。
-
-### 门禁
-
-- [ ] `./tools/verify.sh` 通过。
-- [ ] 性能/bundle 预算未回退超过 20%。
-- [ ] 没有新增 high/critical 依赖漏洞。
-- [ ] 没有密钥/敏感信息进入工作树。
-
-## 5. 变更分级
-
-| 级别 | 例子 | 要求 |
+| Class | Examples | Required process |
 |---|---|---|
-| L1 局部 | 文案、样式、单页交互 | PR + 自测 |
-| L2 契约 | 新增命令/工具/schema | ADR 或 RFC + 生成器 + 消费者检查 |
-| L3 数据 | 迁移、字段语义、删除 | 变更单 + 备份/回滚 + 双人复核 |
-| L4 安全 | 加密、密钥、恢复、权限 | ADR + 安全评审 + 测试向量 |
-| L5 发布 | 版本、签名、商店、合规 | 发布检查单 + 回滚演练 |
+| Local | Copy, styling, a single screen | Pull request and self-check |
+| Contract | New command, tool or schema | Design note, generator update, consumer check |
+| Data | Migration or field semantics | Change record, backup and rollback plan, second review |
+| Security | Encryption, keys, recovery, permissions | ADR, security review and test vectors |
+| Release | Versioning, signing, compliance | Release checklist and rollback rehearsal |
 
-## 6. ADR / RFC
+## ADRs and RFCs
 
-- **ADR**：已经做出的、难以反转的决策。放在 `docs/adr/NNNN-title.md`。
-- **RFC**：还没定、需要讨论的方案。放在 `docs/rfc/NNNN-title.md`。
-- 模板见 [RFC 模板](rfc/0001-template.md)。
-- ADR 至少包含：背景、决策、替代方案、后果、回滚/复审条件。
+An ADR records a decision that is hard to reverse. An RFC explores a proposal that is still open. Both live under `docs/adr/` and `docs/rfc/`. An ADR states context, decision, alternatives, consequences and the condition for revisiting it.
 
-## 7. 评审规则
+## Review focus
 
-Reviewer 优先看：
+Reviewers look for a second source of truth, permission bypass, Agent self-approval, data loss, fake success states, mobile overflow, blocking UI and performance regressions. A passing test suite does not excuse a broken boundary.
 
-1. 是否引入第二套事实源。
-2. 权限是否越权，Agent 是否能自批。
-3. 数据是否可能丢/重复/不可回滚。
-4. 错误态是否真实，是否伪造成功。
-5. 前端是否出现全页阻塞、布局溢出、移动端遮挡。
-6. 性能与 bundle 是否回退。
+## Release rhythm
 
-## 8. 风险与缺口
-
-- 风险登记在 [v1.2 计划 06](plan/06-项目管理与缺口登记.md)。
-- 已知缺口：G03 风格检查、G04/G05 覆盖率、G07 无 mock 分块、G08-G14 尚未接入。
-- `legacy/` 只作 M1 迁移参考；删除前必须先完成安全内核与领域规则迁移清单。
-
-## 9. 节奏
-
-- 每日：`verify.sh` 快速门禁 + 契约检查。
-- 每个 PR：G01/G02/G06/G15/G18 + 对应模块测试。
-- 每周：性能基线、bundle 预算、风险登记、ADR 复审。
-- 每个里程碑：退出条件评审，未达项不进入下一阶段。
+Run the fast gates on every change, the full gate before merge, and a manual smoke on the paths a user will touch. Review budgets and open risks regularly. A milestone is not complete because the code exists; it is complete when the acceptance path works and the remaining gaps are written down.

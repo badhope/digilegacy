@@ -1,10 +1,12 @@
-# ADR 索引
+# Architecture decisions
 
-| 编号 | 标题 | 状态 |
+English | [简体中文](../zh-CN/adr/README.md)
+
+| ID | Decision | Status |
 |---|---|---|
-| 0001 | [契约先行，生成物不手改](0001-contract-first.md) | Accepted |
-| 0002 | [M0-M2 模块化单体，不拆微服务](0002-modular-monolith.md) | Accepted |
-| 0003 | [Web 是主客户端，Agent 通过工具驱动平台](0003-web-primary-agent-tools.md) | Accepted |
-| 0004 | [旧版应用不进入新包，旧路由不重定向](0004-legacy-not-in-new-build.md) | Accepted |
+| [0001](0001-contract-first.md) | Contracts are the source of truth; generated clients are never edited by hand. | Accepted |
+| [0002](0002-modular-monolith.md) | Start as a modular monolith, not a set of microservices. | Accepted |
+| [0003](0003-web-primary-agent-tools.md) | The Web console is the primary client; the Agent works through tools and approvals. | Accepted |
+| [0004](0004-legacy-not-in-new-build.md) | The old desktop application is not part of the new build. | Accepted |
 
-新增 ADR 时复制 `0001` 的结构，编号递增，并在本表登记。
+An ADR is written when a choice is expensive to reverse. Open proposals use the [RFC template](../rfc/0001-template.md).

@@ -1,52 +1,26 @@
-# ADR-0004：旧版应用不进入新包，旧路由不重定向
+# ADR-0004: The old desktop application is not part of the new build
 
-- 状态：Accepted / 已完成（旧源码已删除）
-- 日期：2026-11-19
-- 决策人：产品 + 架构
-- 相关：仓库重组、M1 迁移
+- Status: Accepted
+- Date: 2026-11-19
 
-## 背景
+## Context
 
-旧版应用已经积累了大量页面、路由、Tauri 命令和本地状态。直接在其上修补会把旧信息架构、旧权限模型和旧路由带进新平台，导致“新瓶装旧酒”。
+The previous desktop application carried useful security and domain behavior, but its UI, routing and packaging no longer matched the API-first platform. Keeping it alongside the new build would double the maintenance surface and confuse the product boundary.
 
-## 决策
+## Decision
 
-- 旧应用整体移入 `legacy/`，退出新构建。
-- 旧路由全部 404，不做兼容重定向。
-- 旧能力按模块迁移，不整包复用。
-- M1 只迁移安全内核与领域规则，并补测试向量。
-- 迁移清单逐项确认后再删除 `legacy/`；2026-11-19 已完成删除。
+Remove the old application from the build. Port the security kernel and domain rules into modules with tests. Do not keep legacy routes or redirect them. Backups from the old application remain importable through a migration path.
 
-旧路由清单：`/dashboard`、`/discover`、`/assets`（旧语义）、`/assets/:id`（旧语义）、`/profile`、`/dms`、`/legal`、`/report`、`/heir`、`/review`。
+## Alternatives considered
 
-新路由：`/overview`、`/assets`、`/assets/:id`、`/planning`、`/deliverables`、`/automation`、`/settings/:section?`。`/assets` 与 `/assets/:id` 路径同名但语义已重定义，不保留旧页面行为。
+- Keep the desktop shell and add an API. Rejected: two products, two release paths.
+- Redirect old routes for compatibility. Rejected: it keeps dead UI concepts alive.
+- Rewrite security from scratch. Rejected: unnecessary risk; the algorithms and test vectors were already sound.
 
-## 替代方案
+## Consequences
 
-- 旧路由 301 到新页面：会把旧链接语义和旧页面状态带进来。
-- 在旧应用上增量重构：迁移成本不可控，旧模型会污染新契约。
-- 直接删除 legacy：失去 M1 加密/恢复/备份的参考实现。
+The repository has one product shape and a smaller dependency surface. Users of the old desktop build need a migration path for data, not a UI compatibility layer. Historical code stays in git history, not in the working tree.
 
-## 后果
+## Review trigger
 
-好的方面：
-
-- 新包没有历史包袱。
-- 信息架构、权限、契约可以按平台重新设计。
-- 旧代码只作为迁移参考，不参与运行时。
-
-代价：
-
-- 旧用户书签会 404，需要明确的发布说明。
-- M1 迁移需要逐模块比对，短期工作量增加。
-- `legacy/` 会暂时占用仓库空间。
-
-## 复审结论
-
-- 2026-11-19：M1 迁移清单已完成并有测试覆盖，旧源码不再被引用；`legacy/` 已从仓库删除。
-
-## 复审条件
-
-- M1 迁移清单全部完成并有测试覆盖。
-- 旧代码不再被任何迁移任务引用。
-- 发布前确认无需保留旧路由兼容。
+Revisit only if a native client can be generated from the same contract and adds a capability the Web console cannot provide.

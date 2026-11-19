@@ -1,208 +1,95 @@
-# 架构说明
+# Architecture
 
-## 1. 总体形态
+English | [简体中文](zh-CN/ARCHITECTURE.md)
 
-**模块化单体（modular monolith）**，不是微服务。
+DigiLegacy is a modular monolith with several entry points and one command layer. The design favors explicit boundaries over premature service splitting.
 
-```text
-┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
-│ Web Console   │  │ Builtin Agent │  │ MCP / External│  │ CLI / HTTP    │
-└───────┬───────┘  └───────┬───────┘  └───────┬───────┘  └───────┬───────┘
-        │                  │                  │                  │
-        └──────────────────┴──────── Platform API ───────────────┘
-                                      │
-                              ┌───────┴───────┐
-                              │  CommandBus   │  权限 / 审批 / 审计
-                              └───────┬───────┘
-                                      │
-        ┌───────────────┬─────────────┼─────────────┬───────────────┐
-        │ domains       │ agent       │ store       │ integrations  │
-        │ assets/plan   │ runs/approve│ SQLite      │ mail/cloud/LLM│
-        │ deliver/...   │ audit       │ SQLCipher   │               │
-        └───────────────┴─────────────┴─────────────┴───────────────┘
-```
-
-M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真实领域，Web 默认走 Platform API；M2-B 加入政策库与交付物导出；M3 加入政策溯源写、写令牌、审计查询、Agent 审批队列、确定性 Runtime 与任务规划/取消/预算/重试。
-
-## 2. Workspace 成员
-
-### core（9）
-
-| crate | 职责 | M2 状态 |
-|---|---|---|
-| `core/foundation` | Envelope、错误、权限、CommandBus、trace id | 已实现 |
-| `core/contracts` | 生成后的命令/错误表 | 已实现 |
-| `core/security` | Vault/密钥/恢复/备份/审计 | 已实现（M1） |
-| `core/store` | SQLite/SQLCipher、迁移、导入、检查点 | 已实现（M1） |
-| `core/domains` | assets/plan/overview/runs/policy/audit/approvals 真实领域 | 已实现（M2 首批 + M2-B 政策库 + M3 溯源写/审计/审批/运行详情） |
-| `core/agent` | 规划器与 Agent 状态词汇 | 已实现（M3-F OpenAI 兼容规划器） |
-| `core/application` | 用例层：共享 HTTP/CLI/MCP 的业务分派、审计、交付导出 | 已实现（M2/M2-B） |
-| `core/integrations` | 连接类型/状态 | 枚举 |
-| `core/agent` | Run/Approval 状态机 | 枚举 |
-| `core/render` | 纯函数文档渲染 | 已实现 |
-
-### apps（3）
-
-| crate | 职责 | M2 状态 |
-|---|---|---|
-| `apps/server` | axum Platform API | health/commands + 真实读接口；`write` 命令 Bearer token 门禁；`draft` 按契约开放；`audit.list` 读哈希链 |
-| `apps/cli` | 本地命令入口 | 真实 overview/assets/plan/security/runs；写入 `--allow-write` |
-| `apps/mcp` | stdio JSON-RPC | initialize/tools list；tools/call 接真实只读用例 |
-
-## 3. 依赖方向
-
-硬规则：
+## System shape
 
 ```text
-apps/*  →  core/application  →  core/domains / core/store / core/security
-core/*  →  core/foundation, core/contracts
-core/*  ✗→  apps/*
-apps/*  ✗→  apps/*（除非明确的基础入口共享）
+┌──────────────┬──────────────┬──────────────┬──────────────┐
+│ Web console  │ CLI          │ MCP server   │ HTTP clients │
+└──────┬───────┴──────┬───────┴──────┬───────┴──────┬───────┘
+       │              │              │              │
+       └──────────────┴──────┬───────┴──────────────┘
+                             │
+                    Platform API / CommandBus
+                             │
+                 ┌───────────┴───────────┐
+                 │ application services  │
+                 └───────────┬───────────┘
+                             │
+        ┌──────────┬─────────┼─────────┬──────────┐
+        │ domains  │ security│ store   │integrations
+        └──────────┴─────────┴─────────┴──────────┘
+                             │
+                    audit · jobs · approvals
 ```
 
-- 入口层不写业务规则。
-- 领域 crate 不依赖 UI/HTTP/CLI。
-- 生成代码不作为业务依赖的“第二事实源”。
-- `tools/arch-check.mjs` 会检查 core 不依赖 apps、旧路径不进入新构建。
+The entry points do transport, authentication and presentation. They do not own business rules. A single dispatcher routes commands to application services, which use domain modules and infrastructure crates.
 
-## 4. 契约管线
+## Contracts first
 
-唯一事实源：
+Every command, tool, error code and input/output schema is declared in `contracts/`. The generator produces:
 
-```text
-contracts/commands.json
-contracts/tools.json
-contracts/errors.json
-contracts/schemas/*.json
-contracts/mocks.json
-```
+- Rust command and error tables
+- the HTTP route manifest and OpenAPI document
+- CLI command metadata
+- the MCP tool catalog
+- TypeScript types, IPC bindings and mock data for the Web client
 
-`tools/generate.mjs` 派生：
+Generated files are never edited by hand. `node tools/generate.mjs --check` is part of the release gate, so an interface change that is not propagated fails before merge.
 
-1. `web/src/platform/generated/ipc.ts`
-2. `web/src/platform/generated/mock.ts`
-3. `web/src/platform/generated/tools.ts`
-4. `core/contracts/src/generated.rs`
-5. `core/contracts/src/errors.rs`
-6. `apps/cli/src/generated.rs`
-7. `apps/server/src/generated.rs`
-8. `apps/mcp/tools.generated.json`
-9. `contracts/generated/tool-manifest.json`
-10. `contracts/openapi.json`
+A command declares its permission class: `read`, `draft`, `write`, `key`, `network` or `desktop`. HTTP opens read/draft, protects write with a bearer token, and always rejects the last three. MCP only exposes read/draft tools.
 
-规则：
+## Application and domains
 
-- 命令名、工具名、错误码、schema 路径必须可解析。
-- 工具只能引用已有命令。
-- 写工具必须 `approval=required`。
-- MCP 只暴露 `read`/`draft`。
-- HTTP 传输必须是 `METHOD /api/v1/...`。
-- 生成文件不手改；`--check` 失败即契约漂移。
+`core/application` coordinates use cases: load state, validate inputs, call domain functions, persist changes and append audit records. It is the only layer that knows how a user-facing operation is composed.
 
-## 5. 信封与错误
+`core/domains` contains the rules that must stay true regardless of entry point: asset ownership, heir relationships, trigger state transitions, policy provenance, sync candidates and approval semantics. Domain code does not know about HTTP, Vue or CLI arguments.
 
-统一返回：
+`core/integrations` is the boundary for external systems: HTTP feeds, SMTP, LLM providers, webhooks and connection probes. Network access is isolated here and returns structured results rather than leaking transport errors into domain code.
 
-```json
-{
-  "success": true,
-  "code": "OK",
-  "message": "ok",
-  "data": {},
-  "details": null,
-  "traceId": "tr_..."
-}
-```
+## Data and security
 
-失败：
+SQLCipher protects the database at rest. Sensitive values are encrypted again at the field level before storage. Key material is derived and kept in process memory; it is never written to logs, generated reports or browser storage.
 
-```json
-{
-  "success": false,
-  "code": "AUTH_REQUIRED",
-  "message": "需要写权限 token",
-  "data": null,
-  "details": null,
-  "traceId": "tr_..."
-}
-```
+The vault supports recovery codes, Shamir shares, authenticated backups and checkpoints. Destructive operations require explicit confirmation and produce an audit event. Audit records form a hash chain so later changes can be detected.
 
-错误码来自 `contracts/errors.json`，HTTP 状态、CLI 退出码、用户文案键由同一张表派生。
+## Agent model
 
-## 6. 权限矩阵
+An Agent run is a durable state machine:
 
-| 权限 | 含义 | HTTP | CLI | MCP | Agent |
-|---|---|---|---|---|---|
-| `read` | 读平台数据 | 允许 | 允许 | 允许 | 允许 |
-| `draft` | 生成草稿/预览，不落最终态 | 允许 | 允许 | 允许 | 允许 |
-| `write` | 改业务数据 | 需写权限 token | 允许 `--allow-write` | 禁止 | 需审批 |
-| `key` | 主密码/恢复/库密钥 | 永远 403 | 本地允许 | 禁止 | 禁止 |
-| `network` | 出站请求 | 永远 403 | 允许 | 禁止 | 禁止 |
-| `desktop` | 窗口/托盘/自启 | 不支持 | 不支持 | 禁止 | 禁止 |
+1. A planner proposes steps using registered tools.
+2. Read-only steps execute immediately.
+3. A write step creates an approval and pauses the run.
+4. A human approves or rejects with a reason.
+5. The run resumes, completes or stops; every transition is recorded.
 
-HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bearer <token>`，比较为常量时间；未配置或令牌错误返回 `401 AUTH_REQUIRED`。`draft` 命令（政策溯源、交付导出）按契约开放，不要求 token。Web 在 设置 → 连接 中把令牌存 `sessionStorage`，只对 `write` 命令附加，不写本地持久化；CLI 的 `write` 仍用 `--allow-write`，桌面/本地进程不依赖 HTTP token。
+Approvals are first-class records, not a UI flag. A background worker resumes approved runs and reclaims stale jobs. The Agent cannot approve its own request, and it cannot reach key, network or desktop commands.
 
-## 7. 安全与数据边界
+## Storage and migrations
 
-- **M0**：`core/security`、`core/store` 只有边界；Web 使用 mock；不声称已加密。
-- **M1**：从旧桌面端按模块迁入加密、Vault、恢复、备份、DB，不重写算法；迁移完成后旧源码已删除。
-- **M2**：`core/application` 统一用例分派；入口只做权限/传输；Web 读真实 API，资产筛选服务端化。
-- **M2-B**：schema v10 起步（当前 v16，31 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
-- **M3 第一切片**：`policies.provenance.set` 允许 `unverified/source_cited/verified/disputed` 四态，来源为空回退官方 URL，写 `policy_provenance` 并追加审计 `policy.provenance.set`；HTTP `PATCH /api/v1/policies/{id}/provenance`，CLI `policies provenance`，Web 在详情内编辑。
-- **M3-B**：HTTP `write` Bearer token（`DIGILEGACY_API_TOKEN`）；Web 连接设置存 `sessionStorage` 并只对 `write` 命令附加；资产新增/编辑表单接 `assets.create/update`，写后刷新列表并留审计。
-- **M3-C**：`audit.list` 读审计链（游标 + 类型过滤），HTTP `GET /api/v1/audit`，CLI `audit list`，Web 设置审计页显示时间/类型/对象/结果/hash 前缀。
-- **M3-D**：`agent.approvals.list/decide` 管理 Agent 写操作审批队列；决定更新 `agent_approvals` 状态并写 `agent.approval.decide` 审计；HTTP `GET /api/v1/agent/approvals`、`POST /api/v1/agent/approvals/{id}/decide`，CLI `approvals list/decide`，Web `/automation/approvals`。
-- **M3-E**：`agent.runs.start/get` 驱动确定性 Runtime：按步骤执行注册工具，只读/草稿立即执行，`write` 工具创建审批并暂停；批准后从当前步骤继续执行，拒绝则终止。运行步骤落 `agent_run_log.steps_json`，Web `/automation/runs/new`、`/automation/runs/:id`、`/automation/tools` 接真实数据。
-- **M3-F**：`agent.runs.plan` 用 OpenAI 兼容接口（默认 DeepSeek，`DIGILEGACY_LLM_BASE_URL/API_KEY/MODEL`）把任务拆成注册工具步骤，只返回计划、不执行；Web 人工确认后再 `start`。`agent.runs.cancel` 终止未终态运行并把待审批置 `expired`；`agent.runs.retry` 为 failed/rejected/cancelled 运行创建新运行并保留旧记录；`maxSteps/maxWriteSteps` 在启动前做静态预算校验。
-- **M3-G**：HTTP 审批改为后台执行：`approvals_decide(background=true)` 只更新审批状态、写 `agent.approval.decide` 审计、把 `agent.resume` 入 durable `jobs` 队列并返回 `jobId`；server 启动单进程 Worker，250ms 轮询、回收超过 120 秒的 `running` 僵尸任务。`jobs.get` 提供状态/进度/结果/错误的统一读取；`agent_run_log` 增加 `duration_ms`（schema v11，仍 27 表）。Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏暂停；审批页显示“后台执行 + jobId + 查看运行”。
-- **M3-H**：`deliver.export` 支持 `wait=false`：HTTP/Web 入队 `jobs`（kind=`deliver.export`）并立即返回 `jobId`；Worker 调 `deliver::run_job` 生成 HTML、写 `deliverable_exports`，由 `jobs::finish` 标记成功；失败落 `error_code`。Web 交付页 1.5 秒轮询 `jobs.get`，完成后显示下载；CLI 默认同步，`--background` 可入队。`requeue_stale` 同时回收 `agent.resume` 与 `deliver.export`。
-- **M4-G**：schema v14 新增 `trigger_events` 与 `dms_config.triggered_at/trigger_stage`。`trigger.configure` 管开关、间隔和暂停；`trigger.evaluate` 按 stage1/2/3 等待期推进并幂等写事件；`trigger.checkin` 清空触发状态；`trigger.events.list` 提供时间线。Web 规划页接配置、暂停/恢复、评估和事件；HTTP/CLI/MCP 共用同一用例；server 启动 30 分钟自动评估线程，仅在状态/阶段变化时写 `trigger.evaluate.auto` 审计。
-- **M4-H**：资产发现与批量导入。`content/assets/catalog.json` 是 8 分类/36 建议的静态目录；`assets.discover` 读取目录并按 name+platform 标记 `exists`，`assets.bulkCreate` 预校验后逐项查重、最多 50 项；Web `/assets/discover` 三步向导，CLI `assets discover` / `assets bulk-create`，HTTP `GET /api/v1/assets/discover` / `POST /api/v1/assets/bulk`。schema 不变。
-- **M4-I**：前端整合。资产新增/编辑共用 `AssetEditor` 与 `model.ts`，日期/时间统一走 `shared/format.ts`；详情移除重复说明，资产页移除重复模式胶囊，移动端表格隐藏次要列并取消固定 720px 宽度。
-- **M5-A**：schema v15 新增 `notification_outbox`（30 表）。触发链只在 final 阶段调用 `notify::enqueue_final`，按紧急联系人、主继承人、执行人去重，邮箱优先、其次电话/名称；无接收人时写 `blocked` 行。`notifications.list` 只读分页；`notifications.send` 通过 `DIGILEGACY_WEBHOOK_URL` 投递 pending，支持可选 Bearer token，后台 60 秒 worker 自动处理，失败写 `last_error` 并保留可见状态。HTTP 发送在 `spawn_blocking` 中执行，避免 reqwest blocking client 落入 Tokio 运行时。Web 规划页展示最终通知、状态、失败原因和手动发送；CLI `notifications list/send`，MCP 仅暴露只读列表。
-- **M5-C**：连接配置写接口与 SMTP 投递。新增 `connections.upsert` / `connections.delete`，配置以 `DIGILEGACY_CONFIG_KEY_FILE` 的 32 字节密钥（缺省由 DB 密钥经 HKDF 派生，域标签 `digilegacy/connection-config/v1`）加密为 `enc:v2` JSON；读模型不返回 endpoint/token/username/from/security。环境连接只读；新增同类型同标签冲突；编辑必须带 id，不能改 kind。Web 连接页支持新增/编辑/删除、凭据只写不读和 390px 单列；SMTP 支持隐式 TLS/STARTTLS/明文、AUTH PLAIN、UTF-8 主题与 dot-stuffing；通知投递新增 SMTP，自动顺序为已保存 HTTP → 环境 HTTP → SMTP，显式 `DIGILEGACY_NOTIFY_CHANNEL=smtp` 优先已保存 SMTP。
-- **M5-D**：政策远程同步与候选审核。schema v16 新增 `policy_sync_state`（source/cursor/etag/last_sync_at/last_status/last_error）并为 `policy_candidates(status, fetched_at)` 加索引。`policy_sync` 领域层维护 19 字段 diff、按平台 + SHA-256 内容去重、本地 provenance 已验证时的冲突标记；批准才写 `policies` 并把 provenance 回 `unverified`，拒绝只改候选状态。`fetch_policy_sync` 只允许 HTTPS 或 localhost HTTP，禁用重定向、20s 超时，支持 `If-None-Match`、Bearer 与 HMAC-SHA256 签名 fail-closed；应用层把 304、401/403、429、5xx、超时/网络映射为稳定错误码。HTTP/CLI/Web 全入口，MCP 仅暴露只读候选列表；候选 payload 有配置密钥时用 `enc:v2`，批准时解密。
-- **M5-B**：连接健康与通知渠道。`connections` 表延续 v15，环境变量连接以 `config_enc='env'` 仅存元数据；`connections.list` 返回 kind/label/enabled/lastCheckAt/lastStatus/lastError/source，不返回凭据。`connections.test` 为 write + HTTP 写 token，覆盖 llm/policy/smtp/imap/heartbeat/webhook/feishu/wecom 八类探针；成功不保留错误文本，失败 URL 脱敏后回写。通知投递支持通用 Webhook、飞书文本消息、企业微信文本消息，`DIGILEGACY_NOTIFY_CHANNEL` 可显式选择；HTTP 探针在普通 OS 线程创建/销毁 reqwest blocking client，避免 Tokio runtime drop panic。Web 设置连接页接 `connections.list/test`，CLI 新增 `connections list/test`，MCP 仅暴露只读列表。
-- **M4-F**：删除 `legacy/` 旧应用与 `apps/desktop` 空壳，工作区收敛为 12 个成员；平台只保留 server/CLI/MCP/Web 入口。旧备份导入 `legacy_import` 作为迁移能力保留。
-- **M4-E**：`plan.get` 返回 `trigger.lastCheckIn/nextCheckAt`；`trigger.checkin` 由 Web、CLI、HTTP 共用，写入 `check_in_log` 与 `dms_config.last_check_in`，审计后刷新触发链。规划页提供签到按钮、状态提示与上次/下次签到时间。
-- **M4-D**：schema v13 给 `agent_run_log` 增加 `cancel_requested`。`agent.runs.cancel` 对 running 写 `cancelling` 并置位，执行器在步骤边界检查并收口；未执行步骤标记 `cancelled`，已完成步骤保留；`succeeded` 落库带取消条件保护。Web 状态增加 `cancelling`，取消按钮在取消中禁用。
-- **M4-C**：`web/src/platform/queryCache.ts` 为稳定读请求提供 10 秒 TTL、并发去重和前缀失效；`platformClient` 写命令成功后失效对应域，运行/Job 详情不走缓存。侧栏 hover/focus 预取路由 chunk。
-- **M4-B**：`agent.usage.summary` 按 `days=1..90` 汇总 `agent_plan_log` 的 token/成本与 `agent_run_log` 的运行数；token 只读计划表，运行数单独读，避免运行继承 token 双计。输出 `totals`、`byDay`、`byModel`，HTTP `GET /api/v1/agent/usage`，CLI `usage summary`，Web 自动化页展示近 30 天。
-- **M4-A**：`agent_plan_log`（schema v12，28 表）记录每次规划调用的模型、输入/输出 token、成本与定价状态；`agent.runs.plan` 返回 `planId`/`usage`，`agent.runs.start` 通过 `planId` 继承到 `agent_run_log`，`agent.runs.list/get` 返回真实 `tokens`、`costMicros` 与 `usagePriced`。成本单价由 `DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION` 与 `..._OUTPUT_...` 配置（每百万 token 的微元），未配置时只记 token、成本标记为未定价，不伪造金额。
-- **M3-I**：`GET /api/v1/events?runId=` 或 `?jobId=` 提供 SSE `snapshot` 流，服务端 500ms 读一次当前状态并只在变化时推送，15s keepalive；Web 运行详情与交付页优先用 `EventSource`，连接失败自动回退 1.5s 轮询。`jobs.cancel` 只允许取消 `queued` 任务，置 `cancelled`/`CANCELLED` 并写 `job.cancel` 审计；运行中或终态返回 `CONFLICT`。
-- **数据归属**：单工作区抽象保留 `workspaces`，30 张表按领域拆；资产与政策各维护一份事实。
-- **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
-- **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。
+Schema changes are versioned in `core/store/src/schema.sql` and applied through a migration ledger. Every migration has a name, a version and tests that open an older database and verify the upgrade. Runtime diagnostics expose the current schema version and table count without exposing data.
 
-## 8. 前端架构
+## Frontend
 
-- Vue 3 + Vite + TypeScript。
-- 路由懒加载；5 个主入口 + 设置工具区。
-- `platform/client.ts` 是唯一 API/mock 边界；页面不直接拼 URL。
-- `useResource` 负责加载/错误/竞态序号；M0 不引入 TanStack Query。
-- 设计系统用 token（暖纸/苔绿/陶土），亮暗双主题。
-- 首屏用骨架屏，不用全页 spinner；M0 路由 chunk 均小于 24 KB raw。
+The Web console is a Vue 3 application with five product areas and a global settings surface. Routes are lazy-loaded; shared data access goes through a typed platform client. Reads use a short-lived cache with request coalescing; writes invalidate the affected domains so the next screen is fresh. The UI is designed for desktop and mobile, with light and dark themes.
 
-## 9. 性能与加载
+## Observability and operations
 
-已设预算：
+The server exposes a health endpoint, structured command envelopes, trace IDs and an audit query surface. Background jobs have explicit states and error codes. Connection probes report health without returning credentials. Diagnostics can produce a support bundle that excludes secrets.
 
-- Web 总 gzip 约 87 KB；入口约 49 KB；vendor 98.9 KB raw。
-- CommandBus 约 250 ns/op（M0 release 基线）。
-- 路由级拆包；页面级 CSS 随路由加载。
-- 长任务走 durable `jobs`，不让 HTTP 请求阻塞；进度当前用 1.5 秒静默轮询，SSE 作为后续优化。
-- 性能回归超过 20% 必须解释或回滚（G13）。
+## Deployment
 
-## 10. 关键决策
+A deployment needs the Rust server, a writable data directory and an API token. The Web console can be served by any static host and points at the Platform API. CLI and MCP run locally against the same database or API. SQLite/SQLCipher keeps the default deployment small; the command layer can later be hosted behind a shared service without changing clients.
 
-- [ADR-0001 契约先行](adr/0001-contract-first.md)
-- [ADR-0002 模块化单体](adr/0002-modular-monolith.md)
-- [ADR-0003 Web 主客户端、Agent 工具化](adr/0003-web-primary-agent-tools.md)
-- [ADR-0004 旧版不进入新包](adr/0004-legacy-not-in-new-build.md)
+## Non-goals
 
-## 11. M0 未完成边界
+- Microservices for their own sake.
+- A second backend for the Agent.
+- Editing generated clients by hand.
+- Hiding failures behind optimistic UI.
+- Treating local deployment as a separate product.
 
-- 领域 handler 未接；已知读命令返回 `UNSUPPORTED`。
-- 安全内核、SQLite/SQLCipher 未接。
-- G03 目前只有 `vue-tsc`，ESLint/Prettier 未纳入；G04/G05 覆盖率未纳入；G08-G14 尚未形成完整流水线。
-- 旧版源码已删除；只保留迁移后的 `core/security`、`core/store` 与新入口代码。
+See [architecture decisions](adr/) for the reasoning behind these choices.
