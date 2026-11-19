@@ -124,7 +124,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
         </button>
 
         <div class="rail-meta mono">
-          <span>v0.8.8</span>
+          <span>v0.8.9</span>
           <span>M4 / LIVE</span>
         </div>
       </div>

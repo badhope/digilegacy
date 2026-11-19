@@ -9,6 +9,7 @@ import PageHeader from "@/shared/ui/PageHeader.vue";
 import SectionCard from "@/shared/ui/SectionCard.vue";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
+import { formatDateTime } from "@/shared/format";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import { platformClient } from "@/platform/client";
@@ -63,12 +64,6 @@ function formatTokens(value: number | undefined): string {
 function formatCost(micros: number | undefined): string {
   if (!micros) return "—";
   return `¥${(micros / 1_000_000).toFixed(6)}`;
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return value;
-  return new Intl.DateTimeFormat(locale.value, { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
 function openRun(run: AgentRun) {
@@ -145,7 +140,7 @@ function openRun(run: AgentRun) {
               <span class="run-title">{{ run.title }}</span>
               <StatusPill :tone="tone(run.status)" :label="t(statusKey(run.status))" />
               <span class="mono run-steps">{{ run.steps }}</span>
-              <span class="mono run-date">{{ formatDate(run.startedAt) }}</span>
+              <span class="mono run-date">{{ formatDateTime(run.startedAt, locale) }}</span>
             </button>
           </div>
         </SectionCard>

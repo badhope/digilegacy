@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.8.9-m4i] - 2026-11-19
+
+### Changed
+
+- 新增 `AssetEditor`：资产新增/编辑共用一套字段、校验、提交与样式，替换两处重复表单。
+- 新增 `features/assets/model.ts`：统一 `ASSET_KINDS`、`assetKindKey` 与 `draftFromAsset`。
+- 新增 `shared/format.ts`：统一 `formatDate` / `formatDateTime`，替换资产、规划、审批、运行、自动化页面的 5 处重复实现。
+- 资产详情移除重复说明块；资产页移除重复模式胶囊；编辑时隐藏“编辑资产”按钮。
+- 移动端资产表隐藏类型/平台/更新时间列，首列副标题补类型，取消 720px 固定最小宽度，避免横向溢出。
+- 删除未使用的 `/deliverables/:id` 占位详情路由与 `ScaffoldView`，移除对应死翻译键；概览运行说明改用 `overview.runtime.note`。
+- 版本 `0.8.9-m4i`；契约与 schema 不变。
+
+### Verification
+
+- `./tools/verify.sh` exit 0：127 Rust + 10 Web；契约 31/20/41/19；schema v14/29。
+- 预算：入口 75.51 KB / 76 KB、JS 94.48 KB / 97 KB、CSS 19.74 KB / 21 KB、总 114.22 KB / 118 KB。
+- 实测共享资产编辑器在资产页与详情页均可打开，创建/编辑逻辑保持。
+
 ## [0.8.8-m4h] - 2026-11-19
 
 ### Added

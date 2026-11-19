@@ -177,7 +177,7 @@ function formatTime(value: string): string {
           </div>
           <div class="runtime-note">
             <AppIcon name="database" :size="15" />
-            <span>{{ t("feature.scaffold.note") }}</span>
+            <span>{{ t("overview.runtime.note") }}</span>
           </div>
         </SectionCard>
       </section>

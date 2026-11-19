@@ -36,12 +36,13 @@
 | 规划签到闭环 | 已做完（M4-E：`trigger.checkin` Web 操作、上次/下次签到展示、写后静默刷新） |
 | 触发链完整生命周期 | 已做完（M4-G：`trigger.configure/evaluate/events.list`、四阶段等待、暂停/恢复、事件时间线） |
 | 资产发现与批量导入 | 已做完（M4-H：分类向导、36 条建议、已入库标记、同名同平台跳过） |
+| 前端整合与去重 | 已做完（M4-I：共享资产编辑器、统一日期格式、移动端表格收敛） |
 | Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
 | 后台任务队列 / 运行进度 | 已做完（M3-G：审批后台执行、`jobs.get`、运行耗时、Web 静默轮询） |
 | Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
 | 桌面客户端 | 已取消（平台只保留 Web / CLI / MCP / HTTP） |
 
-当前版本：`0.8.8-m4h`。
+当前版本：`0.8.9-m4i`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
@@ -54,6 +55,8 @@ M3 已落地九段：政策溯源写、平台写令牌与资产新增/编辑、�
 M4-G 触发链：schema v14 新增 `trigger_events` 与 `triggered_at/trigger_stage`；`trigger.configure` 管理开关、签到间隔和暂停天数（暂停/关闭会中止当前触发），`trigger.evaluate` 按四阶段等待期幂等推进，`trigger.events.list` 返回只追加时间线；签到会清空触发状态并写事件。Web 规划页提供启用、间隔、暂停/恢复、评估与时间线；HTTP 提供 `PATCH /api/v1/trigger`、`POST /api/v1/trigger/evaluate`、`GET /api/v1/trigger/events`，CLI 提供 `trigger configure/evaluate/events`，MCP 只暴露事件时间线读取；server 每 30 分钟自动评估一次，关机期间不触发。
 
 M4-H 资产发现：`content/assets/catalog.json` 维护 8 个分类、36 条可解释建议；`assets.discover` 按分类/关键词返回建议并标记 `exists`，`assets.bulkCreate` 一次最多导入 50 项，同名同平台自动跳过。Web 新增 `/assets/discover` 三步向导（选分类 → 勾选 → 确认），CLI 新增 `assets discover` / `assets bulk-create --file`，HTTP 新增 `GET /api/v1/assets/discover` 与 `POST /api/v1/assets/bulk`。
+
+M4-I 前端整合：新增/编辑资产共用 `AssetEditor` 与 `model.ts`，日期时间统一走 `shared/format.ts`；资产详情去掉重复说明；资产页移除重复模式胶囊；移动端资产表隐藏平台/更新时间列，不再依赖 720px 横向滚动。
 
 M4-E 规划签到：`plan.get` 补充 `lastCheckIn`/`nextCheckAt`，Web/CLI/HTTP 共用 `trigger.checkin`；规划页可直接完成签到，成功提示并静默刷新触发链，失败显示写令牌缺失或服务端错误。
 
@@ -210,8 +213,8 @@ M4 基线：
 
 - Web 测试 10 项（缓存 4 + 路由/页面 6）
 - Rust 测试 127 项：security 49、store 15、domains 20、application 20、agent 4、server 12、foundation 5、render 2（M4-H 全仓 verify 通过）
-- Web 总 gzip **116.17 KB / 118 KB**，JS gzip **95.86 KB / 97 KB**，CSS **20.30 KB / 21 KB**
-- 入口 chunk **74.68 KB raw / 76 KB**，vendor **101.88 KB raw / 130 KB**
+- Web 总 gzip **114.22 KB / 118 KB**，JS gzip **94.48 KB / 97 KB**，CSS **19.74 KB / 21 KB**
+- 入口 chunk **75.51 KiB / 76 KB**，vendor **99.50 KiB / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 
 ---

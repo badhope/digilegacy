@@ -17,15 +17,14 @@ describe("router contract", () => {
   });
 
   it("does not resurrect legacy routes", () => {
-    for (const path of ["/dashboard", "/discover", "/profile", "/dms", "/legal", "/report", "/heir", "/review"]) {
+    for (const path of ["/dashboard", "/discover", "/profile", "/dms", "/legal", "/report", "/heir", "/review", "/deliverables/rep_01"]) {
       expect(router.resolve(path).name, path).toBe("not-found");
     }
   });
 
-  it("resolves detail and scaffold routes", () => {
+  it("resolves implemented detail routes", () => {
     expect(router.resolve("/assets/discover").name).toBe("asset-discover");
     expect(router.resolve("/assets/ast_01").name).toBe("asset-detail");
-    expect(router.resolve("/deliverables/rep_01").name).toBe("deliverable-detail");
     expect(router.resolve("/automation/runs/run_01").name).toBe("run-detail");
     expect(router.resolve("/automation/tools").name).toBe("tools");
     expect(router.resolve("/automation/approvals").name).toBe("approvals");

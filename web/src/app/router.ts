@@ -56,19 +56,6 @@ const routes: RouteRecordRaw[] = [
     meta: { titleKey: "nav.deliverables" },
   },
   {
-    path: "/deliverables/:id",
-    name: "deliverable-detail",
-    component: () => import("@/features/scaffold/ScaffoldView.vue"),
-    meta: {
-      titleKey: "deliverables.title",
-      eyebrowKey: "deliverables.eyebrow",
-      descriptionKey: "deliverables.description",
-      readinessKey: "deliverables.readiness",
-      modules: ["DOM-05", "RND-02"],
-      commands: ["deliver.export"],
-    },
-  },
-  {
     path: "/automation",
     name: "automation",
     component: () => import("@/features/automation/AutomationView.vue"),

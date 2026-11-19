@@ -8,6 +8,7 @@ import ErrorState from "@/shared/ui/ErrorState.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
+import { formatDateTime } from "@/shared/format";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import { platformClient } from "@/platform/client";
@@ -136,14 +137,6 @@ function formatUsage(): string {
   return `${tokens} tokens · ¥${(data.value.costMicros / 1_000_000).toFixed(6)}`;
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return value || "—";
-  return new Intl.DateTimeFormat(locale.value, {
-    month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
-  }).format(date);
-}
-
 function pretty(value: unknown): string {
   if (value === null || value === undefined) return "";
   try {
@@ -200,7 +193,7 @@ function pretty(value: unknown): string {
 
     <template v-else-if="data">
       <div class="run-summary">
-        <div><span>{{ t("runs.detail.started") }}</span><strong class="mono">{{ formatDate(data.startedAt) }}</strong></div>
+        <div><span>{{ t("runs.detail.started") }}</span><strong class="mono">{{ formatDateTime(data.startedAt, locale, true) }}</strong></div>
         <div><span>{{ t("runs.detail.rounds") }}</span><strong class="mono">{{ data.rounds }}</strong></div>
         <div><span>{{ t("runs.detail.tools") }}</span><strong class="mono">{{ data.toolsUsed || "—" }}</strong></div>
         <div><span>{{ t("runs.detail.duration") }}</span><strong class="mono">{{ formatDuration(data.durationMs) }}</strong></div>
@@ -226,7 +219,7 @@ function pretty(value: unknown): string {
             </div>
             <StatusPill :tone="stepTone(step.status)" :label="t(`runs.step.${step.status}`)" />
           </header>
-          <div v-if="step.at" class="step-time mono">{{ formatDate(step.at) }}</div>
+          <div v-if="step.at" class="step-time mono">{{ formatDateTime(step.at, locale, true) }}</div>
           <pre v-if="Object.keys(step.args ?? {}).length" class="step-block arg">{{ pretty(step.args) }}</pre>
           <pre v-if="step.result" class="step-block result">{{ pretty(step.result) }}</pre>
           <p v-if="step.error" class="step-error">{{ step.error }}</p>

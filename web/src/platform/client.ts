@@ -93,9 +93,9 @@ export const platformClient = {
   getOverview: () => read<Overview>(COMMANDS.appOverview, {}, "overview"),
   listAssets: (args: Record<string, unknown> = {}) => read<AssetsPage>(COMMANDS.assetsList, args, "assets"),
   getAsset: (id: string) => read<Asset>(COMMANDS.assetsGet, { id }, "assets"),
-  createAsset: (args: Record<string, unknown>) =>
+  createAsset: (args: { name: string; kind: string; platform?: string; value?: string; note?: string }) =>
     write<Asset>(COMMANDS.assetsCreate, args, ["assets", "overview"]),
-  updateAsset: (args: Record<string, unknown>) =>
+  updateAsset: (args: { id: string; name: string; kind: string; platform?: string; value?: string; note?: string }) =>
     write<Asset>(COMMANDS.assetsUpdate, args, ["assets", "overview"]),
   discoverAssets: (args: { category?: string; q?: string } = {}) =>
     read<DiscoveryResult>(COMMANDS.assetsDiscover, args, "assets.discover"),

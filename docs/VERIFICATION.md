@@ -498,3 +498,13 @@ M0 可以判定“工程壳完成”的条件：
 - CLI：`assets discover --category finance` 返回 6 条；`assets bulk-create --file /tmp/digilegacy-bulk.json --allow-write` 成功创建 1 条。
 - Web：`/assets/discover` 实测分类 → 勾选微信零钱/支付宝余额 → 确认 → 成功页（新建 2、跳过 0）；再次进入同一分类显示“已在库”，不能重复勾选。
 - 预算调整：入口 **74.68 KB / 76 KB**、JS gzip **95.86 KB / 97 KB**、CSS gzip **20.30 KB / 21 KB**、总 gzip **116.17 KB / 118 KB**；新增 `AssetsDiscoverView` 路由块 8.72 KB。
+
+### M4-I 前端整合与去重
+
+- 新增 `web/src/features/assets/AssetEditor.vue`：创建/编辑共用同一表单，减少两套字段、校验与样式。
+- 新增 `web/src/features/assets/model.ts`：统一 `ASSET_KINDS`、`assetKindKey`、草稿映射。
+- 新增 `web/src/shared/format.ts`：统一日期 `formatDate` 与日期时间 `formatDateTime`，替换资产、规划、审批、运行、自动化 5 处重复实现。
+- 资产详情移除重复的“编辑说明”卡片块；资产页移除重复的 `app.mode` 胶囊；详情编辑时隐藏“编辑资产”按钮。
+- 移动端资产表隐藏平台/更新时间列，取消固定 720px 最小宽度，避免横向溢出。
+- 实测：共享编辑器在 `/assets` 与 `/assets/1` 均正常打开；日期渲染正常；创建/编辑逻辑未变。
+- `./tools/verify.sh` exit 0：127 Rust + 10 Web；契约仍 31/20/41/19；预算入口 75.51 KB / 76 KB、JS 94.48 KB / 97 KB、CSS 19.74 KB / 21 KB、总 114.22 KB / 118 KB。

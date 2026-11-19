@@ -8,6 +8,7 @@ import PageHeader from "@/shared/ui/PageHeader.vue";
 import SectionCard from "@/shared/ui/SectionCard.vue";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
+import { formatDate } from "@/shared/format";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import { platformClient } from "@/platform/client";
@@ -28,13 +29,6 @@ const triggerStatus = computed(() => {
   const key = `planning.trigger.status.${status}`;
   return t(key) === key ? status : t(key);
 });
-
-function formatDate(value: string): string {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return value;
-  return new Intl.DateTimeFormat(locale.value, { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
-}
 
 const acting = ref(false);
 const actionError = ref("");
@@ -147,7 +141,7 @@ async function checkIn() {
       actionError.value = envelope.code === "AUTH_REQUIRED" ? t("runs.detail.tokenRequired") : envelope.message || envelope.code;
       return;
     }
-    notice.value = t("planning.checkin.done", { date: formatDate(envelope.data.checkedInAt) });
+    notice.value = t("planning.checkin.done", { date: formatDate(envelope.data.checkedInAt, locale.value) });
     await refresh();
   } catch (cause) {
     actionError.value = cause instanceof Error ? cause.message : "check-in failed";
@@ -188,7 +182,7 @@ async function checkIn() {
             <span class="holder-mark"><AppIcon name="shield" :size="21" /></span>
             <div>
               <h3>{{ data.holder.name || t("planning.holder.empty") }}</h3>
-              <p class="mono">{{ formatDate(data.holder.updatedAt) }}</p>
+              <p class="mono">{{ formatDate(data.holder.updatedAt, locale) }}</p>
             </div>
           </div>
           <div class="plan-line">
@@ -230,11 +224,11 @@ async function checkIn() {
           <div class="trigger-meta">
             <div>
               <span>{{ t("planning.checkin.last") }}</span>
-              <strong class="mono">{{ formatDate(data.trigger.lastCheckIn) }}</strong>
+              <strong class="mono">{{ formatDate(data.trigger.lastCheckIn, locale) }}</strong>
             </div>
             <div>
               <span>{{ t("planning.checkin.next") }}</span>
-              <strong class="mono">{{ formatDate(data.trigger.nextCheckAt) }}</strong>
+              <strong class="mono">{{ formatDate(data.trigger.nextCheckAt, locale) }}</strong>
             </div>
             <div>
               <span>{{ t("planning.trigger.stage") }}</span>
@@ -242,7 +236,7 @@ async function checkIn() {
             </div>
             <div v-if="data.trigger.pausedUntil">
               <span>{{ t("planning.trigger.pausedUntil") }}</span>
-              <strong class="mono">{{ formatDate(data.trigger.pausedUntil) }}</strong>
+              <strong class="mono">{{ formatDate(data.trigger.pausedUntil, locale) }}</strong>
             </div>
           </div>
           <div class="trigger-controls">
@@ -295,7 +289,7 @@ async function checkIn() {
             <div class="event-copy">
               <div class="event-head">
                 <strong>{{ eventKind(event.kind) }}</strong>
-                <span class="mono">{{ formatDate(event.createdAt) }} · {{ event.stage || "—" }}</span>
+                <span class="mono">{{ formatDate(event.createdAt, locale) }} · {{ event.stage || "—" }}</span>
               </div>
               <p>{{ event.detail }}</p>
             </div>

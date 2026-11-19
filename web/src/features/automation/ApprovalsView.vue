@@ -8,6 +8,7 @@ import ErrorState from "@/shared/ui/ErrorState.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
+import { formatDateTime } from "@/shared/format";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import { platformClient } from "@/platform/client";
@@ -35,17 +36,6 @@ function statusTone(status: Approval["status"]): "ready" | "planned" | "degraded
   if (status === "rejected") return "danger";
   if (status === "pending") return "degraded";
   return "neutral";
-}
-
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.valueOf())) return value;
-  return new Intl.DateTimeFormat(locale.value, {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
 }
 
 function prettyDiff(value: string): string {
@@ -147,7 +137,7 @@ async function decide(approval: Approval, decision: "approve" | "reject") {
           <div class="approval-meta mono">
             <span>{{ t("approvals.run") }} {{ approval.runId }}</span>
             <span v-if="approval.objectKey">{{ t("approvals.object") }} {{ approval.objectKey }}</span>
-            <span>{{ formatDate(approval.createdAt) }}</span>
+            <span>{{ formatDateTime(approval.createdAt, locale) }}</span>
           </div>
 
           <pre class="approval-diff">{{ prettyDiff(approval.diff) }}</pre>
