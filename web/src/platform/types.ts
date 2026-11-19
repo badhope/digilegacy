@@ -154,6 +154,7 @@ export interface NotificationSendResult {
 
 export type ConnectionKind = "llm" | "policy" | "smtp" | "imap" | "heartbeat" | "webhook" | "feishu" | "wecom";
 export type ConnectionStatus = "unconfigured" | "ok" | "degraded" | "error" | "disabled";
+export type ConnectionSource = "env" | "stored";
 
 export interface ConnectionItem {
   id: string;
@@ -164,7 +165,7 @@ export interface ConnectionItem {
   lastStatus: ConnectionStatus;
   lastError: string;
   updatedAt: string;
-  source: "env" | "imported";
+  source: ConnectionSource;
 }
 
 export interface ConnectionPage {
@@ -179,6 +180,24 @@ export interface ConnectionTestResult {
   message: string;
   connectionId?: string;
   checkedAt?: string;
+}
+
+export interface ConnectionUpsertInput {
+  id?: string;
+  kind: ConnectionKind;
+  label?: string;
+  endpoint: string;
+  token?: string;
+  username?: string;
+  from?: string;
+  security?: "tls" | "starttls" | "none";
+  enabled?: boolean;
+}
+
+export interface ConnectionDeleteResult {
+  id: string;
+  kind: string;
+  label: string;
 }
 
 export interface Plan {

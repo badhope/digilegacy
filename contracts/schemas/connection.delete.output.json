@@ -1,0 +1,12 @@
+{
+  "title": "ConnectionDelete",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "kind", "label"],
+  "properties": {
+    "id": { "type": "string" },
+    "kind": { "type": "string" },
+    "label": { "type": "string" }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

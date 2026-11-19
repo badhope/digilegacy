@@ -6,7 +6,7 @@
 
 ```text
 ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
-│ Web Console   │  │ Builtin Agent │  │ MCP / External│  │ CLI / Desktop │
+│ Web Console   │  │ Builtin Agent │  │ MCP / External│  │ CLI / HTTP    │
 └───────┬───────┘  └───────┬───────┘  └───────┬───────┘  └───────┬───────┘
         │                  │                  │                  │
         └──────────────────┴──────── Platform API ───────────────┘
@@ -160,6 +160,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M4-H**：资产发现与批量导入。`content/assets/catalog.json` 是 8 分类/36 建议的静态目录；`assets.discover` 读取目录并按 name+platform 标记 `exists`，`assets.bulkCreate` 预校验后逐项查重、最多 50 项；Web `/assets/discover` 三步向导，CLI `assets discover` / `assets bulk-create`，HTTP `GET /api/v1/assets/discover` / `POST /api/v1/assets/bulk`。schema 不变。
 - **M4-I**：前端整合。资产新增/编辑共用 `AssetEditor` 与 `model.ts`，日期/时间统一走 `shared/format.ts`；详情移除重复说明，资产页移除重复模式胶囊，移动端表格隐藏次要列并取消固定 720px 宽度。
 - **M5-A**：schema v15 新增 `notification_outbox`（30 表）。触发链只在 final 阶段调用 `notify::enqueue_final`，按紧急联系人、主继承人、执行人去重，邮箱优先、其次电话/名称；无接收人时写 `blocked` 行。`notifications.list` 只读分页；`notifications.send` 通过 `DIGILEGACY_WEBHOOK_URL` 投递 pending，支持可选 Bearer token，后台 60 秒 worker 自动处理，失败写 `last_error` 并保留可见状态。HTTP 发送在 `spawn_blocking` 中执行，避免 reqwest blocking client 落入 Tokio 运行时。Web 规划页展示最终通知、状态、失败原因和手动发送；CLI `notifications list/send`，MCP 仅暴露只读列表。
+- **M5-C**：连接配置写接口与 SMTP 投递。新增 `connections.upsert` / `connections.delete`，配置以 `DIGILEGACY_CONFIG_KEY_FILE` 的 32 字节密钥（缺省由 DB 密钥经 HKDF 派生，域标签 `digilegacy/connection-config/v1`）加密为 `enc:v2` JSON；读模型不返回 endpoint/token/username/from/security。环境连接只读；新增同类型同标签冲突；编辑必须带 id，不能改 kind。Web 连接页支持新增/编辑/删除、凭据只写不读和 390px 单列；SMTP 支持隐式 TLS/STARTTLS/明文、AUTH PLAIN、UTF-8 主题与 dot-stuffing；通知投递新增 SMTP，自动顺序为已保存 HTTP → 环境 HTTP → SMTP，显式 `DIGILEGACY_NOTIFY_CHANNEL=smtp` 优先已保存 SMTP。
 - **M5-B**：连接健康与通知渠道。`connections` 表延续 v15，环境变量连接以 `config_enc='env'` 仅存元数据；`connections.list` 返回 kind/label/enabled/lastCheckAt/lastStatus/lastError/source，不返回凭据。`connections.test` 为 write + HTTP 写 token，覆盖 llm/policy/smtp/imap/heartbeat/webhook/feishu/wecom 八类探针；成功不保留错误文本，失败 URL 脱敏后回写。通知投递支持通用 Webhook、飞书文本消息、企业微信文本消息，`DIGILEGACY_NOTIFY_CHANNEL` 可显式选择；HTTP 探针在普通 OS 线程创建/销毁 reqwest blocking client，避免 Tokio runtime drop panic。Web 设置连接页接 `connections.list/test`，CLI 新增 `connections list/test`，MCP 仅暴露只读列表。
 - **M4-F**：删除 `legacy/` 旧应用与 `apps/desktop` 空壳，工作区收敛为 12 个成员；平台只保留 server/CLI/MCP/Web 入口。旧备份导入 `legacy_import` 作为迁移能力保留。
 - **M4-E**：`plan.get` 返回 `trigger.lastCheckIn/nextCheckAt`；`trigger.checkin` 由 Web、CLI、HTTP 共用，写入 `check_in_log` 与 `dms_config.last_check_in`，审计后刷新触发链。规划页提供签到按钮、状态提示与上次/下次签到时间。

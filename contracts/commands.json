@@ -615,6 +615,59 @@
       ]
     },
     {
+      "name": "connections.upsert",
+      "domain": "connections",
+      "summary": "加密保存一条外部连接配置；新建同类型同标签冲突，更新必须提供 id；环境变量连接不可修改",
+      "permission": "write",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/connection.upsert.input.json",
+      "output": "schemas/connection.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "connections save",
+        "http": "POST /api/v1/connections",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "CONFIG_KEY_MISSING",
+        "CONFLICT",
+        "NOT_FOUND",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "connections.delete",
+      "domain": "connections",
+      "summary": "删除一条平台内保存的外部连接；环境变量连接不可删除",
+      "permission": "write",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/id.input.json",
+      "output": "schemas/connection.delete.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "connections delete",
+        "http": "DELETE /api/v1/connections/{id}",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "CONFLICT",
+        "NOT_FOUND",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "connections.test",
       "domain": "connections",
       "summary": "测试并记录外部连接健康，不保存配置",

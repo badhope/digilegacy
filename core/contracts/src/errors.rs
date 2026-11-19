@@ -137,6 +137,13 @@ pub const ERRORS: &[ErrorSpec] = &[
         message_key: "error.unsupported",
     },
     ErrorSpec {
+        code: "CONFIG_KEY_MISSING",
+        http: 409,
+        retryable: false,
+        cli_exit: 3,
+        message_key: "error.configKeyMissing",
+    },
+    ErrorSpec {
         code: "INTERNAL",
         http: 500,
         retryable: true,

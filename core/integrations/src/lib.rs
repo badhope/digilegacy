@@ -263,6 +263,337 @@ pub fn probe(kind: &str, endpoint: &str, token: Option<&str>) -> ProbeResult {
     }
 }
 
+/// SMTP delivery target. Credentials are only used in-memory for one send.
+#[derive(Debug, Clone)]
+pub struct SmtpTarget {
+    pub host: String,
+    pub port: u16,
+    pub tls: bool,
+    pub starttls: bool,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub from: String,
+}
+
+impl SmtpTarget {
+    pub fn parse(
+        endpoint: &str,
+        security: Option<&str>,
+        username: Option<String>,
+        password: Option<String>,
+        from: Option<String>,
+    ) -> Result<Self, String> {
+        let raw = endpoint.trim();
+        if raw.is_empty()
+            || raw.chars().any(char::is_control)
+            || raw.chars().any(char::is_whitespace)
+        {
+            return Err("SMTP 地址不合法".to_string());
+        }
+        let (scheme, rest) = match raw.find("://") {
+            Some(index) => (raw[..index].to_ascii_lowercase(), &raw[index + 3..]),
+            None => ("".to_string(), raw),
+        };
+        if !matches!(scheme.as_str(), "" | "smtp" | "smtps") {
+            return Err("SMTP 仅支持 smtp:// 或 smtps://".to_string());
+        }
+        let (host, port) = split_host_port(
+            rest,
+            if scheme == "smtps" {
+                465
+            } else if scheme == "smtp" {
+                587
+            } else {
+                25
+            },
+        )?;
+        if host.is_empty() {
+            return Err("SMTP 地址缺少主机".to_string());
+        }
+        let security = security
+            .map(|value| value.trim().to_ascii_lowercase())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| {
+                if scheme == "smtps" || port == 465 {
+                    "tls".to_string()
+                } else if port == 25 {
+                    "none".to_string()
+                } else {
+                    "starttls".to_string()
+                }
+            });
+        let (tls, starttls) = match security.as_str() {
+            "tls" => (true, false),
+            "starttls" => (false, true),
+            "none" => (false, false),
+            _ => return Err("security 必须是 tls/starttls/none".to_string()),
+        };
+        let from = from
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .or_else(|| {
+                username
+                    .as_deref()
+                    .filter(|value| value.contains('@'))
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| "digilegacy@localhost".to_string());
+        if from.chars().any(char::is_control) {
+            return Err("发件人地址不合法".to_string());
+        }
+        Ok(Self {
+            host,
+            port,
+            tls,
+            starttls,
+            username,
+            password,
+            from,
+        })
+    }
+}
+
+fn split_host_port(value: &str, default_port: u16) -> Result<(String, u16), String> {
+    if let Some(rest) = value.strip_prefix('[') {
+        let (host, tail) = rest
+            .split_once(']')
+            .ok_or_else(|| "SMTP IPv6 地址缺少 ]".to_string())?;
+        let port = tail
+            .strip_prefix(':')
+            .and_then(|value| value.parse::<u16>().ok())
+            .unwrap_or(default_port);
+        return Ok((host.to_string(), port));
+    }
+    if let Some((host, port)) = value.rsplit_once(':') {
+        if !host.is_empty() && port.chars().all(|c| c.is_ascii_digit()) {
+            return Ok((
+                host.to_string(),
+                port.parse::<u16>()
+                    .map_err(|_| "SMTP 端口不合法".to_string())?,
+            ));
+        }
+    }
+    Ok((value.to_string(), default_port))
+}
+
+fn tls_client_config() -> Result<std::sync::Arc<rustls::ClientConfig>, String> {
+    static CONFIG: std::sync::OnceLock<std::sync::Arc<rustls::ClientConfig>> =
+        std::sync::OnceLock::new();
+    if let Some(config) = CONFIG.get() {
+        return Ok(config.clone());
+    }
+    let loaded = rustls_native_certs::load_native_certs();
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add_parsable_certificates(loaded.certs);
+    if roots.is_empty() {
+        return Err("没有可用的系统 CA 证书".to_string());
+    }
+    let provider = rustls::crypto::ring::default_provider();
+    let config = rustls::ClientConfig::builder_with_provider(std::sync::Arc::new(provider))
+        .with_safe_default_protocol_versions()
+        .map_err(|error| format!("初始化 TLS 失败: {error}"))?
+        .with_root_certificates(roots)
+        .with_no_client_auth();
+    let config = std::sync::Arc::new(config);
+    let _ = CONFIG.set(config.clone());
+    Ok(config)
+}
+
+fn tls_stream(
+    tcp: std::net::TcpStream,
+    host: &str,
+) -> Result<rustls::StreamOwned<rustls::ClientConnection, std::net::TcpStream>, String> {
+    let server_name = rustls::pki_types::ServerName::try_from(host.to_string())
+        .map_err(|_| "SMTP 主机名不合法".to_string())?;
+    let connection = rustls::ClientConnection::new(tls_client_config()?, server_name)
+        .map_err(|error| format!("建立 TLS 连接失败: {error}"))?;
+    Ok(rustls::StreamOwned::new(connection, tcp))
+}
+
+trait ReadWrite: std::io::Read + std::io::Write {}
+impl<T: std::io::Read + std::io::Write> ReadWrite for T {}
+
+fn read_line(stream: &mut dyn ReadWrite) -> Result<String, String> {
+    let mut line = String::new();
+    for _ in 0..8192 {
+        let mut byte = [0u8; 1];
+        match stream.read(&mut byte) {
+            Ok(0) => return Err("SMTP 连接提前关闭".to_string()),
+            Ok(_) => {
+                if byte[0] == b'\n' {
+                    return Ok(line);
+                }
+                if byte[0] != b'\r' {
+                    line.push(char::from(byte[0]));
+                }
+            }
+            Err(error) => return Err(format!("读取 SMTP 响应失败: {error}")),
+        }
+    }
+    Err("SMTP 响应过长".to_string())
+}
+
+fn read_response(stream: &mut dyn ReadWrite) -> Result<(u16, String), String> {
+    let mut text = String::new();
+    for _ in 0..100 {
+        let line = read_line(stream)?;
+        if line.len() < 3 {
+            return Err("SMTP 响应格式错误".to_string());
+        }
+        let code = line[..3]
+            .parse::<u16>()
+            .map_err(|_| "SMTP 响应码不合法".to_string())?;
+        if !text.is_empty() {
+            text.push('\n');
+        }
+        if line.len() > 3 {
+            text.push_str(line[3..].trim_start_matches([' ', '-']));
+        }
+        if line.as_bytes().get(3) != Some(&b'-') {
+            return Ok((code, text));
+        }
+    }
+    Err("SMTP 响应行过多".to_string())
+}
+
+fn expect(stream: &mut dyn ReadWrite, codes: &[u16]) -> Result<String, String> {
+    let (code, text) = read_response(stream)?;
+    if codes.contains(&code) {
+        Ok(text)
+    } else {
+        Err(format!(
+            "SMTP {code}: {}",
+            text.chars().take(300).collect::<String>()
+        ))
+    }
+}
+
+fn smtp_command(
+    stream: &mut dyn ReadWrite,
+    command: &str,
+    codes: &[u16],
+) -> Result<String, String> {
+    stream
+        .write_all(command.as_bytes())
+        .and_then(|_| stream.write_all(b"\r\n"))
+        .and_then(|_| stream.flush())
+        .map_err(|error| format!("写入 SMTP 命令失败: {error}"))?;
+    expect(stream, codes)
+}
+
+fn greet(stream: &mut dyn ReadWrite) -> Result<(), String> {
+    expect(stream, &[220])?;
+    Ok(())
+}
+
+fn auth_and_send(
+    stream: &mut dyn ReadWrite,
+    target: &SmtpTarget,
+    to: &str,
+    subject: &str,
+    body: &str,
+) -> Result<(), String> {
+    if to.contains('\n')
+        || to.contains('\r')
+        || !to.contains('@')
+        || to.chars().any(char::is_whitespace)
+    {
+        return Err("收件人不是有效邮箱地址".to_string());
+    }
+    // EHLO again after STARTTLS, per RFC 3207.
+    smtp_command(stream, &format!("EHLO {}", target.host), &[250])?;
+    if let (Some(username), Some(password)) =
+        (target.username.as_deref(), target.password.as_deref())
+    {
+        let payload = format!("\0{}\0{}", username, password);
+        let encoded = base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            payload.as_bytes(),
+        );
+        let (code, text) = {
+            stream
+                .write_all(format!("AUTH PLAIN {encoded}\r\n").as_bytes())
+                .and_then(|_| stream.flush())
+                .map_err(|error| format!("写入 SMTP AUTH 失败: {error}"))?;
+            read_response(stream)?
+        };
+        if !matches!(code, 235 | 503) {
+            return Err(format!(
+                "SMTP 认证失败 {code}: {}",
+                text.chars().take(200).collect::<String>()
+            ));
+        }
+    }
+    let from = if target.from.contains('@') {
+        target.from.clone()
+    } else {
+        format!("digilegacy@{}", target.host)
+    };
+    smtp_command(stream, &format!("MAIL FROM:<{from}>"), &[250])?;
+    smtp_command(stream, &format!("RCPT TO:<{to}>"), &[250, 251])?;
+    smtp_command(stream, "DATA", &[354])?;
+
+    let encoded_subject = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        subject.as_bytes(),
+    );
+    let message = format!(
+        "From: {from}\r\nTo: {to}\r\nSubject: =?UTF-8?B?{encoded_subject}?=\r\nDate: {}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n",
+        chrono::Utc::now().to_rfc2822()
+    );
+    stream
+        .write_all(message.as_bytes())
+        .map_err(|error| format!("写入邮件头失败: {error}"))?;
+    for line in body.replace("\r\n", "\n").split('\n') {
+        let line = if line.starts_with('.') {
+            format!(".{line}")
+        } else {
+            line.to_string()
+        };
+        stream
+            .write_all(line.as_bytes())
+            .and_then(|_| stream.write_all(b"\r\n"))
+            .map_err(|error| format!("写入邮件正文失败: {error}"))?;
+    }
+    stream
+        .write_all(b".\r\n")
+        .and_then(|_| stream.flush())
+        .map_err(|error| format!("提交邮件正文失败: {error}"))?;
+    expect(stream, &[250])?;
+    let _ = smtp_command(stream, "QUIT", &[221]);
+    Ok(())
+}
+
+/// Send one UTF-8 text email through SMTP. Supports implicit TLS, STARTTLS,
+/// plaintext, and AUTH PLAIN. Never logs or returns the password.
+pub fn send_smtp(target: &SmtpTarget, to: &str, subject: &str, body: &str) -> Result<(), String> {
+    let address = if target.host.contains(':') {
+        format!("[{}]:{}", target.host, target.port)
+    } else {
+        format!("{}:{}", target.host, target.port)
+    };
+    let mut tcp = std::net::TcpStream::connect(&address)
+        .map_err(|error| format!("连接 SMTP {address} 失败: {error}"))?;
+    tcp.set_read_timeout(Some(std::time::Duration::from_secs(10)))
+        .map_err(|error| format!("设置 SMTP 读超时失败: {error}"))?;
+    tcp.set_write_timeout(Some(std::time::Duration::from_secs(10)))
+        .map_err(|error| format!("设置 SMTP 写超时失败: {error}"))?;
+    if target.tls {
+        let mut stream = tls_stream(tcp, &target.host)?;
+        greet(&mut stream)?;
+        return auth_and_send(&mut stream, target, to, subject, body);
+    }
+    if target.starttls {
+        greet(&mut tcp)?;
+        smtp_command(&mut tcp, &format!("EHLO {}", target.host), &[250])?;
+        smtp_command(&mut tcp, "STARTTLS", &[220])?;
+        let mut stream = tls_stream(tcp, &target.host)?;
+        return auth_and_send(&mut stream, target, to, subject, body);
+    }
+    greet(&mut tcp)?;
+    auth_and_send(&mut tcp, target, to, subject, body)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,6 +619,74 @@ mod tests {
         assert!(result.ok);
         assert_eq!(result.status, "ok");
         worker.join().unwrap();
+    }
+
+    #[test]
+    fn smtp_delivery_works_against_a_local_plain_server() {
+        use std::io::{BufRead, BufReader, Write};
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let worker = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(socket.try_clone().unwrap());
+            socket.write_all(b"220 local\r\n").unwrap();
+            let mut data_mode = false;
+            let mut body = String::new();
+            let mut line = String::new();
+            loop {
+                line.clear();
+                if reader.read_line(&mut line).unwrap() == 0 {
+                    break;
+                }
+                if data_mode {
+                    if line.trim_end() == "." {
+                        socket.write_all(b"250 queued\r\n").unwrap();
+                        data_mode = false;
+                    } else {
+                        body.push_str(&line);
+                    }
+                    continue;
+                }
+                let command = line.trim_end().to_ascii_uppercase();
+                if command.starts_with("EHLO") {
+                    socket
+                        .write_all(b"250-localhost\r\n250-8BITMIME\r\n250 OK\r\n")
+                        .unwrap();
+                } else if command.starts_with("MAIL") || command.starts_with("RCPT") {
+                    socket.write_all(b"250 OK\r\n").unwrap();
+                } else if command == "DATA" {
+                    socket.write_all(b"354 go ahead\r\n").unwrap();
+                    data_mode = true;
+                } else if command == "QUIT" {
+                    socket.write_all(b"221 bye\r\n").unwrap();
+                    break;
+                } else if command.starts_with("STARTTLS") || command.starts_with("AUTH") {
+                    socket.write_all(b"454 unavailable\r\n").unwrap();
+                } else {
+                    socket.write_all(b"250 OK\r\n").unwrap();
+                }
+            }
+            body
+        });
+        let target = SmtpTarget::parse(
+            &addr.to_string(),
+            Some("none"),
+            None,
+            None,
+            Some("sender@example.com".to_string()),
+        )
+        .unwrap();
+        send_smtp(
+            &target,
+            "heir@example.com",
+            "遗产通知",
+            "请查收这份执行清单。",
+        )
+        .unwrap();
+        let body = worker.join().unwrap();
+        assert!(body.contains("heir@example.com"));
+        assert!(body.contains("Content-Type: text/plain; charset=UTF-8"));
     }
 
     #[test]

@@ -12,7 +12,7 @@ import { useResource } from "@/platform/useResource";
 import { useTheme } from "@/platform/theme";
 import { formatDateTime } from "@/shared/format";
 import { loadAudit, loadConnections, loadSecurity } from "./api";
-import type { ConnectionItem, ConnectionKind, ConnectionStatus } from "@/platform/types";
+import type { ConnectionItem, ConnectionKind, ConnectionStatus, ConnectionUpsertInput } from "@/platform/types";
 
 const route = useRoute();
 const router = useRouter();
@@ -47,8 +47,60 @@ const CONNECTION_STATUS_LABELS: Record<ConnectionStatus, { zh: string; en: strin
 };
 const connectionCopy = computed(() =>
   locale.value === "zh-CN"
-    ? { test: "测试", testing: "测试中…", tokenRequired: "缺少平台写令牌" }
-    : { test: "Test", testing: "Testing…", tokenRequired: "Write token required" },
+    ? {
+        test: "测试",
+        testing: "测试中…",
+        tokenRequired: "缺少平台写令牌",
+        add: "新增连接",
+        edit: "编辑",
+        remove: "删除",
+        save: "保存",
+        saving: "保存中…",
+        cancel: "取消",
+        name: "名称",
+        kind: "类型",
+        endpoint: "连接地址",
+        endpointHint: "HTTP 类型填完整 URL；SMTP/IMAP 填 host:port。",
+        token: "凭据",
+        tokenHint: "可选；编辑时必须重新填写地址和凭据，旧值不会回显。",
+        username: "用户名",
+        from: "发件人",
+        security: "加密方式",
+        enabled: "启用",
+        envReadonly: "环境变量连接只读",
+        editHint: "编辑已保存连接需要重新填写地址与凭据。",
+        configKeyMissing: "服务端未配置连接配置密钥；请设置 DIGILEGACY_CONFIG_KEY_FILE 或 DIGILEGACY_DB_KEY_FILE。",
+        deleteConfirm: "确定删除这条连接配置？",
+        formTitleAdd: "新增连接",
+        formTitleEdit: "编辑连接",
+      }
+    : {
+        test: "Test",
+        testing: "Testing…",
+        tokenRequired: "Write token required",
+        add: "Add connection",
+        edit: "Edit",
+        remove: "Delete",
+        save: "Save",
+        saving: "Saving…",
+        cancel: "Cancel",
+        name: "Label",
+        kind: "Kind",
+        endpoint: "Endpoint",
+        endpointHint: "HTTP kinds use a full URL; SMTP/IMAP use host:port.",
+        token: "Credential",
+        tokenHint: "Optional; editing requires re-entering endpoint and credential. Old values are never echoed.",
+        username: "Username",
+        from: "From",
+        security: "Security",
+        enabled: "Enabled",
+        envReadonly: "Environment connection is read-only",
+        editHint: "Editing a saved connection requires re-entering its endpoint and credential.",
+        configKeyMissing: "Server connection key is not configured; set DIGILEGACY_CONFIG_KEY_FILE or DIGILEGACY_DB_KEY_FILE.",
+        deleteConfirm: "Delete this connection config?",
+        formTitleAdd: "Add connection",
+        formTitleEdit: "Edit connection",
+      },
 );
 function connectionKindLabel(kind: ConnectionKind): string {
   const label = CONNECTION_KIND_LABELS[kind] ?? { zh: kind, en: kind };
@@ -59,7 +111,7 @@ function connectionStatusLabel(status: ConnectionStatus): string {
   return locale.value === "zh-CN" ? label.zh : label.en;
 }
 function connectionSourceLabel(item: ConnectionItem): string {
-  return item.label === "env" ? item.source.toUpperCase() : `${item.label} · ${item.source}`;
+  return item.source === "env" ? `${item.label} · ENV` : `${item.label} · STORED`;
 }
 function connectionRowStatus(item: ConnectionItem): string {
   return item.enabled ? connectionStatusLabel(item.lastStatus) : CONNECTION_STATUS_LABELS.disabled[locale.value === "zh-CN" ? "zh" : "en"];
@@ -68,6 +120,123 @@ function connectionRowStatus(item: ConnectionItem): string {
 const testingId = ref<string | null>(null);
 const connectionNotice = ref("");
 const connectionError = ref("");
+
+const connectionFormOpen = ref(false);
+const connectionSaving = ref(false);
+const connectionFormError = ref("");
+const editingConnectionId = ref("");
+const connectionForm = ref<{
+  kind: ConnectionKind;
+  label: string;
+  endpoint: string;
+  token: string;
+  username: string;
+  from: string;
+  security: "tls" | "starttls" | "none";
+  enabled: boolean;
+}>({
+  kind: "webhook",
+  label: "",
+  endpoint: "",
+  token: "",
+  username: "",
+  from: "",
+  security: "starttls",
+  enabled: true,
+});
+const isMailKind = computed(() => connectionForm.value.kind === "smtp" || connectionForm.value.kind === "imap");
+
+function resetConnectionForm() {
+  connectionForm.value = {
+    kind: "webhook",
+    label: "",
+    endpoint: "",
+    token: "",
+    username: "",
+    from: "",
+    security: "starttls",
+    enabled: true,
+  };
+  editingConnectionId.value = "";
+  connectionFormError.value = "";
+}
+
+function openAddConnection() {
+  resetConnectionForm();
+  connectionFormOpen.value = true;
+}
+
+function openEditConnection(item: ConnectionItem) {
+  resetConnectionForm();
+  editingConnectionId.value = item.id;
+  connectionForm.value.kind = item.kind;
+  connectionForm.value.label = item.label;
+  connectionForm.value.enabled = item.enabled;
+  connectionFormOpen.value = true;
+}
+
+function closeConnectionForm() {
+  connectionFormOpen.value = false;
+  connectionFormError.value = "";
+}
+
+async function saveConnection() {
+  connectionSaving.value = true;
+  connectionFormError.value = "";
+  connectionNotice.value = "";
+  try {
+    const payload: ConnectionUpsertInput = {
+      kind: connectionForm.value.kind,
+      label: connectionForm.value.label.trim() || "default",
+      endpoint: connectionForm.value.endpoint.trim(),
+      token: connectionForm.value.token.trim() || undefined,
+      enabled: connectionForm.value.enabled,
+    };
+    if (editingConnectionId.value) payload.id = editingConnectionId.value;
+    if (connectionForm.value.kind === "smtp" || connectionForm.value.kind === "imap") {
+      payload.username = connectionForm.value.username.trim() || undefined;
+      payload.from = connectionForm.value.from.trim() || undefined;
+      payload.security = connectionForm.value.security;
+    }
+    const envelope = await platformClient.saveConnection(payload);
+    if (!envelope.success || !envelope.data) {
+      connectionFormError.value =
+        envelope.code === "CONFIG_KEY_MISSING"
+          ? connectionCopy.value.configKeyMissing
+          : envelope.code === "AUTH_REQUIRED" || envelope.code === "FORBIDDEN"
+            ? connectionCopy.value.tokenRequired
+            : envelope.message || envelope.code;
+      return;
+    }
+    connectionNotice.value = `${envelope.data.kind} / ${envelope.data.label} · ${t("common.ready")}`;
+    connectionFormOpen.value = false;
+    await refreshConnections();
+  } catch (cause) {
+    connectionFormError.value = cause instanceof Error ? cause.message : "error";
+  } finally {
+    connectionSaving.value = false;
+  }
+}
+
+async function removeConnection(item: ConnectionItem) {
+  if (!window.confirm(connectionCopy.value.deleteConfirm)) return;
+  connectionNotice.value = "";
+  connectionError.value = "";
+  try {
+    const envelope = await platformClient.deleteConnection(item.id);
+    if (!envelope.success) {
+      connectionError.value =
+        envelope.code === "AUTH_REQUIRED" || envelope.code === "FORBIDDEN"
+          ? connectionCopy.value.tokenRequired
+          : envelope.message || envelope.code;
+      return;
+    }
+    connectionNotice.value = `${item.kind} / ${item.label} · ${connectionCopy.value.remove}`;
+    await reloadConnections();
+  } catch (cause) {
+    connectionError.value = cause instanceof Error ? cause.message : "error";
+  }
+}
 
 const writeToken = ref(platformClient.getWriteToken());
 const tokenSaved = ref(false);
@@ -93,7 +262,9 @@ async function testConnection(item: ConnectionItem) {
   connectionNotice.value = "";
   connectionError.value = "";
   try {
-    const envelope = await platformClient.testConnection({ kind: item.kind, id: Number(item.id) });
+    const envelope = await platformClient.testConnection(
+      item.source === "env" ? { kind: item.kind } : { kind: item.kind, id: Number(item.id) },
+    );
     if (!envelope.success || !envelope.data) {
       connectionError.value =
         envelope.code === "AUTH_REQUIRED" || envelope.code === "FORBIDDEN"
@@ -231,8 +402,69 @@ function go(section: Section) {
           <div v-if="tokenSaved" class="empty-note">{{ t("settings.connections.saved") }}</div>
 
           <div class="connection-toolbar">
+            <button type="button" class="link-button" @click="openAddConnection">{{ connectionCopy.add }}</button>
             <button type="button" class="link-button" @click="reloadConnections()">{{ t("common.refresh") }}</button>
           </div>
+
+          <form v-if="connectionFormOpen" class="connection-form" @submit.prevent="saveConnection">
+            <div class="connection-form-head">
+              <strong>{{ editingConnectionId ? connectionCopy.formTitleEdit : connectionCopy.formTitleAdd }}</strong>
+              <span v-if="editingConnectionId" class="mono">#{{ editingConnectionId }}</span>
+            </div>
+            <p v-if="editingConnectionId" class="setting-hint">{{ connectionCopy.editHint }}</p>
+            <div class="connection-form-grid">
+              <label>
+                <span>{{ connectionCopy.kind }}</span>
+                <select v-model="connectionForm.kind">
+                  <option v-for="kind in Object.keys(CONNECTION_KIND_LABELS) as ConnectionKind[]" :key="kind" :value="kind">
+                    {{ connectionKindLabel(kind) }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                <span>{{ connectionCopy.name }}</span>
+                <input v-model="connectionForm.label" maxlength="80" autocomplete="off" placeholder="default" />
+              </label>
+              <label class="connection-form-wide">
+                <span>{{ connectionCopy.endpoint }}</span>
+                <input v-model="connectionForm.endpoint" required autocomplete="off" :placeholder="connectionCopy.endpointHint" />
+                <small>{{ connectionCopy.endpointHint }}</small>
+              </label>
+              <label>
+                <span>{{ connectionCopy.token }}</span>
+                <input v-model="connectionForm.token" type="password" autocomplete="new-password" />
+                <small>{{ connectionCopy.tokenHint }}</small>
+              </label>
+              <label v-if="isMailKind">
+                <span>{{ connectionCopy.username }}</span>
+                <input v-model="connectionForm.username" autocomplete="off" />
+              </label>
+              <label v-if="isMailKind">
+                <span>{{ connectionCopy.from }}</span>
+                <input v-model="connectionForm.from" autocomplete="off" placeholder="digilegacy@example.com" />
+              </label>
+              <label v-if="isMailKind">
+                <span>{{ connectionCopy.security }}</span>
+                <select v-model="connectionForm.security">
+                  <option value="tls">TLS</option>
+                  <option value="starttls">STARTTLS</option>
+                  <option value="none">None</option>
+                </select>
+              </label>
+              <label class="connection-check">
+                <input v-model="connectionForm.enabled" type="checkbox" />
+                <span>{{ connectionCopy.enabled }}</span>
+              </label>
+            </div>
+            <div class="connection-form-actions">
+              <button type="button" class="link-button" @click="closeConnectionForm">{{ connectionCopy.cancel }}</button>
+              <button type="submit" class="solid-button" :disabled="connectionSaving">
+                {{ connectionSaving ? connectionCopy.saving : connectionCopy.save }}
+              </button>
+            </div>
+            <p v-if="connectionFormError" class="connection-error">{{ connectionFormError }}</p>
+          </form>
+
           <div v-if="connectionsLoading" class="empty-note">{{ t("common.loading") }}</div>
           <div v-else-if="connectionsLoadError" class="empty-note">{{ connectionsLoadError }}</div>
           <div v-else-if="!connections?.items.length" class="empty-note">{{ t("settings.connections.empty") }}</div>
@@ -249,14 +481,22 @@ function go(section: Section) {
               <span class="mono connection-checked">
                 {{ item.lastCheckAt ? formatDateTime(item.lastCheckAt, locale) : "—" }}
               </span>
-              <button
-                type="button"
-                class="link-button"
-                :disabled="!item.enabled || testingId === item.id"
-                @click="testConnection(item)"
-              >
-                {{ testingId === item.id ? connectionCopy.testing : connectionCopy.test }}
-              </button>
+              <div class="connection-actions">
+                <button
+                  type="button"
+                  class="link-button"
+                  :disabled="!item.enabled || testingId === item.id"
+                  @click="testConnection(item)"
+                >
+                  {{ testingId === item.id ? connectionCopy.testing : connectionCopy.test }}
+                </button>
+                <button v-if="item.source === 'stored'" type="button" class="link-button" @click="openEditConnection(item)">
+                  {{ connectionCopy.edit }}
+                </button>
+                <button v-if="item.source === 'stored'" type="button" class="link-button danger-link" @click="removeConnection(item)">
+                  {{ connectionCopy.remove }}
+                </button>
+              </div>
               <p v-if="item.lastError" class="connection-error">{{ item.lastError }}</p>
             </div>
           </div>
@@ -310,7 +550,7 @@ function go(section: Section) {
           <div class="about-grid">
             <div class="about-item">
               <span class="mono">{{ t("settings.about.version") }}</span>
-              <strong>0.9.0-m5b</strong>
+              <strong>0.9.0-m5c</strong>
             </div>
             <div class="about-item">
               <span class="mono">{{ t("settings.about.contracts") }}</span>
@@ -490,11 +730,27 @@ function go(section: Section) {
 .connection-notice { margin-top: 10px; padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-strong); font-size: 11px; overflow-wrap: anywhere; }
 .connection-error { grid-column: 1 / -1; margin: 0; color: var(--danger); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .connection-row .connection-error { padding-bottom: 2px; }
-
+.connection-actions { display: flex; align-items: center; gap: 10px; justify-self: end; }
+.danger-link { color: var(--danger); }
+.connection-form { display: grid; gap: 12px; margin: 4px 0 14px; padding: 16px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface-soft); }
+.connection-form-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--ink); font-size: 12px; }
+.connection-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.connection-form-grid label { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.connection-form-grid input, .connection-form-grid select { min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; text-transform: none; letter-spacing: 0; }
+.connection-form-grid small { color: var(--muted); font-size: 10px; line-height: 1.4; text-transform: none; letter-spacing: 0; }
+.connection-form-wide { grid-column: 1 / -1; }
+.connection-check { flex-direction: row !important; align-items: center; gap: 7px !important; text-transform: none !important; letter-spacing: 0 !important; }
+.connection-check input { width: auto; }
+.connection-form-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.connection-form-actions .solid-button { padding: 8px 14px; border: 1px solid var(--accent-strong); border-radius: var(--radius-sm); background: var(--accent-strong); color: var(--surface); font-size: 11px; }
+.connection-form-actions .solid-button:disabled { opacity: 0.55; }
 @media (max-width: 640px) {
+  .connection-form-grid { grid-template-columns: 1fr; }
+  .connection-form-wide { grid-column: auto; }
   .connection-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; }
   .connection-checked { grid-column: 1; }
   .connection-row .link-button { justify-self: end; }
+  .connection-actions { grid-column: 1 / -1; justify-self: stretch; justify-content: flex-end; }
   .token-form { flex-wrap: wrap; }
   .connection-toolbar { align-items: flex-start; }
 }

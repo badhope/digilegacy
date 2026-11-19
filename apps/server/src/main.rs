@@ -15,7 +15,7 @@ use axum::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
     },
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post},
     Router,
 };
 use digilegacy_application::{jobs, Application};
@@ -96,8 +96,12 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/trigger", patch(trigger_configure))
         .route("/api/v1/trigger/evaluate", post(trigger_evaluate))
         .route("/api/v1/trigger/events", get(trigger_events))
-        .route("/api/v1/connections", get(connections_list))
+        .route(
+            "/api/v1/connections",
+            get(connections_list).post(connections_upsert),
+        )
         .route("/api/v1/connections/test", post(connections_test))
+        .route("/api/v1/connections/{id}", delete(connections_delete))
         .route("/api/v1/notifications", get(notifications_list))
         .route("/api/v1/notifications/send", post(notifications_send))
         .route("/api/v1/policies", get(policies_list))
@@ -236,6 +240,27 @@ async fn connections_list(
     Query(query): Query<Value>,
 ) -> impl IntoResponse {
     dispatch(&state, "connections.list", query, None)
+}
+
+async fn connections_upsert(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(args): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "connections.upsert", args, Some(&headers))
+}
+
+async fn connections_delete(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    dispatch(
+        &state,
+        "connections.delete",
+        json!({ "id": id }),
+        Some(&headers),
+    )
 }
 
 async fn connections_test(
@@ -582,9 +607,10 @@ mod tests {
     }
 
     fn test_app_with_token(token: Option<&str>) -> AppState {
-        let app = Application::new(Arc::new(
-            digilegacy_store::Store::open_in_memory(None).unwrap(),
-        ));
+        let app = Application::with_config_key(
+            Arc::new(digilegacy_store::Store::open_in_memory(None).unwrap()),
+            [3u8; 32],
+        );
         policy::seed_if_empty(app.store()).unwrap();
         AppState {
             app: Arc::new(app),
@@ -656,6 +682,35 @@ mod tests {
             Some(&headers),
         );
         assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn connection_config_is_writable_only_with_a_token() {
+        let state = test_app_with_token(Some("test-token"));
+        let headers = write_headers("test-token");
+        let (status, envelope) = dispatch(
+            &state,
+            "connections.upsert",
+            json!({
+                "kind": "webhook",
+                "label": "family",
+                "endpoint": "http://127.0.0.1:8791/hook",
+                "token": "secret"
+            }),
+            Some(&headers),
+        );
+        assert_eq!(status, StatusCode::OK);
+        let saved = envelope.data.as_ref().unwrap().clone();
+        assert_eq!(saved["source"], "stored");
+        assert!(!saved.to_string().contains("secret"));
+        let id = saved["id"].as_str().unwrap().to_string();
+        let (status, _) = dispatch(
+            &state,
+            "connections.delete",
+            json!({ "id": id }),
+            Some(&headers),
+        );
+        assert_eq!(status, StatusCode::OK);
     }
 
     #[test]

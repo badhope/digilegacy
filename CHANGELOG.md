@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.9.0-m5c] - 2026-11-20
+
+### Added
+
+- `connections.upsert` / `connections.delete`：HTTP `POST /api/v1/connections`、`DELETE /api/v1/connections/{id}`；CLI `connections save/delete`；MCP/Agent 不暴露。新增 `connection.upsert.input.json`、`connection.output.json`、`connection.delete.output.json`，错误码 `CONFIG_KEY_MISSING`（HTTP 409）。
+- 连接配置密钥：`DIGILEGACY_CONFIG_KEY_FILE` 的 32 字节密钥；缺省由 `DIGILEGACY_DB_KEY_FILE` 经 HKDF 派生（域标签 `digilegacy/connection-config/v1`）；两者都缺失时写接口拒绝。配置以 `enc:v2` 整体加密，读模型不回显 endpoint/token/username/from/security。
+- 连接来源枚举改为 `env | stored`；环境连接只读，改/删返回 `CONFLICT`；新增同类型同标签冲突，编辑必须带 id，不能改变 kind。
+- Web Settings → 连接页：新增/编辑/删除表单，凭据只写不读，环境行只读，测试按钮，`CONFIG_KEY_MISSING`/写令牌缺失提示；390px 单列布局与亮/暗主题适配。
+- `core/integrations` 新增 `SmtpTarget` / `send_smtp`：隐式 TLS、STARTTLS、明文、AUTH PLAIN、UTF-8 主题 base64、正文 CRLF 与 dot-stuffing；rustls + 系统 CA。
+- 通知投递新增 `NotificationTarget::Smtp`：优先已启用 saved SMTP 连接，回退 `DIGILEGACY_SMTP_HOST/PORT/USERNAME/PASSWORD/FROM/SECURITY`；`DIGILEGACY_NOTIFY_CHANNEL=smtp` 可显式选择；自动顺序为 saved HTTP → env HTTP → SMTP。
+- 新增本地明文 SMTP server 单测与 saved SMTP 配置解析/通知投递单测；`connections.test` 读取已保存连接的加密配置取 endpoint/token，无存储行仍可 ad-hoc，不写回。
+
+### Changed
+
+- Web 版本 `0.9.0-m5c`；Settings 路由新增连接管理 UI，入口预算仍 80 KB，JS gzip 预算 97 → 100 KB，总 gzip 118 → 121 KB。
+- `tools/arch-check.mjs` 契约计数更新为 36 命令 / 22 工具 / 49 schema / 20 错误码。
+
+### Fixed
+
+- 删除连接后使用 `reload` 刷新列表，避免静默刷新留下旧行。
+- 环境连接测试不再带 `id` 走存储配置读取，改为 ad-hoc 探针，避免 `config_enc='env'` 被误当加密 JSON。
+- SMTP EHLO 只在明文/TLS 路径发送一次；STARTTLS 路径在 TLS 握手后重发；IPv6 主机连接地址加 `[]`。
+
+### Verification
+
+- `./tools/verify.sh` exit 0：**146 Rust + 10 Web**；契约 **36 命令 / 22 工具 / 49 schema / 20 错误码**；schema v15 / 30 表；workspace members=12。
+- 预算：入口 **79.31 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **98.75 / 100 KB**、CSS gzip **20.50 / 21 KB**、总 gzip **119.25 / 121 KB**。
+- HTTP 实测：保存 SMTP 连接返回 `source=stored`，列表不回显 token；探针 `TCP 已连接` 并回写 `ok`；环境连接只读；无配置密钥返回 `CONFIG_KEY_MISSING`；Web 表单新增/编辑/删除、390px 与暗色主题通过。
+- SMTP 端到端：已保存 SMTP 连接投递 1 条 outbox 到本地 sink，sink 收到中文主题/正文，outbox 置 `sent`；手动发送返回 `sent=0/pending=0`。
+- 未做真实 STARTTLS/TLS 服务器联调；当前只验证安全模式解析、TLS 客户端编译与本地明文链路。
+
 ## [0.9.0-m5b] - 2026-11-19
 
 ### Added

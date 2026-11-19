@@ -212,6 +212,22 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: false,
     },
     CommandSpec {
+        name: "connections.upsert",
+        domain: "connections",
+        permission: "write",
+        http: "POST /api/v1/connections",
+        requires_unlock: false,
+        audit: true,
+    },
+    CommandSpec {
+        name: "connections.delete",
+        domain: "connections",
+        permission: "write",
+        http: "DELETE /api/v1/connections/{id}",
+        requires_unlock: false,
+        audit: true,
+    },
+    CommandSpec {
         name: "connections.test",
         domain: "connections",
         permission: "write",

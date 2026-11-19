@@ -69,7 +69,7 @@
             "type": "string",
             "enum": [
               "env",
-              "imported"
+              "stored"
             ]
           }
         }

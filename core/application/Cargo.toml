@@ -18,5 +18,6 @@ digilegacy-agent = { path = "../agent" }
 digilegacy-render = { path = "../render" }
 digilegacy-integrations = { path = "../integrations" }
 sha2.workspace = true
+zeroize.workspace = true
 rusqlite.workspace = true
 tracing.workspace = true

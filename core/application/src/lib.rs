@@ -8,6 +8,7 @@
 use digilegacy_domains::{
     approvals, assets, audit, discovery, notify, overview, plan, policy, runs, usage, DomainError,
 };
+use digilegacy_integrations::{send_smtp, SmtpTarget};
 use serde_json::{json, Value};
 
 pub mod connections_health;
@@ -15,9 +16,13 @@ pub mod deliver;
 pub mod jobs;
 pub mod runtime;
 use digilegacy_foundation::PlatformError;
+use digilegacy_security::derive_domain_key;
 use digilegacy_security::keyring::FileKeyring;
 use digilegacy_store::Store;
 use std::sync::Arc;
+use zeroize::Zeroizing;
+
+const CONNECTION_CONFIG_DOMAIN: &[u8] = b"digilegacy/connection-config/v1";
 
 pub const STATUS: &str = "m2-read-write-core";
 
@@ -39,25 +44,17 @@ fn env_value(name: &str) -> Option<String> {
 }
 
 #[derive(Debug, Clone)]
-struct NotificationTarget {
-    channel: String,
-    url: String,
-    token: Option<String>,
+enum NotificationTarget {
+    Http {
+        channel: String,
+        url: String,
+        token: Option<String>,
+    },
+    Smtp(SmtpTarget),
 }
 
-/// Resolve one notification channel. An explicit `DIGILEGACY_NOTIFY_CHANNEL`
-/// wins; otherwise auto-select the first configured webhook channel.
-fn notification_target() -> Option<NotificationTarget> {
-    let channel = env_value("DIGILEGACY_NOTIFY_CHANNEL").unwrap_or_else(|| {
-        if env_value("DIGILEGACY_FEISHU_WEBHOOK_URL").is_some() {
-            "feishu".to_string()
-        } else if env_value("DIGILEGACY_WECOM_WEBHOOK_URL").is_some() {
-            "wecom".to_string()
-        } else {
-            "webhook".to_string()
-        }
-    });
-    let url = match channel.as_str() {
+fn http_notification_target(channel: &str) -> Option<NotificationTarget> {
+    let url = match channel {
         "webhook" => env_value("DIGILEGACY_WEBHOOK_URL"),
         "feishu" => env_value("DIGILEGACY_FEISHU_WEBHOOK_URL"),
         "wecom" => env_value("DIGILEGACY_WECOM_WEBHOOK_URL"),
@@ -65,8 +62,8 @@ fn notification_target() -> Option<NotificationTarget> {
     }?;
     let token =
         env_value("DIGILEGACY_WEBHOOK_TOKEN").or_else(|| env_value("DIGILEGACY_NOTIFY_TOKEN"));
-    Some(NotificationTarget {
-        channel,
+    Some(NotificationTarget::Http {
+        channel: channel.to_string(),
         url,
         token,
     })
@@ -100,11 +97,27 @@ fn notification_payload(channel: &str, item: &notify::Notification) -> Value {
 #[derive(Clone)]
 pub struct Application {
     store: Arc<Store>,
+    config_key: Option<Zeroizing<[u8; 32]>>,
 }
 
 impl Application {
     pub fn new(store: Arc<Store>) -> Self {
-        Self { store }
+        Self {
+            store,
+            config_key: None,
+        }
+    }
+
+    /// Test/support constructor for writing encrypted connection config.
+    pub fn with_config_key(store: Arc<Store>, key: [u8; 32]) -> Self {
+        Self {
+            store,
+            config_key: Some(Zeroizing::new(key)),
+        }
+    }
+
+    pub fn config_key(&self) -> Option<&[u8; 32]> {
+        self.config_key.as_deref()
     }
 
     /// Open the local database from `DIGILEGACY_DB` / `DIGILEGACY_DB_KEY_FILE`.
@@ -116,16 +129,30 @@ impl Application {
         if let Some(parent) = std::path::Path::new(&db_path).parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("创建数据目录失败: {e}"))?;
         }
-        let store = match std::env::var("DIGILEGACY_DB_KEY_FILE") {
-            Ok(key_path) => {
-                let key = FileKeyring::new(key_path).load_or_create()?;
-                let key_ref: &[u8; 32] = &key;
+        let db_key = std::env::var("DIGILEGACY_DB_KEY_FILE")
+            .ok()
+            .map(|path| FileKeyring::new(path).load_or_create())
+            .transpose()?;
+        let store = match db_key.as_ref() {
+            Some(key) => {
+                let key_ref: &[u8; 32] = key;
                 Store::open(&db_path, Some(key_ref))
             }
-            Err(_) => Store::open(&db_path, None),
+            None => Store::open(&db_path, None),
         }
         .map_err(|e| format!("打开数据库失败: {e}"))?;
-        let app = Self::new(Arc::new(store));
+        let config_key = match std::env::var("DIGILEGACY_CONFIG_KEY_FILE") {
+            Ok(path) => Some(FileKeyring::new(path).load_or_create()?),
+            Err(_) => db_key
+                .as_ref()
+                .map(|key| derive_domain_key(key, CONNECTION_CONFIG_DOMAIN))
+                .transpose()
+                .map_err(|error| format!("派生连接配置密钥失败: {error}"))?,
+        };
+        let app = Self {
+            store: Arc::new(store),
+            config_key,
+        };
         policy::seed_if_empty(app.store()).map_err(|e| format!("政策库初始化失败: {e}"))?;
         app.seed_environment_connections()?;
         Ok(app)
@@ -166,6 +193,8 @@ impl Application {
             "trigger.evaluate" => self.evaluate_trigger(),
             "trigger.events.list" => self.trigger_events(args),
             "connections.list" => self.connections_list(args),
+            "connections.upsert" => self.connections_upsert(args),
+            "connections.delete" => self.connections_delete(args),
             "connections.test" => self.connections_test(args),
             "notifications.list" => self.notifications_list(args),
             "notifications.send" => self.notifications_send(args),
@@ -448,7 +477,7 @@ impl Application {
         .unwrap_or(0)
     }
 
-    /// Flush pending notifications through the configured HTTP webhook.
+    /// Flush pending notifications through the configured channel.
     /// The outbox is always authoritative; a failed send stays visible.
     pub fn notifications_send(&self, args: Value) -> Result<Value, PlatformError> {
         let retried = if args
@@ -473,25 +502,51 @@ impl Application {
         Ok(json!(result))
     }
 
-    fn deliver_notifications(&self) -> NotificationSendResult {
-        let Some(target) = notification_target() else {
-            let pending = self.pending_notification_count();
-            return NotificationSendResult {
-                configured: false,
-                sent: 0,
-                failed: 0,
-                pending,
-                errors: vec![],
+    fn notification_target(&self) -> Result<Option<NotificationTarget>, PlatformError> {
+        let explicit =
+            env_value("DIGILEGACY_NOTIFY_CHANNEL").map(|value| value.to_ascii_lowercase());
+        if let Some(channel) = explicit.as_deref() {
+            return match channel {
+                "smtp" => Ok(self
+                    .smtp_notification_target()?
+                    .map(NotificationTarget::Smtp)),
+                "webhook" | "feishu" | "wecom" => {
+                    if let Some((url, token)) = self.saved_http_notification_target(channel)? {
+                        return Ok(Some(NotificationTarget::Http {
+                            channel: channel.to_string(),
+                            url,
+                            token,
+                        }));
+                    }
+                    Ok(http_notification_target(channel))
+                }
+                _ => Ok(None),
             };
-        };
-        let client = match reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(5))
-            .build()
-        {
-            Ok(client) => client,
+        }
+        for channel in ["feishu", "wecom", "webhook"] {
+            if let Some((url, token)) = self.saved_http_notification_target(channel)? {
+                return Ok(Some(NotificationTarget::Http {
+                    channel: channel.to_string(),
+                    url,
+                    token,
+                }));
+            }
+            if let Some(target) = http_notification_target(channel) {
+                return Ok(Some(target));
+            }
+        }
+        if let Some(smtp) = self.smtp_notification_target()? {
+            return Ok(Some(NotificationTarget::Smtp(smtp)));
+        }
+        Ok(None)
+    }
+
+    fn deliver_notifications(&self) -> NotificationSendResult {
+        let pending = match notify::pending(&self.store) {
+            Ok(items) => items,
             Err(error) => {
                 return NotificationSendResult {
-                    configured: true,
+                    configured: false,
                     sent: 0,
                     failed: 0,
                     pending: 0,
@@ -499,42 +554,90 @@ impl Application {
                 }
             }
         };
-        let pending = match notify::pending(&self.store) {
-            Ok(items) => items,
+        let target = match self.notification_target() {
+            Ok(Some(target)) => target,
+            Ok(None) => {
+                return NotificationSendResult {
+                    configured: false,
+                    sent: 0,
+                    failed: 0,
+                    pending: pending.len() as i64,
+                    errors: vec![],
+                }
+            }
             Err(error) => {
                 return NotificationSendResult {
                     configured: true,
                     sent: 0,
                     failed: 0,
-                    pending: 0,
-                    errors: vec![error.to_string()],
+                    pending: pending.len() as i64,
+                    errors: vec![format!("{}: {}", error.code, error.message)],
                 }
             }
         };
         let mut sent = 0;
         let mut failed = 0;
         let mut errors = Vec::new();
-        for item in pending {
-            let payload = notification_payload(&target.channel, &item);
-            let mut request = client.post(&target.url).json(&payload);
-            if let Some(token) = target.token.as_deref().filter(|value| !value.is_empty()) {
-                request = request.bearer_auth(token);
+        match target {
+            NotificationTarget::Http {
+                channel,
+                url,
+                token,
+            } => {
+                let client = match reqwest::blocking::Client::builder()
+                    .timeout(std::time::Duration::from_secs(5))
+                    .build()
+                {
+                    Ok(client) => client,
+                    Err(error) => {
+                        return NotificationSendResult {
+                            configured: true,
+                            sent: 0,
+                            failed: 0,
+                            pending: pending.len() as i64,
+                            errors: vec![error.to_string()],
+                        }
+                    }
+                };
+                for item in pending {
+                    let payload = notification_payload(&channel, &item);
+                    let mut request = client.post(&url).json(&payload);
+                    if let Some(token) = token.as_deref().filter(|value| !value.is_empty()) {
+                        request = request.bearer_auth(token);
+                    }
+                    match request.send() {
+                        Ok(response) if response.status().is_success() => {
+                            let _ = notify::mark_sent(&self.store, &item.id);
+                            sent += 1;
+                        }
+                        Ok(response) => {
+                            let message = format!("HTTP {}", response.status());
+                            let _ = notify::mark_failed(&self.store, &item.id, &message);
+                            failed += 1;
+                            errors.push(format!("{}: {}", item.id, message));
+                        }
+                        Err(error) => {
+                            let _ = notify::mark_failed(&self.store, &item.id, &error.to_string());
+                            failed += 1;
+                            errors.push(format!("{}: {}", item.id, error));
+                        }
+                    }
+                }
             }
-            match request.send() {
-                Ok(response) if response.status().is_success() => {
-                    let _ = notify::mark_sent(&self.store, &item.id);
-                    sent += 1;
-                }
-                Ok(response) => {
-                    let message = format!("HTTP {}", response.status());
-                    let _ = notify::mark_failed(&self.store, &item.id, &message);
-                    failed += 1;
-                    errors.push(format!("{}: {}", item.id, message));
-                }
-                Err(error) => {
-                    let _ = notify::mark_failed(&self.store, &item.id, &error.to_string());
-                    failed += 1;
-                    errors.push(format!("{}: {}", item.id, error));
+            NotificationTarget::Smtp(smtp) => {
+                for item in pending {
+                    match send_smtp(&smtp, &item.recipient, &item.subject, &item.body) {
+                        Ok(()) => {
+                            let _ = notify::mark_sent(&self.store, &item.id);
+                            sent += 1;
+                        }
+                        Err(error) => {
+                            let message = error.chars().take(300).collect::<String>();
+                            let _ = notify::mark_failed(&self.store, &item.id, &message);
+                            failed += 1;
+                            errors.push(format!("{}: {}", item.id, message));
+                        }
+                    }
                 }
             }
         }
@@ -548,7 +651,7 @@ impl Application {
         }
     }
 
-    /// Background tick for the outbox. It does nothing until a webhook is set.
+    /// Background tick for the outbox. It does nothing until a channel is set.
     pub fn notification_tick(&self) {
         let result = self.deliver_notifications();
         if result.configured && (result.sent > 0 || result.failed > 0) {
@@ -1162,6 +1265,88 @@ mod tests {
             .dispatch("agent.runs.get", json!({ "id": old_id }))
             .unwrap();
         assert_eq!(old["status"], "rejected");
+    }
+
+    #[test]
+    fn saved_smtp_connection_delivers_the_outbox() {
+        use std::io::{BufRead, BufReader, Write};
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let worker = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(socket.try_clone().unwrap());
+            socket.write_all(b"220 local\r\n").unwrap();
+            let mut data_mode = false;
+            let mut body = String::new();
+            let mut line = String::new();
+            loop {
+                line.clear();
+                if reader.read_line(&mut line).unwrap() == 0 {
+                    break;
+                }
+                if data_mode {
+                    if line.trim_end() == "." {
+                        socket.write_all(b"250 queued\r\n").unwrap();
+                        data_mode = false;
+                    } else {
+                        body.push_str(&line);
+                    }
+                    continue;
+                }
+                let command = line.trim_end().to_ascii_uppercase();
+                if command.starts_with("EHLO") {
+                    socket
+                        .write_all(b"250-localhost\r\n250-8BITMIME\r\n250 OK\r\n")
+                        .unwrap();
+                } else if command.starts_with("MAIL") || command.starts_with("RCPT") {
+                    socket.write_all(b"250 OK\r\n").unwrap();
+                } else if command == "DATA" {
+                    socket.write_all(b"354 go ahead\r\n").unwrap();
+                    data_mode = true;
+                } else if command == "QUIT" {
+                    socket.write_all(b"221 bye\r\n").unwrap();
+                    break;
+                } else {
+                    socket.write_all(b"250 OK\r\n").unwrap();
+                }
+            }
+            body
+        });
+        let app =
+            Application::with_config_key(Arc::new(Store::open_in_memory(None).unwrap()), [9u8; 32]);
+        app.dispatch(
+            "connections.upsert",
+            json!({
+                "kind": "smtp",
+                "label": "outbox",
+                "endpoint": addr.to_string(),
+                "from": "sender@example.com",
+                "security": "none",
+                "enabled": true
+            }),
+        )
+        .unwrap();
+        app.store()
+            .write(|conn| {
+                conn.execute(
+                    "INSERT INTO notification_outbox (created_at, recipient, subject, body) VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![
+                        "2026-11-20T00:00:00+00:00",
+                        "heir@example.com",
+                        "遗产交接",
+                        "请查收这份执行清单。"
+                    ],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        let result = app.notifications_send(json!({})).unwrap();
+        assert_eq!(result["configured"], true);
+        assert_eq!(result["sent"], 1);
+        let body = worker.join().unwrap();
+        assert!(body.contains("heir@example.com"));
+        assert!(body.contains("Content-Type: text/plain; charset=UTF-8"));
     }
 
     #[test]

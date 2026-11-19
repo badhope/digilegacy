@@ -531,3 +531,16 @@ M0 可以判定“工程壳完成”的条件：
 - M5-B 修复：reqwest blocking 探针改为普通 OS 线程创建/销毁，避免 Tokio `spawn_blocking` 关闭内部 runtime 时 panic；首次实现曾返回空 HTTP body，修复后 curl 与 Web 均拿到完整 JSON。
 - `./tools/verify.sh` exit 0：**138 Rust + 10 Web**；契约 **34 命令 / 22 工具 / 46 schema / 19 错误码**；schema v15 / 30 表。
 - 预算：入口 **78.85 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **96.84 / 97 KB**、CSS gzip **20.24 / 21 KB**、总 gzip **117.08 / 118 KB**；Settings 路由 11.26 / 24 KB。
+
+### M5-C 连接配置加密写接口与 SMTP 投递
+
+- 契约扩至 **36 命令 / 22 工具 / 49 schema / 20 错误码**；新增 `connection.upsert.input.json`、`connection.output.json`、`connection.delete.output.json`，新增错误码 `CONFIG_KEY_MISSING`（HTTP 409 / cliExit 3）。
+- `connections.upsert`：HTTP `POST /api/v1/connections`、CLI `connections save`；MCP/Agent 不暴露。输入 `id?/kind/label?/endpoint/token?/username?/from?/security?/enabled?`；配置密钥由 `DIGILEGACY_CONFIG_KEY_FILE` 提供，缺省从 DB 密钥 HKDF 派生（域标签 `digilegacy/connection-config/v1`），都没有时返回 `CONFIG_KEY_MISSING`。配置整体加密为 `enc:v2`，读模型只返回 kind/label/enabled/health/source，不回显 endpoint/token/username/from/security。
+- `connections.delete`：HTTP `DELETE /api/v1/connections/{id}`、CLI `connections delete`；环境连接改/删返回 `CONFLICT`；新增同类型同标签返回 `CONFLICT`，编辑必须带 id，不能改变 kind。
+- Web Settings → 连接页实测：新增保存 SMTP、编辑重填地址/凭据、删除确认、测试按钮、环境连接只读（无编辑/删除）；无写令牌提示、`CONFIG_KEY_MISSING` 映射为“服务端未配置连接配置密钥”；390px 单列表单 `scrollWidth=390`，无横向溢出；亮色/暗色主题均正常。
+- SMTP 发送单元测试覆盖本地明文 SMTP server：EHLO、MAIL、RCPT、DATA、QUIT、UTF-8 主题 base64、正文 dot-stuffing；AUTH PLAIN 仅实现并编译通过，未在单测或真实服务器验证。未做真实 STARTTLS/TLS 服务器联调，仅验证安全模式解析与本地明文链路；这是当前已知边界。
+- 端到端：临时运行库 `/tmp/m5c-e2e.db` 配置已保存 SMTP 连接（id=1，`127.0.0.1:2526`、security=none、from=sender@example.com）；注入 1 条 pending outbox，设置 `DIGILEGACY_NOTIFY_CHANNEL=smtp` 启动 server，后台 worker 实际投递到本地 SMTP sink，sink 收到 `From/To/Subject` 与中文正文，outbox 置 `sent`；手动 `POST /api/v1/notifications/send` 返回 `configured=true/sent=0/failed=0/pending=0`。临时库、密钥、outbox 与 sink 仅用于验收，未进入仓库。
+- 无配置密钥实测：独立空库 `/tmp/m5c-nokey.db` 启动 server，`connections.upsert` 返回 `CONFIG_KEY_MISSING`，Web 显示对应中文提示，未写入连接。
+- `./tools/verify.sh` exit 0：**146 Rust + 10 Web**；workspace members=12；schema v15 / 30 表；Settings 路由 17.46 / 24 KB。
+- 预算：入口 **79.31 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **98.75 / 100 KB**、CSS gzip **20.50 / 21 KB**、总 gzip **119.25 / 121 KB**。JS/总 gzip 预算从 97/118 调到 100/121，用于新增管理表单与 SMTP 配置 UI；入口与 vendor 预算未放宽。
+- 复验命令：`./tools/verify.sh`；日志 `/tmp/m5c-verify.log`。

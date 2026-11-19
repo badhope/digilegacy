@@ -1552,6 +1552,133 @@
             }
           }
         }
+      },
+      "post": {
+        "operationId": "connections.upsert",
+        "summary": "加密保存一条外部连接配置；新建同类型同标签冲突，更新必须提供 id；环境变量连接不可修改",
+        "tags": [
+          "connections"
+        ],
+        "x-command": "connections.upsert",
+        "x-permission": "write",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/connection.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/connection.upsert.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/connections/{id}": {
+      "delete": {
+        "operationId": "connections.delete",
+        "summary": "删除一条平台内保存的外部连接；环境变量连接不可删除",
+        "tags": [
+          "connections"
+        ],
+        "x-command": "connections.delete",
+        "x-permission": "write",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/connection.delete.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ]
       }
     },
     "/api/v1/connections/test": {
@@ -2733,6 +2860,95 @@
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
+      "connection.delete.output": {
+        "title": "ConnectionDelete",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "connection.output": {
+        "title": "Connection",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "enabled",
+          "lastCheckAt",
+          "lastStatus",
+          "lastError",
+          "updatedAt",
+          "source"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "llm",
+              "policy",
+              "smtp",
+              "imap",
+              "heartbeat",
+              "webhook",
+              "feishu",
+              "wecom"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lastCheckAt": {
+            "type": "string"
+          },
+          "lastStatus": {
+            "type": "string",
+            "enum": [
+              "unconfigured",
+              "ok",
+              "degraded",
+              "error",
+              "disabled"
+            ]
+          },
+          "lastError": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "env",
+              "stored"
+            ]
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
       "connection.test.input": {
         "title": "ConnectionTest",
         "type": "object",
@@ -2800,6 +3016,70 @@
           "checkedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "connection.upsert.input": {
+        "title": "ConnectionUpsert",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "endpoint"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "llm",
+              "policy",
+              "smtp",
+              "imap",
+              "heartbeat",
+              "webhook",
+              "feishu",
+              "wecom"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "endpoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "token": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "username": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "from": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "security": {
+            "type": "string",
+            "enum": [
+              "tls",
+              "starttls",
+              "none"
+            ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -2875,7 +3155,7 @@
                   "type": "string",
                   "enum": [
                     "env",
-                    "imported"
+                    "stored"
                   ]
                 }
               }

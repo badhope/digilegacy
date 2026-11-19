@@ -147,6 +147,39 @@ enum ConnectionsCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Encrypt and save a connection config.
+    Save {
+        #[arg(long)]
+        kind: String,
+        #[arg(long)]
+        endpoint: String,
+        #[arg(long)]
+        id: Option<String>,
+        #[arg(long)]
+        label: Option<String>,
+        #[arg(long)]
+        token: Option<String>,
+        #[arg(long)]
+        username: Option<String>,
+        #[arg(long)]
+        from: Option<String>,
+        #[arg(long)]
+        security: Option<String>,
+        #[arg(long)]
+        disabled: bool,
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Delete a saved connection; environment channels are immutable.
+    Delete {
+        id: String,
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
     /// Probe a connection and persist its health.
     Test {
         #[arg(long)]
@@ -652,6 +685,46 @@ fn main() -> ExitCode {
             ConnectionsCommand::List { json: as_json } => {
                 run(&app, "connections.list", json!({}), as_json, false)
             }
+            ConnectionsCommand::Save {
+                kind,
+                endpoint,
+                id,
+                label,
+                token,
+                username,
+                from,
+                security,
+                disabled,
+                allow_write,
+                json: as_json,
+            } => run(
+                &app,
+                "connections.upsert",
+                json!({
+                    "kind": kind,
+                    "endpoint": endpoint,
+                    "id": id,
+                    "label": label,
+                    "token": token,
+                    "username": username,
+                    "from": from,
+                    "security": security,
+                    "enabled": !disabled
+                }),
+                as_json,
+                allow_write,
+            ),
+            ConnectionsCommand::Delete {
+                id,
+                allow_write,
+                json: as_json,
+            } => run(
+                &app,
+                "connections.delete",
+                json!({ "id": id }),
+                as_json,
+                allow_write,
+            ),
             ConnectionsCommand::Test {
                 kind,
                 id,
