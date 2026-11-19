@@ -267,6 +267,33 @@ enum TriggerCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Enable/disable DMS or change the check-in interval.
+    Configure {
+        #[arg(long)]
+        enabled: bool,
+        #[arg(long, conflicts_with = "enabled")]
+        disabled: bool,
+        #[arg(long)]
+        days: Option<i64>,
+        #[arg(long)]
+        pause_days: Option<i64>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Evaluate the trigger chain and advance waiting stages.
+    Evaluate {
+        #[arg(long)]
+        json: bool,
+    },
+    /// List trigger events.
+    Events {
+        #[arg(long, default_value = "")]
+        cursor: String,
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -473,6 +500,41 @@ fn main() -> ExitCode {
             TriggerCommand::Checkin { json: as_json } => {
                 run(&app, "trigger.checkin", json!({}), as_json, true)
             }
+            TriggerCommand::Configure {
+                enabled,
+                disabled,
+                days,
+                pause_days,
+                json: as_json,
+            } => {
+                let mut args = json!({});
+                if enabled {
+                    args["enabled"] = json!(true);
+                } else if disabled {
+                    args["enabled"] = json!(false);
+                }
+                if let Some(days) = days {
+                    args["days"] = json!(days);
+                }
+                if let Some(pause_days) = pause_days {
+                    args["pauseDays"] = json!(pause_days);
+                }
+                run(&app, "trigger.configure", args, as_json, true)
+            }
+            TriggerCommand::Evaluate { json: as_json } => {
+                run(&app, "trigger.evaluate", json!({}), as_json, true)
+            }
+            TriggerCommand::Events {
+                cursor,
+                limit,
+                json: as_json,
+            } => run(
+                &app,
+                "trigger.events.list",
+                json!({ "cursor": if cursor.is_empty() { None } else { Some(cursor) }, "limit": limit }),
+                as_json,
+                false,
+            ),
         },
         Commands::Deliver { command } => match command {
             DeliverCommand::Export {

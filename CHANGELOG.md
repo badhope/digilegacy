@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.8.7-m4g] - 2026-11-19
+
+### Added
+
+- schema v14：`trigger_events` 事件表，`dms_config` 增加 `triggered_at` / `trigger_stage`；29 表。
+- `trigger.configure`：开关、签到间隔（1..365 天）、暂停/恢复（0..3650 天）；暂停或关闭会中止当前触发。
+- `trigger.evaluate`：按 stage1/stage2/stage3 等待期推进到最终阶段，阶段推进幂等，只写一次事件。
+- `trigger.events.list`：只追加触发时间线，支持游标分页；MCP 只暴露读取。
+- `trigger.checkin` 清空触发状态并写入 `checkin` 事件；签到后重新布防。
+- HTTP `PATCH /api/v1/trigger`、`POST /api/v1/trigger/evaluate`、`GET /api/v1/trigger/events`、`POST /api/v1/trigger/checkin`。
+- CLI `trigger configure / evaluate / events`。
+- Web 规划页：启用开关、间隔输入、保存、暂停/恢复、评估、阶段/暂停至/事件时间线。
+- server 启动 30 分钟 DMS 自动评估线程；仅在状态或阶段变化时写 `trigger.evaluate.auto` 审计。
+
+### Changed
+
+- `plan.get` 的 trigger 增加 `pausedUntil`、`triggeredAt`、`stage`；状态枚举增加 `triggered`。
+- 契约扩至 **29 命令 / 19 工具 / 37 schema / 19 错误码**。
+
+### Verification
+
+- Rust 123 项、Web 10 项通过；`./tools/verify.sh` exit 0，日志 `/tmp/digilegacy-verify-m4g.log`。
+- HTTP 实测：无 token 配置 401；带 token 配置 `armed`；过期签到评估 `triggered/stage=1`；事件返回 `stage1`；签到后 `armed`、`triggeredAt=''`。
+- Web 实测：暂停 7 天显示 `paused` + 暂停至；恢复、评估、时间线可用。
+- CLI 实测 `trigger configure/evaluate/events`。
+- 预算：入口 70.41 KB / 72 KB、JS gzip 91.85 KB / 93 KB、CSS 18.78 KB / 19 KB、总 gzip 110.63 KB / 112 KB。
+
+### Known limits
+
+- 自动评估只在平台进程运行期间生效；关机期间不会触发。
+- 外部通知/邮件发件箱尚未接入；事件只落本地时间线。
+- stage 等待期使用 `dms_config.stage1_wait_days / stage2_wait_days / stage3_wait_days`，暂未提供逐阶段配置 UI。
+
 ## [0.8.6-m4f] - 2026-11-19
 
 ### Removed

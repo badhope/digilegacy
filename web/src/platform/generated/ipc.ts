@@ -30,6 +30,9 @@ export const COMMANDS = {
   diagnosticsExport: "diagnostics.export",
   jobsGet: "jobs.get",
   jobsCancel: "jobs.cancel",
+  triggerConfigure: "trigger.configure",
+  triggerEvaluate: "trigger.evaluate",
+  triggerEventsList: "trigger.events.list",
 } as const;
 
 export type CommandName = (typeof COMMANDS)[keyof typeof COMMANDS];
@@ -61,6 +64,9 @@ export const COMMAND_PERMISSION: Record<CommandName, Permission> = {
   "diagnostics.export": "write",
   "jobs.get": "read",
   "jobs.cancel": "draft",
+  "trigger.configure": "write",
+  "trigger.evaluate": "write",
+  "trigger.events.list": "read",
 };
 
 export const COMMAND_HTTP: Record<CommandName, string> = {
@@ -90,6 +96,9 @@ export const COMMAND_HTTP: Record<CommandName, string> = {
   "diagnostics.export": "POST /api/v1/diagnostics/export",
   "jobs.get": "GET /api/v1/jobs/{id}",
   "jobs.cancel": "POST /api/v1/jobs/{id}/cancel",
+  "trigger.configure": "PATCH /api/v1/trigger",
+  "trigger.evaluate": "POST /api/v1/trigger/evaluate",
+  "trigger.events.list": "GET /api/v1/trigger/events",
 };
 
 export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
@@ -119,6 +128,9 @@ export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
   "diagnostics.export": false,
   "jobs.get": false,
   "jobs.cancel": false,
+  "trigger.configure": true,
+  "trigger.evaluate": true,
+  "trigger.events.list": false,
 };
 
 export const COMMAND_AUDIT: Record<CommandName, boolean> = {
@@ -148,6 +160,9 @@ export const COMMAND_AUDIT: Record<CommandName, boolean> = {
   "diagnostics.export": true,
   "jobs.get": false,
   "jobs.cancel": true,
+  "trigger.configure": true,
+  "trigger.evaluate": true,
+  "trigger.events.list": false,
 };
 
 export const COMMAND_TOOL: Record<CommandName, string | null> = {
@@ -177,6 +192,9 @@ export const COMMAND_TOOL: Record<CommandName, string | null> = {
   "diagnostics.export": null,
   "jobs.get": "jobs.get",
   "jobs.cancel": null,
+  "trigger.configure": null,
+  "trigger.evaluate": null,
+  "trigger.events.list": "trigger.events.list",
 };
 
 export const COMMAND_NAMES = Object.values(COMMANDS);

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.8.6-m4f",
+    "version": "0.8.7-m4g",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -1649,6 +1649,188 @@
           }
         }
       }
+    },
+    "/api/v1/trigger": {
+      "patch": {
+        "operationId": "trigger.configure",
+        "summary": "配置 DMS 开关、签到间隔与暂停",
+        "tags": [
+          "trigger"
+        ],
+        "x-command": "trigger.configure",
+        "x-permission": "write",
+        "x-requires-unlock": true,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/trigger.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/trigger.configure.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trigger/evaluate": {
+      "post": {
+        "operationId": "trigger.evaluate",
+        "summary": "评估 DMS 触发链，按等待期推进阶段",
+        "tags": [
+          "trigger"
+        ],
+        "x-command": "trigger.evaluate",
+        "x-permission": "write",
+        "x-requires-unlock": true,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/trigger.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/empty.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trigger/events": {
+      "get": {
+        "operationId": "trigger.events.list",
+        "summary": "读取触发链事件时间线",
+        "tags": [
+          "trigger"
+        ],
+        "x-command": "trigger.events.list",
+        "x-permission": "read",
+        "x-requires-unlock": false,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/trigger.events.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2435,7 +2617,10 @@
               "days",
               "status",
               "lastCheckIn",
-              "nextCheckAt"
+              "nextCheckAt",
+              "pausedUntil",
+              "triggeredAt",
+              "stage"
             ],
             "properties": {
               "mode": {
@@ -2452,6 +2637,17 @@
               },
               "nextCheckAt": {
                 "type": "string"
+              },
+              "pausedUntil": {
+                "type": "string"
+              },
+              "triggeredAt": {
+                "type": "string"
+              },
+              "stage": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
               }
             }
           }
@@ -3016,6 +3212,151 @@
           },
           "lastBackupAt": {
             "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "trigger.configure.input": {
+        "title": "TriggerConfigureInput",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "pauseDays": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "trigger.events.input": {
+        "title": "TriggerEventsInput",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "trigger.events.output": {
+        "title": "TriggerEventsPage",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "nextCursor",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "createdAt",
+                "kind",
+                "stage",
+                "detail"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "stage": {
+                  "type": "integer"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "trigger.output": {
+        "title": "Trigger",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "days",
+          "status",
+          "lastCheckIn",
+          "nextCheckAt",
+          "pausedUntil",
+          "triggeredAt",
+          "stage"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 365
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "off",
+              "armed",
+              "paused",
+              "triggered"
+            ]
+          },
+          "lastCheckIn": {
+            "type": "string"
+          },
+          "nextCheckAt": {
+            "type": "string"
+          },
+          "pausedUntil": {
+            "type": "string"
+          },
+          "triggeredAt": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

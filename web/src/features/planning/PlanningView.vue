@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -11,6 +11,7 @@ import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import { platformClient } from "@/platform/client";
+import type { TriggerEvent } from "@/platform/types";
 import { loadPlan } from "./api";
 
 const router = useRouter();
@@ -38,6 +39,103 @@ function formatDate(value: string): string {
 const acting = ref(false);
 const actionError = ref("");
 const notice = ref("");
+const draftDays = ref(30);
+const draftEnabled = ref(false);
+const triggerBusy = ref(false);
+const triggerError = ref("");
+const triggerNotice = ref("");
+const events = ref<TriggerEvent[]>([]);
+const eventsLoading = ref(false);
+const eventsError = ref("");
+
+watch(
+  data,
+  (value) => {
+    if (!value) return;
+    draftDays.value = value.trigger.days;
+    draftEnabled.value = value.trigger.status !== "off";
+  },
+  { immediate: true },
+);
+
+async function loadEvents() {
+  eventsLoading.value = true;
+  eventsError.value = "";
+  try {
+    const envelope = await platformClient.triggerEvents({ limit: 10 });
+    if (!envelope.success || !envelope.data) {
+      eventsError.value = envelope.message || envelope.code;
+      return;
+    }
+    events.value = envelope.data.items;
+  } catch (cause) {
+    eventsError.value = cause instanceof Error ? cause.message : "trigger events failed";
+  } finally {
+    eventsLoading.value = false;
+  }
+}
+
+onMounted(loadEvents);
+
+function eventKind(kind: string): string {
+  const key = `planning.event.kind.${kind}`;
+  return t(key) === key ? kind : t(key);
+}
+
+async function saveTrigger(pauseDays?: number) {
+  triggerBusy.value = true;
+  triggerError.value = "";
+  triggerNotice.value = "";
+  try {
+    const args: { enabled: boolean; days: number; pauseDays?: number } = {
+      enabled: draftEnabled.value,
+      days: Number(draftDays.value),
+    };
+    if (pauseDays !== undefined) args.pauseDays = pauseDays;
+    const envelope = await platformClient.configureTrigger(args);
+    if (!envelope.success || !envelope.data) {
+      triggerError.value = envelope.code === "AUTH_REQUIRED" ? t("runs.detail.tokenRequired") : envelope.message || envelope.code;
+      return;
+    }
+    triggerNotice.value =
+      pauseDays === 0
+        ? t("planning.trigger.resumed")
+        : pauseDays
+          ? t("planning.trigger.pausedFor", { days: pauseDays })
+          : t("planning.trigger.saved");
+    await refresh();
+    await loadEvents();
+  } catch (cause) {
+    triggerError.value = cause instanceof Error ? cause.message : "trigger update failed";
+  } finally {
+    triggerBusy.value = false;
+  }
+}
+
+async function togglePause() {
+  draftEnabled.value = true;
+  await saveTrigger(data.value?.trigger.status === "paused" ? 0 : 7);
+}
+
+async function evaluateTrigger() {
+  triggerBusy.value = true;
+  triggerError.value = "";
+  triggerNotice.value = "";
+  try {
+    const envelope = await platformClient.evaluateTrigger();
+    if (!envelope.success || !envelope.data) {
+      triggerError.value = envelope.code === "AUTH_REQUIRED" ? t("runs.detail.tokenRequired") : envelope.message || envelope.code;
+      return;
+    }
+    triggerNotice.value = t("planning.trigger.evaluated", { status: triggerStatus.value });
+    await refresh();
+    await loadEvents();
+  } catch (cause) {
+    triggerError.value = cause instanceof Error ? cause.message : "trigger evaluation failed";
+  } finally {
+    triggerBusy.value = false;
+  }
+}
 
 async function checkIn() {
   acting.value = true;
@@ -138,7 +236,36 @@ async function checkIn() {
               <span>{{ t("planning.checkin.next") }}</span>
               <strong class="mono">{{ formatDate(data.trigger.nextCheckAt) }}</strong>
             </div>
+            <div>
+              <span>{{ t("planning.trigger.stage") }}</span>
+              <strong class="mono">{{ data.trigger.stage || "—" }}</strong>
+            </div>
+            <div v-if="data.trigger.pausedUntil">
+              <span>{{ t("planning.trigger.pausedUntil") }}</span>
+              <strong class="mono">{{ formatDate(data.trigger.pausedUntil) }}</strong>
+            </div>
           </div>
+          <div class="trigger-controls">
+            <label class="trigger-toggle">
+              <input v-model="draftEnabled" type="checkbox" />
+              <span>{{ t("planning.trigger.enable") }}</span>
+            </label>
+            <label class="trigger-days">
+              <span>{{ t("planning.trigger.days") }}</span>
+              <input v-model.number="draftDays" type="number" min="1" max="365" />
+            </label>
+            <AppButton variant="ghost" size="sm" :disabled="triggerBusy" @click="saveTrigger()">
+              {{ t("common.save") }}
+            </AppButton>
+            <AppButton variant="ghost" size="sm" :disabled="triggerBusy" @click="togglePause">
+              {{ data.trigger.status === "paused" ? t("planning.trigger.resume") : t("planning.trigger.pause") }}
+            </AppButton>
+            <AppButton variant="ghost" size="sm" :disabled="triggerBusy" @click="evaluateTrigger">
+              {{ triggerBusy ? t("planning.trigger.evaluating") : t("planning.trigger.evaluate") }}
+            </AppButton>
+          </div>
+          <div v-if="triggerNotice" class="trigger-notice">{{ triggerNotice }}</div>
+          <div v-else-if="triggerError" class="trigger-error">{{ triggerError }}</div>
           <div class="trigger-foot">
             <AppIcon name="clock" :size="15" />
             <span>{{ t("planning.trigger.note") }}</span>
@@ -153,6 +280,28 @@ async function checkIn() {
           </div>
         </SectionCard>
       </div>
+
+      <SectionCard class="trigger-events" :title="t('planning.events.title')" :subtitle="t('planning.events.subtitle')">
+        <div v-if="eventsLoading" class="events-loading" aria-busy="true">
+          <SkeletonBlock width="100%" height="42px" />
+          <SkeletonBlock width="82%" height="42px" />
+          <SkeletonBlock width="70%" height="42px" />
+        </div>
+        <div v-else-if="eventsError" class="events-error">{{ eventsError }}</div>
+        <div v-else-if="!events.length" class="events-empty">{{ t("planning.events.empty") }}</div>
+        <div v-else class="event-timeline">
+          <div v-for="event in events" :key="event.id" class="event-row">
+            <span class="event-dot" />
+            <div class="event-copy">
+              <div class="event-head">
+                <strong>{{ eventKind(event.kind) }}</strong>
+                <span class="mono">{{ formatDate(event.createdAt) }} · {{ event.stage || "—" }}</span>
+              </div>
+              <p>{{ event.detail }}</p>
+            </div>
+          </div>
+        </div>
+      </SectionCard>
 
       <div class="planning-note">
         <AppButton variant="ghost" size="sm" @click="router.push('/deliverables')">
@@ -346,6 +495,58 @@ async function checkIn() {
   border-radius: var(--radius-md);
   background: var(--surface);
 }
+
+.trigger-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.trigger-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.trigger-days {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.trigger-days input {
+  width: 58px;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.trigger-events { margin-top: 16px; }
+.events-loading { display: grid; gap: 8px; }
+.events-empty, .events-error { padding: 14px 0; color: var(--muted); font-size: 12px; }
+.events-error { color: var(--danger, #b54949); }
+.event-timeline { display: grid; gap: 0; }
+.event-row { display: flex; gap: 12px; padding: 9px 0; }
+.event-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.event-copy { flex: 1; min-width: 0; }
+.event-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.event-head strong { font-size: 12px; font-weight: 500; }
+.event-head span { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.event-copy p { margin: 3px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 
 @media (max-width: 1000px) {
   .planning-grid,

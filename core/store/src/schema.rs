@@ -1,12 +1,12 @@
-//! Schema v13: cooperative run cancellation, additive migrations and ledger.
+//! Schema v14: trigger lifecycle events, additive migrations and ledger.
 
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use sha2::{Digest, Sha256};
 
-pub const SCHEMA_VERSION: i64 = 13;
+pub const SCHEMA_VERSION: i64 = 14;
 pub const SCHEMA_SQL: &str = include_str!("schema.sql");
-pub const EXPECTED_TABLES: i64 = 28;
+pub const EXPECTED_TABLES: i64 = 29;
 
 fn checksum() -> String {
     let digest = Sha256::digest(SCHEMA_SQL.as_bytes());
@@ -92,6 +92,8 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
         "cancel_requested",
         "INTEGER NOT NULL DEFAULT 0",
     )?;
+    add_column(conn, "dms_config", "triggered_at", "TEXT DEFAULT ''")?;
+    add_column(conn, "dms_config", "trigger_stage", "INTEGER DEFAULT 0")?;
 
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     conn.execute(
@@ -99,7 +101,7 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
          VALUES (?1, ?2, ?3, ?4)",
         params![
             SCHEMA_VERSION,
-            "v13_run_cancel",
+            "v14_trigger_lifecycle",
             checksum(),
             Utc::now().to_rfc3339()
         ],
@@ -111,8 +113,8 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
     )?;
     conn.execute(
         "INSERT OR IGNORE INTO dms_config
-         (id, enabled, check_in_interval_days, stage1_wait_days, stage2_wait_days, stage3_wait_days, last_check_in, paused_until)
-         VALUES (1, 0, 30, 3, 7, 14, NULL, '')",
+         (id, enabled, check_in_interval_days, stage1_wait_days, stage2_wait_days, stage3_wait_days, last_check_in, paused_until, triggered_at, trigger_stage)
+         VALUES (1, 0, 30, 3, 7, 14, NULL, '', '', 0)",
         [],
     )?;
 
@@ -125,7 +127,7 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
-    fn schema_is_v13_and_has_28_tables() {
+    fn schema_is_v14_and_has_29_tables() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let version: i64 = conn
@@ -140,21 +142,21 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(count, EXPECTED_TABLES, "schema v13 必须正好 28 张表");
+        assert_eq!(count, EXPECTED_TABLES, "schema v14 必须正好 29 张表");
     }
 
     #[test]
-    fn migration_ledger_records_v13() {
+    fn migration_ledger_records_v14() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let name: String = conn
             .query_row(
-                "SELECT name FROM schema_migrations WHERE version = 13",
+                "SELECT name FROM schema_migrations WHERE version = 14",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(name, "v13_run_cancel");
+        assert_eq!(name, "v14_trigger_lifecycle");
     }
 
     #[test]

@@ -1,0 +1,19 @@
+{
+  "title": "TriggerEventsInput",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "cursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -486,5 +486,37 @@
     "_meta": {
       "digilegacy/command": "jobs.get"
     }
+  },
+  {
+    "name": "trigger.events.list",
+    "title": "读取触发链时间线",
+    "description": "按游标分页读取 DMS 触发链事件，只读。",
+    "inputSchema": {
+      "title": "TriggerEventsInput",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "trigger.events.list"
+    }
   }
 ]

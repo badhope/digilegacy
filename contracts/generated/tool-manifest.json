@@ -283,5 +283,21 @@
     "outputSchema": "schemas/job.detail.output.json",
     "rateLimit": "60/min",
     "bulkThreshold": null
+  },
+  {
+    "name": "trigger.events.list",
+    "command": "trigger.events.list",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/trigger.events.input.json",
+    "outputSchema": "schemas/trigger.events.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
   }
 ]

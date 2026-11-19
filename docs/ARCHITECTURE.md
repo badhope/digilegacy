@@ -156,6 +156,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M3-F**：`agent.runs.plan` 用 OpenAI 兼容接口（默认 DeepSeek，`DIGILEGACY_LLM_BASE_URL/API_KEY/MODEL`）把任务拆成注册工具步骤，只返回计划、不执行；Web 人工确认后再 `start`。`agent.runs.cancel` 终止未终态运行并把待审批置 `expired`；`agent.runs.retry` 为 failed/rejected/cancelled 运行创建新运行并保留旧记录；`maxSteps/maxWriteSteps` 在启动前做静态预算校验。
 - **M3-G**：HTTP 审批改为后台执行：`approvals_decide(background=true)` 只更新审批状态、写 `agent.approval.decide` 审计、把 `agent.resume` 入 durable `jobs` 队列并返回 `jobId`；server 启动单进程 Worker，250ms 轮询、回收超过 120 秒的 `running` 僵尸任务。`jobs.get` 提供状态/进度/结果/错误的统一读取；`agent_run_log` 增加 `duration_ms`（schema v11，仍 27 表）。Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏暂停；审批页显示“后台执行 + jobId + 查看运行”。
 - **M3-H**：`deliver.export` 支持 `wait=false`：HTTP/Web 入队 `jobs`（kind=`deliver.export`）并立即返回 `jobId`；Worker 调 `deliver::run_job` 生成 HTML、写 `deliverable_exports`，由 `jobs::finish` 标记成功；失败落 `error_code`。Web 交付页 1.5 秒轮询 `jobs.get`，完成后显示下载；CLI 默认同步，`--background` 可入队。`requeue_stale` 同时回收 `agent.resume` 与 `deliver.export`。
+- **M4-G**：schema v14 新增 `trigger_events` 与 `dms_config.triggered_at/trigger_stage`。`trigger.configure` 管开关、间隔和暂停；`trigger.evaluate` 按 stage1/2/3 等待期推进并幂等写事件；`trigger.checkin` 清空触发状态；`trigger.events.list` 提供时间线。Web 规划页接配置、暂停/恢复、评估和事件；HTTP/CLI/MCP 共用同一用例；server 启动 30 分钟自动评估线程，仅在状态/阶段变化时写 `trigger.evaluate.auto` 审计。
 - **M4-F**：删除 `legacy/` 旧应用与 `apps/desktop` 空壳，工作区收敛为 12 个成员；平台只保留 server/CLI/MCP/Web 入口。旧备份导入 `legacy_import` 作为迁移能力保留。
 - **M4-E**：`plan.get` 返回 `trigger.lastCheckIn/nextCheckAt`；`trigger.checkin` 由 Web、CLI、HTTP 共用，写入 `check_in_log` 与 `dms_config.last_check_in`，审计后刷新触发链。规划页提供签到按钮、状态提示与上次/下次签到时间。
 - **M4-D**：schema v13 给 `agent_run_log` 增加 `cancel_requested`。`agent.runs.cancel` 对 running 写 `cancelling` 并置位，执行器在步骤边界检查并收口；未执行步骤标记 `cancelled`，已完成步骤保留；`succeeded` 落库带取消条件保护。Web 状态增加 `cancelling`，取消按钮在取消中禁用。
@@ -163,7 +164,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M4-B**：`agent.usage.summary` 按 `days=1..90` 汇总 `agent_plan_log` 的 token/成本与 `agent_run_log` 的运行数；token 只读计划表，运行数单独读，避免运行继承 token 双计。输出 `totals`、`byDay`、`byModel`，HTTP `GET /api/v1/agent/usage`，CLI `usage summary`，Web 自动化页展示近 30 天。
 - **M4-A**：`agent_plan_log`（schema v12，28 表）记录每次规划调用的模型、输入/输出 token、成本与定价状态；`agent.runs.plan` 返回 `planId`/`usage`，`agent.runs.start` 通过 `planId` 继承到 `agent_run_log`，`agent.runs.list/get` 返回真实 `tokens`、`costMicros` 与 `usagePriced`。成本单价由 `DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION` 与 `..._OUTPUT_...` 配置（每百万 token 的微元），未配置时只记 token、成本标记为未定价，不伪造金额。
 - **M3-I**：`GET /api/v1/events?runId=` 或 `?jobId=` 提供 SSE `snapshot` 流，服务端 500ms 读一次当前状态并只在变化时推送，15s keepalive；Web 运行详情与交付页优先用 `EventSource`，连接失败自动回退 1.5s 轮询。`jobs.cancel` 只允许取消 `queued` 任务，置 `cancelled`/`CANCELLED` 并写 `job.cancel` 审计；运行中或终态返回 `CONFLICT`。
-- **数据归属**：单工作区抽象保留 `workspaces`，28 张表按领域拆；资产与政策各维护一份事实。
+- **数据归属**：单工作区抽象保留 `workspaces`，29 张表按领域拆；资产与政策各维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。
 

@@ -637,6 +637,79 @@
         "CONFLICT",
         "INTERNAL"
       ]
+    },
+    {
+      "name": "trigger.configure",
+      "domain": "trigger",
+      "summary": "配置 DMS 开关、签到间隔与暂停",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": false,
+      "input": "schemas/trigger.configure.input.json",
+      "output": "schemas/trigger.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "trigger configure",
+        "http": "PATCH /api/v1/trigger",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "VAULT_LOCKED",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "trigger.evaluate",
+      "domain": "trigger",
+      "summary": "评估 DMS 触发链，按等待期推进阶段",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": false,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/trigger.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "trigger evaluate",
+        "http": "POST /api/v1/trigger/evaluate",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "VAULT_LOCKED",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "trigger.events.list",
+      "domain": "trigger",
+      "summary": "读取触发链事件时间线",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/trigger.events.input.json",
+      "output": "schemas/trigger.events.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "trigger events",
+        "http": "GET /api/v1/trigger/events",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
     }
   ]
 }

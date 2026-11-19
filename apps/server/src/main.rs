@@ -19,7 +19,7 @@ use axum::{
     Router,
 };
 use digilegacy_application::{jobs, Application};
-use digilegacy_domains::{approvals, assets, audit, policy};
+use digilegacy_domains::{approvals, assets, audit, plan, policy};
 use digilegacy_foundation::{Envelope, Permission, PlatformError};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -56,6 +56,7 @@ async fn main() {
         "store ready"
     );
     jobs::spawn_worker((*application).clone());
+    application.spawn_trigger_worker();
     let write_token = std::env::var("DIGILEGACY_API_TOKEN")
         .ok()
         .filter(|token| !token.trim().is_empty());
@@ -88,6 +89,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/assets", get(assets_list))
         .route("/api/v1/assets/{id}", get(asset_get))
         .route("/api/v1/plan", get(plan_get))
+        .route("/api/v1/trigger/checkin", post(trigger_checkin))
+        .route("/api/v1/trigger", patch(trigger_configure))
+        .route("/api/v1/trigger/evaluate", post(trigger_evaluate))
+        .route("/api/v1/trigger/events", get(trigger_events))
         .route("/api/v1/policies", get(policies_list))
         .route("/api/v1/policies/{id}", get(policy_get))
         .route(
@@ -178,6 +183,29 @@ async fn asset_get(State(state): State<AppState>, Path(id): Path<String>) -> imp
 
 async fn plan_get(State(state): State<AppState>) -> impl IntoResponse {
     dispatch(&state, "plan.get", json!({}), None)
+}
+
+async fn trigger_checkin(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
+    dispatch(&state, "trigger.checkin", json!({}), Some(&headers))
+}
+
+async fn trigger_configure(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "trigger.configure", input, Some(&headers))
+}
+
+async fn trigger_evaluate(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
+    dispatch(&state, "trigger.evaluate", json!({}), Some(&headers))
+}
+
+async fn trigger_events(
+    State(state): State<AppState>,
+    Query(input): Query<plan::EventsInput>,
+) -> impl IntoResponse {
+    dispatch(&state, "trigger.events.list", json!(input), None)
 }
 
 async fn policies_list(

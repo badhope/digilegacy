@@ -1,0 +1,52 @@
+{
+  "title": "Trigger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "mode",
+    "days",
+    "status",
+    "lastCheckIn",
+    "nextCheckAt",
+    "pausedUntil",
+    "triggeredAt",
+    "stage"
+  ],
+  "properties": {
+    "mode": {
+      "type": "string"
+    },
+    "days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 365
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "off",
+        "armed",
+        "paused",
+        "triggered"
+      ]
+    },
+    "lastCheckIn": {
+      "type": "string"
+    },
+    "nextCheckAt": {
+      "type": "string"
+    },
+    "pausedUntil": {
+      "type": "string"
+    },
+    "triggeredAt": {
+      "type": "string"
+    },
+    "stage": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

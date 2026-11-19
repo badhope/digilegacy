@@ -1,0 +1,53 @@
+{
+  "title": "TriggerEventsPage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items",
+    "nextCursor",
+    "total"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "createdAt",
+          "kind",
+          "stage",
+          "detail"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "nextCursor": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "total": {
+      "type": "integer"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

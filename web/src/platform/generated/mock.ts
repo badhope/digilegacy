@@ -269,7 +269,10 @@ const MOCK_DATA: Record<string, unknown> = {
     "trigger": {
       "mode": "安全签到 + 双人确认",
       "days": 90,
-      "status": "已启用"
+      "status": "已启用",
+      "pausedUntil": "",
+      "triggeredAt": "",
+      "stage": 0
     }
   },
   "policies.list": {
@@ -498,6 +501,53 @@ const MOCK_DATA: Record<string, unknown> = {
     "jobId": "job_demo_02",
     "status": "queued",
     "progress": 0
+  },
+  "trigger.configure": {
+    "mode": "dms",
+    "days": 30,
+    "status": "armed",
+    "lastCheckIn": "2026-11-19T09:00:00+08:00",
+    "nextCheckAt": "2026-12-19T09:00:00+08:00",
+    "pausedUntil": "",
+    "triggeredAt": "",
+    "stage": 0
+  },
+  "trigger.evaluate": {
+    "mode": "dms",
+    "days": 30,
+    "status": "armed",
+    "lastCheckIn": "2026-11-19T09:00:00+08:00",
+    "nextCheckAt": "2026-12-19T09:00:00+08:00",
+    "pausedUntil": "",
+    "triggeredAt": "",
+    "stage": 0
+  },
+  "trigger.events.list": {
+    "items": [
+      {
+        "id": "3",
+        "createdAt": "2026-11-19T09:00:00+08:00",
+        "kind": "checkin",
+        "stage": 0,
+        "detail": "签到，重置触发计时"
+      },
+      {
+        "id": "2",
+        "createdAt": "2026-11-18T09:00:00+08:00",
+        "kind": "configure",
+        "stage": 0,
+        "detail": "enabled=true;days=30;pauseDays=-"
+      },
+      {
+        "id": "1",
+        "createdAt": "2026-11-18T08:00:00+08:00",
+        "kind": "stage1",
+        "stage": 1,
+        "detail": "签到超期，触发链启动，进入第一等待阶段"
+      }
+    ],
+    "nextCursor": null,
+    "total": 3
   }
 };
 

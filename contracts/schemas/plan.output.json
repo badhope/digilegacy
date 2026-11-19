@@ -52,7 +52,10 @@
         "days",
         "status",
         "lastCheckIn",
-        "nextCheckAt"
+        "nextCheckAt",
+        "pausedUntil",
+        "triggeredAt",
+        "stage"
       ],
       "properties": {
         "mode": {
@@ -69,6 +72,17 @@
         },
         "nextCheckAt": {
           "type": "string"
+        },
+        "pausedUntil": {
+          "type": "string"
+        },
+        "triggeredAt": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
         }
       }
     }

@@ -66,10 +66,35 @@ export interface CheckinResult {
   status: string;
 }
 
+export interface Trigger {
+  mode: string;
+  days: number;
+  status: "off" | "armed" | "paused" | "triggered" | string;
+  lastCheckIn: string;
+  nextCheckAt: string;
+  pausedUntil: string;
+  triggeredAt: string;
+  stage: number;
+}
+
+export interface TriggerEvent {
+  id: string;
+  createdAt: string;
+  kind: string;
+  stage: number;
+  detail: string;
+}
+
+export interface TriggerEventPage {
+  items: TriggerEvent[];
+  nextCursor: string | null;
+  total: number;
+}
+
 export interface Plan {
   holder: { name: string; updatedAt: string };
   heirs: Heir[];
-  trigger: { mode: string; days: number; status: string; lastCheckIn: string; nextCheckAt: string };
+  trigger: Trigger;
 }
 
 export type RunStatus = "queued" | "running" | "cancelling" | "waiting_approval" | "succeeded" | "failed" | "rejected" | "cancelled";

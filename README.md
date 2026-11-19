@@ -34,20 +34,23 @@
 | 查询缓存与加载策略 | 已做完（M4-C：10s 读缓存、并发去重、写后按域失效、路由 hover 预取） |
 | 运行中协作取消 | 已做完（M4-D：`cancel_requested` 协作标志、步骤边界收口、succeeded 写入拦截） |
 | 规划签到闭环 | 已做完（M4-E：`trigger.checkin` Web 操作、上次/下次签到展示、写后静默刷新） |
+| 触发链完整生命周期 | 已做完（M4-G：`trigger.configure/evaluate/events.list`、四阶段等待、暂停/恢复、事件时间线） |
 | Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
 | 后台任务队列 / 运行进度 | 已做完（M3-G：审批后台执行、`jobs.get`、运行耗时、Web 静默轮询） |
 | Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
-| 桌面 Tauri 窗口与托盘 | M3/M5 |
+| 桌面客户端 | 已取消（平台只保留 Web / CLI / MCP / HTTP） |
 
-当前版本：`0.8.6-m4f`。
+当前版本：`0.8.7-m4g`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
 M2 已落地：`core/application` 用例层接 M1 Store；HTTP/CLI/MCP 共享同一套领域调用；资产列表/详情/创建/更新、规划、概览、安全摘要、签到、运行记录均读真实表；Web 默认走 Platform API，资产筛选改为服务端查询与游标分页。
 
-M2-B 已落地：政策库 schema v10 起步（当前 v12，28 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
+M2-B 已落地：政策库 schema v10 起步（当前 v14，29 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
 
 M3 已落地九段：政策溯源写、平台写令牌与资产新增/编辑、审计链查询、Agent 审批队列、确定性 Agent Runtime、M3-F 的规划器/取消/预算/重试、M3-G 的审批后台 Job 化/运行进度/耗时，M3-H 的交付物后台导出，以及 M3-I 的 SSE snapshot 事件流与排队任务取消。规划器接 OpenAI 兼容接口（默认 DeepSeek），只生成注册工具步骤；人工确认后再启动，写操作仍进审批。取消会把待审批置为 `expired`，重试会创建新运行并保留旧记录。HTTP 审批改为先落审批、再入 durable `jobs` 队列，批准请求毫秒级返回；Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏时暂停。
+
+M4-G 触发链：schema v14 新增 `trigger_events` 与 `triggered_at/trigger_stage`；`trigger.configure` 管理开关、签到间隔和暂停天数（暂停/关闭会中止当前触发），`trigger.evaluate` 按四阶段等待期幂等推进，`trigger.events.list` 返回只追加时间线；签到会清空触发状态并写事件。Web 规划页提供启用、间隔、暂停/恢复、评估与时间线；HTTP 提供 `PATCH /api/v1/trigger`、`POST /api/v1/trigger/evaluate`、`GET /api/v1/trigger/events`，CLI 提供 `trigger configure/evaluate/events`，MCP 只暴露事件时间线读取；server 每 30 分钟自动评估一次，关机期间不触发。
 
 M4-E 规划签到：`plan.get` 补充 `lastCheckIn`/`nextCheckAt`，Web/CLI/HTTP 共用 `trigger.checkin`；规划页可直接完成签到，成功提示并静默刷新触发链，失败显示写令牌缺失或服务端错误。
 
@@ -100,7 +103,7 @@ core/
   foundation/      信封、错误、权限、CommandBus、trace id
   contracts/       生成后的命令/错误表
   security/        Vault 生命周期、恢复、备份、文件 KEK
-  store/           SQLCipher、schema v13、迁移、检查点、审计
+  store/           SQLCipher、schema v14、迁移、检查点、审计
   domains/         DOM-01..07 领域清单
   integrations/    邮件、云盘、LLM 等连接边界
   agent/           Run / Approval 状态机
@@ -203,9 +206,9 @@ node tools/bench/web-budget.mjs
 M4 基线：
 
 - Web 测试 10 项（缓存 4 + 路由/页面 6）
-- Rust 测试 119 项：security 49、store 15、domains 14、application 18、agent 4、server 12、foundation 5、render 2（M4-F 全仓 verify 通过）
-- Web 总 gzip **108.67 KB / 110 KB**，JS gzip **90.12 KB / 91 KB**，CSS **18.55 KB / 19 KB**
-- 入口 chunk **67.83 KB raw / 68 KB**，vendor **98.89 KB raw / 130 KB**
+- Rust 测试 123 项：security 49、store 15、domains 17、application 19、agent 4、server 12、foundation 5、render 2（M4-G 全仓 verify 通过）
+- Web 总 gzip **110.63 KB / 112 KB**，JS gzip **91.85 KB / 93 KB**，CSS **18.78 KB / 19 KB**
+- 入口 chunk **70.41 KB raw / 72 KB**，vendor **101.88 KB raw / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 
 ---

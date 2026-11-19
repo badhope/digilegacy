@@ -324,6 +324,24 @@
         "external"
       ],
       "rate_limit": "60/min"
+    },
+    {
+      "name": "trigger.events.list",
+      "title": "读取触发链时间线",
+      "description": "按游标分页读取 DMS 触发链事件，只读。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/trigger.events.input.json",
+      "output_schema": "schemas/trigger.events.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "trigger.events.list",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "60/min"
     }
   ]
 }

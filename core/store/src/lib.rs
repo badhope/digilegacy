@@ -225,12 +225,12 @@ mod tests {
     }
 
     #[test]
-    fn opens_schema_v12_and_integrity_ok() {
+    fn opens_schema_v14_and_integrity_ok() {
         let path = temp_path("v9");
         let store = Store::open(&path, None).unwrap();
         assert_eq!(store.state(), StoreState::Ready);
         assert_eq!(store.schema_version().unwrap(), crate::SCHEMA_VERSION);
-        assert_eq!(store.table_count().unwrap(), 28);
+        assert_eq!(store.table_count().unwrap(), 29);
         assert_eq!(store.integrity_check().unwrap(), "ok");
         drop(store);
         cleanup(&path);
@@ -276,7 +276,7 @@ mod tests {
         let path = temp_path("key");
         let key = [7u8; 32];
         let store = Store::open(&path, Some(&key)).unwrap();
-        assert_eq!(store.table_count().unwrap(), 28);
+        assert_eq!(store.table_count().unwrap(), 29);
         drop(store);
 
         assert!(open_readonly(&path, None).is_err(), "无 key 不得读取加密库");

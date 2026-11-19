@@ -82,6 +82,9 @@ impl Application {
             "policies.get" => self.policies_get(args),
             "policies.provenance.set" => self.policies_set_provenance(args),
             "trigger.checkin" => self.checkin(),
+            "trigger.configure" => self.configure_trigger(args),
+            "trigger.evaluate" => self.evaluate_trigger(),
+            "trigger.events.list" => self.trigger_events(args),
             "deliver.export" => self.deliver_export(args),
             "security.status" => self.security_status(),
             "agent.runs.list" => self.runs_list(args),
@@ -245,7 +248,11 @@ impl Application {
                     [&checked],
                 )?;
                 tx.execute(
-                    "UPDATE dms_config SET last_check_in=?1 WHERE id=1",
+                    "UPDATE dms_config SET last_check_in=?1, triggered_at='', trigger_stage=0 WHERE id=1",
+                    [&checked],
+                )?;
+                tx.execute(
+                    "INSERT INTO trigger_events (created_at, kind, stage, detail) VALUES (?1,'checkin',0,'签到，重置触发计时')",
                     [&checked],
                 )?;
                 tx.commit()?;
@@ -258,6 +265,66 @@ impl Application {
             "nextCheckAt": next,
             "status": "ok",
         }))
+    }
+
+    pub fn configure_trigger(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: plan::ConfigureInput = parse(args)?;
+        let trigger = plan::configure(&self.store, &input).map_err(map_domain)?;
+        self.audit(
+            "trigger.configure",
+            &format!(
+                "enabled={};days={};status={}",
+                input
+                    .enabled
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "-".to_string()),
+                input
+                    .days
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "-".to_string()),
+                trigger.status
+            ),
+        )?;
+        Ok(json!(trigger))
+    }
+
+    pub fn evaluate_trigger(&self) -> Result<Value, PlatformError> {
+        let trigger = plan::evaluate(&self.store).map_err(map_domain)?;
+        self.audit(
+            "trigger.evaluate",
+            &format!("status={};stage={}", trigger.status, trigger.stage),
+        )?;
+        Ok(json!(trigger))
+    }
+
+    /// Scheduler tick: evaluate silently, audit only when state actually changes.
+    pub fn trigger_tick(&self) {
+        let before = plan::get(&self.store).map(|plan| plan.trigger);
+        let after = plan::evaluate(&self.store);
+        if let (Ok(before), Ok(after)) = (before, after) {
+            if before.status != after.status || before.stage != after.stage {
+                let _ = self.audit(
+                    "trigger.evaluate.auto",
+                    &format!("status={};stage={}", after.status, after.stage),
+                );
+            }
+        }
+    }
+
+    /// Start the 30-minute DMS scheduler; the server owns one process-wide loop.
+    pub fn spawn_trigger_worker(&self) {
+        let app = self.clone();
+        std::thread::spawn(move || loop {
+            app.trigger_tick();
+            std::thread::sleep(std::time::Duration::from_secs(1800));
+        });
+    }
+
+    pub fn trigger_events(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: plan::EventsInput = parse(args)?;
+        plan::events(&self.store, &input)
+            .map(|page| json!(page))
+            .map_err(map_domain)
     }
 
     pub fn deliver_export(&self, args: Value) -> Result<Value, PlatformError> {
@@ -796,5 +863,45 @@ mod tests {
         let data = app.dispatch("trigger.checkin", json!({})).unwrap();
         assert_eq!(data["status"], "ok");
         assert!(data["nextCheckAt"].as_str().unwrap().len() > 10);
+    }
+
+    #[test]
+    fn trigger_lifecycle_configures_evaluates_and_records_events() {
+        let app = app();
+        let configured = app
+            .dispatch(
+                "trigger.configure",
+                json!({ "enabled": true, "days": 1, "pauseDays": 0 }),
+            )
+            .unwrap();
+        assert_eq!(configured["status"], "armed");
+
+        app.store()
+            .write(|conn| {
+                conn.execute(
+                    "UPDATE dms_config SET last_check_in='2020-01-01T00:00:00+00:00' WHERE id=1",
+                    [],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        let evaluated = app.dispatch("trigger.evaluate", json!({})).unwrap();
+        assert_eq!(evaluated["status"], "triggered");
+        assert_eq!(evaluated["stage"], 1);
+
+        let events = app
+            .dispatch("trigger.events.list", json!({ "limit": 20 }))
+            .unwrap();
+        assert!(events["total"].as_i64().unwrap() >= 2);
+        assert!(events["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|event| event["kind"] == "stage1"));
+
+        app.dispatch("trigger.checkin", json!({})).unwrap();
+        let plan = app.dispatch("plan.get", json!({})).unwrap();
+        assert_eq!(plan["trigger"]["status"], "armed");
+        assert_eq!(plan["trigger"]["triggeredAt"], "");
     }
 }

@@ -151,7 +151,17 @@ CREATE TABLE IF NOT EXISTS dms_config (
     stage2_wait_days INTEGER DEFAULT 7,
     stage3_wait_days INTEGER DEFAULT 14,
     last_check_in TEXT,
-    paused_until TEXT DEFAULT ''
+    paused_until TEXT DEFAULT '',
+    triggered_at TEXT DEFAULT '',
+    trigger_stage INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS trigger_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    stage INTEGER NOT NULL DEFAULT 0,
+    detail TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS connections (
@@ -354,6 +364,7 @@ CREATE INDEX IF NOT EXISTS idx_assets_disposal ON digital_assets(disposal_method
 CREATE INDEX IF NOT EXISTS idx_assets_created ON digital_assets(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_assets_identifier ON digital_assets(account_identifier);
 CREATE INDEX IF NOT EXISTS idx_checkin_checked_at ON check_in_log(checked_at);
+CREATE INDEX IF NOT EXISTS idx_trigger_events_at ON trigger_events(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_heirs_order ON heirs(sort_order, id);
 CREATE INDEX IF NOT EXISTS idx_review_item ON review_records(profile_id, item_key, id DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_chat_created ON ai_chat_log(created_at DESC);

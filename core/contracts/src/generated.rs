@@ -219,6 +219,30 @@ pub const COMMANDS: &[CommandSpec] = &[
         requires_unlock: false,
         audit: true,
     },
+    CommandSpec {
+        name: "trigger.configure",
+        domain: "trigger",
+        permission: "write",
+        http: "PATCH /api/v1/trigger",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
+        name: "trigger.evaluate",
+        domain: "trigger",
+        permission: "write",
+        http: "POST /api/v1/trigger/evaluate",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
+        name: "trigger.events.list",
+        domain: "trigger",
+        permission: "read",
+        http: "GET /api/v1/trigger/events",
+        requires_unlock: false,
+        audit: false,
+    },
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -250,6 +274,7 @@ pub const TOOLS: &[ToolSpec] = &[
     ToolSpec { name: "trigger.checkin", command: "trigger.checkin", permission: "write", title: "记录安全签到", description: "记录一次签到；写操作需要人工审批。", input_schema: "{\n  \"title\": \"EmptyInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "deliver.export", command: "deliver.export", permission: "draft", title: "导出交付物", description: "生成异步导出任务；只产出文件，不改业务最终态。", input_schema: "{\n  \"title\": \"ExportInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"kind\",\n    \"locale\"\n  ],\n  \"properties\": {\n    \"kind\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"report\",\n        \"checklist\",\n        \"legal\",\n        \"toolkit\"\n      ]\n    },\n    \"locale\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"zh-CN\",\n        \"en-US\"\n      ]\n    },\n    \"wait\": {\n      \"type\": \"boolean\",\n      \"default\": true,\n      \"description\": \"true 同步生成；false 入队并返回 jobId\"\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "jobs.get", command: "jobs.get", permission: "read", title: "读取后台任务", description: "按任务 ID 读取后台执行状态、进度、结果与错误。", input_schema: "{\n  \"title\": \"IdInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"required\": [\n    \"id\"\n  ],\n  \"properties\": {\n    \"id\": {\n      \"type\": \"string\",\n      \"minLength\": 1,\n      \"maxLength\": 64\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
+    ToolSpec { name: "trigger.events.list", command: "trigger.events.list", permission: "read", title: "读取触发链时间线", description: "按游标分页读取 DMS 触发链事件，只读。", input_schema: "{\n  \"title\": \"TriggerEventsInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"cursor\": {\n      \"type\": [\n        \"string\",\n        \"null\"\n      ]\n    },\n    \"limit\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 100\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
 ];
 
 pub fn find(name: &str) -> Option<&'static CommandSpec> {

@@ -1,7 +1,7 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
 import { cachedQuery, clearQueryCache, invalidateQuery, queryCacheKey } from "./queryCache";
-import type { UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus } from "./types";
+import type { UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -98,7 +98,11 @@ export const platformClient = {
   updateAsset: (args: Record<string, unknown>) =>
     write<Asset>(COMMANDS.assetsUpdate, args, ["assets", "overview"]),
   getPlan: () => read<Plan>(COMMANDS.planGet, {}, "plan"),
-  checkin: () => write<CheckinResult>(COMMANDS.triggerCheckin, {}, ["plan", "overview", "audit"]),
+  configureTrigger: (args: { enabled?: boolean; days?: number; pauseDays?: number }) =>
+    write<Trigger>(COMMANDS.triggerConfigure, args, ["plan", "trigger.events", "overview"]),
+  evaluateTrigger: () => write<Trigger>(COMMANDS.triggerEvaluate, {}, ["plan", "trigger.events", "overview"]),
+  triggerEvents: (args: Record<string, unknown> = {}) => read<TriggerEventPage>(COMMANDS.triggerEventsList, args, "trigger.events"),
+  checkin: () => write<CheckinResult>(COMMANDS.triggerCheckin, {}, ["plan", "trigger.events", "overview", "audit"]),
   listPolicies: (args: Record<string, unknown> = {}) => read<PoliciesPage>(COMMANDS.policiesList, args, "policies"),
   getPolicy: (id: string) => read<Policy>(COMMANDS.policiesGet, { id }, "policies"),
   setPolicyProvenance: (args: { id: string; status: string; sourceUrl?: string; note?: string }) =>

@@ -27,6 +27,9 @@ pub const COMMAND_LINES: &[&str] = &[
     "diagnostics export",
     "jobs get",
     "jobs cancel",
+    "trigger configure",
+    "trigger evaluate",
+    "trigger events",
 ];
 
 pub fn print_help() {

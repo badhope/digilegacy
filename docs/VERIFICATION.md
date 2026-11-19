@@ -71,8 +71,8 @@ cargo test --workspace            OK
 - render：2 个
 - server：12 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突、Runtime 启动/详情）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
-- store：15 个（schema v13 / 28 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- domains：14 个；application：18 个；agent：4 个；合计 119 个
+- store：15 个（schema v14 / 29 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
+- domains：17 个；application：19 个；agent：4 个；合计 123 个
 
 ### M1 安全与数据底座
 
@@ -99,7 +99,7 @@ core/domains: assets 3 + plan 2 + overview 1 + runs 1 + policy 3 = 10 tests
 core/application: 5 tests（读命令、CRUD+审计、签到、政策、交付）
 apps/server: 6 tests（真实读接口、写 token 门禁、404/403）
 core/render: 2 tests（纯文本转义、可信 body 页面壳）
-core/store: 15 tests（schema v13 / 28 表 / 迁移 / 加密 / 诊断）
+core/store: 15 tests（schema v14 / 29 表 / 迁移 / 加密 / 诊断）
 ```
 
 已实测：
@@ -317,6 +317,26 @@ CLI  usage summary --days 30
 - 没有导出 CSV/账单的入口；当前是运行时查询。
 - `byDay` 使用 UTC 日期切分，跨时区账单口径需后续统一。
 
+### M4-G 触发链完整生命周期
+
+```text
+trigger.configure  -> enabled / days / pauseDays，暂停或关闭会中止当前触发
+trigger.evaluate   -> stage1 -> stage2 -> stage3 -> final，按等待期幂等推进
+trigger.checkin    -> last_check_in + 清空 triggered_at/stage + checkin 事件
+trigger.events.list -> 只追加时间线（配置/签到/阶段）
+```
+
+已验证：
+
+- HTTP 无写令牌 `PATCH /api/v1/trigger` 返回 `401 AUTH_REQUIRED`；带 token 配置返回 `armed`。
+- 把 `last_check_in` 置为过去时间后 `POST /api/v1/trigger/evaluate` 返回 `triggered/stage=1`；`GET /api/v1/trigger/events` 返回 `stage1` 与 `configure` 事件。
+- `trigger.checkin` 后 `plan.get` 返回 `status=armed`、`triggeredAt=''`、`stage=0`；事件链新增 `checkin`。
+- 重启 server 时自动评估线程立即执行：过期签到被置为 `triggered/stage=1`，并写 `trigger.evaluate.auto` 审计；把 `triggered_at` 置老后评估可推进到 `stage=4/final`。
+- Web 实测“暂停 7 天”进入 `paused` 并显示暂停至日期；恢复布防、评估触发链、事件时间线均可操作。
+- CLI 实测 `trigger configure --enabled --days 30`、`trigger evaluate`、`trigger events`。
+- `./tools/verify.sh` exit 0：123 Rust + 10 Web；契约 **29 命令 / 19 工具 / 37 schema / 19 错误码**；schema v14 / 29 表。
+- 预算：入口 70.41 KB / 72 KB、JS gzip 91.85 KB / 93 KB、CSS 18.78 KB / 19 KB、总 gzip 110.63 KB / 112 KB。
+
 ### M4-F 旧代码清退
 
 ```text
@@ -412,11 +432,11 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         108.67 KB / 110 KB
-JS gzip         90.12 KB / 91 KB
-CSS gzip        18.55 KB / 19 KB
-入口 raw        67.83 KB / 68 KB
-vendor raw      98.89 KB / 130 KB
+总 gzip         110.63 KB / 112 KB
+JS gzip         91.85 KB / 93 KB
+CSS gzip        18.78 KB / 19 KB
+入口 raw        70.41 KB / 72 KB
+vendor raw      101.88 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```
 
@@ -424,7 +444,7 @@ vendor raw      98.89 KB / 130 KB
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，26 commands / 28 表 / schema v13 |
+| Server | `GET /api/v1/health` | `200 OK`，29 commands / 29 表 / schema v14 |
 | Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |

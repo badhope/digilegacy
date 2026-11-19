@@ -219,6 +219,30 @@ pub const COMMANDS: &[CommandSpec] = &[
         requires_unlock: false,
         audit: true,
     },
+    CommandSpec {
+        name: "trigger.configure",
+        domain: "trigger",
+        permission: "write",
+        http: "PATCH /api/v1/trigger",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
+        name: "trigger.evaluate",
+        domain: "trigger",
+        permission: "write",
+        http: "POST /api/v1/trigger/evaluate",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
+        name: "trigger.events.list",
+        domain: "trigger",
+        permission: "read",
+        http: "GET /api/v1/trigger/events",
+        requires_unlock: false,
+        audit: false,
+    },
 ];
 
 pub fn find(name: &str) -> Option<&'static CommandSpec> {
