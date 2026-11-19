@@ -28,6 +28,21 @@ const waiting = computed(() => approvalResource.data.value?.pending ?? approvals
 const failed = computed(() => data.value?.items.filter((run) => run.status === "failed").length ?? 0);
 const usage = computed(() => usageResource.data.value);
 const usageLoading = usageResource.loading;
+const usageError = usageResource.error;
+const usageDays = computed(() => {
+  const byDay = new Map((usage.value?.byDay ?? []).map((day) => [day.day, day]));
+  const today = new Date();
+  return Array.from({ length: 14 }, (_, index) => {
+    const date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - (13 - index)));
+    const day = date.toISOString().slice(0, 10);
+    return { day, tokens: byDay.get(day)?.tokens ?? 0 };
+  });
+});
+const maxDayTokens = computed(() => Math.max(1, ...usageDays.value.map((day) => day.tokens)));
+
+function dayBar(day: { tokens: number }): string {
+  return `${Math.max(2, Math.round((day.tokens / maxDayTokens.value) * 34))}px`;
+}
 
 function tone(status: AgentRun["status"]): "ready" | "planned" | "degraded" | "danger" | "neutral" {
   if (status === "succeeded") return "ready";
@@ -138,11 +153,17 @@ function openRun(run: AgentRun) {
         <div class="automation-side">
           <SectionCard :title="t('automation.usage.title')" :subtitle="t('automation.usage.subtitle')">
             <div v-if="usageLoading" class="usage-empty">{{ t("common.loading") }}</div>
+            <div v-else-if="usageError" class="usage-empty">{{ usageError }}</div>
             <div v-else-if="usage" class="usage-grid">
               <div><span>{{ t("automation.usage.plans") }}</span><strong class="mono">{{ usage.totals.plans }}</strong></div>
               <div><span>{{ t("automation.usage.runs") }}</span><strong class="mono">{{ usage.totals.runs }}</strong></div>
               <div><span>{{ t("automation.usage.tokens") }}</span><strong class="mono">{{ formatTokens(usage.totals.tokens) }}</strong></div>
               <div><span>{{ t("automation.usage.cost") }}</span><strong class="mono">{{ formatCost(usage.totals.costMicros) }}</strong></div>
+            </div>
+            <div v-if="usageDays.length" class="usage-bars" :aria-label="t('automation.usage.title')">
+              <div v-for="day in usageDays" :key="day.day" class="usage-bar" :title="`${day.day} · ${formatTokens(day.tokens)} tokens`">
+                <span :style="{ height: dayBar(day) }"></span>
+              </div>
             </div>
             <div v-if="usage?.byModel.length" class="usage-models">
               <span class="mono" v-for="model in usage.byModel.slice(0, 3)" :key="model.model">
@@ -223,6 +244,9 @@ function openRun(run: AgentRun) {
 .usage-grid > div { display: flex; flex-direction: column; gap: 4px; }
 .usage-grid span { color: var(--muted); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
 .usage-grid strong { font-size: 16px; font-weight: 500; }
+.usage-bars { display: flex; align-items: end; gap: 3px; height: 40px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.usage-bar { display: flex; flex: 1 1 0; align-items: end; min-width: 0; height: 34px; }
+.usage-bar span { display: block; width: 100%; min-height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; opacity: 0.55; }
 .usage-models { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .usage-models span { color: var(--muted); font-size: 10px; }
 .usage-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; }
@@ -435,6 +459,9 @@ function openRun(run: AgentRun) {
 .usage-grid > div { display: flex; flex-direction: column; gap: 4px; }
 .usage-grid span { color: var(--muted); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
 .usage-grid strong { font-size: 16px; font-weight: 500; }
+.usage-bars { display: flex; align-items: end; gap: 3px; height: 40px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.usage-bar { display: flex; flex: 1 1 0; align-items: end; min-width: 0; height: 34px; }
+.usage-bar span { display: block; width: 100%; min-height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; opacity: 0.55; }
 .usage-models { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .usage-models span { color: var(--muted); font-size: 10px; }
 .usage-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; }
@@ -454,6 +481,9 @@ function openRun(run: AgentRun) {
 .usage-grid > div { display: flex; flex-direction: column; gap: 4px; }
 .usage-grid span { color: var(--muted); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
 .usage-grid strong { font-size: 16px; font-weight: 500; }
+.usage-bars { display: flex; align-items: end; gap: 3px; height: 40px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.usage-bar { display: flex; flex: 1 1 0; align-items: end; min-width: 0; height: 34px; }
+.usage-bar span { display: block; width: 100%; min-height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; opacity: 0.55; }
 .usage-models { display: grid; gap: 4px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .usage-models span { color: var(--muted); font-size: 10px; }
 .usage-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; }

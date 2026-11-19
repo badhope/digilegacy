@@ -219,25 +219,26 @@ mod tests {
     use super::*;
 
     fn seed(store: &Store) {
+        let now = Utc::now().to_rfc3339();
         store
             .write(|conn| {
                 conn.execute(
                     "INSERT INTO agent_plan_log
                      (id, created_at, task, model, tokens_in, tokens_out, cost_micros, priced, steps_json)
-                     VALUES ('p1', '2026-11-19T01:00:00+00:00', 'A', 'mock-model', 100, 20, 140, 1, '[]')",
-                    [],
+                     VALUES ('p1', ?1, 'A', 'mock-model', 100, 20, 140, 1, '[]')",
+                    [&now],
                 )?;
                 conn.execute(
                     "INSERT INTO agent_plan_log
                      (id, created_at, task, model, tokens_in, tokens_out, cost_micros, priced, steps_json)
-                     VALUES ('p2', '2026-11-19T02:00:00+00:00', 'B', 'mock-model', 10, 5, 0, 0, '[]')",
-                    [],
+                     VALUES ('p2', ?1, 'B', 'mock-model', 10, 5, 0, 0, '[]')",
+                    [&now],
                 )?;
                 conn.execute(
                     "INSERT INTO agent_run_log
                      (started_at, task, outcome, tokens_in, tokens_out, cost_micros, cost_priced)
-                     VALUES ('2026-11-19T03:00:00+00:00', 'A', 'succeeded', 100, 20, 140, 1)",
-                    [],
+                     VALUES (?1, 'A', 'succeeded', 100, 20, 140, 1)",
+                    [&now],
                 )?;
                 Ok(())
             })

@@ -196,7 +196,7 @@ node tools/bench/web-budget.mjs
 M4 基线：
 
 - Rust 测试 117 项：security 49、store 15、domains 14、application 16、agent 4、server 12、foundation 5、render 2（M4-B 全仓 verify 通过）
-- Web 总 gzip **107.23 KB / 110 KB**，JS gzip **88.90 KB / 89 KB**，CSS **18.33 KB / 19 KB**
+- Web 总 gzip **107.63 KB / 110 KB**，JS gzip **89.21 KB / 90 KB**，CSS **18.42 KB / 19 KB**
 - 入口 chunk **65.66 KB raw / 66 KB**，vendor **98.89 KB raw / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 

@@ -334,9 +334,9 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         107.23 KB / 110 KB
-JS gzip         88.90 KB / 89 KB
-CSS gzip        18.33 KB / 19 KB
+总 gzip         107.63 KB / 110 KB
+JS gzip         89.21 KB / 90 KB
+CSS gzip        18.42 KB / 19 KB
 入口 raw        65.66 KB / 66 KB
 vendor raw      98.89 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
