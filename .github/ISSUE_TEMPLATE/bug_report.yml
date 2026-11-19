@@ -1,69 +1,36 @@
 name: Bug report
-description: Something is broken or behaves unexpectedly
+description: 报告可复现的问题
+title: "[bug] "
 labels: ["bug"]
 body:
-  - type: markdown
+  - type: textarea
+    id: summary
     attributes:
-      value: |
-        Do not report security vulnerabilities here — see [SECURITY.md](../blob/main/SECURITY.md).
-
-        Before filing, please search existing issues. Redact any real account identifiers, phone numbers, or credentials from logs and screenshots.
-  - type: input
-    id: version
-    attributes:
-      label: Version
-      description: Shown in the sidebar footer, or the installer filename.
-      placeholder: "0.1.0"
-    validations:
-      required: true
-  - type: dropdown
-    id: os
-    attributes:
-      label: Operating system
-      options:
-        - Windows 11
-        - Windows 10
-        - Other (describe below)
-    validations:
-      required: true
-  - type: dropdown
-    id: install
-    attributes:
-      label: How are you running it?
-      options:
-        - Installed NSIS package
-        - Installed MSI package
-        - Built from source (tauri:dev)
-        - Browser preview (npm run dev)
+      label: 问题
+      description: 发生了什么，期望是什么
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
-      label: Steps to reproduce
+      label: 复现步骤
       placeholder: |
-        1. Open Profile
-        2. Set a master password with an existing profile filled in
-        3. ...
+        1.
+        2.
+        3.
     validations:
       required: true
-  - type: textarea
-    id: expected
+  - type: input
+    id: version
     attributes:
-      label: Expected behaviour
-    validations:
-      required: true
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual behaviour
-      description: Include the exact error text. If the app crashed, say whether the window closed or only the page went blank.
+      label: 版本 / 里程碑
+      placeholder: "0.7.0-m0"
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
-      label: Logs or screenshots
-      description: Redact personal data first.
+      label: 日志 / 截图
+      description: 不要贴密钥、token、个人隐私
     validations:
       required: false

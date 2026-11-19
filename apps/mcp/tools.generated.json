@@ -1,0 +1,191 @@
+[
+  {
+    "name": "overview.get",
+    "title": "读取平台概览",
+    "description": "读取完成度、待办、审批数与运行态摘要。",
+    "inputSchema": {
+      "title": "EmptyInput",
+      "type": "object",
+      "additionalProperties": false,
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "assets.list",
+    "title": "列出资产",
+    "description": "按状态与关键词列出资产，返回游标分页结果。",
+    "inputSchema": {
+      "title": "AssetsListInput",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "archived",
+            "all"
+          ],
+          "default": "active"
+        },
+        "q": {
+          "type": "string",
+          "maxLength": 120
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "assets.get",
+    "title": "读取资产详情",
+    "description": "按资产 ID 读取完整字段。",
+    "inputSchema": {
+      "title": "IdInput",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "plan.get",
+    "title": "读取规划",
+    "description": "读取持有人、继承人与触发链摘要。",
+    "inputSchema": {
+      "title": "EmptyInput",
+      "type": "object",
+      "additionalProperties": false,
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "runs.list",
+    "title": "列出 Agent 运行",
+    "description": "读取运行状态、步骤数与成本摘要。",
+    "inputSchema": {
+      "title": "RunsListInput",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "succeeded",
+            "failed",
+            "all"
+          ],
+          "default": "all"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "security.status",
+    "title": "读取安全状态",
+    "description": "读取锁定状态、恢复配置与密钥摘要，不含密钥本身。",
+    "inputSchema": {
+      "title": "EmptyInput",
+      "type": "object",
+      "additionalProperties": false,
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    }
+  },
+  {
+    "name": "deliver.export",
+    "title": "导出交付物",
+    "description": "生成异步导出任务；只产出文件，不改业务最终态。",
+    "inputSchema": {
+      "title": "ExportInput",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "locale"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "report",
+            "checklist",
+            "legal",
+            "toolkit"
+          ]
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "zh-CN",
+            "en-US"
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false
+    }
+  }
+]

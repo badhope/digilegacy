@@ -1,0 +1,29 @@
+name: Feature / RFC
+description: 提出新能力或方案讨论
+title: "[rfc] "
+labels: ["rfc"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 方案要点
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: 契约 / 数据 / 权限影响
+      description: 新增命令、schema、写权限、迁移、Agent 工具
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案
+    validations: false

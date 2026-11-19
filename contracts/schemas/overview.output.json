@@ -1,0 +1,91 @@
+{
+  "title": "Overview",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace",
+    "completion",
+    "assetsTotal",
+    "heirsTotal",
+    "approvalsPending",
+    "alerts",
+    "modules",
+    "activity"
+  ],
+  "properties": {
+    "workspace": {
+      "type": "string"
+    },
+    "completion": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "assetsTotal": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "heirsTotal": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "approvalsPending": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "alerts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "planned",
+              "degraded"
+            ]
+          }
+        }
+      }
+    },
+    "activity": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "at",
+          "title",
+          "kind"
+        ],
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

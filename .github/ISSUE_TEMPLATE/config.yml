@@ -1,8 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Security vulnerability
-    url: https://github.com/badhope/digilegacy/security/advisories/new
-    about: Report privately. Do not open a public issue.
-  - name: Questions and ideas
-    url: https://github.com/badhope/digilegacy/discussions
-    about: Ask a question or discuss a design idea before writing code.
+  - name: 安全与密钥问题
+    url: https://github.com/badhope/digilegacy/security/policy
+    about: 不要在公开 issue 中贴密钥、token、个人数据

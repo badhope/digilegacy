@@ -1,0 +1,28 @@
+{
+  "title": "ExportInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "locale"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "report",
+        "checklist",
+        "legal",
+        "toolkit"
+      ]
+    },
+    "locale": {
+      "type": "string",
+      "enum": [
+        "zh-CN",
+        "en-US"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

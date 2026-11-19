@@ -1,29 +1,50 @@
-## What changed
+## 变更说明
 
-<!-- One paragraph. Link the issue if there is one. -->
+<!-- 一句话说明用户可见变化 -->
 
-## Why
+## 关联
 
-<!-- The behaviour that was wrong, or the gap being filled. -->
+- 模块 / 命令：
+- 页面 / 入口：
+- ADR / RFC：
+- Issue：
 
-## Verification
+## 类型
 
-Paste the commands you actually ran and their results. If a check was skipped, say so and why.
+- [ ] feat
+- [ ] fix
+- [ ] refactor
+- [ ] docs
+- [ ] test
+- [ ] chore
 
-| Check | Command | Result |
-|---|---|---|
-| Typecheck | `npx vue-tsc --noEmit` | |
-| Unit tests | `npm test` | |
-| Coverage gate | `npm run test:coverage` | |
-| E2E | `npx playwright test` | |
-| Rust tests | `cargo test --locked` | |
-| Clippy | `cargo clippy --all-targets -- -D warnings` | |
+## 契约与权限
 
-## Checklist
+- [ ] 改了 `contracts/*`，已运行 `node tools/generate.mjs`
+- [ ] 新增命令有 input/output schema
+- [ ] 写工具 `approval=required`
+- [ ] MCP 未暴露 `key/network/desktop`
+- [ ] 前端页面动作能在 manifest 找到对应命令
 
-- [ ] A test fails without this change and passes with it (for bug fixes)
-- [ ] No secret, token, phone number, or real account identifier appears in code, tests, logs, or screenshots
-- [ ] No new dependency, or the bundle-size / build-time cost is explained above
-- [ ] Documented numbers (test counts, table count, command count, platform count) updated everywhere they appear
-- [ ] `CHANGELOG.md` updated under `[Unreleased]` if the change is user-visible
-- [ ] New UI text is reachable by keyboard and has an accessible name
+## 验证
+
+- [ ] `./tools/verify.sh` 通过
+- [ ] Rust fmt/clippy/test 通过
+- [ ] Web typecheck/test/build 通过
+- [ ] 页面加载/空/错误三态已验证
+- [ ] bundle 预算未回退超过 20%
+
+## 数据与安全
+
+- [ ] 无新增密钥/敏感信息
+- [ ] 数据库变更含迁移与回滚
+- [ ] 写操作有审计
+- [ ] 未把旧版代码直接拷入新包
+
+## 截图 / 录屏
+
+<!-- 前端改动请附关键页面截图；不要只写“UI 已改” -->
+
+## 未覆盖项
+
+<!-- 明确写出，不要用“后续优化”糊过去 -->

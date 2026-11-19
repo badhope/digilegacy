@@ -1,184 +1,195 @@
-<div align="center">
+# DigiLegacy
 
-<img src="docs/screenshots/en/01-dashboard.png" alt="DigiLegacy dashboard — asset totals, estimated value, planning completion and asset composition" width="900">
+数字遗产平台：把资产、继承人、触发链与交付物收进同一套平台能力里。
 
-<h1>DigiLegacy</h1>
+**定位：API-first 平台。Web 控制台是主客户端，Agent 是平台的一类工具调用者，不是另一套后端。**
 
-<p><strong>Plan your digital legacy. Leave your family a toolkit, not a puzzle.</strong></p>
+- 平台负责：数据、权限、审批、审计、任务、导出与运行态。
+- Agent 负责：通过工具读取平台、生成草稿、发起待审批动作。
+- Web 负责：让人看见同一份数据、完成审批与编辑。
+- 本地部署不是卖点；平台主要接 API，本地只是部署形态之一。
 
-<p>
-  <a href="https://github.com/badhope/digilegacy/actions/workflows/ci.yml"><img src="https://github.com/badhope/digilegacy/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/badhope/digilegacy/releases/latest"><img src="https://img.shields.io/github/v/release/badhope/digilegacy?include_prereleases&sort=semver" alt="Latest release"></a>
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT licence">
-  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11-lightgrey.svg" alt="Windows 10/11">
-  <img src="https://img.shields.io/badge/storage-local%20by%20default-4a7c8c.svg" alt="Local storage by default">
-  <img src="https://img.shields.io/badge/telemetry-none-4a7c8c.svg" alt="No telemetry">
-</p>
-
-<p>
-  <a href="https://badhope.github.io/digilegacy/"><strong>Website</strong></a> ·
-  <a href="https://badhope.github.io/digilegacy/zh/">中文官网</a> ·
-  <a href="https://badhope.github.io/digilegacy/demo/"><strong>Live demo</strong></a> ·
-  <a href="https://github.com/badhope/digilegacy/releases"><strong>Download</strong></a>
-</p>
-
-<p><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
-
-</div>
+旧版应用不作为新架构的一部分保留。旧路由全部 404，不做兼容重定向。旧源码暂存在 `legacy/`，仅用于 M1 迁移安全内核与领域规则，不参与新构建。
 
 ---
 
-A local-first Windows desktop app for digital legacy planning. It inventories the accounts and assets you hold, records what should happen to each one, and produces the documents, checklists and recovery material your family needs to act on it.
+## 1. 当前状态
 
-Everything runs on your machine. No account, no cloud sync, no telemetry. External connections — mail delivery, check-in heartbeat, an optional AI assistant — exist only when you configure them yourself.
-
-**[▶ Watch the 32-second walkthrough](docs/media/demo-walkthrough.mp4)** — the whole flow, no install required.
-
-## What it does
-
-| | |
+| 项 | 状态 |
 |---|---|
-| <img src="docs/screenshots/en/02-discover.png" width="420"><br>**Find what you've forgotten**<br>A ten-question self-check surfaces accounts people routinely leave behind, backed by a policy library covering 152 platforms across 16 categories. | <img src="docs/screenshots/en/03-assets.png" width="420"><br>**Record a decision for each one**<br>Inherit, liquidate, memorialise, authorise access, delete or donate — with the heir, contact and identifier each decision requires. |
-| <img src="docs/screenshots/en/04-asset-detail.png" width="420"><br>**Keep credentials encrypted**<br>AES-256-GCM per-field encryption, Argon2id key derivation, idle auto-lock. Credential reads fail closed while locked rather than returning empty strings. | <img src="docs/screenshots/en/06-dms.png" width="420"><br>**Know when you've gone quiet**<br>A three-stage dead man's switch — you → emergency contact → executor — with an honest warning when no mail channel is configured. |
-| <img src="docs/screenshots/en/07-report.png" width="420"><br>**Hand over something usable**<br>A print-ready inheritance report plus a ZIP toolkit: asset list, per-platform action guide, family FAQ and instructions. | <img src="docs/screenshots/en/08-heir-guide.png" width="420"><br>**Give heirs a route, not a riddle**<br>Per-platform documents, procedure, expected duration, difficulty and official links — grouped so someone grieving can follow it. |
-| <img src="docs/screenshots/en/09-legal.png" width="420"><br>**Start from real templates**<br>Six categories of legal documents with the blanks marked, plus an explicit note that templates are not legal advice. | <img src="docs/screenshots/en/10-dashboard-dark.png" width="420"><br>**Work in either theme**<br>Light and dark from the same design tokens, reduced-motion aware, WCAG AA contrast. |
+| 仓库重组 | 已做完 |
+| 契约单一事实源 + 生成器 | 已做完 |
+| Rust workspace + 四入口空壳 | 已做完 |
+| Web 控制台壳（5 主入口 + 设置工具区） | 已做完 |
+| 架构测试 / 性能基线 / CI / verify 脚本 | 已做完 |
+| 工程治理文档与模板 | 已做完 |
+| 真实领域服务 | M1 起接入 |
+| 安全内核 / 数据库 | M1 迁移 |
+| 桌面 Tauri 窗口与托盘 | M3/M5 |
 
-## How the six-stage flow fits together
+当前版本：`0.7.0-m0`。
 
-```mermaid
-flowchart LR
-    A[Discover<br/>self-check survey] --> B[Register<br/>152-platform library]
-    B --> C[Plan<br/>6 disposal types + heirs]
-    C --> D[Documents<br/>printable report + toolkit]
-    C --> E[Trigger<br/>3-stage dead man's switch]
-    D --> F[Family execution<br/>per-platform guide + drill]
-    E --> F
+契约规模：**13 个命令、10 个工具、18 个 schema、19 个错误码**。
+
+---
+
+## 2. 架构
+
+```text
+Web Console        Agent / MCP        CLI             Desktop
+     │                 │               │                │
+     └────────────── Platform API / CommandBus ─────────┘
+                              │
+                    ┌─────────┴─────────┐
+                domains             agent runtime
+                    │                   │
+              store / security    approvals / audit
+                    │
+             integrations (mail, cloud, LLM, ...)
 ```
 
-## Works with your AI agent (MCP)
+### 核心约束
 
-The same read-only tool set the built-in assistant uses is also exposed over
-**MCP** (Model Context Protocol) — point Claude Desktop, Cursor, WorkBuddy or
-any MCP client at the bundled `digilegacy-mcp.exe` and ask about planning
-progress, drills or platform policies. No cloud, no credentials leave the
-machine, locked fields stay locked:
+1. **契约先行**：命令、工具、错误、schema 只写在 `contracts/`，由 `tools/generate.mjs` 派生到 Web、Rust、CLI、HTTP、MCP、mock 与 OpenAPI。
+2. **一个 CommandBus**：Web、CLI、HTTP、MCP 不各写一套业务逻辑，最终都落到同一命令分发。
+3. **权限分档**：`read` / `draft` / `write` / `key` / `network` / `desktop`。
+   - HTTP：read/draft 开放；write 需写权限 token；key/network/desktop 永远 403。
+   - MCP：只暴露 read/draft。
+   - write 工具默认 `approval=required`，Agent 不能自批。
+4. **模块化单体**：M0-M2 不拆微服务。先保证一个进程内的领域边界、契约与测试，再按真实热点拆。
+5. **前端按入口拆包**：路由懒加载，骨架屏优先，避免全页 spinner 与大 bundle。
 
-```json
-{ "mcpServers": { "digilegacy": { "command": "C:\Program Files\DigiLegacy\digilegacy-mcp.exe" } } }
+---
+
+## 3. 仓库结构
+
+```text
+core/
+  foundation/      信封、错误、权限、CommandBus、trace id
+  contracts/       生成后的命令/错误表
+  security/        Vault 边界（M1 接加密）
+  store/           SQLite/SQLCipher 边界（M1 接库）
+  domains/         DOM-01..07 领域清单
+  integrations/    邮件、云盘、LLM 等连接边界
+  agent/           Run / Approval 状态机
+  render/          纯函数文档渲染
+apps/
+  server/          axum Platform API
+  cli/             clap 本地入口
+  mcp/             stdio MCP server
+  desktop/         桌面空壳（M3/M5 接 Tauri）
+web/               Vue 3 + Vite 控制台
+contracts/         commands/tools/errors/schemas/mocks/openapi
+content/           i18n 文案
+tools/             生成器、架构门禁、性能基线、verify
+docs/              定位、架构、验收、ADR、RFC、v1.2 计划
+legacy/            旧应用迁移参考，不参与新构建
 ```
 
-## Interaction, not just features
+### 五个主入口
 
-- **Command palette (⌘K / Ctrl+K).** Jump to any screen or run theme / language / lock without leaving the keyboard. Type to filter, ↑↓ to move, Enter to run.
-- **Checkpoints.** Take a named snapshot before a significant edit. Restore is one click and goes through the same authenticated-import checks as a backup — and the restore itself is undoable because a `pre-restore` checkpoint is written first.
-- **A dashboard that answers "what now".** One completion ring for the headline number, a four-dimension bar underneath it, and an issue list where every row is a link to the fix.
-- **Search that keeps up.** The asset list and the 152-entry platform library debounce input before filtering, so typing stays smooth as the plan grows.
+- `/overview` 概览
+- `/assets` 资产
+- `/planning` 规划
+- `/deliverables` 交付
+- `/automation` 自动化
 
-## Three ways to run it
+设置是右上角全局工具区，不占业务导航。旧路由 `/dashboard`、`/discover`、`/profile`、`/dms`、`/legal`、`/report`、`/heir`、`/review` 全部 404。
 
-The plan lives in one SQLite file. Three front doors open it — the same command layer serves all of
-them, so nothing is implemented twice.
+---
 
-| | Desktop | CLI | Self-hosted web |
-|---|---|---|---|
-| Best for | everyday planning, printing | scripting, backups, headless machines | reading your plan from another device on your own network |
-| Start with | `DigiLegacy.exe` | `digilegacy-cli doctor` | `digilegacy-server --web-dir dist` |
-| Needs a GUI | yes | no | no (browser only) |
-| Writes | full | full | **read-only** unless `--allow-write` |
+## 4. 快速启动
+
+### 生成契约
 
 ```bash
-# CLI — everyday checks and backups, no window
-digilegacy-cli doctor
-digilegacy-cli assets list --json
-digilegacy-cli backup checkpoint "before tax season"
-digilegacy-cli report export --locale en
-
-# Web — serve the same database to your own browser
-npm run build:web
-digilegacy-server --web-dir dist --port 8787
+node tools/generate.mjs
+node tools/generate.mjs --check
 ```
 
-![The same plan in a browser over the self-hosted web service](docs/screenshots/11-web-dashboard.png)
-
-The HTTP service binds to `127.0.0.1` by default. Point it at any other interface and it refuses to
-start without `--token`; even then, master-password, recovery, credential and outbound-network
-commands are not reachable over HTTP at all. It is a viewer for your own machine, not a cloud
-account.
-
-## Install
-
-**Windows 10/11** · no account required · MSI and NSIS installers on the [releases page](https://github.com/badhope/digilegacy/releases).
-
-Your data lives at `%APPDATA%\com.digilegacy.app\digilegacy.db`. Reports, toolkits and backups are written as ordinary open files — HTML, JSON and ZIP — so they stay readable without this app.
-
-Build from source:
+### 启动平台 API
 
 ```bash
-git clone https://github.com/badhope/digilegacy.git
-cd digilegacy
-npm ci
-npm run tauri:dev      # desktop app with hot reload
-npm run tauri:build    # MSI + NSIS installers
+source ~/.cargo/env
+DIGILEGACY_BIND=127.0.0.1:8787 cargo run -p digilegacy-server
 ```
 
-Requires Node 22.22.2 (see `.nvmrc`), Rust stable, and the Tauri system dependencies for your platform. On Windows the SQLCipher build additionally needs a Perl distribution with `ExtUtils::MakeMaker` and `nasm` — `choco install strawberryperl nasm -y` is enough. No separate OpenSSL install: it is compiled from source as part of the build.
-
-## Security model
-
-| Concern | How it is handled |
-|---|---|
-| Data at rest | Sensitive fields are AES-256-GCM encrypted before they reach SQLite. A random data key encrypts fields; the password-derived key only wraps that data key, so changing the password is a rewrap rather than a full re-encryption. |
-| Key derivation | Argon2id (m=19 MiB, t=2, p=1) for new vaults, with explicit upper bounds on memory, iterations and parallelism. Legacy PBKDF2 vaults still open. |
-| Locked state | Decryption is refused in the Rust layer, not hidden behind a UI overlay. |
-| Backups | Authenticated import: the source password, wrapped key, verifier and AEAD tag must all check out. Tampered or unauthenticated ciphertext is rejected. Import defaults to a non-destructive merge and writes a pre-import snapshot first. |
-| Recovery | Shamir threshold shares plus a printable recovery kit. Recovery still requires the vault and recovery conditions you configured. |
-| Outbound data | Nothing leaves the machine unless you configure it. The optional assistant sends a whitelisted payload — platform name, category, disposal method, policy fields, your question — and never accounts, names, contacts, amounts or credentials. |
-
-## Honest limits
-
-- Local encryption protects data at rest. It cannot stop malware running as you, or someone who knows your master password.
-- The dead man's switch only evaluates while the app is running. Nothing is checked while the machine is off, asleep, or the app is fully quit, and missed rounds are not replayed.
-- Email delivery needs an SMTP server you configure. Without one, notifications only reach a local plaintext outbox — the app says so on the dashboard and on the reminder page rather than implying your family will be notified.
-- Reports and toolkits are plain files. Treat them like paper.
-- 147 of the 152 built-in policy entries are explicitly marked **unverified**. The provenance gate prevents that number from growing, and never fills in a source automatically.
-
-## Repository
-
-```
-digilegacy/            Vue 3 + TypeScript frontend, and the Rust core under src-tauri/
-docs/                  Static site (EN + 中文), demo build, screenshots, architecture and verification records
-scripts/verify.sh      Local gate — the same commands CI runs
+```bash
+curl http://127.0.0.1:8787/api/v1/health
 ```
 
-| Gate | Command |
-|---|---|
-| Frontend types | `npm run typecheck` |
-| Frontend tests + coverage thresholds | `npm run test:coverage` |
-| Production and demo builds | `npm run build` · `npm run build:demo` |
-| Browser E2E | `npx playwright test` |
-| Rust format / lint / tests | `cargo fmt --check` · `cargo clippy --all-targets -- -D warnings` · `cargo test --locked` |
-| Documentation facts | `node scripts/check-doc-facts.mjs` |
-| Policy provenance | `node scripts/check-policy-provenance.mjs` |
+### 启动 Web 控制台
 
-`bash scripts/verify.sh --with-e2e` runs all of them in order.
+```bash
+cd web
+npm install
+npm run dev
+# http://127.0.0.1:5173
+```
 
-## Documentation
+M0 默认 `VITE_USE_MOCK=true`，Web 用生成 mock 展示壳；接真实 API 时设置 `VITE_USE_MOCK=false`。
 
-- [Architecture and encryption flow](docs/ARCHITECTURE.md)
-- [Roadmap and positioning review](docs/ROADMAP.md)
-- [Verification records](docs/VERIFICATION.md) — commands, numbers and known gaps
-- [Landscape review](docs/LANDSCAPE.md) — 12 open-source peers, verified metadata, and exactly which ideas were adopted where
-- [Competitive teardown](docs/COMPETITIVE.md) — 20+ comparable products, what was learned and what was rejected
-- [Tech-stack audit](docs/TECH-STACK.md) — every wheel checked: mature libraries vs deliberate in-house parts
-- [AI integration boundaries](docs/AI_INTEGRATION.md) — including the MCP server contract
-- [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md) · [Changelog](CHANGELOG.md)
+### CLI / MCP
 
-## Project status
+```bash
+cargo run -p digilegacy-cli -- commands --json
+cargo run -p digilegacy-cli -- health
+cargo run -p digilegacy-cli -- invoke assets.list --args '{}'
 
-Early but complete: the six-stage flow — discovery, registration, disposal planning, legal documents, expiry trigger, family execution — runs end to end. The remaining risk is not missing features but whether a family can complete the handover without help, which is why the app produces printable guidance and a rehearsal drill rather than assuming the owner will be around to explain.
+printf '%s\n' \
+  '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+  | cargo run -p digilegacy-mcp
+```
 
-Mirrors: [GitHub](https://github.com/badhope/digilegacy) · [Gitee](https://gitee.com/badhope/digilegacy) · [GitCode](https://gitcode.com/badhope/digilegacy).
+---
 
-## Licence
+## 5. 验证
 
-MIT.
+```bash
+./tools/verify.sh
+```
+
+包含：
+
+- 契约生成一致性
+- 架构门禁
+- `cargo fmt --check`
+- `cargo clippy --workspace --all-targets -- -D warnings`
+- `cargo test --workspace`
+- Web `typecheck` / `vitest` / `build`
+- Web bundle 预算
+
+单独命令：
+
+```bash
+node tools/arch-check.mjs
+node tools/bench/web-budget.mjs
+./tools/bench/core-bus.sh
+```
+
+M0 基线：
+
+- Web 总 gzip 约 **81 KB**
+- 入口 chunk 约 **41 KB**，vendor 约 **98.5 KB**
+- CommandBus 约 **250 ns/op**（本机 release 基线）
+
+---
+
+## 6. 文档
+
+- [平台定位](docs/POSITIONING.md)
+- [架构说明](docs/ARCHITECTURE.md)
+- [验收与门禁](docs/VERIFICATION.md)
+- [DoR / DoD 与协作规则](docs/GOVERNANCE.md)
+- [ADR](docs/adr/)
+- [RFC 模板](docs/rfc/0001-template.md)
+- [v1.2 工程计划](docs/plan/README.md)
+
+计划口径：**54 个模块、80.5 人日 ≈ 16.1 周、26 张表、G01–G19 十九道门禁**。M3/M4 可并行，目标约 14.4 周。
+
+---
+
+## 7. 许可证
+
+MIT。见 [LICENSE](LICENSE)。

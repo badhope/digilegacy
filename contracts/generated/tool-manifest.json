@@ -1,0 +1,159 @@
+[
+  {
+    "name": "overview.get",
+    "command": "app.overview",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/empty.input.json",
+    "outputSchema": "schemas/overview.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
+    "name": "assets.list",
+    "command": "assets.list",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/assets.list.input.json",
+    "outputSchema": "schemas/assets.list.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
+    "name": "assets.get",
+    "command": "assets.get",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/id.input.json",
+    "outputSchema": "schemas/asset.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
+    "name": "plan.get",
+    "command": "plan.get",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/empty.input.json",
+    "outputSchema": "schemas/plan.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
+    "name": "runs.list",
+    "command": "agent.runs.list",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/runs.list.input.json",
+    "outputSchema": "schemas/runs.list.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
+    "name": "security.status",
+    "command": "security.status",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/empty.input.json",
+    "outputSchema": "schemas/security.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
+    "name": "assets.create",
+    "command": "assets.create",
+    "permission": "write",
+    "approval": "required",
+    "audit": true,
+    "availableTo": [
+      "builtin"
+    ],
+    "mcp": false,
+    "inputSchema": "schemas/asset.mutation.input.json",
+    "outputSchema": "schemas/asset.output.json",
+    "rateLimit": "30/min",
+    "bulkThreshold": 10
+  },
+  {
+    "name": "assets.update",
+    "command": "assets.update",
+    "permission": "write",
+    "approval": "required",
+    "audit": true,
+    "availableTo": [
+      "builtin"
+    ],
+    "mcp": false,
+    "inputSchema": "schemas/asset.mutation.input.json",
+    "outputSchema": "schemas/asset.output.json",
+    "rateLimit": "30/min",
+    "bulkThreshold": 10
+  },
+  {
+    "name": "trigger.checkin",
+    "command": "trigger.checkin",
+    "permission": "write",
+    "approval": "required",
+    "audit": true,
+    "availableTo": [
+      "builtin"
+    ],
+    "mcp": false,
+    "inputSchema": "schemas/empty.input.json",
+    "outputSchema": "schemas/checkin.output.json",
+    "rateLimit": "10/min",
+    "bulkThreshold": null
+  },
+  {
+    "name": "deliver.export",
+    "command": "deliver.export",
+    "permission": "draft",
+    "approval": "none",
+    "audit": true,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/export.input.json",
+    "outputSchema": "schemas/job.output.json",
+    "rateLimit": "10/min",
+    "bulkThreshold": null
+  }
+]

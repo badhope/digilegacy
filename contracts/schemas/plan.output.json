@@ -1,0 +1,69 @@
+{
+  "title": "Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "holder",
+    "heirs",
+    "trigger"
+  ],
+  "properties": {
+    "holder": {
+      "type": "object",
+      "required": [
+        "name",
+        "updatedAt"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      }
+    },
+    "heirs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "trigger": {
+      "type": "object",
+      "required": [
+        "mode",
+        "days",
+        "status"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "days": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

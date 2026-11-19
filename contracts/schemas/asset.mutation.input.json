@@ -1,0 +1,44 @@
+{
+  "title": "AssetMutation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "kind"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "account",
+        "file",
+        "device",
+        "domain",
+        "subscription",
+        "physical",
+        "other"
+      ]
+    },
+    "platform": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "value": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 2000
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

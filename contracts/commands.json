@@ -1,0 +1,266 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedFrom": "contracts/commands.json",
+  "commands": [
+    {
+      "name": "app.overview",
+      "domain": "app",
+      "summary": "读取平台概览：完成度、待办、审批、运行态",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/overview.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "overview",
+        "http": "GET /api/v1/overview",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": ["INTERNAL", "STORE_NOT_READY"]
+    },
+    {
+      "name": "assets.list",
+      "domain": "assets",
+      "summary": "按状态与关键词列出资产，游标分页",
+      "permission": "read",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/assets.list.input.json",
+      "output": "schemas/assets.list.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "assets list",
+        "http": "GET /api/v1/assets",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": ["INVALID_ARGS", "VAULT_LOCKED", "STORE_NOT_READY", "INTERNAL"]
+    },
+    {
+      "name": "assets.get",
+      "domain": "assets",
+      "summary": "读取单个资产详情",
+      "permission": "read",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/id.input.json",
+      "output": "schemas/asset.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "assets get",
+        "http": "GET /api/v1/assets/{id}",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": ["NOT_FOUND", "VAULT_LOCKED", "INTERNAL"]
+    },
+    {
+      "name": "assets.create",
+      "domain": "assets",
+      "summary": "创建一个资产并返回新对象",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": false,
+      "input": "schemas/asset.mutation.input.json",
+      "output": "schemas/asset.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "assets create",
+        "http": "POST /api/v1/assets",
+        "mcp": false,
+        "agent": true
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": ["INVALID_ARGS", "VAULT_LOCKED", "CONFLICT", "INTERNAL"]
+    },
+    {
+      "name": "assets.update",
+      "domain": "assets",
+      "summary": "更新资产字段，返回更新后的对象",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": false,
+      "input": "schemas/asset.mutation.input.json",
+      "output": "schemas/asset.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "assets update",
+        "http": "PATCH /api/v1/assets/{id}",
+        "mcp": false,
+        "agent": true
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": ["INVALID_ARGS", "NOT_FOUND", "VAULT_LOCKED", "CONFLICT", "INTERNAL"]
+    },
+    {
+      "name": "plan.get",
+      "domain": "plan",
+      "summary": "读取规划：持有人、继承人、触发链",
+      "permission": "read",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/plan.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "plan get",
+        "http": "GET /api/v1/plan",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": ["VAULT_LOCKED", "STORE_NOT_READY", "INTERNAL"]
+    },
+    {
+      "name": "trigger.checkin",
+      "domain": "trigger",
+      "summary": "记录一次安全签到，重置触发计时",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": false,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/checkin.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "trigger checkin",
+        "http": "POST /api/v1/trigger/checkin",
+        "mcp": false,
+        "agent": true
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": ["VAULT_LOCKED", "STORE_NOT_READY", "INTERNAL"]
+    },
+    {
+      "name": "deliver.export",
+      "domain": "deliver",
+      "summary": "生成交付物导出任务，返回 jobId",
+      "permission": "draft",
+      "requiresUnlock": true,
+      "idempotent": false,
+      "input": "schemas/export.input.json",
+      "output": "schemas/job.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "deliver export",
+        "http": "POST /api/v1/deliverables/export",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": ["INVALID_ARGS", "VAULT_LOCKED", "CAPACITY", "INTERNAL"]
+    },
+    {
+      "name": "agent.runs.list",
+      "domain": "agent",
+      "summary": "列出 Agent 运行记录",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/runs.list.input.json",
+      "output": "schemas/runs.list.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "agents runs",
+        "http": "GET /api/v1/agent/runs",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": ["INVALID_ARGS", "INTERNAL"]
+    },
+    {
+      "name": "agent.approvals.decide",
+      "domain": "agent",
+      "summary": "人工批准或拒绝 Agent 写操作",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": false,
+      "input": "schemas/approval.decide.input.json",
+      "output": "schemas/approval.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "agents approve",
+        "http": "POST /api/v1/agent/approvals/{id}/decide",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": ["INVALID_ARGS", "NOT_FOUND", "CONFLICT", "INTERNAL"]
+    },
+    {
+      "name": "security.status",
+      "domain": "security",
+      "summary": "读取锁定状态、密钥与恢复配置摘要",
+      "permission": "read",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/security.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "security status",
+        "http": "GET /api/v1/security",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": ["VAULT_LOCKED", "INTERNAL"]
+    },
+    {
+      "name": "connections.test",
+      "domain": "connections",
+      "summary": "测试外部连接，不保存配置",
+      "permission": "network",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/connection.test.input.json",
+      "output": "schemas/connection.test.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "connections test",
+        "http": "POST /api/v1/connections/test",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": ["INVALID_ARGS", "FORBIDDEN", "NETWORK", "TIMEOUT", "INTERNAL"]
+    },
+    {
+      "name": "diagnostics.export",
+      "domain": "diagnostics",
+      "summary": "生成脱敏诊断包，返回 jobId",
+      "permission": "write",
+      "requiresUnlock": false,
+      "idempotent": false,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/job.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "diagnostics export",
+        "http": "POST /api/v1/diagnostics/export",
+        "mcp": false,
+        "agent": true
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": ["IO", "INTERNAL"]
+    }
+  ]
+}

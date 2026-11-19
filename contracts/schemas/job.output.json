@@ -1,0 +1,30 @@
+{
+  "title": "Job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "jobId",
+    "status"
+  ],
+  "properties": {
+    "jobId": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "progress": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

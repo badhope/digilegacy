@@ -1,0 +1,31 @@
+{
+  "title": "SecurityStatus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "locked",
+    "recoveryConfigured",
+    "keySource",
+    "lastBackupAt"
+  ],
+  "properties": {
+    "locked": {
+      "type": "boolean"
+    },
+    "recoveryConfigured": {
+      "type": "boolean"
+    },
+    "keySource": {
+      "type": "string",
+      "enum": [
+        "os",
+        "passphrase",
+        "unknown"
+      ]
+    },
+    "lastBackupAt": {
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

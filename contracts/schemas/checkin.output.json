@@ -1,0 +1,26 @@
+{
+  "title": "Checkin",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "checkedInAt",
+    "nextCheckAt",
+    "status"
+  ],
+  "properties": {
+    "checkedInAt": {
+      "type": "string"
+    },
+    "nextCheckAt": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "degraded"
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

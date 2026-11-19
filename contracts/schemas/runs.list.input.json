@@ -1,0 +1,24 @@
+{
+  "title": "RunsListInput",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "succeeded",
+        "failed",
+        "all"
+      ],
+      "default": "all"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 20
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

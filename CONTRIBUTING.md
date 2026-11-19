@@ -1,90 +1,85 @@
-# Contributing to DigiLegacy 归零
+# Contributing
 
-Thanks for considering a contribution. This project handles data people care about after they die — correctness and honesty matter more than speed.
+DigiLegacy 是契约先行的平台项目。改动业务能力时，先改契约，再改实现，最后改 UI。
 
-## Ways to contribute
+## 1. 开工前
 
-| Kind | Where | Notes |
-|---|---|---|
-| Policy corrections | `digilegacy/src-tauri/src/platform_data.rs` | Every entry carries `data_source`. A correction without a citable source will not be merged. |
-| Platform additions | same file + `digilegacy/src/api/mock-platforms.json` | The mock seed is used by the browser preview and E2E; keep both in sync. |
-| Bug reports | GitHub Issues | Include version, OS, reproduction steps, and the exact error text. |
-| Translations | currently none — see Roadmap in README | The UI is Simplified Chinese only; an i18n framework has not been chosen yet. |
-| Documentation | `README.md`, `README.zh-CN.md`, `docs/` | English and Chinese docs must be updated together; screenshots and the demo video are generated, not hand-drawn (see below). |
+- 读 [平台定位](docs/POSITIONING.md)、[架构说明](docs/ARCHITECTURE.md)、[验收与门禁](docs/VERIFICATION.md)。
+- 确认改动属于哪个领域、哪个模块、哪个命令。
+- 新的业务能力先走 RFC，再落到 `contracts/`。
+- 不要从 `legacy/` 直接拷贝代码；只允许按 M1 迁移清单逐模块迁入，并补测试。
 
-## Development setup
+## 2. 契约规则
 
-Prerequisites: Node 22.22.2 (see `.nvmrc`), Rust stable, and the Tauri system dependencies for your OS.
-
-```bash
-cd digilegacy
-npm ci
-npm run tauri:dev        # desktop app with hot reload
-npm run dev              # browser preview only (uses src/api/mock.ts, no real encryption)
-```
-
-Run the full local gate before opening a pull request:
+1. `contracts/commands.json`、`tools.json`、`errors.json`、`schemas/`、`mocks.json` 是唯一事实源。
+2. 不手改以下生成文件：
+   - `web/src/platform/generated/*`
+   - `core/contracts/src/generated.rs`
+   - `core/contracts/src/errors.rs`
+   - `apps/cli/src/generated.rs`
+   - `apps/server/src/generated.rs`
+   - `apps/mcp/tools.generated.json`
+   - `contracts/generated/tool-manifest.json`
+   - `contracts/openapi.json`
+3. 改完契约后执行：
 
 ```bash
-bash scripts/verify.sh --with-e2e
+node tools/generate.mjs
+node tools/generate.mjs --check
 ```
 
-It runs typecheck, unit tests with coverage thresholds, production build, the static demo build, the heartbeat-server behaviour tests, Playwright E2E, `cargo fmt --check`, `cargo clippy -D warnings`, and `cargo test --locked`. The script records each command's exit code explicitly — do not replace it with `cmd | tail`, which reports the exit code of `tail`.
+4. 新增命令必须同时有：
+   - input/output schema
+   - 权限档
+   - HTTP/CLI/MCP 传输声明
+   - 错误码引用
+   - mock 数据（如果 Web 需要展示）
+   - 至少一个架构或行为测试
+5. 新增工具必须引用已有命令；写工具必须 `approval=required`；MCP 只能暴露 read/draft。
 
-## Rules that are not negotiable
+## 3. 实现规则
 
-1. **No fabrication.** Do not claim a test passed if it did not run. If a check is skipped, say so in the pull request description.
-2. **Fail closed on security paths.** When the vault is locked, credential reads must error rather than return empty strings — an empty string is indistinguishable from "the user never saved one".
-3. **Never weaken the encryption boundary.** No plaintext passwords in logs, exports, error messages, or test fixtures. New fields that hold personal data must go through `vault::encrypt_if_needed` / `decrypt_if_needed`.
-4. **Every bug fix ships with a test that fails before the fix.** Mutation-style reasoning: if you revert your fix, the new test must go red.
-5. **Do not add a dependency to save a few lines.** Prefer the standard library or something already installed. If a new dependency is genuinely required, explain the bundle-size and build-time cost in the pull request.
-6. **Keep user data readable without this app.** Reports and toolkits are open HTML/JSON/ZIP on purpose.
+- 业务逻辑只放在 `core/domains` 或对应领域 crate；入口层不写业务规则。
+- 所有入口最终走同一个 `CommandBus`，不新增第二套后端。
+- Web 只通过平台命令访问数据；M0 可走 mock，M1 起走 Platform API。
+- 错误使用 `contracts/errors.json` 中的 code，不在入口层临时造字符串。
+- 任何写操作都要有权限、审批、审计三类边界的考虑。
+- 安全内核迁移不得重写加密算法；按模块迁入并保留测试向量。
 
-## Commit messages
+## 4. 分支与提交
 
-Conventional commits, imperative mood, Chinese or English:
+- 分支：`feat/<module>-<short>`、`fix/<issue>-<short>`、`docs/<topic>`。
+- 提交信息：
 
+```text
+feat(assets): add asset list cursor pagination
+fix(agent): reject self-approved write runs
+docs(adr): record contract-first decision
 ```
-fix(vault): 档案重加密漏字段导致启用主密码时 panic
-feat(report): 导出失败时显示错误而不是静默
-docs(readme): 修正命令数量与表数量
-```
 
-Scope is the module (`vault`, `db`, `report`, `profile`, `ci`, `docs`). Keep the subject under 72 characters; put the reasoning in the body.
+- 一个 PR 只解决一个可验收问题；不要把重构、格式化、业务改动混在一起。
 
-## Pull requests
-
-- One logical change per pull request. Refactors that are not required by the change belong in a separate pull request.
-- Update `CHANGELOG.md` under `## [Unreleased]` for user-visible changes.
-- If you change a documented number (test count, table count, command count, platform count), update every place that states it — `README.md`, `README.zh-CN.md`, `docs/index.html`, `docs/zh/index.html`, and `docs/VERIFICATION.md` are cross-checked by hand.
-- The website is bilingual: `docs/index.html` (English) and `docs/zh/index.html` (Chinese) share `docs/site.css`; the nav language switch must keep working in both directions.
-
-## Regenerating screenshots and the demo video
+## 5. 合并前检查
 
 ```bash
-cd digilegacy
-npm run dev                     # keep running in another terminal
-node scripts/demo-media.mjs     # docs/screenshots/*.png @2x + docs/media/demo-walkthrough.webm
+./tools/verify.sh
 ```
 
-The script drives Playwright (already a dev dependency): it seeds a demo state that looks like a real, unlocked vault, asserts each page's header title before capturing, then records a scripted walkthrough. Convert the recording to MP4 with the bundled ffmpeg:
+必须全部通过。
 
-```bash
-ffmpeg -i docs/media/demo-walkthrough.webm -c:v libx264 -crf 24 -pix_fmt yuv420p        -movflags +faststart docs/media/demo-walkthrough.mp4
-```
+PR 描述中写清楚：
 
-Do not commit screenshots taken at a different viewport.
+- 对应模块 / 命令 / 页面
+- 用户可见变化
+- 权限与数据影响
+- 验证命令与结果
+- 未覆盖项与后续
 
-## Rebuilding the web demo
+## 6. 完成定义
 
-```bash
-cd digilegacy
-npm run build:demo      # VITE_DEMO=1 → base /digilegacy/demo/, hash routing
-rm -rf ../docs/demo && cp -r dist ../docs/demo
-```
+- 代码、契约、测试、文档同一 PR 交付。
+- 没有伪造的成功态；M0 空壳必须明确返回 `UNSUPPORTED` 或边界说明。
+- 前端改动至少覆盖加载、空、错误三种状态。
+- 涉及数据库/迁移时，遵循“先查枚举与约束、小样本试写、改后复验列表/详情/下载三条链路”。
 
-The demo uses `src/api/mock.ts` (localStorage, unencrypted) and shows a banner saying so. Never point real credentials at it.
-
-## License
-
-By contributing you agree that your contribution is licensed under the MIT License (see `LICENSE`).
+详细 DoR/DoD 见 [docs/GOVERNANCE.md](docs/GOVERNANCE.md)。

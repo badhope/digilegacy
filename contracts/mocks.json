@@ -1,0 +1,301 @@
+{
+  "schemaVersion": "1.0.0",
+  "data": {
+    "app.overview": {
+      "workspace": "林家数字遗产",
+      "completion": 62,
+      "assetsTotal": 18,
+      "heirsTotal": 3,
+      "approvalsPending": 2,
+      "alerts": 1,
+      "modules": [
+        {
+          "id": "WEB-02",
+          "label": "控制台壳",
+          "status": "ready"
+        },
+        {
+          "id": "FND-03",
+          "label": "命令总线",
+          "status": "planned"
+        },
+        {
+          "id": "SEC-01",
+          "label": "安全内核",
+          "status": "planned"
+        },
+        {
+          "id": "AGT-01",
+          "label": "Agent Runtime",
+          "status": "planned"
+        }
+      ],
+      "activity": [
+        {
+          "at": "今天 09:42",
+          "title": "完成「家庭照片与影像库」的处置说明",
+          "kind": "asset"
+        },
+        {
+          "at": "昨天 18:10",
+          "title": "继承人名单从 2 人更新为 3 人",
+          "kind": "plan"
+        },
+        {
+          "at": "昨天 15:06",
+          "title": "Agent 提议更新 4 项资产字段，等待审批",
+          "kind": "approval"
+        },
+        {
+          "at": "11 月 17 日",
+          "title": "导出「家庭执行清单」草稿",
+          "kind": "deliverable"
+        }
+      ]
+    },
+    "assets.list": {
+      "items": [
+        {
+          "id": "ast_01",
+          "name": "家庭照片与影像库",
+          "kind": "file",
+          "platform": "iCloud",
+          "status": "active",
+          "value": "2014–2024 的家庭照片与视频，按年份归档",
+          "note": "",
+          "updatedAt": "2026-11-18T09:20:00+08:00"
+        },
+        {
+          "id": "ast_02",
+          "name": "主要银行账户",
+          "kind": "account",
+          "platform": "招商银行",
+          "status": "active",
+          "value": "工资与日常结算账户，含联名卡",
+          "note": "",
+          "updatedAt": "2026-11-17T16:05:00+08:00"
+        },
+        {
+          "id": "ast_03",
+          "name": "证券与基金账户",
+          "kind": "account",
+          "platform": "华泰证券",
+          "status": "active",
+          "value": "长期指数基金与年金账户",
+          "note": "",
+          "updatedAt": "2026-11-16T11:40:00+08:00"
+        },
+        {
+          "id": "ast_04",
+          "name": "域名与个人站点",
+          "kind": "domain",
+          "platform": "Cloudflare",
+          "status": "active",
+          "value": "个人博客与作品集域名，含 DNS 记录",
+          "note": "",
+          "updatedAt": "2026-11-15T14:10:00+08:00"
+        },
+        {
+          "id": "ast_05",
+          "name": "写作与手稿",
+          "kind": "file",
+          "platform": "本地 NAS",
+          "status": "active",
+          "value": "未发表的手稿、信件与写作素材",
+          "note": "",
+          "updatedAt": "2026-11-14T20:30:00+08:00"
+        },
+        {
+          "id": "ast_06",
+          "name": "家庭云盘",
+          "kind": "subscription",
+          "platform": "阿里云盘",
+          "status": "active",
+          "value": "家庭共享空间，含授权说明",
+          "note": "",
+          "updatedAt": "2026-11-13T10:00:00+08:00"
+        },
+        {
+          "id": "ast_07",
+          "name": "保险保单",
+          "kind": "physical",
+          "platform": "中国人寿",
+          "status": "active",
+          "value": "寿险与医疗险保单，纸质原件在书房",
+          "note": "",
+          "updatedAt": "2026-11-12T15:25:00+08:00"
+        },
+        {
+          "id": "ast_08",
+          "name": "社交账号",
+          "kind": "account",
+          "platform": "微信",
+          "status": "active",
+          "value": "仅保留纪念内容，指定继承人可申请纪念账号",
+          "note": "",
+          "updatedAt": "2026-11-11T08:50:00+08:00"
+        },
+        {
+          "id": "ast_09",
+          "name": "工作站与硬盘",
+          "kind": "device",
+          "platform": "自建",
+          "status": "active",
+          "value": "包含加密备份与恢复说明",
+          "note": "",
+          "updatedAt": "2026-11-10T18:15:00+08:00"
+        },
+        {
+          "id": "ast_10",
+          "name": "旧邮箱",
+          "kind": "account",
+          "platform": "Gmail",
+          "status": "archived",
+          "value": "早年的通信与订阅，保留只读导出",
+          "note": "",
+          "updatedAt": "2026-11-09T12:00:00+08:00"
+        },
+        {
+          "id": "ast_11",
+          "name": "数字藏品清单",
+          "kind": "other",
+          "platform": "自建",
+          "status": "active",
+          "value": "收藏编号与取得记录，不含私钥",
+          "note": "",
+          "updatedAt": "2026-11-08T09:30:00+08:00"
+        },
+        {
+          "id": "ast_12",
+          "name": "家庭订阅服务",
+          "kind": "subscription",
+          "platform": "Apple",
+          "status": "active",
+          "value": "家庭共享与订阅到期时间",
+          "note": "",
+          "updatedAt": "2026-11-07T07:45:00+08:00"
+        }
+      ],
+      "nextCursor": null,
+      "total": 18
+    },
+    "assets.get": {
+      "id": "ast_01",
+      "name": "家庭照片与影像库",
+      "kind": "file",
+      "platform": "iCloud",
+      "status": "active",
+      "value": "2014–2024 的家庭照片与视频，按年份归档",
+      "note": "",
+      "updatedAt": "2026-11-18T09:20:00+08:00"
+    },
+    "plan.get": {
+      "holder": {
+        "name": "林知远",
+        "updatedAt": "2026-11-18T09:00:00+08:00"
+      },
+      "heirs": [
+        {
+          "id": "heir_01",
+          "name": "林若岚",
+          "role": "配偶 / 第一执行人"
+        },
+        {
+          "id": "heir_02",
+          "name": "林一川",
+          "role": "子女 / 继承人"
+        },
+        {
+          "id": "heir_03",
+          "name": "周文清",
+          "role": "挚友 / 备选执行人"
+        }
+      ],
+      "trigger": {
+        "mode": "安全签到 + 双人确认",
+        "days": 90,
+        "status": "已启用"
+      }
+    },
+    "agent.runs.list": {
+      "items": [
+        {
+          "id": "run_01",
+          "status": "waiting_approval",
+          "title": "核对资产字段完整性",
+          "steps": 4,
+          "startedAt": "2026-11-19T09:30:00+08:00",
+          "tokens": 1200
+        },
+        {
+          "id": "run_02",
+          "status": "succeeded",
+          "title": "生成家庭执行清单草稿",
+          "steps": 6,
+          "startedAt": "2026-11-18T16:20:00+08:00",
+          "tokens": 2100
+        },
+        {
+          "id": "run_03",
+          "status": "failed",
+          "title": "检查旧邮箱可导出范围",
+          "steps": 2,
+          "startedAt": "2026-11-18T10:05:00+08:00",
+          "tokens": 300
+        }
+      ]
+    },
+    "security.status": {
+      "locked": false,
+      "recoveryConfigured": true,
+      "keySource": "os",
+      "lastBackupAt": "2026-11-19T02:00:00+08:00"
+    },
+    "trigger.checkin": {
+      "checkedInAt": "2026-11-19T09:00:00+08:00",
+      "nextCheckAt": "2027-02-17T09:00:00+08:00",
+      "status": "ok"
+    },
+    "deliver.export": {
+      "jobId": "job_demo_01",
+      "status": "queued",
+      "progress": 0
+    },
+    "diagnostics.export": {
+      "jobId": "job_demo_02",
+      "status": "queued",
+      "progress": 0
+    },
+    "agent.approvals.decide": {
+      "id": "apr_demo_01",
+      "status": "approved",
+      "decidedAt": "2026-11-19T10:00:00+08:00"
+    },
+    "connections.test": {
+      "ok": true,
+      "status": "ok",
+      "latencyMs": 42,
+      "message": "连接可用（演示）"
+    },
+    "assets.create": {
+      "id": "ast_01",
+      "name": "家庭照片与影像库",
+      "kind": "file",
+      "platform": "iCloud",
+      "status": "active",
+      "value": "2014–2024 的家庭照片与视频，按年份归档",
+      "note": "",
+      "updatedAt": "2026-11-18T09:20:00+08:00"
+    },
+    "assets.update": {
+      "id": "ast_01",
+      "name": "家庭照片与影像库",
+      "kind": "file",
+      "platform": "iCloud",
+      "status": "active",
+      "value": "2014–2024 的家庭照片与视频，按年份归档",
+      "note": "",
+      "updatedAt": "2026-11-18T09:20:00+08:00"
+    }
+  }
+}

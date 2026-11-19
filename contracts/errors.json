@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0.0",
+  "errors": [
+    { "code": "OK", "http": 200, "retryable": false, "cliExit": 0, "messageKey": "error.ok" },
+    { "code": "INVALID_ARGS", "http": 400, "retryable": false, "cliExit": 2, "messageKey": "error.invalidArgs" },
+    { "code": "NOT_FOUND", "http": 404, "retryable": false, "cliExit": 1, "messageKey": "error.notFound" },
+    { "code": "CONFLICT", "http": 409, "retryable": false, "cliExit": 1, "messageKey": "error.conflict" },
+    { "code": "AUTH_REQUIRED", "http": 401, "retryable": false, "cliExit": 3, "messageKey": "error.authRequired" },
+    { "code": "FORBIDDEN", "http": 403, "retryable": false, "cliExit": 3, "messageKey": "error.forbidden" },
+    { "code": "VAULT_LOCKED", "http": 423, "retryable": true, "cliExit": 3, "messageKey": "error.vaultLocked" },
+    { "code": "RATE_LIMITED", "http": 429, "retryable": true, "cliExit": 1, "messageKey": "error.rateLimited" },
+    { "code": "NETWORK", "http": 502, "retryable": true, "cliExit": 4, "messageKey": "error.network" },
+    { "code": "PROVIDER_AUTH", "http": 502, "retryable": false, "cliExit": 4, "messageKey": "error.providerAuth" },
+    { "code": "PROVIDER_ERROR", "http": 502, "retryable": true, "cliExit": 4, "messageKey": "error.providerError" },
+    { "code": "TIMEOUT", "http": 504, "retryable": true, "cliExit": 4, "messageKey": "error.timeout" },
+    { "code": "IO", "http": 500, "retryable": true, "cliExit": 5, "messageKey": "error.io" },
+    { "code": "CORRUPT_DATA", "http": 500, "retryable": false, "cliExit": 5, "messageKey": "error.corruptData" },
+    { "code": "STORE_NOT_READY", "http": 503, "retryable": true, "cliExit": 5, "messageKey": "error.storeNotReady" },
+    { "code": "STORE_POISONED", "http": 503, "retryable": true, "cliExit": 5, "messageKey": "error.storePoisoned" },
+    { "code": "CAPACITY", "http": 413, "retryable": false, "cliExit": 1, "messageKey": "error.capacity" },
+    { "code": "UNSUPPORTED", "http": 501, "retryable": false, "cliExit": 1, "messageKey": "error.unsupported" },
+    { "code": "INTERNAL", "http": 500, "retryable": true, "cliExit": 5, "messageKey": "error.internal" }
+  ]
+}

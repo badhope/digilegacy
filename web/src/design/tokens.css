@@ -1,0 +1,88 @@
+:root {
+  color-scheme: light;
+
+  /* surfaces — warm paper, not “dashboard white” */
+  --bg: #f3efe6;
+  --bg-elevated: #f8f5ee;
+  --surface: #fffdf8;
+  --surface-soft: #ece7db;
+  --surface-strong: #e3ddcf;
+  --ink: #20251f;
+  --ink-soft: #3b423a;
+  --muted: #70766a;
+  --muted-strong: #555c51;
+  --line: #d8d1c2;
+  --line-strong: #bfb7a6;
+
+  /* accent — moss + clay, deliberately not a blue SaaS gradient */
+  --accent: #506b50;
+  --accent-strong: #3e563f;
+  --accent-soft: #e2e9dd;
+  --accent-ink: #f9fbf6;
+  --clay: #a55f3f;
+  --clay-soft: #f4e4d8;
+  --amber: #9a6c24;
+  --amber-soft: #f5ead2;
+  --danger: #9a4037;
+  --danger-soft: #f5ded9;
+  --info: #476675;
+  --info-soft: #dfe9ed;
+
+  /* type */
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Songti SC", "Noto Serif CJK SC", serif;
+  --font-body: "Avenir Next", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: "SFMono-Regular", "Cascadia Code", "Roboto Mono", Menlo, monospace;
+
+  /* geometry */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-sm: 0 1px 2px rgba(32, 37, 31, 0.04), 0 8px 24px rgba(32, 37, 31, 0.03);
+  --shadow-md: 0 2px 4px rgba(32, 37, 31, 0.05), 0 18px 48px rgba(32, 37, 31, 0.06);
+  --shadow-float: 0 24px 80px rgba(20, 24, 19, 0.22);
+
+  /* layout */
+  --rail-w: 248px;
+  --topbar-h: 68px;
+  --content-max: 1440px;
+  --gutter: clamp(20px, 3.2vw, 48px);
+
+  /* motion */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --fast: 140ms;
+  --normal: 240ms;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #151a16;
+  --bg-elevated: #1a201b;
+  --surface: #1f2620;
+  --surface-soft: #252d26;
+  --surface-strong: #2e372f;
+  --ink: #edf0e6;
+  --ink-soft: #d3d8cc;
+  --muted: #9ba294;
+  --muted-strong: #b6bcae;
+  --line: #354036;
+  --line-strong: #4a574a;
+
+  --accent: #91ad86;
+  --accent-strong: #b0c8a4;
+  --accent-soft: #2b3a2c;
+  --accent-ink: #162015;
+  --clay: #d18b67;
+  --clay-soft: #3d2b23;
+  --amber: #d4ac61;
+  --amber-soft: #3b311f;
+  --danger: #e18e82;
+  --danger-soft: #412723;
+  --info: #8db5c6;
+  --info-soft: #24343b;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.2), 0 18px 48px rgba(0, 0, 0, 0.18);
+  --shadow-float: 0 24px 80px rgba(0, 0, 0, 0.45);
+}

@@ -1,0 +1,29 @@
+{
+  "title": "ConnectionTest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "llm",
+        "policy",
+        "smtp",
+        "imap",
+        "heartbeat"
+      ]
+    },
+    "label": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "endpoint": {
+      "type": "string",
+      "format": "uri"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

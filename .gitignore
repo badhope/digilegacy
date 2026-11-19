@@ -7,8 +7,17 @@ dist-ssr/
 coverage/
 
 # ---- Rust / Tauri ----
+/target/
+**/target/
 **/src-tauri/target/
 **/src-tauri/gen/schemas/
+
+# ---- Secrets ----
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
 
 # ---- 数据库运行时产物 ----
 **/src-tauri/data/

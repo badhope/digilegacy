@@ -1,0 +1,22 @@
+{
+  "title": "ApprovalDecide",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision"
+  ],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "reject"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 500
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
