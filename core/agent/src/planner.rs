@@ -34,12 +34,15 @@ pub struct Usage {
 impl Usage {
     fn from_provider(value: Option<&Value>, config: &PlannerConfig) -> Self {
         let tokens_in = value
-            .and_then(|v| v.get("prompt_tokens"))
+            .and_then(|v| v.get("prompt_tokens").or_else(|| v.get("input_tokens")))
             .and_then(Value::as_i64)
             .unwrap_or(0)
             .max(0);
         let tokens_out = value
-            .and_then(|v| v.get("completion_tokens"))
+            .and_then(|v| {
+                v.get("completion_tokens")
+                    .or_else(|| v.get("output_tokens"))
+            })
             .and_then(Value::as_i64)
             .unwrap_or(0)
             .max(0);
@@ -328,6 +331,12 @@ mod tests {
         assert_eq!(usage.tokens_out, 45);
         assert_eq!(usage.cost_micros, 210);
         assert!(usage.priced);
+        let fallback = Usage::from_provider(
+            Some(&json!({ "input_tokens": 7, "output_tokens": 3 })),
+            &config,
+        );
+        assert_eq!((fallback.tokens_in, fallback.tokens_out), (7, 3));
+        assert_eq!(fallback.cost_micros, 13);
     }
 
     #[test]

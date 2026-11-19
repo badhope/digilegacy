@@ -537,6 +537,17 @@ mod tests {
             "[]",
         )
         .unwrap();
+        let mismatch = app
+            .dispatch(
+                "agent.runs.start",
+                json!({
+                    "task": "另一个任务",
+                    "planId": "plan_test",
+                    "steps": [{ "tool": "overview.get", "args": {} }]
+                }),
+            )
+            .unwrap_err();
+        assert_eq!(mismatch.code, "INVALID_ARGS");
         let run = app
             .dispatch(
                 "agent.runs.start",

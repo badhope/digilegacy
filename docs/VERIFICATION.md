@@ -285,6 +285,7 @@ agent.runs.list/get → tokens / costMicros / usagePriced / planId
 - Web 新建运行页显示“输入 321 / 输出 87 tokens · ¥0.000495”；点击开始后运行 #4 详情显示“用量 408 tokens · ¥0.000495”。
 - schema v12：`agent_plan_log` 新表，`agent_run_log` 增加 `tokens_in/tokens_out/cost_micros/cost_priced/plan_id`；共 28 表。
 - 单价由 `DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION` / `DIGILEGACY_LLM_OUTPUT_COST_MICROS_PER_MILLION` 配置；未配置时仍记 token，`priced=false`，UI 显示“成本未配置”。
+- 审计修复：`planId` 与 task 不匹配返回 `INVALID_ARGS`（HTTP 400 实测）；`jobs.cancel` 条件更新避免竞态；`claim_next` 检查行数避免双 Worker 重复执行；运行页切换 Run 后 SSE 重新绑定新 `runId`（浏览器实测 0.7s 内更新）。
 
 未完成边界：
 

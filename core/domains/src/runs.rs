@@ -108,19 +108,28 @@ pub fn record_plan(
         .map_err(DomainError::from)
 }
 
-pub fn plan_usage(store: &Store, id: &str) -> Option<Usage> {
+#[derive(Debug, Clone)]
+pub struct PlanRecord {
+    pub task: String,
+    pub usage: Usage,
+}
+
+pub fn plan_record(store: &Store, id: &str) -> Option<PlanRecord> {
     store
         .read(|conn| {
             conn.query_row(
-                "SELECT tokens_in, tokens_out, cost_micros, priced
+                "SELECT task, tokens_in, tokens_out, cost_micros, priced
                  FROM agent_plan_log WHERE id=?1",
                 [id],
                 |r| {
-                    Ok(Usage {
-                        tokens_in: r.get(0)?,
-                        tokens_out: r.get(1)?,
-                        cost_micros: r.get(2)?,
-                        priced: r.get::<_, i64>(3)? != 0,
+                    Ok(PlanRecord {
+                        task: r.get(0)?,
+                        usage: Usage {
+                            tokens_in: r.get(1)?,
+                            tokens_out: r.get(2)?,
+                            cost_micros: r.get(3)?,
+                            priced: r.get::<_, i64>(4)? != 0,
+                        },
                     })
                 },
             )
@@ -128,6 +137,10 @@ pub fn plan_usage(store: &Store, id: &str) -> Option<Usage> {
         })
         .ok()
         .flatten()
+}
+
+pub fn plan_usage(store: &Store, id: &str) -> Option<Usage> {
+    plan_record(store, id).map(|record| record.usage)
 }
 
 pub fn list(store: &Store, status: &str, limit: i64) -> Result<RunsPage, DomainError> {

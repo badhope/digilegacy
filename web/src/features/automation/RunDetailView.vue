@@ -62,8 +62,8 @@ function startStream(id: string) {
 }
 
 watch(
-  () => data.value?.status,
-  (status) => {
+  [runId, () => data.value?.status],
+  ([, status]) => {
     stopPolling();
     if (!isActive(status)) return;
     startStream(runId.value);

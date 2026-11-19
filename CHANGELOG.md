@@ -15,6 +15,14 @@
 - 版本 `0.8.1-m4a`。
 - 契约 schema 扩展 `runs.plan.output`、`runs.start.input`、`run.detail.output`。
 
+### Fixed
+
+- 运行详情在切换不同 Run 时，SSE 可能继续挂在旧 `runId`；改为同时监听 `runId` 与状态，切换后立即重建事件流。
+- `jobs.cancel` 先读后写存在竞态：Worker 恰好在读后领取任务时可能返回“取消成功”但实际未取消；改为条件 UPDATE 并检查影响行数，冲突返回 `CONFLICT`。
+- `claim_next` 未检查 UPDATE 行数，两个 Worker 竞争同一 queued job 时可能重复执行；领取失败直接返回空，不再执行。
+- `planId` 只校验存在、不校验 task，可能把 A 任务的规划成本挂到 B 运行；现在 task 不匹配返回 `INVALID_ARGS`。
+- 规划器 usage 兼容 `input_tokens` / `output_tokens`，不再只认 `prompt_tokens` / `completion_tokens`。
+
 ### Verification
 
 - Rust 测试 **115 项**（application 15、agent 4）；全仓 verify 通过。

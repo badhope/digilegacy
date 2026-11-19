@@ -91,10 +91,15 @@ fn claim_next(store: &Store) -> Result<Option<Job>, PlatformError> {
                 tx.commit()?;
                 return Ok(None);
             };
-            tx.execute(
+            let claimed = tx.execute(
                 "UPDATE jobs SET status='running', updated_at=?2 WHERE id=?1 AND status='queued'",
                 rusqlite::params![id, now()],
             )?;
+            if claimed == 0 {
+                // Another worker won the claim between SELECT and UPDATE.
+                tx.commit()?;
+                return Ok(None);
+            }
             tx.commit()?;
             Ok(Some(Job {
                 id,
@@ -209,16 +214,24 @@ pub fn cancel(store: &Store, id: &str) -> Result<JobDetail, PlatformError> {
         ));
     }
     let finished = now();
-    store
+    let updated = store
         .write(|conn| {
-            conn.execute(
+            let rows = conn.execute(
                 "UPDATE jobs SET status='cancelled', error_code='CANCELLED', updated_at=?2, finished_at=?2
                  WHERE id=?1 AND status='queued'",
                 rusqlite::params![id, finished],
             )?;
-            Ok(())
+            Ok(rows)
         })
         .map_err(|e| internal(format!("取消任务失败: {e}")))?;
+    if updated == 0 {
+        // The worker may have claimed the job between the read and this write.
+        let current = get(store, id)?;
+        return Err(PlatformError::new(
+            "CONFLICT",
+            format!("任务状态为 {}，只有排队中的任务可以取消", current.status),
+        ));
+    }
     get(store, id)
 }
 
@@ -334,6 +347,21 @@ mod tests {
         assert_eq!(cancelled.error_code, "CANCELLED");
         let second = cancel(app.store(), &id).unwrap_err();
         assert_eq!(second.code, "CONFLICT");
+
+        let running_id =
+            enqueue(app.store(), "agent.resume", json!({ "approvalId": "a2" })).unwrap();
+        app.store()
+            .write(|conn| {
+                conn.execute(
+                    "UPDATE jobs SET status='running' WHERE id=?1",
+                    [&running_id],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        let running = cancel(app.store(), &running_id).unwrap_err();
+        assert_eq!(running.code, "CONFLICT");
+        assert_eq!(get(app.store(), &running_id).unwrap().status, "running");
     }
 
     #[test]

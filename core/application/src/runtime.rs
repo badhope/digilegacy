@@ -327,8 +327,12 @@ pub fn start(app: &Application, args: Value) -> Result<Value, PlatformError> {
     let usage = if plan_id.is_empty() {
         runs::Usage::default()
     } else {
-        runs::plan_usage(app.store(), &plan_id)
-            .ok_or_else(|| PlatformError::invalid_args("计划不存在或已过期"))?
+        let record = runs::plan_record(app.store(), &plan_id)
+            .ok_or_else(|| PlatformError::invalid_args("计划不存在或已过期"))?;
+        if record.task.trim() != input.task.trim() {
+            return Err(PlatformError::invalid_args("planId 与运行 task 不匹配"));
+        }
+        record.usage
     };
     let run_id = create_run(app, input.task.trim(), &steps, &plan_id, &usage)?;
     app.audit("agent.run.start", &run_id.to_string())?;
