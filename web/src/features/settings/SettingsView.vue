@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import SectionCard from "@/shared/ui/SectionCard.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { COMMAND_NAMES } from "@/platform/generated/ipc";
+import { platformClient } from "@/platform/client";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import { useTheme } from "@/platform/theme";
@@ -16,6 +17,18 @@ const router = useRouter();
 const { t, locale, setLocale } = useI18n();
 const { theme, setTheme } = useTheme();
 const { data: security, loading: securityLoading, error: securityError, reload: reloadSecurity } = useResource(loadSecurity);
+
+const writeToken = ref(platformClient.getWriteToken());
+const tokenSaved = ref(false);
+function saveWriteToken() {
+  platformClient.setWriteToken(writeToken.value.trim());
+  tokenSaved.value = true;
+}
+function clearWriteToken() {
+  writeToken.value = "";
+  platformClient.setWriteToken("");
+  tokenSaved.value = true;
+}
 
 const sections = ["workspace", "appearance", "security", "data", "connections", "audit", "about"] as const;
 type Section = (typeof sections)[number];
@@ -122,7 +135,20 @@ function go(section: Section) {
         </SectionCard>
 
         <SectionCard v-else-if="active === 'connections'" :title="t('settings.tab.connections')" :subtitle="t('settings.tab.connections.note')">
-          <div class="empty-note">{{ t("settings.tab.connections.empty") }}</div>
+          <div class="setting-row token-row">
+            <div>
+              <span>{{ t("settings.connections.token") }}</span>
+              <p class="setting-hint">{{ t("settings.connections.tokenHint") }}</p>
+            </div>
+            <StatusPill :tone="writeToken ? 'ready' : 'planned'" :label="writeToken ? t('settings.connections.tokenSet') : t('settings.connections.tokenUnset')" />
+          </div>
+          <div class="token-form">
+            <input v-model="writeToken" type="password" autocomplete="off" :placeholder="t('settings.connections.tokenPlaceholder')" />
+            <button type="button" class="link-button" @click="saveWriteToken">{{ t("settings.connections.save") }}</button>
+            <button type="button" class="link-button" @click="clearWriteToken">{{ t("settings.connections.clear") }}</button>
+          </div>
+          <div v-if="tokenSaved" class="empty-note">{{ t("settings.connections.saved") }}</div>
+          <div class="empty-note">{{ t("settings.connections.empty") }}</div>
         </SectionCard>
 
         <SectionCard v-else-if="active === 'audit'" :title="t('settings.tab.audit')" :subtitle="t('settings.tab.audit.note')">
@@ -133,7 +159,7 @@ function go(section: Section) {
           <div class="about-grid">
             <div class="about-item">
               <span class="mono">{{ t("settings.about.version") }}</span>
-              <strong>0.7.0-m2</strong>
+              <strong>0.7.3-m3b</strong>
             </div>
             <div class="about-item">
               <span class="mono">{{ t("settings.about.contracts") }}</span>
@@ -217,6 +243,10 @@ function go(section: Section) {
   color: var(--muted);
 }
 
+.token-row { align-items: flex-start; }
+.setting-hint { max-width: 420px; margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.token-form { display: flex; align-items: center; gap: 8px; padding: 0 0 12px; }
+.token-form input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; }
 .segmented {
   display: flex;
   gap: 4px;

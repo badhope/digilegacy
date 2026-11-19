@@ -1,9 +1,24 @@
-import { COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
+import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
 import type { AgentRuns, AssetsPage, Asset, DeliverableExport, Envelope, Overview, Plan, PoliciesPage, Policy, SecurityStatus } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
+const WRITE_TOKEN_KEY = "digilegacy.writeToken";
+
+function readWriteToken(): string {
+  if (typeof window === "undefined") return "";
+  return window.sessionStorage.getItem(WRITE_TOKEN_KEY) ?? "";
+}
+
+function persistWriteToken(token: string): void {
+  if (typeof window === "undefined") return;
+  if (token) {
+    window.sessionStorage.setItem(WRITE_TOKEN_KEY, token);
+  } else {
+    window.sessionStorage.removeItem(WRITE_TOKEN_KEY);
+  }
+}
 
 function traceId(): string {
   return `tr_web_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 8)}`;
@@ -26,9 +41,13 @@ async function invoke<T>(name: CommandName, args: Record<string, unknown> = {}):
     return mockEnvelope<T>(name);
   }
 
+  const token = COMMAND_PERMISSION[name] === "write" ? readWriteToken() : "";
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   const response = await fetch(`${API_BASE}${INVOKE_PATH}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ name, args }),
   });
 
@@ -47,10 +66,14 @@ async function invoke<T>(name: CommandName, args: Record<string, unknown> = {}):
 export const platformClient = {
   commands: COMMANDS,
   useMock: USE_MOCK,
+  getWriteToken: readWriteToken,
+  setWriteToken: persistWriteToken,
 
   getOverview: () => invoke<Overview>(COMMANDS.appOverview),
   listAssets: (args: Record<string, unknown> = {}) => invoke<AssetsPage>(COMMANDS.assetsList, args),
   getAsset: (id: string) => invoke<Asset>(COMMANDS.assetsGet, { id }),
+  createAsset: (args: Record<string, unknown>) => invoke<Asset>(COMMANDS.assetsCreate, args),
+  updateAsset: (args: Record<string, unknown>) => invoke<Asset>(COMMANDS.assetsUpdate, args),
   getPlan: () => invoke<Plan>(COMMANDS.planGet),
   listPolicies: (args: Record<string, unknown> = {}) => invoke<PoliciesPage>(COMMANDS.policiesList, args),
   getPolicy: (id: string) => invoke<Policy>(COMMANDS.policiesGet, { id }),

@@ -44,7 +44,7 @@ M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真
 
 | crate | 职责 | M2 状态 |
 |---|---|---|
-| `apps/server` | axum Platform API | health/commands + 真实读接口；写命令 token 门禁 |
+| `apps/server` | axum Platform API | health/commands + 真实读接口；`write` 命令 Bearer token 门禁；`draft` 按契约开放 |
 | `apps/cli` | 本地命令入口 | 真实 overview/assets/plan/security/runs；写入 `--allow-write` |
 | `apps/mcp` | stdio JSON-RPC | initialize/tools list；tools/call 接真实只读用例 |
 | `apps/desktop` | 桌面入口 | JSON 空壳，Tauri 留到 M3/M5 |
@@ -140,7 +140,7 @@ contracts/mocks.json
 | `network` | 出站请求 | 永远 403 | 允许 | 禁止 | 禁止 |
 | `desktop` | 窗口/托盘/自启 | 不支持 | 不支持 | 禁止 | 禁止 |
 
-M0 未实现写权限 token，因此 HTTP `write` 返回 `401 AUTH_REQUIRED`，不是假成功。
+HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bearer <token>`，比较为常量时间；未配置或令牌错误返回 `401 AUTH_REQUIRED`。`draft` 命令（政策溯源、交付导出）按契约开放，不要求 token。Web 在 设置 → 连接 中把令牌存 `sessionStorage`，只对 `write` 命令附加，不写本地持久化；CLI 的 `write` 仍用 `--allow-write`，桌面/本地进程不依赖 HTTP token。
 
 ## 7. 安全与数据边界
 
@@ -149,6 +149,7 @@ M0 未实现写权限 token，因此 HTTP `write` 返回 `401 AUTH_REQUIRED`，�
 - **M2**：`core/application` 统一用例分派；入口只做权限/传输；Web 读真实 API，资产筛选服务端化。
 - **M2-B**：schema v10（27 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
 - **M3 第一切片**：`policies.provenance.set` 允许 `unverified/source_cited/verified/disputed` 四态，来源为空回退官方 URL，写 `policy_provenance` 并追加审计 `policy.provenance.set`；HTTP `PATCH /api/v1/policies/{id}/provenance`，CLI `policies provenance`，Web 在详情内编辑。
+- **M3-B**：HTTP `write` Bearer token（`DIGILEGACY_API_TOKEN`）；Web 连接设置存 `sessionStorage` 并只对 `write` 命令附加；资产新增/编辑表单接 `assets.create/update`，写后刷新列表并留审计。
 - **数据归属**：单工作区抽象保留 `workspaces`，27 张表按领域拆；资产与政策各维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。

@@ -69,7 +69,7 @@ cargo test --workspace            OK
 
 - foundation：5 个
 - render：2 个
-- server：7 个（真实读接口、写 token 门禁、溯源 draft 写与审计）
+- server：9 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
 - store：15 个（schema v10 / 27 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
 - domains：10 个；application：5 个
@@ -124,6 +124,7 @@ deliver.export：report/checklist/legal/toolkit 四类 HTML，jobs + deliverable
 - HTTP `POST /api/v1/deliverables/export` 返回 `jobId/status=succeeded/fileName/downloadUrl`；`GET /api/v1/exports/{jobId}` 返回 `text/html` 附件。
 - 报告含资产、继承人、政策材料/流程/风险；法律文本含 4 类模板；清单含平台材料；工具包含官方入口与申请表链接。
 - Web 政策库并入资产二级标签：152 条、分类筛选、服务端搜索、游标加载更多、详情展开、溯源状态显示。
+- Web 资产新增/编辑：连接设置保存 token 后，`assets.create/update` 成功；列表刷新、审计 `asset.create/asset.update` 可查。
 - Web 交付页生成后显示文件名与下载链接；资产详情可跳转对应平台政策。
 
 未完成边界：

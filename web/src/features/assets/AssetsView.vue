@@ -13,12 +13,22 @@ import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import type { Asset, AssetKind } from "@/platform/types";
 import { loadAssets } from "./api";
+import { platformClient } from "@/platform/client";
 
 const router = useRouter();
 const { t, locale } = useI18n();
 const query = ref("");
 const status = ref<"all" | "active" | "archived">("all");
 const loadingMore = ref(false);
+const createOpen = ref(false);
+const creating = ref(false);
+const createError = ref("");
+const draftName = ref("");
+const draftKind = ref<AssetKind>("account");
+const draftPlatform = ref("");
+const draftValue = ref("");
+const draftNote = ref("");
+const assetKinds: AssetKind[] = ["account", "file", "device", "domain", "subscription", "physical", "other"];
 
 const loadPage = () =>
   loadAssets({
@@ -64,17 +74,88 @@ function formatDate(value: string): string {
 function openAsset(asset: Asset) {
   router.push(`/assets/${asset.id}`);
 }
+
+async function createAsset() {
+  createError.value = "";
+  if (!draftName.value.trim()) {
+    createError.value = t("assets.create.nameRequired");
+    return;
+  }
+  creating.value = true;
+  try {
+    const envelope = await platformClient.createAsset({
+      name: draftName.value.trim(),
+      kind: draftKind.value,
+      platform: draftPlatform.value.trim(),
+      value: draftValue.value.trim(),
+      note: draftNote.value.trim(),
+    });
+    if (!envelope.success || !envelope.data) {
+      createError.value = envelope.code === "AUTH_REQUIRED" ? t("assets.create.tokenRequired") : envelope.message || envelope.code;
+      return;
+    }
+    draftName.value = "";
+    draftPlatform.value = "";
+    draftValue.value = "";
+    draftNote.value = "";
+    createOpen.value = false;
+    await reload();
+  } finally {
+    creating.value = false;
+  }
+}
 </script>
 
 <template>
   <div class="assets-page">
     <PageHeader eyebrow="ASSETS / REGISTRY" :title="t('assets.title')" :description="t('assets.description')">
       <template #actions>
+        <AppButton variant="primary" size="sm" @click="createOpen = !createOpen">{{ t("assets.create.open") }}</AppButton>
         <StatusPill tone="ready" :label="t('app.mode')" />
       </template>
     </PageHeader>
 
     <AssetTabs />
+
+    <div v-if="createOpen" class="create-card">
+      <div class="create-head">
+        <div>
+          <h2>{{ t("assets.create.title") }}</h2>
+          <p>{{ t("assets.create.hint") }}</p>
+        </div>
+        <button type="button" class="close-button" :aria-label="t('common.close')" @click="createOpen = false">×</button>
+      </div>
+      <div class="create-grid">
+        <label>
+          <span>{{ t("assets.table.name") }}</span>
+          <input v-model="draftName" type="text" maxlength="120" :placeholder="t('assets.create.namePlaceholder')" />
+        </label>
+        <label>
+          <span>{{ t("assets.table.kind") }}</span>
+          <select v-model="draftKind">
+            <option v-for="kind in assetKinds" :key="kind" :value="kind">{{ t(kindKey(kind)) }}</option>
+          </select>
+        </label>
+        <label>
+          <span>{{ t("assets.table.platform") }}</span>
+          <input v-model="draftPlatform" type="text" :placeholder="t('assets.create.platformPlaceholder')" />
+        </label>
+        <label>
+          <span>{{ t("assets.create.value") }}</span>
+          <input v-model="draftValue" type="text" inputmode="decimal" :placeholder="t('assets.create.valuePlaceholder')" />
+        </label>
+      </div>
+      <label class="create-note">
+        <span>{{ t("assets.create.note") }}</span>
+        <textarea v-model="draftNote" rows="2" :placeholder="t('assets.create.notePlaceholder')" />
+      </label>
+      <div class="create-actions">
+        <AppButton variant="primary" size="sm" :disabled="creating" @click="createAsset">
+          {{ creating ? t("assets.create.saving") : t("assets.create.save") }}
+        </AppButton>
+        <span v-if="createError" class="create-error">{{ createError }}</span>
+      </div>
+    </div>
 
     <div v-if="loading" class="assets-loading" aria-busy="true">
       <div class="toolbar-skeleton">
@@ -173,6 +254,18 @@ function openAsset(asset: Asset) {
   margin: 0 auto;
 }
 
+.create-card { margin-bottom: 14px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.create-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.create-head h2 { margin: 0 0 4px; font-size: 14px; }
+.create-head p { margin: 0; color: var(--muted); font-size: 11px; }
+.close-button { border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.create-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 10px; }
+.create-grid label, .create-note { display: grid; gap: 5px; }
+.create-grid span, .create-note span { color: var(--muted); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.create-grid input, .create-grid select, .create-note textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; }
+.create-note { margin-top: 10px; }
+.create-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.create-error { color: var(--danger, #b42318); font-size: 11px; }
 .asset-toolbar {
   display: flex;
   align-items: center;
@@ -349,7 +442,19 @@ function openAsset(asset: Asset) {
 }
 
 @media (max-width: 760px) {
-  .asset-toolbar {
+  .create-card { margin-bottom: 14px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.create-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.create-head h2 { margin: 0 0 4px; font-size: 14px; }
+.create-head p { margin: 0; color: var(--muted); font-size: 11px; }
+.close-button { border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.create-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 10px; }
+.create-grid label, .create-note { display: grid; gap: 5px; }
+.create-grid span, .create-note span { color: var(--muted); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.create-grid input, .create-grid select, .create-note textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; }
+.create-note { margin-top: 10px; }
+.create-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.create-error { color: var(--danger, #b42318); font-size: 11px; }
+.asset-toolbar {
     flex-wrap: wrap;
   }
 

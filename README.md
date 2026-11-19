@@ -29,7 +29,7 @@
 | 交付物导出 | 已做完（M2-B HTML 报告/清单/法律文本/工具包 + HTTP 下载） |
 | 桌面 Tauri 窗口与托盘 | M3/M5 |
 
-当前版本：`0.7.2-m3`。
+当前版本：`0.7.3-m3b`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
@@ -121,8 +121,10 @@ node tools/generate.mjs --check
 
 ```bash
 source ~/.cargo/env
-DIGILEGACY_BIND=127.0.0.1:8787 cargo run -p digilegacy-server
+DIGILEGACY_BIND=127.0.0.1:8787 DIGILEGACY_API_TOKEN=<write-token> cargo run -p digilegacy-server
 ```
+
+`write` 命令要求 `Authorization: Bearer <write-token>`；`draft` 命令与读接口不要求。未设置 token 时 `write` 一律 401，不会假成功。
 
 ```bash
 curl http://127.0.0.1:8787/api/v1/health
@@ -137,7 +139,7 @@ npm run dev
 # http://127.0.0.1:5173
 ```
 
-M0 默认 `VITE_USE_MOCK=true`，Web 用生成 mock 展示壳；接真实 API 时设置 `VITE_USE_MOCK=false`。
+Web 默认走真实 API；需要无后端演示时设置 `VITE_USE_MOCK=true`。写操作先在 设置 → 连接 配置平台写令牌。
 
 ### CLI / MCP
 
@@ -180,9 +182,9 @@ node tools/bench/web-budget.mjs
 
 M3 基线：
 
-- Rust 测试 93 项：security 49、store 15、domains 10、application 5、server 7、foundation 5、render 2（全仓 verify 通过）
-- Web 总 gzip **88.25 KB / 110 KB**
-- 入口 chunk **50.01 KB raw / 60 KB**，vendor **98.88 KB raw / 130 KB**
+- Rust 测试 95 项：security 49、store 15、domains 10、application 5、server 9、foundation 5、render 2（全仓 verify 通过）
+- Web 总 gzip **91.66 KB / 110 KB**
+- 入口 chunk **53.50 KB raw / 60 KB**，vendor **98.88 KB raw / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 
 ---

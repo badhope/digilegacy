@@ -10,7 +10,7 @@ mod generated;
 use axum::{
     body::Body,
     extract::{Json, Path, Query, State},
-    http::{header, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, patch, post},
     Router,
@@ -24,7 +24,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::info;
 
-type AppState = Arc<Application>;
+#[derive(Clone)]
+pub struct AppState {
+    pub app: Arc<Application>,
+    pub write_token: Option<String>,
+}
 
 #[derive(Debug, Deserialize)]
 struct InvokeRequest {
@@ -46,7 +50,18 @@ async fn main() {
         tables = application.store().table_count().unwrap_or(-1),
         "store ready"
     );
-    let app = router(application);
+    let write_token = std::env::var("DIGILEGACY_API_TOKEN")
+        .ok()
+        .filter(|token| !token.trim().is_empty());
+    if write_token.is_some() {
+        info!("Platform API write token enabled");
+    } else {
+        info!("Platform API write token not configured; write routes stay closed");
+    }
+    let app = router(AppState {
+        app: application,
+        write_token,
+    });
     let addr: SocketAddr = std::env::var("DIGILEGACY_BIND")
         .unwrap_or_else(|_| "127.0.0.1:8787".to_string())
         .parse()
@@ -58,7 +73,7 @@ async fn main() {
     axum::serve(listener, app).await.expect("platform api");
 }
 
-pub fn router(store: AppState) -> Router {
+pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/v1/health", get(health))
         .route("/api/v1/commands", get(commands))
@@ -77,12 +92,12 @@ pub fn router(store: AppState) -> Router {
         .route("/api/v1/security", get(security_get))
         .route("/api/v1/agent/runs", get(agent_runs))
         .route("/api/v1/invoke", post(invoke))
-        .with_state(store)
+        .with_state(state)
         .fallback(not_found)
 }
 
-async fn health(State(app): State<AppState>) -> Json<Envelope<Value>> {
-    Json(Envelope::ok(app.health()))
+async fn health(State(state): State<AppState>) -> Json<Envelope<Value>> {
+    Json(Envelope::ok(state.app.health()))
 }
 
 async fn commands() -> Json<Envelope<Value>> {
@@ -102,43 +117,44 @@ async fn commands() -> Json<Envelope<Value>> {
     Json(Envelope::ok(json!(items)))
 }
 
-async fn overview(State(app): State<AppState>) -> impl IntoResponse {
-    dispatch(&app, "app.overview", json!({}))
+async fn overview(State(state): State<AppState>) -> impl IntoResponse {
+    dispatch(&state, "app.overview", json!({}), None)
 }
 
 async fn invoke(
-    State(app): State<AppState>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<InvokeRequest>,
 ) -> impl IntoResponse {
-    dispatch(&app, &request.name, request.args)
+    dispatch(&state, &request.name, request.args, Some(&headers))
 }
 
 async fn assets_list(
-    State(app): State<AppState>,
+    State(state): State<AppState>,
     Query(input): Query<assets::ListInput>,
 ) -> impl IntoResponse {
-    let (status, envelope) = dispatch(&app, "assets.list", json!(input));
+    let (status, envelope) = dispatch(&state, "assets.list", json!(input), None);
     (status, envelope)
 }
 
-async fn asset_get(State(app): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
-    let (status, envelope) = dispatch(&app, "assets.get", json!({ "id": id }));
+async fn asset_get(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
+    let (status, envelope) = dispatch(&state, "assets.get", json!({ "id": id }), None);
     (status, envelope)
 }
 
-async fn plan_get(State(app): State<AppState>) -> impl IntoResponse {
-    dispatch(&app, "plan.get", json!({}))
+async fn plan_get(State(state): State<AppState>) -> impl IntoResponse {
+    dispatch(&state, "plan.get", json!({}), None)
 }
 
 async fn policies_list(
-    State(app): State<AppState>,
+    State(state): State<AppState>,
     Query(input): Query<policy::ListInput>,
 ) -> impl IntoResponse {
-    dispatch(&app, "policies.list", json!(input))
+    dispatch(&state, "policies.list", json!(input), None)
 }
 
-async fn policy_get(State(app): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
-    dispatch(&app, "policies.get", json!({ "id": id }))
+async fn policy_get(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
+    dispatch(&state, "policies.get", json!({ "id": id }), None)
 }
 
 #[derive(Debug, Deserialize)]
@@ -153,18 +169,20 @@ fn default_locale() -> String {
 }
 
 async fn deliver_export(
-    State(app): State<AppState>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
     Json(input): Json<ExportRequest>,
 ) -> impl IntoResponse {
     dispatch(
-        &app,
+        &state,
         "deliver.export",
         json!({ "kind": input.kind, "locale": input.locale }),
+        Some(&headers),
     )
 }
 
-async fn download_export(State(app): State<AppState>, Path(job_id): Path<String>) -> Response {
-    match app.read_export(&job_id) {
+async fn download_export(State(state): State<AppState>, Path(job_id): Path<String>) -> Response {
+    match state.app.read_export(&job_id) {
         Ok((file_name, bytes)) => Response::builder()
             .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
             .header(
@@ -180,20 +198,24 @@ async fn download_export(State(app): State<AppState>, Path(job_id): Path<String>
 }
 
 async fn policy_provenance_set(
-    State(app): State<AppState>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
     Path(id): Path<String>,
     Json(mut input): Json<Value>,
 ) -> impl IntoResponse {
     input["id"] = json!(id);
-    dispatch(&app, "policies.provenance.set", input)
+    dispatch(&state, "policies.provenance.set", input, Some(&headers))
 }
 
-async fn security_get(State(app): State<AppState>) -> impl IntoResponse {
-    dispatch(&app, "security.status", json!({}))
+async fn security_get(State(state): State<AppState>) -> impl IntoResponse {
+    dispatch(&state, "security.status", json!({}), None)
 }
 
-async fn agent_runs(State(app): State<AppState>, Query(query): Query<Value>) -> impl IntoResponse {
-    let (status, envelope) = dispatch(&app, "agent.runs.list", query);
+async fn agent_runs(
+    State(state): State<AppState>,
+    Query(query): Query<Value>,
+) -> impl IntoResponse {
+    let (status, envelope) = dispatch(&state, "agent.runs.list", query, None);
     (status, envelope)
 }
 
@@ -203,7 +225,12 @@ fn error_response(error: PlatformError) -> (StatusCode, Json<Envelope<Value>>) {
     (status, Json(Envelope::err(error)))
 }
 
-fn dispatch(app: &Application, name: &str, args: Value) -> (StatusCode, Json<Envelope<Value>>) {
+fn dispatch(
+    state: &AppState,
+    name: &str,
+    args: Value,
+    headers: Option<&HeaderMap>,
+) -> (StatusCode, Json<Envelope<Value>>) {
     let spec = match generated::find(name) {
         Some(spec) => spec,
         None => return error_response(PlatformError::not_found(&format!("命令 {name}"))),
@@ -222,19 +249,41 @@ fn dispatch(app: &Application, name: &str, args: Value) -> (StatusCode, Json<Env
     if permission
         .map(Permission::requires_http_write_token)
         .unwrap_or(false)
+        && !authorized_write(state, headers)
     {
         return error_response(PlatformError::new(
             "AUTH_REQUIRED",
-            "写命令需要一个作用域写 token；M2 只开放读接口",
+            "写命令需要 Authorization: Bearer <DIGILEGACY_API_TOKEN>",
         ));
     }
 
-    let result = app.dispatch(name, args);
+    let result = state.app.dispatch(name, args);
 
     match result {
         Ok(data) => (StatusCode::OK, Json(Envelope::ok(data))),
         Err(error) => error_response(error),
     }
+}
+
+fn authorized_write(state: &AppState, headers: Option<&HeaderMap>) -> bool {
+    let expected = match state.write_token.as_deref() {
+        Some(token) => token.as_bytes(),
+        None => return false,
+    };
+    let provided = headers
+        .and_then(|headers| headers.get(header::AUTHORIZATION))
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(str::as_bytes)
+        .unwrap_or(&[]);
+    if provided.is_empty() || provided.len() != expected.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (left, right) in provided.iter().zip(expected.iter()) {
+        diff |= left ^ right;
+    }
+    diff == 0
 }
 
 async fn not_found() -> impl IntoResponse {
@@ -249,12 +298,28 @@ mod tests {
     use super::*;
     use digilegacy_contracts as contracts;
 
-    fn test_app() -> Application {
+    fn test_app() -> AppState {
+        test_app_with_token(None)
+    }
+
+    fn test_app_with_token(token: Option<&str>) -> AppState {
         let app = Application::new(Arc::new(
             digilegacy_store::Store::open_in_memory(None).unwrap(),
         ));
         policy::seed_if_empty(app.store()).unwrap();
-        app
+        AppState {
+            app: Arc::new(app),
+            write_token: token.map(str::to_string),
+        }
+    }
+
+    fn write_headers(token: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        headers
     }
 
     #[test]
@@ -267,23 +332,50 @@ mod tests {
     #[test]
     fn unknown_command_maps_to_404() {
         let app = test_app();
-        let (status, _) = dispatch(&app, "nope.nope", json!({}));
+        let (status, _) = dispatch(&app, "nope.nope", json!({}), None);
         assert_eq!(status, StatusCode::NOT_FOUND);
     }
 
     #[test]
     fn write_command_requires_a_token_over_http() {
         let app = test_app();
-        let (status, envelope) = dispatch(&app, "assets.create", json!({}));
+        let (status, envelope) = dispatch(&app, "assets.create", json!({}), None);
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert_eq!(envelope.code, "AUTH_REQUIRED");
+    }
+
+    #[test]
+    fn valid_token_allows_a_scoped_write() {
+        let state = test_app_with_token(Some("test-token"));
+        let headers = write_headers("test-token");
+        let (status, envelope) = dispatch(
+            &state,
+            "assets.create",
+            json!({ "name": "令牌资产", "kind": "account" }),
+            Some(&headers),
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert!(envelope.success);
+    }
+
+    #[test]
+    fn bad_token_is_rejected_for_a_scoped_write() {
+        let state = test_app_with_token(Some("test-token"));
+        let headers = write_headers("wrong-token");
+        let (status, _) = dispatch(
+            &state,
+            "assets.create",
+            json!({ "name": "令牌资产", "kind": "account" }),
+            Some(&headers),
+        );
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
     }
 
     #[test]
     fn key_and_network_commands_are_forbidden_over_http() {
         let app = test_app();
         assert_eq!(
-            dispatch(&app, "connections.test", json!({})).0,
+            dispatch(&app, "connections.test", json!({}), None).0,
             StatusCode::FORBIDDEN
         );
     }
@@ -291,7 +383,7 @@ mod tests {
     #[test]
     fn read_command_serves_real_data() {
         let app = test_app();
-        let (status, envelope) = dispatch(&app, "assets.list", json!({}));
+        let (status, envelope) = dispatch(&app, "assets.list", json!({}), None);
         assert_eq!(status, StatusCode::OK);
         assert!(envelope.success);
         let data = envelope.0.data.clone().unwrap();
@@ -301,18 +393,19 @@ mod tests {
 
     #[test]
     fn draft_provenance_write_is_allowed_and_audited() {
-        let app = test_app();
+        let state = test_app();
         let (status, envelope) = dispatch(
-            &app,
+            &state,
             "policies.provenance.set",
             json!({ "id": "1", "status": "verified", "sourceUrl": "https://example.com", "note": "test" }),
+            None,
         );
         assert_eq!(status, StatusCode::OK);
         assert!(envelope.success);
         let data = envelope.0.data.clone().unwrap();
         assert_eq!(data["provenance"]["status"], "verified");
 
-        let (_, envelope) = dispatch(&app, "app.overview", json!({}));
+        let (_, envelope) = dispatch(&state, "app.overview", json!({}), None);
         let overview = envelope.0.data.unwrap();
         assert!(overview["activity"]
             .as_array()
@@ -324,11 +417,11 @@ mod tests {
     #[test]
     fn overview_and_plan_are_live() {
         let app = test_app();
-        let (status, envelope) = dispatch(&app, "app.overview", json!({}));
+        let (status, envelope) = dispatch(&app, "app.overview", json!({}), None);
         assert_eq!(status, StatusCode::OK);
         assert_eq!(envelope.0.data.as_ref().unwrap()["assetsTotal"], 0);
 
-        let (status, envelope) = dispatch(&app, "plan.get", json!({}));
+        let (status, envelope) = dispatch(&app, "plan.get", json!({}), None);
         assert_eq!(status, StatusCode::OK);
         assert_eq!(envelope.0.data.as_ref().unwrap()["trigger"]["days"], 30);
     }

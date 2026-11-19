@@ -2,6 +2,28 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.3-m3b] - 2026-11-19
+
+### Added
+
+- HTTP `write` 命令接 `DIGILEGACY_API_TOKEN`：`Authorization: Bearer <token>`，常量时间比较；未配置/错误 token 返回 `401 AUTH_REQUIRED`。
+- Web 设置 → 连接新增平台写令牌：只存 `sessionStorage`，只对 `write` 命令附加；清除即时生效。
+- 资产新增/编辑表单：`assets.create` / `assets.update` 走 Platform API；写入后刷新列表/详情，审计 `asset.create` / `asset.update`。
+- 资产详情备注显示修正为 `note`，不再误显示估值。
+
+### Changed
+
+- `draft` 命令按契约继续开放，不要求 token；`policies.provenance.set` 的 `requiresUnlock` 明确为 `false`，避免“声明需要解锁但未执行”的假承诺。
+- 契约规模保持 16 命令 / 13 工具 / 22 schema / 19 错误码；没有新增命令，只补齐既有 `write` 入口与 UI。
+
+### Verification
+
+- `cargo test -p digilegacy-server` 9 通过（含正确/错误 token、draft 溯源写与审计）。
+- HTTP：无 token `assets.create` → 401；带 `Bearer test-write-token` → 200，返回资产 id=2；Web 创建“微信零钱”id=3、编辑估值 3500→4200 成功。
+- 审计：`GET /api/v1/overview` 可见 `asset.create`、`asset.update`。
+- 全仓 `./tools/verify.sh` 通过，日志 `/tmp/digilegacy-verify-m3b.log`。
+- Web：总 gzip **91.66 KB / 110 KB**，入口 **53.50 KB / 60 KB**，vendor **98.88 KB / 130 KB**。
+
 ## [0.7.2-m3] - 2026-11-19
 
 ### Added

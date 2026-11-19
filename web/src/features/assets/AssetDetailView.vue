@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -12,6 +12,7 @@ import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import type { AssetKind } from "@/platform/types";
 import { loadAsset } from "./api";
+import { platformClient } from "@/platform/client";
 
 const route = useRoute();
 const router = useRouter();
@@ -19,6 +20,50 @@ const { t, locale } = useI18n();
 const assetId = computed(() => String(route.params.id ?? ""));
 const { data, loading, error, reload } = useResource(() => loadAsset(assetId.value));
 const kindKey = (kind: AssetKind) => `asset.kind.${kind}`;
+const editing = ref(false);
+const saving = ref(false);
+const saveError = ref("");
+const editName = ref("");
+const editKind = ref<AssetKind>("account");
+const editPlatform = ref("");
+const editValue = ref("");
+const editNote = ref("");
+const assetKinds: AssetKind[] = ["account", "file", "device", "domain", "subscription", "physical", "other"];
+
+function startEdit() {
+  if (!data.value) return;
+  editName.value = data.value.name;
+  editKind.value = data.value.kind;
+  editPlatform.value = data.value.platform;
+  editValue.value = data.value.value;
+  editNote.value = data.value.note;
+  saveError.value = "";
+  editing.value = true;
+}
+
+async function saveEdit() {
+  if (!data.value) return;
+  saveError.value = "";
+  saving.value = true;
+  try {
+    const envelope = await platformClient.updateAsset({
+      id: data.value.id,
+      name: editName.value.trim(),
+      kind: editKind.value,
+      platform: editPlatform.value.trim(),
+      value: editValue.value.trim(),
+      note: editNote.value.trim(),
+    });
+    if (!envelope.success || !envelope.data) {
+      saveError.value = envelope.code === "AUTH_REQUIRED" ? t("assets.create.tokenRequired") : envelope.message || envelope.code;
+      return;
+    }
+    data.value = envelope.data;
+    editing.value = false;
+  } finally {
+    saving.value = false;
+  }
+}
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -51,6 +96,7 @@ function formatDate(value: string): string {
     <template v-else-if="data">
       <PageHeader :eyebrow="`ASSET / ${data.id}`" :title="data.name" :description="data.value">
         <template #actions>
+          <AppButton variant="primary" size="sm" @click="startEdit">{{ t("assets.edit.open") }}</AppButton>
           <AppButton
             v-if="data.platform && data.platform !== '未分类'"
             variant="secondary"
@@ -68,8 +114,45 @@ function formatDate(value: string): string {
         </template>
       </PageHeader>
 
+      <div v-if="editing" class="edit-card">
+        <div class="edit-head">
+          <h2>{{ t("assets.edit.title") }}</h2>
+          <button type="button" class="close-button" :aria-label="t('common.close')" @click="editing = false">×</button>
+        </div>
+        <div class="edit-grid">
+          <label>
+            <span>{{ t("assets.table.name") }}</span>
+            <input v-model="editName" type="text" maxlength="120" />
+          </label>
+          <label>
+            <span>{{ t("assets.table.kind") }}</span>
+            <select v-model="editKind">
+              <option v-for="kind in assetKinds" :key="kind" :value="kind">{{ t(kindKey(kind)) }}</option>
+            </select>
+          </label>
+          <label>
+            <span>{{ t("assets.table.platform") }}</span>
+            <input v-model="editPlatform" type="text" />
+          </label>
+          <label>
+            <span>{{ t("assets.create.value") }}</span>
+            <input v-model="editValue" type="text" inputmode="decimal" />
+          </label>
+        </div>
+        <label class="edit-note">
+          <span>{{ t("assets.create.note") }}</span>
+          <textarea v-model="editNote" rows="2" />
+        </label>
+        <div class="edit-actions">
+          <AppButton variant="primary" size="sm" :disabled="saving" @click="saveEdit">
+            {{ saving ? t("assets.create.saving") : t("assets.edit.save") }}
+          </AppButton>
+          <span v-if="saveError" class="edit-error">{{ saveError }}</span>
+        </div>
+      </div>
+
       <div class="detail-grid">
-        <SectionCard :title="t('asset.detail.basic')" :subtitle="t('asset.detail.readonly')">
+        <SectionCard :title="t('asset.detail.basic')" :subtitle="t('asset.detail.basic.note')">
           <dl class="detail-list">
             <div>
               <dt>{{ t("assets.table.kind") }}</dt>
@@ -91,10 +174,10 @@ function formatDate(value: string): string {
         </SectionCard>
 
         <SectionCard :title="t('asset.detail.value')" :subtitle="t('asset.detail.note')">
-          <p class="note-body">{{ data.value || "—" }}</p>
+          <p class="note-body">{{ data.note || "—" }}</p>
           <div class="readonly-note">
-            <AppIcon name="lock" :size="15" />
-            <span>{{ t("asset.detail.readonly") }}</span>
+            <AppIcon name="info" :size="15" />
+            <span>{{ t("asset.detail.basic.note") }}</span>
           </div>
         </SectionCard>
       </div>
@@ -104,6 +187,17 @@ function formatDate(value: string): string {
 </template>
 
 <style scoped>
+.edit-card { margin-bottom: 16px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.edit-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.edit-head h2 { margin: 0; font-size: 14px; }
+.close-button { border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.edit-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 10px; }
+.edit-grid label, .edit-note { display: grid; gap: 5px; }
+.edit-grid span, .edit-note span { color: var(--muted); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.edit-grid input, .edit-grid select, .edit-note textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; }
+.edit-note { margin-top: 10px; }
+.edit-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.edit-error { color: var(--danger, #b42318); font-size: 11px; }
 .detail-page {
   max-width: 1100px;
   margin: 0 auto;
