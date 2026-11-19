@@ -1,5 +1,6 @@
 //! DOM-03 plan: holder profile, heirs and trigger summary.
 
+use chrono::{DateTime, Duration, FixedOffset};
 use rusqlite::OptionalExtension;
 use serde::Serialize;
 
@@ -28,6 +29,8 @@ pub struct Trigger {
     pub mode: String,
     pub days: i64,
     pub status: String,
+    pub last_check_in: String,
+    pub next_check_at: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -75,13 +78,15 @@ pub fn get(store: &Store) -> Result<Plan, DomainError> {
 
             let trigger = conn
                 .query_row(
-                    "SELECT enabled, check_in_interval_days, coalesce(paused_until,'')
+                    "SELECT enabled, check_in_interval_days, coalesce(paused_until,''),
+                            coalesce(last_check_in,'')
                      FROM dms_config WHERE id=1",
                     [],
                     |r| {
                         let enabled: i64 = r.get(0)?;
                         let days: i64 = r.get(1)?;
                         let paused: String = r.get(2)?;
+                        let last_check_in: String = r.get(3)?;
                         let status = if !paused.is_empty() {
                             "paused".to_string()
                         } else if enabled != 0 {
@@ -89,10 +94,16 @@ pub fn get(store: &Store) -> Result<Plan, DomainError> {
                         } else {
                             "off".to_string()
                         };
+                        let next_check_at = last_check_in
+                            .parse::<DateTime<FixedOffset>>()
+                            .map(|last| (last + Duration::days(days)).to_rfc3339())
+                            .unwrap_or_default();
                         Ok(Trigger {
                             mode: "dms".to_string(),
                             days,
                             status,
+                            last_check_in,
+                            next_check_at,
                         })
                     },
                 )
@@ -101,6 +112,8 @@ pub fn get(store: &Store) -> Result<Plan, DomainError> {
                     mode: "dms".to_string(),
                     days: 30,
                     status: "off".to_string(),
+                    last_check_in: String::new(),
+                    next_check_at: String::new(),
                 });
 
             Ok(Plan {
@@ -139,7 +152,7 @@ mod tests {
                     "INSERT INTO heirs (id,name,relation,is_executor,sort_order,created_at,updated_at) VALUES (1,'李四','配偶',1,1,'now','now')",
                     [],
                 )?;
-                conn.execute("UPDATE dms_config SET enabled=1, check_in_interval_days=45 WHERE id=1", [])?;
+                conn.execute("UPDATE dms_config SET enabled=1, check_in_interval_days=45, last_check_in='2026-11-01T00:00:00+00:00' WHERE id=1", [])?;
                 Ok(())
             })
             .unwrap();
@@ -148,5 +161,7 @@ mod tests {
         assert_eq!(plan.heirs[0].role, "executor");
         assert_eq!(plan.trigger.days, 45);
         assert_eq!(plan.trigger.status, "armed");
+        assert_eq!(plan.trigger.last_check_in, "2026-11-01T00:00:00+00:00");
+        assert!(plan.trigger.next_check_at.starts_with("2026-12-16"));
     }
 }

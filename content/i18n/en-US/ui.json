@@ -222,7 +222,7 @@
   "planning.trigger.status.off": "Off",
   "planning.trigger.status.armed": "Armed",
   "planning.trigger.status.paused": "Paused",
-  "planning.trigger.note": "Check-ins reset the trigger clock; read-only for now.",
+  "planning.trigger.note": "Check-in resets the trigger timer; enable/pause is controlled in security settings.",
   "settings.security.notConfigured": "Not configured",
   "settings.security.key.passphrase": "Passphrase",
   "nav.policies": "Policies",
@@ -384,5 +384,10 @@
   "automation.usage.unpriced": "{count} plans without pricing",
   "automation.usage.empty": "No planner usage yet",
   "run.status.cancelling": "Cancelling",
-  "runs.detail.cancelling": "Cancelling…"
+  "runs.detail.cancelling": "Cancelling…",
+  "planning.checkin.last": "LAST CHECK-IN",
+  "planning.checkin.next": "NEXT CHECK-IN",
+  "planning.checkin.action": "Check in",
+  "planning.checkin.acting": "Recording…",
+  "planning.checkin.done": "Checked in · {date}"
 }

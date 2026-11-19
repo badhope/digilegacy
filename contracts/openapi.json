@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.8.4-m4d",
+    "version": "0.8.5-m4e",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -2433,7 +2433,9 @@
             "required": [
               "mode",
               "days",
-              "status"
+              "status",
+              "lastCheckIn",
+              "nextCheckAt"
             ],
             "properties": {
               "mode": {
@@ -2443,6 +2445,12 @@
                 "type": "integer"
               },
               "status": {
+                "type": "string"
+              },
+              "lastCheckIn": {
+                "type": "string"
+              },
+              "nextCheckAt": {
                 "type": "string"
               }
             }

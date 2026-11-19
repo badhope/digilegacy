@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -10,11 +10,12 @@ import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
+import { platformClient } from "@/platform/client";
 import { loadPlan } from "./api";
 
 const router = useRouter();
 const { t, locale } = useI18n();
-const { data, loading, error, reload } = useResource(loadPlan);
+const { data, loading, error, reload, refresh } = useResource(loadPlan);
 
 const heirCount = computed(() => data.value?.heirs.length ?? 0);
 const triggerMode = computed(() => {
@@ -32,6 +33,29 @@ function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.valueOf())) return value;
   return new Intl.DateTimeFormat(locale.value, { year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
+const acting = ref(false);
+const actionError = ref("");
+const notice = ref("");
+
+async function checkIn() {
+  acting.value = true;
+  actionError.value = "";
+  notice.value = "";
+  try {
+    const envelope = await platformClient.checkin();
+    if (!envelope.success || !envelope.data) {
+      actionError.value = envelope.code === "AUTH_REQUIRED" ? t("runs.detail.tokenRequired") : envelope.message || envelope.code;
+      return;
+    }
+    notice.value = t("planning.checkin.done", { date: formatDate(envelope.data.checkedInAt) });
+    await refresh();
+  } catch (cause) {
+    actionError.value = cause instanceof Error ? cause.message : "check-in failed";
+  } finally {
+    acting.value = false;
+  }
 }
 </script>
 
@@ -105,9 +129,27 @@ function formatDate(value: string): string {
               <span>{{ triggerStatus }}</span>
             </div>
           </div>
+          <div class="trigger-meta">
+            <div>
+              <span>{{ t("planning.checkin.last") }}</span>
+              <strong class="mono">{{ formatDate(data.trigger.lastCheckIn) }}</strong>
+            </div>
+            <div>
+              <span>{{ t("planning.checkin.next") }}</span>
+              <strong class="mono">{{ formatDate(data.trigger.nextCheckAt) }}</strong>
+            </div>
+          </div>
           <div class="trigger-foot">
             <AppIcon name="clock" :size="15" />
             <span>{{ t("planning.trigger.note") }}</span>
+          </div>
+          <div class="trigger-action">
+            <AppButton variant="primary" size="sm" :disabled="acting" @click="checkIn">
+              {{ acting ? t("planning.checkin.acting") : t("planning.checkin.action") }}
+              <AppIcon name="check" :size="14" />
+            </AppButton>
+            <span v-if="notice" class="trigger-notice">{{ notice }}</span>
+            <span v-else-if="actionError" class="trigger-error">{{ actionError }}</span>
           </div>
         </SectionCard>
       </div>
@@ -264,6 +306,13 @@ function formatDate(value: string): string {
   background: var(--line);
 }
 
+.trigger-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.trigger-meta > div { display: grid; gap: 3px; }
+.trigger-meta span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
+.trigger-meta strong { font-size: 12px; font-weight: 500; }
+.trigger-action { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.trigger-notice { color: var(--accent-strong); font-size: 11px; }
+.trigger-error { color: var(--danger, #b54949); font-size: 11px; }
 .trigger-foot {
   display: flex;
   gap: 8px;

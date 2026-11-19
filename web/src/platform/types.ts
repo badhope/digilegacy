@@ -60,10 +60,16 @@ export interface Heir {
   role: string;
 }
 
+export interface CheckinResult {
+  checkedInAt: string;
+  nextCheckAt: string;
+  status: string;
+}
+
 export interface Plan {
   holder: { name: string; updatedAt: string };
   heirs: Heir[];
-  trigger: { mode: string; days: number; status: string };
+  trigger: { mode: string; days: number; status: string; lastCheckIn: string; nextCheckAt: string };
 }
 
 export type RunStatus = "queued" | "running" | "cancelling" | "waiting_approval" | "succeeded" | "failed" | "rejected" | "cancelled";

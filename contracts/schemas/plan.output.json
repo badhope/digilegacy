@@ -50,7 +50,9 @@
       "required": [
         "mode",
         "days",
-        "status"
+        "status",
+        "lastCheckIn",
+        "nextCheckAt"
       ],
       "properties": {
         "mode": {
@@ -60,6 +62,12 @@
           "type": "integer"
         },
         "status": {
+          "type": "string"
+        },
+        "lastCheckIn": {
+          "type": "string"
+        },
+        "nextCheckAt": {
           "type": "string"
         }
       }

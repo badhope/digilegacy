@@ -317,6 +317,24 @@ CLI  usage summary --days 30
 - 没有导出 CSV/账单的入口；当前是运行时查询。
 - `byDay` 使用 UTC 日期切分，跨时区账单口径需后续统一。
 
+### M4-E 规划签到闭环
+
+```text
+plan.get  -> trigger.lastCheckIn / nextCheckAt
+trigger.checkin -> check_in_log + dms_config.last_check_in + audit
+Web       -> 完成签到 + 成功提示 + 静默刷新
+```
+
+已验证：
+
+- 浏览器实测：未配置写令牌时签到返回 `AUTH_REQUIRED`，页面给出“需要写令牌”提示；写入 `test-write-token` 后签到成功，显示“已签到 · 2026/11/19”。
+- `plan.output` schema 与 Web `Plan` 类型同步；全仓 verify 通过。
+- 签到只记录/重置计时，不自动启用 DMS；启用仍由安全设置控制。
+
+未完成边界：
+
+- 触发链阶段时间线、邮件发件箱、暂停/恢复 UI 尚未实现。
+
 ### M4-D 运行中协作取消
 
 ```text
@@ -378,10 +396,10 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         107.99 KB / 110 KB
-JS gzip         89.58 KB / 90 KB
-CSS gzip        18.42 KB / 19 KB
-入口 raw        67.32 KB / 68 KB
+总 gzip         108.67 KB / 110 KB
+JS gzip         90.12 KB / 91 KB
+CSS gzip        18.55 KB / 19 KB
+入口 raw        67.83 KB / 68 KB
 vendor raw      98.89 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```

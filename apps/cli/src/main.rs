@@ -49,6 +49,11 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Trigger chain and check-in.
+    Trigger {
+        #[command(subcommand)]
+        command: TriggerCommand,
+    },
     /// Generate a deliverable export.
     Deliver {
         #[command(subcommand)]
@@ -256,6 +261,15 @@ enum DeliverCommand {
 }
 
 #[derive(Debug, Subcommand)]
+enum TriggerCommand {
+    /// Record a safety check-in and reset the trigger timer.
+    Checkin {
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum PoliciesCommand {
     /// Search policies by category and keyword.
     List {
@@ -455,6 +469,11 @@ fn main() -> ExitCode {
             ),
         },
         Commands::Plan { json: as_json } => run(&app, "plan.get", json!({}), as_json, false),
+        Commands::Trigger { command } => match command {
+            TriggerCommand::Checkin { json: as_json } => {
+                run(&app, "trigger.checkin", json!({}), as_json, true)
+            }
+        },
         Commands::Deliver { command } => match command {
             DeliverCommand::Export {
                 kind,

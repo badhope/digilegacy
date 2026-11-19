@@ -222,7 +222,7 @@
   "planning.trigger.status.off": "未启用",
   "planning.trigger.status.armed": "已布防",
   "planning.trigger.status.paused": "已暂停",
-  "planning.trigger.note": "触发计时由安全签到重置；当前只读展示。",
+  "planning.trigger.note": "签到会重置触发计时；启用/暂停由设置中的安全策略管理。",
   "settings.security.notConfigured": "未配置",
   "settings.security.key.passphrase": "主密码",
   "nav.policies": "政策库",
@@ -384,5 +384,10 @@
   "automation.usage.unpriced": "{count} 次规划未配置成本单价",
   "automation.usage.empty": "暂无规划用量",
   "run.status.cancelling": "取消中",
-  "runs.detail.cancelling": "取消中…"
+  "runs.detail.cancelling": "取消中…",
+  "planning.checkin.last": "上次签到",
+  "planning.checkin.next": "下次签到",
+  "planning.checkin.action": "完成签到",
+  "planning.checkin.acting": "记录中…",
+  "planning.checkin.done": "已签到 · {date}"
 }

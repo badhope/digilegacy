@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.5-m4e] - 2026-11-19
+
+### Added
+
+- `plan.get` 新增 `trigger.lastCheckIn` / `nextCheckAt`，由 `dms_config.last_check_in` 与等待天数推导。
+- 规划页“完成签到”：调用 `trigger.checkin`，成功提示并静默刷新；写令牌缺失时给出明确提示。
+- 签到页展示上次/下次签到时间与触发计时说明。
+
+### Changed
+
+- `plan.output` schema 触发链字段补齐；Web `Plan` 类型同步。
+- 版本 `0.8.5-m4e`。
+
+### Verification
+
+- Rust 119 项、Web 10 项通过；全仓 verify 通过。
+- 浏览器实测：无令牌时提示写令牌；带令牌签到成功并显示“已签到”时间。
+- 预算：入口 68 KB、JS gzip 91 KB、总 gzip 110 KB。
+
+### Known limits
+
+- 签到不会自动启用 DMS；启用/暂停仍由安全设置管理。
+- 尚无触发链阶段时间线/邮件发件箱界面。
+
 ## [0.8.4-m4d] - 2026-11-19
 
 ### Added

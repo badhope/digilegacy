@@ -199,7 +199,7 @@ function go(section: Section) {
           <div class="about-grid">
             <div class="about-item">
               <span class="mono">{{ t("settings.about.version") }}</span>
-              <strong>0.8.4-m4d</strong>
+              <strong>0.8.5-m4e</strong>
             </div>
             <div class="about-item">
               <span class="mono">{{ t("settings.about.contracts") }}</span>
