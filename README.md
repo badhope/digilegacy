@@ -31,12 +31,13 @@
 | SSE 事件流 / 任务取消 | 已做完（M3-I：运行与 Job snapshot、排队导出取消） |
 | Agent 用量账本 | 已做完（M4-A：规划器 token/成本落库，运行继承并展示） |
 | 用量汇总报表 | 已做完（M4-B：按日/模型汇总 token 与成本，运行数单独统计） |
+| 查询缓存与加载策略 | 已做完（M4-C：10s 读缓存、并发去重、写后按域失效、路由 hover 预取） |
 | Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
 | 后台任务队列 / 运行进度 | 已做完（M3-G：审批后台执行、`jobs.get`、运行耗时、Web 静默轮询） |
 | Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
 | 桌面 Tauri 窗口与托盘 | M3/M5 |
 
-当前版本：`0.8.2-m4b`。
+当前版本：`0.8.3-m4c`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
@@ -45,6 +46,8 @@ M2 已落地：`core/application` 用例层接 M1 Store；HTTP/CLI/MCP 共享同
 M2-B 已落地：政策库 schema v10 起步（当前 v12，28 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
 
 M3 已落地九段：政策溯源写、平台写令牌与资产新增/编辑、审计链查询、Agent 审批队列、确定性 Agent Runtime、M3-F 的规划器/取消/预算/重试、M3-G 的审批后台 Job 化/运行进度/耗时，M3-H 的交付物后台导出，以及 M3-I 的 SSE snapshot 事件流与排队任务取消。规划器接 OpenAI 兼容接口（默认 DeepSeek），只生成注册工具步骤；人工确认后再启动，写操作仍进审批。取消会把待审批置为 `expired`，重试会创建新运行并保留旧记录。HTTP 审批改为先落审批、再入 durable `jobs` 队列，批准请求毫秒级返回；Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏时暂停。
+
+M4-C 加载策略：平台读命令统一走 `queryCache`（默认 10 秒 TTL、同 key 并发去重、成功才缓存）；写命令按域失效 `assets/policies/agent.runs/agent.approvals/jobs/overview/agent.usage`，并统一失效审计。运行/Job 详情明确绕过缓存，SSE 与 1.5 秒兜底轮询保持实时。侧栏在 hover/focus 时预取目标路由 chunk，不改变首屏最小加载。
 
 M4-B 在账本上加汇总：`agent.usage.summary` 返回周期 totals、按日、按模型数据；token/成本只从 `agent_plan_log` 汇总，`agent_run_log` 只计运行数，避免运行继承 token 造成双计。HTTP `GET /api/v1/agent/usage`、CLI `usage summary`、Web 自动化页“用量”卡都走同一用例。
 
@@ -195,9 +198,10 @@ node tools/bench/web-budget.mjs
 
 M4 基线：
 
+- Web 测试 10 项（缓存 4 + 路由/页面 6）
 - Rust 测试 117 项：security 49、store 15、domains 14、application 16、agent 4、server 12、foundation 5、render 2（M4-B 全仓 verify 通过）
-- Web 总 gzip **107.63 KB / 110 KB**，JS gzip **89.21 KB / 90 KB**，CSS **18.42 KB / 19 KB**
-- 入口 chunk **65.66 KB raw / 66 KB**，vendor **98.89 KB raw / 130 KB**
+- Web 总 gzip **107.93 KB / 110 KB**，JS gzip **89.51 KB / 90 KB**，CSS **18.42 KB / 19 KB**
+- 入口 chunk **67.17 KB raw / 68 KB**，vendor **98.89 KB raw / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 
 ---

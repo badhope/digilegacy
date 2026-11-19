@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
+import { prefetchRoute } from "./router";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import type { IconName } from "@/shared/icons/paths";
 import AgentDrawer from "./AgentDrawer.vue";
@@ -26,10 +27,24 @@ const navItems: Array<{ path: string; labelKey: string; icon: IconName }> = [
 
 const currentTitle = computed(() => t(String(route.meta.titleKey ?? "nav.overview")));
 
+const prefetchNames: Record<string, string> = {
+  "/overview": "overview",
+  "/assets": "assets",
+  "/planning": "planning",
+  "/deliverables": "deliverables",
+  "/automation": "automation",
+  "/settings/workspace": "settings",
+};
+
 function isActive(path: string) {
   if (path === "/overview") return route.path === "/overview";
   if (path === "/assets") return route.path.startsWith("/assets") || route.path === "/policies";
   return route.path.startsWith(path);
+}
+
+function prefetch(path: string) {
+  const name = prefetchNames[path];
+  if (name) prefetchRoute(name);
 }
 
 function go(path: string) {
@@ -78,6 +93,8 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             class="rail-item"
             :class="{ active: isActive(item.path) }"
             :aria-current="isActive(item.path) ? 'page' : undefined"
+            @mouseenter="prefetch(item.path)"
+            @focus="prefetch(item.path)"
             @click="go(item.path)"
           >
             <span class="rail-icon"><AppIcon :name="item.icon" :size="17" /></span>
@@ -88,7 +105,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
       </div>
 
       <div class="rail-bottom">
-        <button type="button" class="workspace-card" @click="go('/settings/workspace')">
+        <button type="button" class="workspace-card" @mouseenter="prefetch('/settings/workspace')" @focus="prefetch('/settings/workspace')" @click="go('/settings/workspace')">
           <span class="workspace-dot" />
           <span>
             <strong>{{ t("app.workspace") }}</strong>
@@ -107,7 +124,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
         </button>
 
         <div class="rail-meta mono">
-          <span>v0.8.2</span>
+          <span>v0.8.3</span>
           <span>M3 / LIVE</span>
         </div>
       </div>

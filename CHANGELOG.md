@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.3-m4c] - 2026-11-19
+
+### Added
+
+- `queryCache`：读请求 10 秒 TTL、同 key 并发去重、成功才缓存、按域前缀失效。
+- 侧栏 hover/focus 路由 chunk 预取，保持首屏最小加载。
+- `queryCache` 4 项前端测试：TTL 命中、并发去重、失败不缓存、前缀失效。
+
+### Changed
+
+- `platformClient` 稳定读命令接入缓存；运行/Job 详情显式绕过缓存，避免轮询假实时。
+- 写命令按域失效 `assets/policies/agent.runs/agent.approvals/jobs/overview/agent.usage`，并统一失效 `audit`。
+- 版本 `0.8.3-m4c`。
+
+### Verification
+
+- Web 测试 10 项通过；Rust 117 项通过；全仓 verify 通过。
+- 预算：入口 68 KB、JS gzip 90 KB、总 gzip 110 KB。
+
+### Known limits
+
+- 外部 CLI/Agent 写入不会主动清浏览器缓存，仪表盘数据最多滞后 10 秒。
+- 运行中任务协作式取消仍未实现。
+
 ## [0.8.2-m4b] - 2026-11-19
 
 ### Added

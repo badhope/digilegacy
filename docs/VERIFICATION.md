@@ -317,6 +317,27 @@ CLI  usage summary --days 30
 - 没有导出 CSV/账单的入口；当前是运行时查询。
 - `byDay` 使用 UTC 日期切分，跨时区账单口径需后续统一。
 
+### M4-C 查询缓存与加载策略
+
+```text
+cachedQuery(key, loader, 10s)  ← 成功才缓存；同 key 并发共享 inflight
+platformClient.read(...)       ← 稳定列表/详情接入
+platformClient.write(...)      ← 成功后按域失效 + audit
+getRun/getJob                  ← 直接 invoke，不走缓存
+```
+
+已验证：
+
+- `queryCache.test.ts` 4 项：TTL 命中只调用一次、并发去重、失败不缓存、前缀失效。
+- 全仓 `npm test` 10 项通过（缓存 4 + 路由/页面 6）。
+- 路由 hover/focus 预取只加载目标 chunk，首屏仍只加载入口与概览。
+- 运行/Job 详情保留 SSE + 1.5 秒兜底轮询，缓存不介入。
+
+未完成边界：
+
+- 外部 CLI/Agent 写入不会主动通知浏览器缓存失效，仪表盘最多滞后 10 秒。
+- 未做统一广播总线；当前以 TTL 与页面内失效兜底。
+
 ### 未完成边界
 
 - 政策审核工作台与批量核对尚未做；政策溯源写已支持四态与审计。
@@ -334,10 +355,10 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         107.63 KB / 110 KB
-JS gzip         89.21 KB / 90 KB
+总 gzip         107.93 KB / 110 KB
+JS gzip         89.51 KB / 90 KB
 CSS gzip        18.42 KB / 19 KB
-入口 raw        65.66 KB / 66 KB
+入口 raw        67.17 KB / 68 KB
 vendor raw      98.89 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```

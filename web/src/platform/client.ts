@@ -1,6 +1,7 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
-import type { UsageSummary,  AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, JobDetail, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus } from "./types";
+import { cachedQuery, clearQueryCache, invalidateQuery, queryCacheKey } from "./queryCache";
+import type { UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, DeliverableExport, Envelope, JobDetail, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -63,39 +64,62 @@ async function invoke<T>(name: CommandName, args: Record<string, unknown> = {}):
   return envelope;
 }
 
+async function read<T>(name: CommandName, args: Record<string, unknown>, scope: string): Promise<Envelope<T>> {
+  return cachedQuery<T>(`${scope}:${queryCacheKey(name, args)}`, () => invoke<T>(name, args));
+}
+
+async function write<T>(
+  name: CommandName,
+  args: Record<string, unknown>,
+  scopes: string[],
+): Promise<Envelope<T>> {
+  const envelope = await invoke<T>(name, args);
+  if (envelope.success) {
+    for (const scope of scopes) invalidateQuery(scope);
+    invalidateQuery("audit");
+  }
+  return envelope;
+}
+
 export const platformClient = {
   commands: COMMANDS,
   useMock: USE_MOCK,
   getWriteToken: readWriteToken,
-  setWriteToken: persistWriteToken,
+  setWriteToken: (token: string) => {
+    persistWriteToken(token);
+    clearQueryCache();
+  },
 
-  getOverview: () => invoke<Overview>(COMMANDS.appOverview),
-  listAssets: (args: Record<string, unknown> = {}) => invoke<AssetsPage>(COMMANDS.assetsList, args),
-  getAsset: (id: string) => invoke<Asset>(COMMANDS.assetsGet, { id }),
-  createAsset: (args: Record<string, unknown>) => invoke<Asset>(COMMANDS.assetsCreate, args),
-  updateAsset: (args: Record<string, unknown>) => invoke<Asset>(COMMANDS.assetsUpdate, args),
-  getPlan: () => invoke<Plan>(COMMANDS.planGet),
-  listPolicies: (args: Record<string, unknown> = {}) => invoke<PoliciesPage>(COMMANDS.policiesList, args),
-  getPolicy: (id: string) => invoke<Policy>(COMMANDS.policiesGet, { id }),
+  getOverview: () => read<Overview>(COMMANDS.appOverview, {}, "overview"),
+  listAssets: (args: Record<string, unknown> = {}) => read<AssetsPage>(COMMANDS.assetsList, args, "assets"),
+  getAsset: (id: string) => read<Asset>(COMMANDS.assetsGet, { id }, "assets"),
+  createAsset: (args: Record<string, unknown>) =>
+    write<Asset>(COMMANDS.assetsCreate, args, ["assets", "overview"]),
+  updateAsset: (args: Record<string, unknown>) =>
+    write<Asset>(COMMANDS.assetsUpdate, args, ["assets", "overview"]),
+  getPlan: () => read<Plan>(COMMANDS.planGet, {}, "plan"),
+  listPolicies: (args: Record<string, unknown> = {}) => read<PoliciesPage>(COMMANDS.policiesList, args, "policies"),
+  getPolicy: (id: string) => read<Policy>(COMMANDS.policiesGet, { id }, "policies"),
   setPolicyProvenance: (args: { id: string; status: string; sourceUrl?: string; note?: string }) =>
-    invoke<Policy>(COMMANDS.policiesProvenanceSet, args),
+    write<Policy>(COMMANDS.policiesProvenanceSet, args, ["policies", "overview"]),
   exportDeliverable: (kind: string, locale = "zh-CN") =>
-    invoke<DeliverableExport>(COMMANDS.deliverExport, { kind, locale, wait: false }),
+    write<DeliverableExport>(COMMANDS.deliverExport, { kind, locale, wait: false }, ["jobs", "overview"]),
+  // Job/run detail is polled or streamed; never cache volatile progress.
   getJob: (id: string) => invoke<JobDetail>(COMMANDS.jobsGet, { id }),
-  cancelJob: (id: string) => invoke<JobDetail>(COMMANDS.jobsCancel, { id }),
+  cancelJob: (id: string) => write<JobDetail>(COMMANDS.jobsCancel, { id }, ["jobs"]),
   exportUrl: (path: string) => `${API_BASE}${path}`,
-  listRuns: (args: Record<string, unknown> = {}) => invoke<AgentRuns>(COMMANDS.agentRunsList, args),
+  listRuns: (args: Record<string, unknown> = {}) => read<AgentRuns>(COMMANDS.agentRunsList, args, "agent.runs"),
   getRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsGet, { id }),
-  usageSummary: (days = 30) => invoke<UsageSummary>(COMMANDS.agentUsageSummary, { days }),
+  usageSummary: (days = 30) => read<UsageSummary>(COMMANDS.agentUsageSummary, { days }, "agent.usage"),
   planRun: (task: string, maxSteps = 20) =>
-    invoke<RunPlan>(COMMANDS.agentRunsPlan, { task, maxSteps }),
+    write<RunPlan>(COMMANDS.agentRunsPlan, { task, maxSteps }, ["agent.usage", "agent.runs"]),
   startRun: (task: string, steps: Array<{ tool: string; args: Record<string, unknown> }>, maxSteps = 20, maxWriteSteps = 5, planId = "") =>
-    invoke<RunDetail>(COMMANDS.agentRunsStart, { task, steps, maxSteps, maxWriteSteps, ...(planId ? { planId } : {}) }),
-  cancelRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsCancel, { id }),
-  retryRun: (id: string) => invoke<RunDetail>(COMMANDS.agentRunsRetry, { id }),
-  getSecurity: () => invoke<SecurityStatus>(COMMANDS.securityStatus),
-  listAudit: (args: Record<string, unknown> = {}) => invoke<AuditPage>(COMMANDS.auditList, args),
-  listApprovals: (args: Record<string, unknown> = {}) => invoke<ApprovalPage>(COMMANDS.agentApprovalsList, args),
+    write<RunDetail>(COMMANDS.agentRunsStart, { task, steps, maxSteps, maxWriteSteps, ...(planId ? { planId } : {}) }, ["agent.runs", "agent.usage", "overview", "agent.approvals"]),
+  cancelRun: (id: string) => write<RunDetail>(COMMANDS.agentRunsCancel, { id }, ["agent.runs", "overview", "agent.approvals"]),
+  retryRun: (id: string) => write<RunDetail>(COMMANDS.agentRunsRetry, { id }, ["agent.runs", "overview", "agent.approvals"]),
+  getSecurity: () => read<SecurityStatus>(COMMANDS.securityStatus, {}, "security"),
+  listAudit: (args: Record<string, unknown> = {}) => read<AuditPage>(COMMANDS.auditList, args, "audit"),
+  listApprovals: (args: Record<string, unknown> = {}) => read<ApprovalPage>(COMMANDS.agentApprovalsList, args, "agent.approvals"),
   decideApproval: (id: string, decision: "approve" | "reject", reason = "") =>
-    invoke<Approval>(COMMANDS.agentApprovalsDecide, { id, decision, reason }),
+    write<Approval>(COMMANDS.agentApprovalsDecide, { id, decision, reason }, ["agent.approvals", "agent.runs", "overview"]),
 };

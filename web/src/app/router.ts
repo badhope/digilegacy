@@ -130,6 +130,14 @@ const routes: RouteRecordRaw[] = [
   },
 ];
 
+export function prefetchRoute(name: string): void {
+  const record = routes.find((route) => route.name === name);
+  const component = record?.component;
+  if (typeof component === "function") {
+    void (component as () => Promise<unknown>)().catch(() => undefined);
+  }
+}
+
 export const router = createRouter({
   history: createWebHistory(),
   routes,
