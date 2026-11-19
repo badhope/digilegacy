@@ -144,10 +144,10 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         87.25 KB / 110 KB
+总 gzip         87.30 KB / 110 KB
 入口 raw        48.77 KB / 60 KB
 vendor raw      98.88 KB / 130 KB
-路由最大 raw    7.09 KB / 24 KB
+路由最大 raw    7.01 KB / 24 KB
 ```
 
 ### 运行态 smoke

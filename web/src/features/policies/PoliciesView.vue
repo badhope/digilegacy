@@ -75,6 +75,10 @@ function statusTone(status: ProvenanceStatus): "ready" | "planned" | "degraded" 
   return "planned";
 }
 
+function safeUrl(value: string): string | null {
+  return /^https?:\/\//.test(value.trim()) ? value.trim() : null;
+}
+
 function splitList(value: string): string[] {
   return value
     .split(/[,，;；\n]/)
@@ -221,18 +225,18 @@ function splitList(value: string): string[] {
               <p class="mono">{{ selected.provenance.status }} · {{ selected.dataSource || selected.provenance.note }}</p>
               <div class="source-actions">
                 <a
-                  v-if="selected.officialPolicyUrl"
+                  v-if="safeUrl(selected.officialPolicyUrl)"
                   class="source-link"
-                  :href="selected.officialPolicyUrl"
+                  :href="safeUrl(selected.officialPolicyUrl)!"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   {{ t("policies.sourceOpen") }} <AppIcon name="external" :size="13" />
                 </a>
                 <a
-                  v-if="selected.inheritanceFormUrl"
+                  v-if="safeUrl(selected.inheritanceFormUrl)"
                   class="source-link"
-                  :href="selected.inheritanceFormUrl"
+                  :href="safeUrl(selected.inheritanceFormUrl)!"
                   target="_blank"
                   rel="noopener noreferrer"
                 >

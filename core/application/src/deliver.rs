@@ -323,18 +323,18 @@ fn build_body(
                     continue;
                 };
                 body.push_str(&policy_block(policy, &labels));
-                if !policy.inheritance_form_url.is_empty() {
+                if let Some(url) = safe_url(&policy.inheritance_form_url) {
                     body.push_str(&format!(
                         "<p><b>form</b> <a href=\"{}\">{}</a></p>",
-                        escape_html(&policy.inheritance_form_url),
-                        escape_html(&policy.inheritance_form_url)
+                        escape_html(url),
+                        escape_html(url)
                     ));
                 }
-                if !policy.official_policy_url.is_empty() {
+                if let Some(url) = safe_url(&policy.official_policy_url) {
                     body.push_str(&format!(
                         "<p><b>policy</b> <a href=\"{}\">{}</a></p>",
-                        escape_html(&policy.official_policy_url),
-                        escape_html(&policy.official_policy_url)
+                        escape_html(url),
+                        escape_html(url)
                     ));
                 }
             }
@@ -353,6 +353,15 @@ fn build_body(
         labels.provenance
     ));
     Ok((title, body))
+}
+
+fn safe_url(url: &str) -> Option<&str> {
+    let value = url.trim();
+    if value.starts_with("https://") || value.starts_with("http://") {
+        Some(value)
+    } else {
+        None
+    }
 }
 
 fn hash(bytes: &[u8]) -> String {
