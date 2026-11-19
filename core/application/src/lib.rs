@@ -5,7 +5,7 @@
 
 #![forbid(unsafe_code)]
 
-use digilegacy_domains::{assets, overview, plan, policy, runs, DomainError};
+use digilegacy_domains::{assets, audit, overview, plan, policy, runs, DomainError};
 use serde_json::{json, Value};
 
 pub mod deliver;
@@ -67,6 +67,7 @@ impl Application {
     pub fn dispatch(&self, name: &str, args: Value) -> Result<Value, PlatformError> {
         match name {
             "app.overview" => self.overview(),
+            "audit.list" => self.audit_list(args),
             "assets.list" => self.assets_list(args),
             "assets.get" => self.assets_get(args),
             "assets.create" => self.assets_create(args),
@@ -149,6 +150,12 @@ impl Application {
         policy::get(&self.store, id.trim_matches('"'))
             .map(|data| json!(data))
             .map_err(map_domain)
+    }
+
+    pub fn audit_list(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: audit::ListInput = parse(args)?;
+        let page = audit::page(&self.store, &input).map_err(map_domain)?;
+        Ok(json!(page))
     }
 
     pub fn policies_set_provenance(&self, args: Value) -> Result<Value, PlatformError> {

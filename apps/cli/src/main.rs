@@ -59,6 +59,11 @@ enum Commands {
         #[command(subcommand)]
         command: PoliciesCommand,
     },
+    /// Audit hash-chain records.
+    Audit {
+        #[command(subcommand)]
+        command: AuditCommand,
+    },
     /// Security status summary.
     Security {
         #[command(subcommand)]
@@ -186,6 +191,21 @@ enum PoliciesCommand {
         source_url: String,
         #[arg(long, default_value = "")]
         note: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum AuditCommand {
+    /// List audit records (newest first).
+    List {
+        #[arg(long, default_value = "")]
+        kind: String,
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+        #[arg(long)]
+        cursor: Option<String>,
         #[arg(long)]
         json: bool,
     },
@@ -357,6 +377,20 @@ fn main() -> ExitCode {
                 &app,
                 "policies.provenance.set",
                 json!({ "id": id, "status": status, "sourceUrl": source_url, "note": note }),
+                as_json,
+                false,
+            ),
+        },
+        Commands::Audit { command } => match command {
+            AuditCommand::List {
+                kind,
+                limit,
+                cursor,
+                json: as_json,
+            } => run(
+                &app,
+                "audit.list",
+                json!({ "kind": kind, "limit": limit, "cursor": cursor }),
                 as_json,
                 false,
             ),

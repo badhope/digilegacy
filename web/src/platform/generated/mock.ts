@@ -55,6 +55,39 @@ const MOCK_DATA: Record<string, unknown> = {
       }
     ]
   },
+  "audit.list": {
+    "items": [
+      {
+        "id": "3",
+        "at": "2026-11-19T06:07:30+00:00",
+        "kind": "asset.update",
+        "subject": "3",
+        "outcome": "ok",
+        "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "prevHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      {
+        "id": "2",
+        "at": "2026-11-19T06:04:17+00:00",
+        "kind": "asset.create",
+        "subject": "3",
+        "outcome": "ok",
+        "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "prevHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      {
+        "id": "1",
+        "at": "2026-11-19T06:02:27+00:00",
+        "kind": "policy.provenance.set",
+        "subject": "1",
+        "outcome": "ok",
+        "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "prevHash": ""
+      }
+    ],
+    "nextCursor": null,
+    "total": 3
+  },
   "assets.list": {
     "items": [
       {

@@ -131,6 +131,49 @@ impl Store {
         })
     }
 
+    /// Read one audit page, newest first, optionally filtered by kind.
+    pub fn audit_page(
+        &self,
+        limit: i64,
+        cursor: Option<i64>,
+        kind: Option<&str>,
+    ) -> Result<Vec<AuditEntry>> {
+        let limit = limit.clamp(1, 100);
+        self.read(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, at, kind, subject, outcome, detail_enc, prev_hash, hash
+                 FROM audit_log
+                 WHERE (?1 IS NULL OR id < ?1)
+                   AND (?2 IS NULL OR kind = ?2)
+                 ORDER BY id DESC LIMIT ?3",
+            )?;
+            let rows = stmt.query_map(rusqlite::params![cursor, kind, limit], |r| {
+                Ok(AuditEntry {
+                    id: r.get(0)?,
+                    at: r.get(1)?,
+                    kind: r.get(2)?,
+                    subject: r.get(3)?,
+                    outcome: r.get(4)?,
+                    detail_enc: r.get(5)?,
+                    prev_hash: r.get(6)?,
+                    hash: r.get(7)?,
+                })
+            })?;
+            rows.collect()
+        })
+    }
+
+    pub fn audit_count(&self, kind: Option<&str>) -> Result<i64> {
+        self.read(|conn| {
+            let count = conn.query_row(
+                "SELECT COUNT(*) FROM audit_log WHERE (?1 IS NULL OR kind = ?1)",
+                rusqlite::params![kind],
+                |r| r.get(0),
+            )?;
+            Ok(count)
+        })
+    }
+
     pub fn audit_entries(&self, limit: i64) -> Result<Vec<AuditEntry>> {
         self.read(|conn| {
             let mut stmt = conn.prepare(
@@ -178,6 +221,20 @@ mod tests {
         assert_eq!(v.checked, 3);
         assert_eq!(v.broken_at, None);
         assert_eq!(store.audit_entries(2).unwrap().len(), 2);
+
+        let page = store.audit_page(2, None, None).unwrap();
+        assert_eq!(
+            page.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+            vec![3, 2]
+        );
+        let older = store.audit_page(2, Some(2), None).unwrap();
+        assert_eq!(
+            older.iter().map(|entry| entry.id).collect::<Vec<_>>(),
+            vec![1]
+        );
+        let assets = store.audit_page(10, None, Some("asset.create")).unwrap();
+        assert_eq!(assets.len(), 1);
+        assert_eq!(store.audit_count(Some("asset.update")).unwrap(), 1);
     }
 
     #[test]

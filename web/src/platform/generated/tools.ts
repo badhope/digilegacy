@@ -13,6 +13,7 @@ export interface ToolCatalogItem {
 
 export const TOOL_CATALOG: ToolCatalogItem[] = [
   { name: "overview.get", title: "读取平台概览", description: "读取完成度、待办、审批数与运行态摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "app.overview" },
+  { name: "audit.list", title: "读取审计记录", description: "按时间倒序分页读取平台审计哈希链，可按事件类型过滤；只读。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "audit.list" },
   { name: "assets.list", title: "列出资产", description: "按状态与关键词列出资产，返回游标分页结果。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "assets.list" },
   { name: "assets.get", title: "读取资产详情", description: "按资产 ID 读取完整字段。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "assets.get" },
   { name: "plan.get", title: "读取规划", description: "读取持有人、继承人与触发链摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "plan.get" },

@@ -16,7 +16,7 @@ use axum::{
     Router,
 };
 use digilegacy_application::Application;
-use digilegacy_domains::{assets, policy};
+use digilegacy_domains::{assets, audit, policy};
 use digilegacy_foundation::{Envelope, Permission, PlatformError};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -78,6 +78,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/health", get(health))
         .route("/api/v1/commands", get(commands))
         .route("/api/v1/overview", get(overview))
+        .route("/api/v1/audit", get(audit_list))
         .route("/api/v1/assets", get(assets_list))
         .route("/api/v1/assets/{id}", get(asset_get))
         .route("/api/v1/plan", get(plan_get))
@@ -119,6 +120,13 @@ async fn commands() -> Json<Envelope<Value>> {
 
 async fn overview(State(state): State<AppState>) -> impl IntoResponse {
     dispatch(&state, "app.overview", json!({}), None)
+}
+
+async fn audit_list(
+    State(state): State<AppState>,
+    Query(input): Query<audit::ListInput>,
+) -> impl IntoResponse {
+    dispatch(&state, "audit.list", json!(input), None)
 }
 
 async fn invoke(
@@ -389,6 +397,17 @@ mod tests {
         let data = envelope.0.data.clone().unwrap();
         assert_eq!(data["total"], 0);
         assert!(data["items"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn audit_list_is_readable_and_paginated() {
+        let state = test_app();
+        let (status, envelope) = dispatch(&state, "audit.list", json!({ "limit": 2 }), None);
+        assert_eq!(status, StatusCode::OK);
+        assert!(envelope.success);
+        let page = envelope.0.data.unwrap();
+        assert!(page["items"].is_array());
+        assert!(page["total"].as_i64().unwrap() >= 0);
     }
 
     #[test]

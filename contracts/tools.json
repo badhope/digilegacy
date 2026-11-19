@@ -20,6 +20,24 @@
       "rate_limit": "60/min"
     },
     {
+      "name": "audit.list",
+      "title": "读取审计记录",
+      "description": "按时间倒序分页读取平台审计哈希链，可按事件类型过滤；只读。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/audit.list.input.json",
+      "output_schema": "schemas/audit.page.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "audit.list",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "120/min"
+    },
+    {
       "name": "assets.list",
       "title": "列出资产",
       "description": "按状态与关键词列出资产，返回游标分页结果。",

@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 pub mod assets;
+pub mod audit;
 pub mod overview;
 pub mod plan;
 pub mod policy;

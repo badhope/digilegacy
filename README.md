@@ -29,7 +29,7 @@
 | 交付物导出 | 已做完（M2-B HTML 报告/清单/法律文本/工具包 + HTTP 下载） |
 | 桌面 Tauri 窗口与托盘 | M3/M5 |
 
-当前版本：`0.7.3-m3b`。
+当前版本：`0.7.4-m3c`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
@@ -39,7 +39,7 @@ M2-B 已落地：政策库 schema v10（27 表）、152 条平台政策与独立
 
 M3 第一切片已落地：`policies.provenance.set` 写命令、`PATCH /api/v1/policies/{id}/provenance`、CLI `policies provenance`、Web 溯源编辑器与审计记录；状态仍按人工核对结果写入，不伪造核实。
 
-契约规模：**16 个命令、13 个工具、22 个 schema、19 个错误码**。
+契约规模：**17 个命令、14 个工具、24 个 schema、19 个错误码**。
 
 ---
 
@@ -182,9 +182,9 @@ node tools/bench/web-budget.mjs
 
 M3 基线：
 
-- Rust 测试 95 项：security 49、store 15、domains 10、application 5、server 9、foundation 5、render 2（全仓 verify 通过）
-- Web 总 gzip **91.66 KB / 110 KB**
-- 入口 chunk **53.50 KB raw / 60 KB**，vendor **98.88 KB raw / 130 KB**
+- Rust 测试 97 项：security 49、store 15、domains 11、application 5、server 10、foundation 5、render 2（全仓 verify 通过）
+- Web 总 gzip **92.65 KB / 110 KB**
+- 入口 chunk **54.24 KB raw / 60 KB**，vendor **98.88 KB raw / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 
 ---

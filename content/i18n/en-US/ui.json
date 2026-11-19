@@ -151,7 +151,7 @@
   "error.unsupported": "This capability is not connected yet",
   "error.generic": "Request failed. Try again later.",
   "app.workspace": "Single workspace",
-  "app.workspace.note": "M2 · API platform",
+  "app.workspace.note": "M3 · API platform",
   "topbar.menu": "Menu",
   "agent.drawer.title": "Agent workbench",
   "agent.drawer.subtitle": "Read tools are ready; writes require approval.",
@@ -206,7 +206,7 @@
   "settings.tab.security.note": "Lock state and recovery config come from the server Store; key material never leaves it.",
   "settings.tab.connections.note": "M5 connects LLM, policy, mail and heartbeat providers.",
   "settings.tab.data.note": "M1 adds backup, checkpoints and migration.",
-  "settings.tab.audit.note": "M1 adds the audit chain and export.",
+  "settings.tab.audit.note": "Platform audit hash chain, newest first; each record links to the previous hash.",
   "command.nav": "Navigation",
   "settings.security.locked": "Lock state",
   "settings.security.locked.yes": "Locked",
@@ -296,5 +296,10 @@
   "assets.edit.open": "Edit asset",
   "assets.edit.title": "Edit asset",
   "assets.edit.save": "Save changes",
-  "asset.detail.basic.note": "Name, kind, platform, value and note live in the platform store; edits write through the Platform API and are audited."
+  "asset.detail.basic.note": "Name, kind, platform, value and note live in the platform store; edits write through the Platform API and are audited.",
+  "settings.audit.kind": "Event kind",
+  "settings.audit.time": "Time",
+  "settings.audit.subject": "Subject",
+  "settings.audit.outcome": "Outcome",
+  "settings.audit.count": "{count} records"
 }

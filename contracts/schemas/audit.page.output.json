@@ -1,0 +1,26 @@
+{
+  "title": "AuditPage",
+  "type": "object",
+  "required": ["items", "total"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "at", "kind", "subject", "outcome", "hash", "prevHash"],
+        "properties": {
+          "id": { "type": "string" },
+          "at": { "type": "string" },
+          "kind": { "type": "string" },
+          "subject": { "type": "string" },
+          "outcome": { "type": "string" },
+          "hash": { "type": "string" },
+          "prevHash": { "type": "string" }
+        }
+      }
+    },
+    "nextCursor": { "type": ["string", "null"] },
+    "total": { "type": "integer" }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

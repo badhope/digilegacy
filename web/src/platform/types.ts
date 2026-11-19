@@ -134,3 +134,19 @@ export interface SecurityStatus {
   keySource: "os" | "passphrase" | "unknown";
   lastBackupAt: string;
 }
+
+export interface AuditItem {
+  id: string;
+  at: string;
+  kind: string;
+  subject: string;
+  outcome: string;
+  hash: string;
+  prevHash: string;
+}
+
+export interface AuditPage {
+  items: AuditItem[];
+  nextCursor: string | null;
+  total: number;
+}

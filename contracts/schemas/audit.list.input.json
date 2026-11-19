@@ -1,0 +1,11 @@
+{
+  "title": "AuditListInput",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "cursor": { "type": ["string", "null"], "default": null },
+    "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 },
+    "kind": { "type": ["string", "null"], "default": null }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

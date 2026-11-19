@@ -20,6 +20,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: false,
     },
     CommandSpec {
+        name: "audit.list",
+        domain: "audit",
+        permission: "read",
+        http: "GET /api/v1/audit",
+        requires_unlock: false,
+        audit: false,
+    },
+    CommandSpec {
         name: "assets.list",
         domain: "assets",
         permission: "read",

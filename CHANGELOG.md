@@ -2,6 +2,27 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.4-m3c] - 2026-11-19
+
+### Added
+
+- `audit.list`（read）：按 id 倒序分页读取审计哈希链，支持 `cursor` 与 `kind` 过滤，返回 `items/nextCursor/total`。
+- Store 新增 `audit_page` / `audit_count`，不在 Application 或 HTTP 层重复拼接 SQL。
+- HTTP `GET /api/v1/audit`；CLI `audit list --kind --limit --cursor`；MCP 工具由契约生成。
+- Web 设置 → 审计：事件类型过滤、总数、时间/类型/对象/结果/hash 前缀表。
+
+### Changed
+
+- 契约扩至 17 命令 / 14 工具 / 24 schema / 19 错误码；`arch-check` 同步。
+- 版本 `0.7.4-m3c`。
+
+### Verification
+
+- `core/domains` 11 tests；`apps/server` 10 tests；全仓 `./tools/verify.sh` 通过（`/tmp/digilegacy-verify-m3c.log`）。
+- HTTP `GET /api/v1/audit?limit=2` 返回 14 条总数与 `nextCursor=13`；`kind=asset.update` 返回 1 条。
+- Web 设置 → 审计显示 14 条真实记录与 hash 前缀；筛选下拉可用。
+- Web 总 gzip **92.65 KB / 110 KB**，入口 **54.24 KB / 60 KB**，vendor **98.88 KB / 130 KB**。
+
 ## [0.7.3-m3b] - 2026-11-19
 
 ### Added

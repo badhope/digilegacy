@@ -44,7 +44,7 @@ M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真
 
 | crate | 职责 | M2 状态 |
 |---|---|---|
-| `apps/server` | axum Platform API | health/commands + 真实读接口；`write` 命令 Bearer token 门禁；`draft` 按契约开放 |
+| `apps/server` | axum Platform API | health/commands + 真实读接口；`write` 命令 Bearer token 门禁；`draft` 按契约开放；`audit.list` 读哈希链 |
 | `apps/cli` | 本地命令入口 | 真实 overview/assets/plan/security/runs；写入 `--allow-write` |
 | `apps/mcp` | stdio JSON-RPC | initialize/tools list；tools/call 接真实只读用例 |
 | `apps/desktop` | 桌面入口 | JSON 空壳，Tauri 留到 M3/M5 |
@@ -150,6 +150,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M2-B**：schema v10（27 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
 - **M3 第一切片**：`policies.provenance.set` 允许 `unverified/source_cited/verified/disputed` 四态，来源为空回退官方 URL，写 `policy_provenance` 并追加审计 `policy.provenance.set`；HTTP `PATCH /api/v1/policies/{id}/provenance`，CLI `policies provenance`，Web 在详情内编辑。
 - **M3-B**：HTTP `write` Bearer token（`DIGILEGACY_API_TOKEN`）；Web 连接设置存 `sessionStorage` 并只对 `write` 命令附加；资产新增/编辑表单接 `assets.create/update`，写后刷新列表并留审计。
+- **M3-C**：`audit.list` 读审计链（游标 + 类型过滤），HTTP `GET /api/v1/audit`，CLI `audit list`，Web 设置审计页显示时间/类型/对象/结果/hash 前缀。
 - **数据归属**：单工作区抽象保留 `workspaces`，27 张表按领域拆；资产与政策各维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。

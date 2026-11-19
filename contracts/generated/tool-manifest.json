@@ -16,6 +16,22 @@
     "bulkThreshold": null
   },
   {
+    "name": "audit.list",
+    "command": "audit.list",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/audit.list.input.json",
+    "outputSchema": "schemas/audit.page.output.json",
+    "rateLimit": "120/min",
+    "bulkThreshold": null
+  },
+  {
     "name": "assets.list",
     "command": "assets.list",
     "permission": "read",

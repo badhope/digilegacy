@@ -19,6 +19,47 @@
     }
   },
   {
+    "name": "audit.list",
+    "title": "读取审计记录",
+    "description": "按时间倒序分页读取平台审计哈希链，可按事件类型过滤；只读。",
+    "inputSchema": {
+      "title": "AuditListInput",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "audit.list"
+    }
+  },
+  {
     "name": "assets.list",
     "title": "列出资产",
     "description": "按状态与关键词列出资产，返回游标分页结果。",

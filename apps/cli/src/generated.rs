@@ -2,6 +2,7 @@
 
 pub const COMMAND_LINES: &[&str] = &[
     "overview",
+    "audit list",
     "assets list",
     "assets get",
     "assets create",

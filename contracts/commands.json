@@ -26,6 +26,30 @@
       ]
     },
     {
+      "name": "audit.list",
+      "domain": "audit",
+      "summary": "分页读取审计哈希链记录",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/audit.list.input.json",
+      "output": "schemas/audit.page.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "audit list",
+        "http": "GET /api/v1/audit",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "assets.list",
       "domain": "assets",
       "summary": "按状态与关键词列出资产，游标分页",

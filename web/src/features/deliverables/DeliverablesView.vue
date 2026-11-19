@@ -87,7 +87,7 @@ async function generate(kind: string) {
             <AppIcon name="plus" :size="14" />
             {{ busy === kind.kind ? t("deliverables.generating") : t("deliverables.generate") }}
           </AppButton>
-          <span class="deliverable-meta mono">M2 / LIVE</span>
+          <span class="deliverable-meta mono">M3 / LIVE</span>
         </div>
       </article>
     </div>
