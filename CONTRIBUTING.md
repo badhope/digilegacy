@@ -7,7 +7,7 @@ DigiLegacy 是契约先行的平台项目。改动业务能力时，先改契约
 - 读 [平台定位](docs/POSITIONING.md)、[架构说明](docs/ARCHITECTURE.md)、[验收与门禁](docs/VERIFICATION.md)。
 - 确认改动属于哪个领域、哪个模块、哪个命令。
 - 新的业务能力先走 RFC，再落到 `contracts/`。
-- 不要从 `legacy/` 直接拷贝代码；只允许按 M1 迁移清单逐模块迁入，并补测试。
+- 旧版源码已删除；新能力只在 `core/`、`apps/`、`web/` 内实现，按契约与模块边界落地并补测试。
 
 ## 2. 契约规则
 

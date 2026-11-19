@@ -9,7 +9,7 @@
 - Web 负责：让人看见同一份数据、完成审批与编辑。
 - 本地部署不是卖点；平台主要接 API，本地只是部署形态之一。
 
-旧版应用不作为新架构的一部分保留。旧路由全部 404，不做兼容重定向。旧源码暂存在 `legacy/`，仅用于 M1 迁移安全内核与领域规则，不参与新构建。
+旧版应用已整体删除，不再作为新架构的一部分保留。旧路由全部 404，不做兼容重定向；安全内核与领域规则已按模块迁入并有测试覆盖。
 
 ---
 
@@ -19,7 +19,7 @@
 |---|---|
 | 仓库重组 | 已做完 |
 | 契约单一事实源 + 生成器 | 已做完 |
-| Rust workspace + 四入口空壳 | 已做完 |
+| Rust workspace + 三入口空壳（server/CLI/MCP） | 已做完 |
 | Web 控制台壳（5 主入口 + 设置工具区） | 已做完 |
 | 架构测试 / 性能基线 / CI / verify 脚本 | 已做完 |
 | 工程治理文档与模板 | 已做完 |
@@ -39,7 +39,7 @@
 | Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
 | 桌面 Tauri 窗口与托盘 | M3/M5 |
 
-当前版本：`0.8.5-m4e`。
+当前版本：`0.8.6-m4f`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
@@ -100,7 +100,7 @@ core/
   foundation/      信封、错误、权限、CommandBus、trace id
   contracts/       生成后的命令/错误表
   security/        Vault 生命周期、恢复、备份、文件 KEK
-  store/           SQLCipher、schema v9、迁移、检查点、审计
+  store/           SQLCipher、schema v13、迁移、检查点、审计
   domains/         DOM-01..07 领域清单
   integrations/    邮件、云盘、LLM 等连接边界
   agent/           Run / Approval 状态机
@@ -109,13 +109,11 @@ apps/
   server/          axum Platform API
   cli/             clap 本地入口
   mcp/             stdio MCP server
-  desktop/         桌面空壳（M3/M5 接 Tauri）
 web/               Vue 3 + Vite 控制台
 contracts/         commands/tools/errors/schemas/mocks/openapi
 content/           i18n 文案
 tools/             生成器、架构门禁、性能基线、verify
 docs/              定位、架构、验收、ADR、RFC、v1.2 计划
-legacy/            旧应用迁移参考，不参与新构建
 ```
 
 ### 五个主入口
@@ -205,7 +203,7 @@ node tools/bench/web-budget.mjs
 M4 基线：
 
 - Web 测试 10 项（缓存 4 + 路由/页面 6）
-- Rust 测试 119 项：security 49、store 15、domains 14、application 18、agent 4、server 12、foundation 5、render 2（M4-E 全仓 verify 通过）
+- Rust 测试 119 项：security 49、store 15、domains 14、application 18、agent 4、server 12、foundation 5、render 2（M4-F 全仓 verify 通过）
 - Web 总 gzip **108.67 KB / 110 KB**，JS gzip **90.12 KB / 91 KB**，CSS **18.55 KB / 19 KB**
 - 入口 chunk **67.83 KB raw / 68 KB**，vendor **98.89 KB raw / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）

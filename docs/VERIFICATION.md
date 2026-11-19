@@ -317,6 +317,22 @@ CLI  usage summary --days 30
 - 没有导出 CSV/账单的入口；当前是运行时查询。
 - `byDay` 使用 UTC 日期切分，跨时区账单口径需后续统一。
 
+### M4-F 旧代码清退
+
+```text
+删除 legacy/（旧桌面端、旧文档、旧脚本、旧截图、node_modules）
+删除 apps/desktop（桌面空壳）
+workspace members 13 -> 12
+```
+
+已验证：
+
+- `legacy/` 不再存在；`git ls-files legacy` 为空；`apps/desktop` 不再存在。
+- `./tools/verify.sh` exit 0，119 Rust + 10 Web 通过；架构门禁 workspace members=12。
+- 契约计数不变：26 命令 / 18 工具 / 33 schema / 19 错误码。
+- 预算：入口 68 KB、JS gzip 91 KB、CSS 19 KB、总 gzip 110 KB。
+- `legacy_import` 保留，作为旧备份导入能力，不属于旧应用代码。
+
 ### M4-E 规划签到闭环
 
 ```text
@@ -431,7 +447,7 @@ M0 可以判定“工程壳完成”的条件：
 
 - [x] 新仓库结构可编译
 - [x] 契约单一事实源可生成、可校验
-- [x] 四入口空壳可启动/可调用
+- [x] 三入口空壳可启动/可调用（server/CLI/MCP）
 - [x] Web 可启动、可浏览 5 主入口
 - [x] 旧路由 404
 - [x] 架构门禁与 bundle 预算

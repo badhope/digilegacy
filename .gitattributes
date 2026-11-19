@@ -23,13 +23,7 @@
 
 # Lockfiles: generated, but reviewed when dependency changes are intentional
 package-lock.json linguist-generated=true
-digilegacy/src-tauri/Cargo.lock linguist-generated=true
 
 # Vendored / generated directories are excluded from language statistics
 node_modules/** linguist-vendored
-digilegacy/dist/** linguist-generated
-digilegacy/coverage/** linguist-generated
-digilegacy/coverage-e2e/** linguist-generated
-digilegacy/src-tauri/target/** linguist-generated
-digilegacy/src-tauri/gen/** linguist-generated
 docs/demo/** linguist-generated

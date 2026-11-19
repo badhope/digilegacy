@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.6-m4f] - 2026-11-19
+
+### Removed
+
+- 删除 `legacy/` 整个旧应用目录（280 个 tracked 文件，本地约 390MB），不再保留旧源码、旧文档、旧脚本、旧截图。
+- 删除 `apps/desktop` 桌面空壳入口；工作区从 13 个成员收敛到 12 个，产品明确为 API-first 平台，只保留 server/CLI/MCP/Web。
+- 清理 `.gitignore`、`.gitattributes` 中旧 `digilegacy/src-tauri`、旧 e2e、旧桌面产物路径。
+- 更新 README、ARCHITECTURE、CONTRIBUTING、SECURITY、ADR-0004 与计划文档中“legacy 暂存参考”的表述。
+
+### Kept
+
+- `legacy_import` 保留：它是旧备份导入能力，不是旧应用代码；用于 v4/v5 备份迁移，有独立测试。
+
+### Verification
+
+- Rust 119 项、Web 10 项通过；`./tools/verify.sh` exit 0，日志 `/tmp/digilegacy-verify-m4f.log`。
+- 工作区 12 个成员；契约 26 命令 / 18 工具 / 33 schema / 19 错误码不变。
+- 预算：入口 68 KB、JS gzip 91 KB、CSS 19 KB、总 gzip 110 KB。
+- `legacy` 目录和 `apps/desktop` 已不再存在。
+
 ## [0.8.5-m4e] - 2026-11-19
 
 ### Added

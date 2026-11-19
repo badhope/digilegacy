@@ -41,14 +41,13 @@ M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真
 | `core/agent` | Run/Approval 状态机 | 枚举 |
 | `core/render` | 纯函数文档渲染 | 已实现 |
 
-### apps（4）
+### apps（3）
 
 | crate | 职责 | M2 状态 |
 |---|---|---|
 | `apps/server` | axum Platform API | health/commands + 真实读接口；`write` 命令 Bearer token 门禁；`draft` 按契约开放；`audit.list` 读哈希链 |
 | `apps/cli` | 本地命令入口 | 真实 overview/assets/plan/security/runs；写入 `--allow-write` |
 | `apps/mcp` | stdio JSON-RPC | initialize/tools list；tools/call 接真实只读用例 |
-| `apps/desktop` | 桌面入口 | JSON 空壳，Tauri 留到 M3/M5 |
 
 ## 3. 依赖方向
 
@@ -146,7 +145,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 ## 7. 安全与数据边界
 
 - **M0**：`core/security`、`core/store` 只有边界；Web 使用 mock；不声称已加密。
-- **M1**：从 `legacy/app/src-tauri` 按模块迁入加密、Vault、恢复、备份、DB，不重写算法。
+- **M1**：从旧桌面端按模块迁入加密、Vault、恢复、备份、DB，不重写算法；迁移完成后旧源码已删除。
 - **M2**：`core/application` 统一用例分派；入口只做权限/传输；Web 读真实 API，资产筛选服务端化。
 - **M2-B**：schema v10 起步（当前 v11，27 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
 - **M3 第一切片**：`policies.provenance.set` 允许 `unverified/source_cited/verified/disputed` 四态，来源为空回退官方 URL，写 `policy_provenance` 并追加审计 `policy.provenance.set`；HTTP `PATCH /api/v1/policies/{id}/provenance`，CLI `policies provenance`，Web 在详情内编辑。
@@ -157,6 +156,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M3-F**：`agent.runs.plan` 用 OpenAI 兼容接口（默认 DeepSeek，`DIGILEGACY_LLM_BASE_URL/API_KEY/MODEL`）把任务拆成注册工具步骤，只返回计划、不执行；Web 人工确认后再 `start`。`agent.runs.cancel` 终止未终态运行并把待审批置 `expired`；`agent.runs.retry` 为 failed/rejected/cancelled 运行创建新运行并保留旧记录；`maxSteps/maxWriteSteps` 在启动前做静态预算校验。
 - **M3-G**：HTTP 审批改为后台执行：`approvals_decide(background=true)` 只更新审批状态、写 `agent.approval.decide` 审计、把 `agent.resume` 入 durable `jobs` 队列并返回 `jobId`；server 启动单进程 Worker，250ms 轮询、回收超过 120 秒的 `running` 僵尸任务。`jobs.get` 提供状态/进度/结果/错误的统一读取；`agent_run_log` 增加 `duration_ms`（schema v11，仍 27 表）。Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏暂停；审批页显示“后台执行 + jobId + 查看运行”。
 - **M3-H**：`deliver.export` 支持 `wait=false`：HTTP/Web 入队 `jobs`（kind=`deliver.export`）并立即返回 `jobId`；Worker 调 `deliver::run_job` 生成 HTML、写 `deliverable_exports`，由 `jobs::finish` 标记成功；失败落 `error_code`。Web 交付页 1.5 秒轮询 `jobs.get`，完成后显示下载；CLI 默认同步，`--background` 可入队。`requeue_stale` 同时回收 `agent.resume` 与 `deliver.export`。
+- **M4-F**：删除 `legacy/` 旧应用与 `apps/desktop` 空壳，工作区收敛为 12 个成员；平台只保留 server/CLI/MCP/Web 入口。旧备份导入 `legacy_import` 作为迁移能力保留。
 - **M4-E**：`plan.get` 返回 `trigger.lastCheckIn/nextCheckAt`；`trigger.checkin` 由 Web、CLI、HTTP 共用，写入 `check_in_log` 与 `dms_config.last_check_in`，审计后刷新触发链。规划页提供签到按钮、状态提示与上次/下次签到时间。
 - **M4-D**：schema v13 给 `agent_run_log` 增加 `cancel_requested`。`agent.runs.cancel` 对 running 写 `cancelling` 并置位，执行器在步骤边界检查并收口；未执行步骤标记 `cancelled`，已完成步骤保留；`succeeded` 落库带取消条件保护。Web 状态增加 `cancelling`，取消按钮在取消中禁用。
 - **M4-C**：`web/src/platform/queryCache.ts` 为稳定读请求提供 10 秒 TTL、并发去重和前缀失效；`platformClient` 写命令成功后失效对应域，运行/Job 详情不走缓存。侧栏 hover/focus 预取路由 chunk。
@@ -197,6 +197,5 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 
 - 领域 handler 未接；已知读命令返回 `UNSUPPORTED`。
 - 安全内核、SQLite/SQLCipher 未接。
-- 桌面 Tauri 未接。
 - G03 目前只有 `vue-tsc`，ESLint/Prettier 未纳入；G04/G05 覆盖率未纳入；G08-G14 尚未形成完整流水线。
-- `legacy/` 源码仍在，作为 M1 迁移参考，不参与构建。
+- 旧版源码已删除；只保留迁移后的 `core/security`、`core/store` 与新入口代码。

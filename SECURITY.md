@@ -49,4 +49,4 @@ M0 is an engineering shell and does **not** claim production-grade encryption:
 
 ## Current migration note
 
-`legacy/` is kept only as the M1 migration reference. It is not part of the new build and must not be linked into new entry points. Do not copy crypto code into the platform without the migration checklist and test vectors.
+The old application source has been removed. Security-critical behavior lives only in `core/security` and `core/store`; do not reintroduce old application code or link it into new entry points.
