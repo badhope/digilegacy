@@ -5,11 +5,13 @@
 
 #![forbid(unsafe_code)]
 
-use digilegacy_domains::{assets, overview, plan, runs, DomainError};
+use digilegacy_domains::{assets, overview, plan, policy, runs, DomainError};
+use serde_json::{json, Value};
+
+pub mod deliver;
 use digilegacy_foundation::PlatformError;
 use digilegacy_security::keyring::FileKeyring;
 use digilegacy_store::Store;
-use serde_json::{json, Value};
 use std::sync::Arc;
 
 pub const STATUS: &str = "m2-read-write-core";
@@ -41,7 +43,9 @@ impl Application {
             Err(_) => Store::open(&db_path, None),
         }
         .map_err(|e| format!("打开数据库失败: {e}"))?;
-        Ok(Self::new(Arc::new(store)))
+        let app = Self::new(Arc::new(store));
+        policy::seed_if_empty(app.store()).map_err(|e| format!("政策库初始化失败: {e}"))?;
+        Ok(app)
     }
 
     pub fn store(&self) -> &Store {
@@ -68,7 +72,10 @@ impl Application {
             "assets.create" => self.assets_create(args),
             "assets.update" => self.assets_update(args),
             "plan.get" => self.plan(),
+            "policies.list" => self.policies_list(args),
+            "policies.get" => self.policies_get(args),
             "trigger.checkin" => self.checkin(),
+            "deliver.export" => self.deliver_export(args),
             "security.status" => self.security_status(),
             "agent.runs.list" => self.runs_list(args),
             other => Err(PlatformError::unsupported(other)),
@@ -122,6 +129,27 @@ impl Application {
             .map_err(map_domain)
     }
 
+    pub fn policies_list(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: policy::ListInput = parse(args)?;
+        policy::list(&self.store, &input)
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn policies_get(&self, args: Value) -> Result<Value, PlatformError> {
+        let id = args
+            .get("id")
+            .and_then(|v| {
+                v.as_str()
+                    .map(ToOwned::to_owned)
+                    .or_else(|| Some(v.to_string()))
+            })
+            .ok_or_else(|| PlatformError::invalid_args("缺少 id"))?;
+        policy::get(&self.store, id.trim_matches('"'))
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
     pub fn checkin(&self) -> Result<Value, PlatformError> {
         let now = chrono::Utc::now();
         let interval = self
@@ -157,6 +185,24 @@ impl Application {
             "nextCheckAt": next,
             "status": "ok",
         }))
+    }
+
+    pub fn deliver_export(&self, args: Value) -> Result<Value, PlatformError> {
+        let kind = args
+            .get("kind")
+            .and_then(Value::as_str)
+            .ok_or_else(|| PlatformError::invalid_args("缺少 kind"))?;
+        let locale = args
+            .get("locale")
+            .and_then(Value::as_str)
+            .unwrap_or("zh-CN");
+        let result = deliver::export(&self.store, kind, locale)?;
+        self.audit("deliver.export", result["jobId"].as_str().unwrap_or(""))?;
+        Ok(result)
+    }
+
+    pub fn read_export(&self, job_id: &str) -> Result<(String, Vec<u8>), PlatformError> {
+        deliver::read_export(&self.store, job_id)
     }
 
     pub fn runs_list(&self, args: Value) -> Result<Value, PlatformError> {
@@ -284,6 +330,20 @@ mod tests {
         let overview = app.dispatch("app.overview", json!({})).unwrap();
         assert_eq!(overview["assetsTotal"], 1);
         assert!(overview["activity"].as_array().unwrap().len() >= 2);
+    }
+
+    #[test]
+    fn policy_list_and_get_are_live() {
+        let app = app();
+        policy::seed_if_empty(app.store()).unwrap();
+        let page = app
+            .dispatch("policies.list", json!({ "q": "支付宝" }))
+            .unwrap();
+        assert!(page["total"].as_i64().unwrap() >= 1);
+        let id = page["items"][0]["id"].as_str().unwrap().to_string();
+        let one = app.dispatch("policies.get", json!({ "id": id })).unwrap();
+        assert!(!one["name"].as_str().unwrap().is_empty());
+        assert_eq!(one["provenance"]["status"], "unverified");
     }
 
     #[test]

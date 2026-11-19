@@ -20,7 +20,10 @@
       },
       "agentApproval": "none",
       "audit": false,
-      "errors": ["INTERNAL", "STORE_NOT_READY"]
+      "errors": [
+        "INTERNAL",
+        "STORE_NOT_READY"
+      ]
     },
     {
       "name": "assets.list",
@@ -40,7 +43,12 @@
       },
       "agentApproval": "none",
       "audit": false,
-      "errors": ["INVALID_ARGS", "VAULT_LOCKED", "STORE_NOT_READY", "INTERNAL"]
+      "errors": [
+        "INVALID_ARGS",
+        "VAULT_LOCKED",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
     },
     {
       "name": "assets.get",
@@ -60,7 +68,11 @@
       },
       "agentApproval": "none",
       "audit": false,
-      "errors": ["NOT_FOUND", "VAULT_LOCKED", "INTERNAL"]
+      "errors": [
+        "NOT_FOUND",
+        "VAULT_LOCKED",
+        "INTERNAL"
+      ]
     },
     {
       "name": "assets.create",
@@ -80,7 +92,12 @@
       },
       "agentApproval": "required",
       "audit": true,
-      "errors": ["INVALID_ARGS", "VAULT_LOCKED", "CONFLICT", "INTERNAL"]
+      "errors": [
+        "INVALID_ARGS",
+        "VAULT_LOCKED",
+        "CONFLICT",
+        "INTERNAL"
+      ]
     },
     {
       "name": "assets.update",
@@ -100,7 +117,13 @@
       },
       "agentApproval": "required",
       "audit": true,
-      "errors": ["INVALID_ARGS", "NOT_FOUND", "VAULT_LOCKED", "CONFLICT", "INTERNAL"]
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "VAULT_LOCKED",
+        "CONFLICT",
+        "INTERNAL"
+      ]
     },
     {
       "name": "plan.get",
@@ -120,7 +143,60 @@
       },
       "agentApproval": "none",
       "audit": false,
-      "errors": ["VAULT_LOCKED", "STORE_NOT_READY", "INTERNAL"]
+      "errors": [
+        "VAULT_LOCKED",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "policies.list",
+      "domain": "policy",
+      "summary": "按分类与关键词分页读取政策库",
+      "permission": "read",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/policies.list.input.json",
+      "output": "schemas/policies.list.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "policies list",
+        "http": "GET /api/v1/policies",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "VAULT_LOCKED",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "policies.get",
+      "domain": "policy",
+      "summary": "读取单条政策与溯源状态",
+      "permission": "read",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/id.input.json",
+      "output": "schemas/policy.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "policies get",
+        "http": "GET /api/v1/policies/{id}",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "NOT_FOUND",
+        "VAULT_LOCKED",
+        "INTERNAL"
+      ]
     },
     {
       "name": "trigger.checkin",
@@ -140,7 +216,11 @@
       },
       "agentApproval": "required",
       "audit": true,
-      "errors": ["VAULT_LOCKED", "STORE_NOT_READY", "INTERNAL"]
+      "errors": [
+        "VAULT_LOCKED",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
     },
     {
       "name": "deliver.export",
@@ -160,7 +240,12 @@
       },
       "agentApproval": "none",
       "audit": true,
-      "errors": ["INVALID_ARGS", "VAULT_LOCKED", "CAPACITY", "INTERNAL"]
+      "errors": [
+        "INVALID_ARGS",
+        "VAULT_LOCKED",
+        "CAPACITY",
+        "INTERNAL"
+      ]
     },
     {
       "name": "agent.runs.list",
@@ -180,7 +265,10 @@
       },
       "agentApproval": "none",
       "audit": false,
-      "errors": ["INVALID_ARGS", "INTERNAL"]
+      "errors": [
+        "INVALID_ARGS",
+        "INTERNAL"
+      ]
     },
     {
       "name": "agent.approvals.decide",
@@ -200,7 +288,12 @@
       },
       "agentApproval": "none",
       "audit": true,
-      "errors": ["INVALID_ARGS", "NOT_FOUND", "CONFLICT", "INTERNAL"]
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "CONFLICT",
+        "INTERNAL"
+      ]
     },
     {
       "name": "security.status",
@@ -220,7 +313,10 @@
       },
       "agentApproval": "none",
       "audit": false,
-      "errors": ["VAULT_LOCKED", "INTERNAL"]
+      "errors": [
+        "VAULT_LOCKED",
+        "INTERNAL"
+      ]
     },
     {
       "name": "connections.test",
@@ -240,7 +336,13 @@
       },
       "agentApproval": "none",
       "audit": true,
-      "errors": ["INVALID_ARGS", "FORBIDDEN", "NETWORK", "TIMEOUT", "INTERNAL"]
+      "errors": [
+        "INVALID_ARGS",
+        "FORBIDDEN",
+        "NETWORK",
+        "TIMEOUT",
+        "INTERNAL"
+      ]
     },
     {
       "name": "diagnostics.export",
@@ -260,7 +362,10 @@
       },
       "agentApproval": "required",
       "audit": true,
-      "errors": ["IO", "INTERNAL"]
+      "errors": [
+        "IO",
+        "INTERNAL"
+      ]
     }
   ]
 }

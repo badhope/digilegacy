@@ -26,6 +26,12 @@ const routes: RouteRecordRaw[] = [
     meta: { titleKey: "nav.assets" },
   },
   {
+    path: "/policies",
+    name: "policies",
+    component: () => import("@/features/policies/PoliciesView.vue"),
+    meta: { titleKey: "nav.policies" },
+  },
+  {
     path: "/assets/:id",
     name: "asset-detail",
     component: () => import("@/features/assets/AssetDetailView.vue"),

@@ -1,0 +1,17 @@
+{
+  "title": "PoliciesListOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items", "nextCursor", "total", "categories"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "maxItems": 100,
+      "items": { "$ref": "policy.output.json" }
+    },
+    "nextCursor": { "type": ["string", "null"] },
+    "total": { "type": "integer", "minimum": 0 },
+    "categories": { "type": "array", "items": { "type": "string" } }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

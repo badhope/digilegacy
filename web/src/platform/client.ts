@@ -1,6 +1,6 @@
 import { COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
-import type { AgentRuns, AssetsPage, Asset, Envelope, Overview, Plan, SecurityStatus } from "./types";
+import type { AgentRuns, AssetsPage, Asset, DeliverableExport, Envelope, Overview, Plan, PoliciesPage, Policy, SecurityStatus } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -52,6 +52,11 @@ export const platformClient = {
   listAssets: (args: Record<string, unknown> = {}) => invoke<AssetsPage>(COMMANDS.assetsList, args),
   getAsset: (id: string) => invoke<Asset>(COMMANDS.assetsGet, { id }),
   getPlan: () => invoke<Plan>(COMMANDS.planGet),
+  listPolicies: (args: Record<string, unknown> = {}) => invoke<PoliciesPage>(COMMANDS.policiesList, args),
+  getPolicy: (id: string) => invoke<Policy>(COMMANDS.policiesGet, { id }),
+  exportDeliverable: (kind: string, locale = "zh-CN") =>
+    invoke<DeliverableExport>(COMMANDS.deliverExport, { kind, locale }),
+  exportUrl: (path: string) => `${API_BASE}${path}`,
   listRuns: (args: Record<string, unknown> = {}) => invoke<AgentRuns>(COMMANDS.agentRunsList, args),
   getSecurity: () => invoke<SecurityStatus>(COMMANDS.securityStatus),
 };

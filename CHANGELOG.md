@@ -2,6 +2,42 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.1-m2b] - 2026-11-19
+
+### Added
+
+- 政策库：`policies` 原生表（schema v10、27 表）、`policy_provenance` 独立溯源、152 条平台政策内容源 `content/policies/platforms.json`。
+- `core/domains/policy`：`seed_if_empty`、`list`（分类 + 关键词 + 游标）、`get`、`all`、`find_by_name`；种子状态一律 `unverified`，不伪造核实。
+- `core/application` 接入 `policies.list` / `policies.get`；`from_env` 打开 Store 后自动 seed，空表才写入。
+- HTTP `GET /api/v1/policies`、`GET /api/v1/policies/{id}`；CLI `policies list/get`；MCP 工具由契约生成。
+- 交付物：`deliver.export` 真实生成 report/checklist/legal/toolkit 四类 HTML；`jobs`、`deliverable_exports` 落库；`GET /api/v1/exports/{jobId}` 下载，路径 canonical 校验防越界。
+- 法律模板内容源 `content/legal/templates.json`，四类模板进入法律文本交付物，并附“需执业律师审阅”提示。
+- Web：政策库并入资产二级标签（`/policies`），列表服务端搜索/分类/游标加载更多，详情展示材料、流程、风险、来源与未核实状态。
+- Web 交付页接 `deliver.export`：四类生成按钮、结果文件、下载链接、会话语义记录；资产详情可跳转对应平台政策。
+- `core/render` 增加可信 body 的可打印页面壳 `render_page`，标题仍转义。
+
+### Changed
+
+- 概览模块把 `policy`、`deliver` 标为 `ready`。
+- Web 保持 5 个主入口：政策库不是第 6 个导航，作为资产域二级视图，避免主导航膨胀。
+- 契约扩至 15 命令 / 12 工具 / 21 schema / 19 错误码；生成器 domain 集合加入 `policy`。
+
+### Verification
+
+- `./tools/verify.sh` 全绿，日志 `/tmp/digilegacy-verify-m2b.log`。
+- Rust：security 49、store 15、domains 9、application 5、server 6、foundation 5、render 2。
+- Web：typecheck、6 tests、build、bundle 预算通过；总 gzip **87.25 KB / 110 KB**，入口 raw 48.77 KB / 60 KB，vendor raw 98.88 KB / 130 KB。
+- CLI：`policies list --q 支付宝` 命中；`policies get 1` 返回支付宝与 `unverified`；`deliver export --kind report` 生成 HTML。
+- HTTP：政策列表/详情返回真实行；`POST /api/v1/deliverables/export` 返回 `jobId`；`GET /api/v1/exports/{jobId}` 返回 `text/html` 附件。
+- 浏览器：政策页 152 条、详情可展开、深/亮主题正常；交付页点击生成后出现文件名与下载链接。
+
+### Known limitations
+
+- 政策溯源目前只读：没有“标记已核实/争议”的写命令与审核界面。
+- 交付物为同步生成；Job 状态已落库，但未接 SSE/轮询进度与取消。
+- Web 写操作仍受 HTTP 写 token 与解锁流程阻塞；资产创建/更新走 CLI `--allow-write`。
+- 政策内容按来源整理，尚未逐条人工核对；页面明确显示 `unverified`。
+
 ## [0.7.0-m2] - 2026-11-19
 
 ### Added

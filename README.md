@@ -25,6 +25,8 @@
 | 工程治理文档与模板 | 已做完 |
 | 安全内核 / 数据库 | 已做完（M1） |
 | 真实领域服务 | 已接入（M2 资产/规划/触发/安全读链路 + 写用例） |
+| 政策库 | 已做完（M2-B 152 条，新 `policies` 表 + 溯源） |
+| 交付物导出 | 已做完（M2-B HTML 报告/清单/法律文本/工具包 + HTTP 下载） |
 | 桌面 Tauri 窗口与托盘 | M3/M5 |
 
 当前版本：`0.7.0-m2`。
@@ -33,7 +35,9 @@ M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3
 
 M2 已落地：`core/application` 用例层接 M1 Store；HTTP/CLI/MCP 共享同一套领域调用；资产列表/详情/创建/更新、规划、概览、安全摘要、签到、运行记录均读真实表；Web 默认走 Platform API，资产筛选改为服务端查询与游标分页。
 
-契约规模：**13 个命令、10 个工具、18 个 schema、19 个错误码**。
+M2-B 已落地：政策库 schema v10（27 表）、152 条平台政策与独立 `policy_provenance`、`policies.list/get` 全入口；交付物四类 HTML 导出、`jobs`/`deliverable_exports` 落库、`GET /api/v1/exports/{jobId}` 下载；Web 把政策库并入资产二级标签，交付页可直接生成与下载。
+
+契约规模：**15 个命令、12 个工具、21 个 schema、19 个错误码**。
 
 ---
 

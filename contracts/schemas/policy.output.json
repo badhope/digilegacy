@@ -1,0 +1,47 @@
+{
+  "title": "Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "category",
+    "requiredDocuments",
+    "processDescription",
+    "provenance"
+  ],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "nameEn": { "type": "string" },
+    "category": { "type": "string" },
+    "subtype": { "type": "string" },
+    "hasProperty": { "type": "boolean" },
+    "hasPersonality": { "type": "boolean" },
+    "inheritable": { "type": "boolean" },
+    "requiredDocuments": { "type": "string" },
+    "processDescription": { "type": "string" },
+    "estimatedDifficulty": { "type": "string" },
+    "officialPolicyUrl": { "type": "string" },
+    "estimatedTimeDays": { "type": "string" },
+    "notes": { "type": "string" },
+    "dataSource": { "type": "string" },
+    "inheritanceFormUrl": { "type": "string" },
+    "monetizationPath": { "type": "string" },
+    "legalTemplateIds": { "type": "string" },
+    "riskWarnings": { "type": "string" },
+    "tags": { "type": "string" },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "sourceUrl", "verifiedAt", "note"],
+      "properties": {
+        "status": { "type": "string", "enum": ["unverified", "source_cited", "verified", "disputed"] },
+        "sourceUrl": { "type": "string" },
+        "verifiedAt": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

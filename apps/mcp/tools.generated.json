@@ -113,6 +113,76 @@
     }
   },
   {
+    "name": "policies.list",
+    "title": "读取政策库",
+    "description": "按分类与关键词读取平台继承政策、所需材料与办理流程。",
+    "inputSchema": {
+      "title": "PoliciesListInput",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        },
+        "category": {
+          "type": "string",
+          "default": ""
+        },
+        "q": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "policies.list"
+    }
+  },
+  {
+    "name": "policies.get",
+    "title": "读取单条政策",
+    "description": "按政策 ID 读取流程、材料、风险与溯源状态。",
+    "inputSchema": {
+      "title": "IdInput",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "policies.get"
+    }
+  },
+  {
     "name": "runs.list",
     "title": "列出 Agent 运行",
     "description": "读取运行状态、步骤数与成本摘要。",

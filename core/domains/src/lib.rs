@@ -9,6 +9,7 @@
 pub mod assets;
 pub mod overview;
 pub mod plan;
+pub mod policy;
 pub mod runs;
 
 pub use assets::DomainError;
@@ -23,4 +24,4 @@ pub const DOMAINS: &[(&str, &str)] = &[
     ("DOM-07", "drill"),
 ];
 
-pub const STATUS: &str = "m2-assets-plan";
+pub const STATUS: &str = "m2-assets-plan-policy";

@@ -79,6 +79,55 @@ export interface AgentRuns {
   items: AgentRun[];
 }
 
+export type ProvenanceStatus = "unverified" | "source_cited" | "verified" | "disputed";
+
+export interface PolicyProvenance {
+  status: ProvenanceStatus;
+  sourceUrl: string;
+  verifiedAt: string;
+  note: string;
+}
+
+export interface Policy {
+  id: string;
+  name: string;
+  nameEn: string;
+  category: string;
+  subtype: string;
+  hasProperty: boolean;
+  hasPersonality: boolean;
+  inheritable: boolean;
+  requiredDocuments: string;
+  processDescription: string;
+  estimatedDifficulty: string;
+  officialPolicyUrl: string;
+  estimatedTimeDays: string;
+  notes: string;
+  dataSource: string;
+  inheritanceFormUrl: string;
+  monetizationPath: string;
+  legalTemplateIds: string;
+  riskWarnings: string;
+  tags: string;
+  provenance: PolicyProvenance;
+}
+
+export interface PoliciesPage {
+  items: Policy[];
+  nextCursor: string | null;
+  total: number;
+  categories: string[];
+}
+
+export interface DeliverableExport {
+  jobId: string;
+  status: string;
+  progress: number;
+  fileName: string;
+  downloadUrl: string;
+  generatedAt: string;
+}
+
 export interface SecurityStatus {
   locked: boolean;
   recoveryConfigured: boolean;

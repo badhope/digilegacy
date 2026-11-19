@@ -60,6 +60,22 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: false,
     },
     CommandSpec {
+        name: "policies.list",
+        domain: "policy",
+        permission: "read",
+        http: "GET /api/v1/policies",
+        requires_unlock: true,
+        audit: false,
+    },
+    CommandSpec {
+        name: "policies.get",
+        domain: "policy",
+        permission: "read",
+        http: "GET /api/v1/policies/{id}",
+        requires_unlock: true,
+        audit: false,
+    },
+    CommandSpec {
         name: "trigger.checkin",
         domain: "trigger",
         permission: "write",

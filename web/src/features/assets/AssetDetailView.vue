@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import ErrorState from "@/shared/ui/ErrorState.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
@@ -50,6 +51,15 @@ function formatDate(value: string): string {
     <template v-else-if="data">
       <PageHeader :eyebrow="`ASSET / ${data.id}`" :title="data.name" :description="data.value">
         <template #actions>
+          <AppButton
+            v-if="data.platform && data.platform !== '未分类'"
+            variant="secondary"
+            size="sm"
+            @click="router.push({ path: '/policies', query: { q: data.platform } })"
+          >
+            <AppIcon name="database" :size="14" />
+            {{ t("asset.detail.policy") }}
+          </AppButton>
           <StatusPill
             :tone="data.status === 'active' ? 'ready' : 'planned'"
             :label="data.status === 'active' ? t('common.active') : t('common.archived')"

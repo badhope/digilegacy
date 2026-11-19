@@ -6,6 +6,7 @@ import AppIcon from "@/shared/icons/AppIcon.vue";
 import EmptyState from "@/shared/ui/EmptyState.vue";
 import ErrorState from "@/shared/ui/ErrorState.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
+import AssetTabs from "./AssetTabs.vue";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
@@ -72,6 +73,8 @@ function openAsset(asset: Asset) {
         <StatusPill tone="ready" :label="t('app.mode')" />
       </template>
     </PageHeader>
+
+    <AssetTabs />
 
     <div v-if="loading" class="assets-loading" aria-busy="true">
       <div class="toolbar-skeleton">

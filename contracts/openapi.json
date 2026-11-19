@@ -374,6 +374,125 @@
         }
       }
     },
+    "/api/v1/policies": {
+      "get": {
+        "operationId": "policies.list",
+        "summary": "按分类与关键词分页读取政策库",
+        "tags": [
+          "policy"
+        ],
+        "x-command": "policies.list",
+        "x-permission": "read",
+        "x-requires-unlock": true,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/policies.list.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/policies/{id}": {
+      "get": {
+        "operationId": "policies.get",
+        "summary": "读取单条政策与溯源状态",
+        "tags": [
+          "policy"
+        ],
+        "x-command": "policies.get",
+        "x-permission": "read",
+        "x-requires-unlock": true,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/policy.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ]
+      }
+    },
     "/api/v1/trigger/checkin": {
       "post": {
         "operationId": "trigger.checkin",
@@ -1182,6 +1301,15 @@
             "type": "number",
             "minimum": 0,
             "maximum": 1
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "downloadUrl": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -1339,6 +1467,177 @@
                 "type": "integer"
               },
               "status": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policies.list.input": {
+        "title": "PoliciesListInput",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "category": {
+            "type": "string",
+            "default": ""
+          },
+          "q": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policies.list.output": {
+        "title": "PoliciesListOutput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "nextCursor",
+          "total",
+          "categories"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/policy.output"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policy.output": {
+        "title": "Policy",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "category",
+          "requiredDocuments",
+          "processDescription",
+          "provenance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nameEn": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "subtype": {
+            "type": "string"
+          },
+          "hasProperty": {
+            "type": "boolean"
+          },
+          "hasPersonality": {
+            "type": "boolean"
+          },
+          "inheritable": {
+            "type": "boolean"
+          },
+          "requiredDocuments": {
+            "type": "string"
+          },
+          "processDescription": {
+            "type": "string"
+          },
+          "estimatedDifficulty": {
+            "type": "string"
+          },
+          "officialPolicyUrl": {
+            "type": "string"
+          },
+          "estimatedTimeDays": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "dataSource": {
+            "type": "string"
+          },
+          "inheritanceFormUrl": {
+            "type": "string"
+          },
+          "monetizationPath": {
+            "type": "string"
+          },
+          "legalTemplateIds": {
+            "type": "string"
+          },
+          "riskWarnings": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "sourceUrl",
+              "verifiedAt",
+              "note"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "unverified",
+                  "source_cited",
+                  "verified",
+                  "disputed"
+                ]
+              },
+              "sourceUrl": {
+                "type": "string"
+              },
+              "verifiedAt": {
+                "type": "string"
+              },
+              "note": {
                 "type": "string"
               }
             }

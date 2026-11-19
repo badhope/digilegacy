@@ -1,0 +1,12 @@
+{
+  "title": "PoliciesListInput",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "cursor": { "type": ["string", "null"] },
+    "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 50 },
+    "category": { "type": "string", "default": "" },
+    "q": { "type": "string", "default": "" }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

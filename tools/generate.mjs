@@ -90,7 +90,7 @@ const errorCodes = new Set(errors.errors.map((e) => e.code));
 const domains = new Set([
   "app", "assets", "platform", "plan", "trigger", "deliver", "review", "drill",
   "security", "backup", "checkpoint", "connections", "llm", "agent",
-  "policy_sync", "mail", "heartbeat", "diagnostics", "settings",
+  "policy", "policy_sync", "mail", "heartbeat", "diagnostics", "settings",
 ]);
 const permissions = new Set(["read", "draft", "write", "key", "network", "desktop"]);
 

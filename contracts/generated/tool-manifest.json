@@ -64,6 +64,38 @@
     "bulkThreshold": null
   },
   {
+    "name": "policies.list",
+    "command": "policies.list",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/policies.list.input.json",
+    "outputSchema": "schemas/policies.list.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
+    "name": "policies.get",
+    "command": "policies.get",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/id.input.json",
+    "outputSchema": "schemas/policy.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
     "name": "runs.list",
     "command": "agent.runs.list",
     "permission": "read",

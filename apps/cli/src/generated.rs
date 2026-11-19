@@ -7,6 +7,8 @@ pub const COMMAND_LINES: &[&str] = &[
     "assets create",
     "assets update",
     "plan get",
+    "policies list",
+    "policies get",
     "trigger checkin",
     "deliver export",
     "agents runs",

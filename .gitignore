@@ -97,3 +97,6 @@ digilegacy/src-tauri/target/
 
 # 本地产物 / 临时脚本
 .tmp-*
+
+# Local platform store and generated deliverables
+/data/

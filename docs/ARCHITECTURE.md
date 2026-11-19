@@ -22,7 +22,7 @@
         └───────────────┴─────────────┴─────────────┴───────────────┘
 ```
 
-M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真实领域，Web 默认走 Platform API。
+M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真实领域，Web 默认走 Platform API；M2-B 加入政策库与交付物导出。
 
 ## 2. Workspace 成员
 
@@ -34,8 +34,8 @@ M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真
 | `core/contracts` | 生成后的命令/错误表 | 已实现 |
 | `core/security` | Vault/密钥/恢复/备份/审计 | 已实现（M1） |
 | `core/store` | SQLite/SQLCipher、迁移、导入、检查点 | 已实现（M1） |
-| `core/domains` | assets/plan/overview/runs 真实领域 | 已实现（M2 首批） |
-| `core/application` | 用例层：共享 HTTP/CLI/MCP 的业务分派与审计 | 已实现（M2） |
+| `core/domains` | assets/plan/overview/runs/policy 真实领域 | 已实现（M2 首批 + M2-B 政策库） |
+| `core/application` | 用例层：共享 HTTP/CLI/MCP 的业务分派、审计、交付导出 | 已实现（M2/M2-B） |
 | `core/integrations` | 连接类型/状态 | 枚举 |
 | `core/agent` | Run/Approval 状态机 | 枚举 |
 | `core/render` | 纯函数文档渲染 | 已实现 |
@@ -147,7 +147,8 @@ M0 未实现写权限 token，因此 HTTP `write` 返回 `401 AUTH_REQUIRED`，�
 - **M0**：`core/security`、`core/store` 只有边界；Web 使用 mock；不声称已加密。
 - **M1**：从 `legacy/app/src-tauri` 按模块迁入加密、Vault、恢复、备份、DB，不重写算法。
 - **M2**：`core/application` 统一用例分派；入口只做权限/传输；Web 读真实 API，资产筛选服务端化。
-- **数据归属**：单工作区抽象保留 `workspaces`，26 张表按领域拆；资产只维护一份事实。
+- **M2-B**：schema v10（27 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
+- **数据归属**：单工作区抽象保留 `workspaces`，27 张表按领域拆；资产与政策各维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。
 
@@ -164,7 +165,7 @@ M0 未实现写权限 token，因此 HTTP `write` 返回 `401 AUTH_REQUIRED`，�
 
 已设预算：
 
-- Web 总 gzip 约 81 KB；入口约 48 KB；vendor 98.5 KB raw。
+- Web 总 gzip 约 87 KB；入口约 49 KB；vendor 98.9 KB raw。
 - CommandBus 约 250 ns/op（M0 release 基线）。
 - 路由级拆包；页面级 CSS 随路由加载。
 - 长任务走 Job/SSE，不让 HTTP 请求阻塞（M2+）。

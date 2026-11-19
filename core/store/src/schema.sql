@@ -26,6 +26,31 @@ CREATE TABLE IF NOT EXISTS platforms (
     notes TEXT
 );
 
+CREATE TABLE IF NOT EXISTS policies (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    name_en TEXT DEFAULT '',
+    category TEXT NOT NULL,
+    subtype TEXT DEFAULT '',
+    has_property INTEGER DEFAULT 0,
+    has_personality INTEGER DEFAULT 0,
+    inheritable INTEGER DEFAULT 0,
+    required_documents TEXT DEFAULT '',
+    process_description TEXT DEFAULT '',
+    estimated_difficulty TEXT DEFAULT '',
+    official_policy_url TEXT DEFAULT '',
+    estimated_time_days TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    data_source TEXT DEFAULT '',
+    inheritance_form_url TEXT DEFAULT '',
+    monetization_path TEXT DEFAULT '',
+    legal_template_ids TEXT DEFAULT '',
+    risk_warnings TEXT DEFAULT '',
+    tags TEXT DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS policy_overrides (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -303,6 +328,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_assets_category ON digital_assets(category);
+CREATE INDEX IF NOT EXISTS idx_policies_category ON policies(category);
+CREATE INDEX IF NOT EXISTS idx_policies_name ON policies(name);
 CREATE INDEX IF NOT EXISTS idx_assets_platform ON digital_assets(platform_id);
 CREATE INDEX IF NOT EXISTS idx_assets_disposal ON digital_assets(disposal_method);
 CREATE INDEX IF NOT EXISTS idx_assets_created ON digital_assets(created_at DESC);

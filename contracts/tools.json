@@ -12,7 +12,10 @@
       "idempotent": true,
       "audit": false,
       "human_equivalent": "app.overview",
-      "available_to": ["builtin", "external"],
+      "available_to": [
+        "builtin",
+        "external"
+      ],
       "mcp": true,
       "rate_limit": "60/min"
     },
@@ -27,7 +30,10 @@
       "idempotent": true,
       "audit": false,
       "human_equivalent": "assets.list",
-      "available_to": ["builtin", "external"],
+      "available_to": [
+        "builtin",
+        "external"
+      ],
       "mcp": true,
       "rate_limit": "60/min"
     },
@@ -42,7 +48,10 @@
       "idempotent": true,
       "audit": false,
       "human_equivalent": "assets.get",
-      "available_to": ["builtin", "external"],
+      "available_to": [
+        "builtin",
+        "external"
+      ],
       "mcp": true,
       "rate_limit": "60/min"
     },
@@ -57,7 +66,46 @@
       "idempotent": true,
       "audit": false,
       "human_equivalent": "plan.get",
-      "available_to": ["builtin", "external"],
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "60/min"
+    },
+    {
+      "name": "policies.list",
+      "title": "读取政策库",
+      "description": "按分类与关键词读取平台继承政策、所需材料与办理流程。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/policies.list.input.json",
+      "output_schema": "schemas/policies.list.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "policies.list",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "60/min"
+    },
+    {
+      "name": "policies.get",
+      "title": "读取单条政策",
+      "description": "按政策 ID 读取流程、材料、风险与溯源状态。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/id.input.json",
+      "output_schema": "schemas/policy.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "policies.get",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
       "mcp": true,
       "rate_limit": "60/min"
     },
@@ -72,7 +120,10 @@
       "idempotent": true,
       "audit": false,
       "human_equivalent": "agent.runs.list",
-      "available_to": ["builtin", "external"],
+      "available_to": [
+        "builtin",
+        "external"
+      ],
       "mcp": true,
       "rate_limit": "60/min"
     },
@@ -87,7 +138,10 @@
       "idempotent": true,
       "audit": false,
       "human_equivalent": "security.status",
-      "available_to": ["builtin", "external"],
+      "available_to": [
+        "builtin",
+        "external"
+      ],
       "mcp": true,
       "rate_limit": "60/min"
     },
@@ -102,7 +156,9 @@
       "idempotent": false,
       "audit": true,
       "human_equivalent": "assets.create",
-      "available_to": ["builtin"],
+      "available_to": [
+        "builtin"
+      ],
       "mcp": false,
       "rate_limit": "30/min",
       "bulk_threshold": 10
@@ -118,7 +174,9 @@
       "idempotent": false,
       "audit": true,
       "human_equivalent": "assets.update",
-      "available_to": ["builtin"],
+      "available_to": [
+        "builtin"
+      ],
       "mcp": false,
       "rate_limit": "30/min",
       "bulk_threshold": 10
@@ -134,7 +192,9 @@
       "idempotent": false,
       "audit": true,
       "human_equivalent": "trigger.checkin",
-      "available_to": ["builtin"],
+      "available_to": [
+        "builtin"
+      ],
       "mcp": false,
       "rate_limit": "10/min"
     },
@@ -149,7 +209,10 @@
       "idempotent": false,
       "audit": true,
       "human_equivalent": "deliver.export",
-      "available_to": ["builtin", "external"],
+      "available_to": [
+        "builtin",
+        "external"
+      ],
       "mcp": true,
       "rate_limit": "10/min"
     }

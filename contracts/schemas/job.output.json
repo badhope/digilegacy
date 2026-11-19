@@ -24,6 +24,15 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "fileName": {
+      "type": "string"
+    },
+    "downloadUrl": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

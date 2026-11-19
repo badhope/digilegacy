@@ -8,14 +8,15 @@
 mod generated;
 
 use axum::{
+    body::Body,
     extract::{Json, Path, Query, State},
-    http::StatusCode,
-    response::IntoResponse,
+    http::{header, StatusCode},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
 use digilegacy_application::Application;
-use digilegacy_domains::assets;
+use digilegacy_domains::{assets, policy};
 use digilegacy_foundation::{Envelope, Permission, PlatformError};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -65,6 +66,10 @@ pub fn router(store: AppState) -> Router {
         .route("/api/v1/assets", get(assets_list))
         .route("/api/v1/assets/{id}", get(asset_get))
         .route("/api/v1/plan", get(plan_get))
+        .route("/api/v1/policies", get(policies_list))
+        .route("/api/v1/policies/{id}", get(policy_get))
+        .route("/api/v1/deliverables/export", post(deliver_export))
+        .route("/api/v1/exports/{job_id}", get(download_export))
         .route("/api/v1/security", get(security_get))
         .route("/api/v1/agent/runs", get(agent_runs))
         .route("/api/v1/invoke", post(invoke))
@@ -119,6 +124,55 @@ async fn asset_get(State(app): State<AppState>, Path(id): Path<String>) -> impl 
 
 async fn plan_get(State(app): State<AppState>) -> impl IntoResponse {
     dispatch(&app, "plan.get", json!({}))
+}
+
+async fn policies_list(
+    State(app): State<AppState>,
+    Query(input): Query<policy::ListInput>,
+) -> impl IntoResponse {
+    dispatch(&app, "policies.list", json!(input))
+}
+
+async fn policy_get(State(app): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
+    dispatch(&app, "policies.get", json!({ "id": id }))
+}
+
+#[derive(Debug, Deserialize)]
+struct ExportRequest {
+    kind: String,
+    #[serde(default = "default_locale")]
+    locale: String,
+}
+
+fn default_locale() -> String {
+    "zh-CN".to_string()
+}
+
+async fn deliver_export(
+    State(app): State<AppState>,
+    Json(input): Json<ExportRequest>,
+) -> impl IntoResponse {
+    dispatch(
+        &app,
+        "deliver.export",
+        json!({ "kind": input.kind, "locale": input.locale }),
+    )
+}
+
+async fn download_export(State(app): State<AppState>, Path(job_id): Path<String>) -> Response {
+    match app.read_export(&job_id) {
+        Ok((file_name, bytes)) => Response::builder()
+            .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
+            .header(
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename=\"{file_name}\""),
+            )
+            .body(Body::from(bytes))
+            .unwrap_or_else(|error| {
+                error_response(PlatformError::new("INTERNAL", error.to_string())).into_response()
+            }),
+        Err(error) => error_response(error).into_response(),
+    }
 }
 
 async fn security_get(State(app): State<AppState>) -> impl IntoResponse {

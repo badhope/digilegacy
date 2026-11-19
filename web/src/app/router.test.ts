@@ -5,6 +5,7 @@ describe("router contract", () => {
   it("keeps the five primary entrances reachable", () => {
     expect(router.resolve("/overview").name).toBe("overview");
     expect(router.resolve("/assets").name).toBe("assets");
+    expect(router.resolve("/policies").name).toBe("policies");
     expect(router.resolve("/planning").name).toBe("planning");
     expect(router.resolve("/deliverables").name).toBe("deliverables");
     expect(router.resolve("/automation").name).toBe("automation");

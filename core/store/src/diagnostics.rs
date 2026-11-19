@@ -77,9 +77,9 @@ mod tests {
             })
             .unwrap();
         let json = store.diagnostics_json().unwrap();
-        assert!(json.contains("\"schema_version\": 9"));
+        assert!(json.contains("\"schema_version\": 10"));
         assert!(json.contains("\"valid\": true"));
-        assert!(json.contains("\"table_count\": 26"));
+        assert!(json.contains("\"table_count\": 27"));
         assert!(!json.contains("secret_value"), "诊断包不得包含数据值");
         assert!(!json.contains("secret_key"), "诊断包不得包含数据键");
     }

@@ -27,7 +27,9 @@ const navItems: Array<{ path: string; labelKey: string; icon: IconName }> = [
 const currentTitle = computed(() => t(String(route.meta.titleKey ?? "nav.overview")));
 
 function isActive(path: string) {
-  return path === "/overview" ? route.path === "/overview" : route.path.startsWith(path);
+  if (path === "/overview") return route.path === "/overview";
+  if (path === "/assets") return route.path.startsWith("/assets") || route.path === "/policies";
+  return route.path.startsWith(path);
 }
 
 function go(path: string) {

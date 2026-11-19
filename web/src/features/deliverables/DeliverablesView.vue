@@ -1,19 +1,46 @@
 <script setup lang="ts">
+import { computed, reactive, ref } from "vue";
+import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import SectionCard from "@/shared/ui/SectionCard.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
+import { platformClient } from "@/platform/client";
+import type { DeliverableExport } from "@/platform/types";
 import type { IconName } from "@/shared/icons/paths";
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
-const kinds: Array<{ key: string; icon: IconName; tone: "planned" | "ready" }> = [
-  { key: "deliverables.kind.report", icon: "deliverables", tone: "planned" },
-  { key: "deliverables.kind.checklist", icon: "check", tone: "planned" },
-  { key: "deliverables.kind.legal", icon: "shield", tone: "planned" },
-  { key: "deliverables.kind.toolkit", icon: "assets", tone: "planned" },
+const kinds: Array<{ kind: "report" | "checklist" | "legal" | "toolkit"; key: string; icon: IconName }> = [
+  { kind: "report", key: "deliverables.kind.report", icon: "deliverables" },
+  { kind: "checklist", key: "deliverables.kind.checklist", icon: "check" },
+  { kind: "legal", key: "deliverables.kind.legal", icon: "shield" },
+  { kind: "toolkit", key: "deliverables.kind.toolkit", icon: "assets" },
 ];
+
+const busy = ref<string | null>(null);
+const errors = reactive<Record<string, string>>({});
+const results = reactive<Record<string, DeliverableExport | undefined>>({});
+const generated = computed(() => Object.values(results).filter((item): item is DeliverableExport => Boolean(item)));
+
+async function generate(kind: string) {
+  if (busy.value) return;
+  busy.value = kind;
+  errors[kind] = "";
+  try {
+    const envelope = await platformClient.exportDeliverable(kind, locale.value);
+    if (!envelope.success || !envelope.data) {
+      errors[kind] = envelope.message || envelope.code;
+      return;
+    }
+    results[kind] = envelope.data;
+  } catch (cause) {
+    errors[kind] = cause instanceof Error ? cause.message : t("deliverables.error");
+  } finally {
+    busy.value = null;
+  }
+}
 </script>
 
 <template>
@@ -25,42 +52,67 @@ const kinds: Array<{ key: string; icon: IconName; tone: "planned" | "ready" }> =
     </PageHeader>
 
     <div class="deliverable-grid">
-      <article v-for="kind in kinds" :key="kind.key" class="deliverable-card">
+      <article v-for="kind in kinds" :key="kind.kind" class="deliverable-card">
         <div class="deliverable-top">
           <span class="deliverable-icon"><AppIcon :name="kind.icon" :size="19" /></span>
-          <StatusPill :tone="kind.tone" :label="t('deliverables.status.contract')" />
+          <StatusPill
+            :tone="results[kind.kind] ? 'ready' : 'planned'"
+            :label="results[kind.kind] ? t('deliverables.generated') : t('deliverables.ready')"
+          />
         </div>
         <h2>{{ t(kind.key) }}</h2>
-        <p>{{ t("deliverables.readiness") }}</p>
-        <div class="deliverable-meta mono">M2 / CONTRACT</div>
+        <p>{{ t("deliverables.boundary") }}</p>
+
+        <div v-if="results[kind.kind]" class="deliverable-result">
+          <span class="mono">{{ results[kind.kind]?.fileName }}</span>
+          <a
+            class="deliverable-download"
+            :href="platformClient.exportUrl(results[kind.kind]!.downloadUrl)"
+            target="_blank"
+            rel="noopener"
+          >
+            <AppIcon name="external" :size="14" />
+            {{ t("deliverables.download") }}
+          </a>
+        </div>
+        <p v-if="errors[kind.kind]" class="deliverable-error">{{ errors[kind.kind] }}</p>
+
+        <div class="deliverable-actions">
+          <AppButton
+            variant="primary"
+            size="sm"
+            :disabled="Boolean(busy)"
+            @click="generate(kind.kind)"
+          >
+            <AppIcon name="plus" :size="14" />
+            {{ busy === kind.kind ? t("deliverables.generating") : t("deliverables.generate") }}
+          </AppButton>
+          <span class="deliverable-meta mono">M2 / LIVE</span>
+        </div>
       </article>
     </div>
 
     <div class="deliverable-lower">
-      <SectionCard :title="t('deliverables.quality')" :subtitle="t('feature.scaffold.note')">
-        <div class="queue-row">
-          <span class="queue-id mono">REV-01</span>
-          <span>{{ t("deliverables.quality") }}</span>
-          <StatusPill tone="planned" :label="t('common.planned')" />
-        </div>
-        <div class="queue-row">
-          <span class="queue-id mono">REV-02</span>
-          <span>{{ t("deliverables.drills") }}</span>
-          <StatusPill tone="planned" :label="t('common.planned')" />
+      <SectionCard :title="t('deliverables.history')" :subtitle="t('deliverables.note')">
+        <div v-if="!generated.length" class="queue-empty">{{ t("common.pending") }}</div>
+        <div v-for="item in generated" :key="item.jobId" class="queue-row">
+          <span class="queue-id mono">{{ item.jobId.slice(-10) }}</span>
+          <span>{{ item.fileName }}</span>
+          <StatusPill tone="ready" :label="t('deliverables.generated')" />
         </div>
       </SectionCard>
 
-      <SectionCard :title="t('deliverables.drills')" :subtitle="t('overview.next.checkin')">
+      <SectionCard :title="t('deliverables.quality')" :subtitle="t('deliverables.boundary')">
         <div class="drill-callout">
-          <AppIcon name="clock" :size="17" />
+          <AppIcon name="shield" :size="17" />
           <div>
-            <strong>{{ t("overview.next.checkin") }}</strong>
-            <p>{{ t("deliverables.readiness") }}</p>
+            <strong>{{ t("deliverables.generated") }}</strong>
+            <p>{{ t("deliverables.note") }}</p>
           </div>
         </div>
         <div class="drill-line">
-          <span class="mono">DRILL-01</span>
-          <StatusPill tone="planned" :label="t('common.planned')" />
+          <span class="mono">deliver.export</span>
+          <StatusPill tone="ready" :label="t('common.ready')" />
         </div>
       </SectionCard>
     </div>
@@ -82,7 +134,7 @@ const kinds: Array<{ key: string; icon: IconName; tone: "planned" | "ready" }> =
 .deliverable-card {
   display: flex;
   flex-direction: column;
-  min-height: 210px;
+  min-height: 230px;
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -117,7 +169,7 @@ const kinds: Array<{ key: string; icon: IconName; tone: "planned" | "ready" }> =
 }
 
 .deliverable-card h2 {
-  margin-top: 20px;
+  margin-top: 18px;
   font-size: 20px;
 }
 
@@ -128,9 +180,47 @@ const kinds: Array<{ key: string; icon: IconName; tone: "planned" | "ready" }> =
   line-height: 1.6;
 }
 
-.deliverable-meta {
+.deliverable-result {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  font-size: 9px;
+  word-break: break-all;
+}
+
+.deliverable-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.deliverable-download:hover {
+  text-decoration: underline;
+}
+
+.deliverable-error {
+  color: var(--danger, #b33a3a) !important;
+}
+
+.deliverable-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: auto;
-  padding-top: 18px;
+  padding-top: 16px;
+}
+
+.deliverable-meta {
   color: var(--muted);
   font-size: 9px;
   letter-spacing: 0.08em;
@@ -144,7 +234,8 @@ const kinds: Array<{ key: string; icon: IconName; tone: "planned" | "ready" }> =
 }
 
 .queue-row,
-.drill-line {
+.drill-line,
+.queue-empty {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -155,18 +246,26 @@ const kinds: Array<{ key: string; icon: IconName; tone: "planned" | "ready" }> =
 }
 
 .queue-row:first-child,
-.drill-line:first-child {
+.drill-line:first-child,
+.queue-empty:first-child {
   border-top: 0;
 }
 
+.queue-empty {
+  color: var(--muted);
+}
+
 .queue-id {
-  min-width: 56px;
+  min-width: 72px;
   color: var(--muted);
   font-size: 9px;
 }
 
 .queue-row > span:nth-child(2) {
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .drill-callout {

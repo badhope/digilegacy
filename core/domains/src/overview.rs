@@ -112,9 +112,14 @@ pub fn get(store: &Store) -> Result<Overview, DomainError> {
                         status: "ready".to_string(),
                     },
                     ModuleStatus {
+                        id: "policy".to_string(),
+                        label: "政策".to_string(),
+                        status: "ready".to_string(),
+                    },
+                    ModuleStatus {
                         id: "deliver".to_string(),
                         label: "交付".to_string(),
-                        status: "planned".to_string(),
+                        status: "ready".to_string(),
                     },
                     ModuleStatus {
                         id: "agent".to_string(),

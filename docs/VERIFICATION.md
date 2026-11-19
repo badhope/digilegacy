@@ -95,22 +95,42 @@ M1 退出条件中的“加密、恢复、备份、迁移、审计全绿”已�
 ### M2 真实领域与入口接线
 
 ```text
-core/domains: assets 3 + plan 2 + overview 1 + runs 1 = 7 tests
-core/application: 3 tests（读命令、CRUD+审计、签到）
+core/domains: assets 3 + plan 2 + overview 1 + runs 1 + policy 2 = 9 tests
+core/application: 5 tests（读命令、CRUD+审计、签到、政策、交付）
 apps/server: 6 tests（真实读接口、写 token 门禁、404/403）
+core/render: 2 tests（纯文本转义、可信 body 页面壳）
+core/store: 15 tests（schema v10 / 27 表 / 迁移 / 加密 / 诊断）
 ```
 
 已实测：
 
 - CLI 用真实 SQLite 创建资产，返回 id=1；`assets list --q 邮箱` 命中。
-- HTTP `/api/v1/{overview,assets,plan,security,agent/runs}` 返回真实行；`/assets` 返回 `items/nextCursor/total`。
+- HTTP `/api/v1/{overview,assets,plan,policies,security,agent/runs}` 返回真实行；`/assets` 返回 `items/nextCursor/total`。
 - MCP `tools/call -> overview.get` 经 `_meta["digilegacy/command"]` 映射到 `app.overview`，返回真实 envelope，不再伪造成功。
 - Web 在 `VITE_USE_MOCK=false` 下读取同一 API；资产搜索/状态筛选走服务端，分页用 `nextCursor` 追加。
+
+### M2-B 政策库与交付物
+
+```text
+policies 表：152 条，content/policies/platforms.json，16 个分类
+policy_provenance：152 条，全部 unverified，不伪造已核实
+deliver.export：report/checklist/legal/toolkit 四类 HTML，jobs + deliverable_exports 落库
+```
+
+已实测：
+
+- CLI `policies list --q 支付宝` 返回 16 个分类与命中条目；`policies get 1` 返回支付宝、`provenance.status=unverified`。
+- HTTP `GET /api/v1/policies?q=支付宝` 返回 2 条命中；`GET /api/v1/policies/1` 返回完整 20 字段。
+- HTTP `POST /api/v1/deliverables/export` 返回 `jobId/status=succeeded/fileName/downloadUrl`；`GET /api/v1/exports/{jobId}` 返回 `text/html` 附件。
+- 报告含资产、继承人、政策材料/流程/风险；法律文本含 4 类模板；清单含平台材料；工具包含官方入口与申请表链接。
+- Web 政策库并入资产二级标签：152 条、分类筛选、服务端搜索、游标加载更多、详情展开、溯源状态显示。
+- Web 交付页生成后显示文件名与下载链接；资产详情可跳转对应平台政策。
 
 未完成边界：
 
 - Web 写入仍受 HTTP 写 token 和解锁流程阻塞；资产创建/更新目前走 CLI `--allow-write`。
-- 政策库、交付物、审核、演练、Job/SSE 未开始。
+- 政策溯源只读，没有“标记已核实/争议”的写命令与审核界面。
+- 交付物同步生成，未接 SSE/轮询进度、取消与后台队列。
 - vault 解锁未接 server/Web；元数据读链路当前可读，敏感字段展示仍需解锁。
 
 ### Web
@@ -124,10 +144,10 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         80.60 KB / 110 KB
-入口 raw        44.49 KB / 60 KB
-vendor raw      98.50 KB / 130 KB
-路由最大 raw    6.82 KB / 24 KB
+总 gzip         87.25 KB / 110 KB
+入口 raw        48.77 KB / 60 KB
+vendor raw      98.88 KB / 130 KB
+路由最大 raw    7.09 KB / 24 KB
 ```
 
 ### 运行态 smoke

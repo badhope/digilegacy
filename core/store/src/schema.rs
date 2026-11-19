@@ -1,12 +1,12 @@
-//! Schema v9: table creation, additive migrations and migration ledger.
+//! Schema v10: policies + v9 security/store, additive migrations and ledger.
 
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use sha2::{Digest, Sha256};
 
-pub const SCHEMA_VERSION: i64 = 9;
+pub const SCHEMA_VERSION: i64 = 10;
 pub const SCHEMA_SQL: &str = include_str!("schema.sql");
-pub const EXPECTED_TABLES: i64 = 26;
+pub const EXPECTED_TABLES: i64 = 27;
 
 fn checksum() -> String {
     let digest = Sha256::digest(SCHEMA_SQL.as_bytes());
@@ -87,7 +87,7 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
          VALUES (?1, ?2, ?3, ?4)",
         params![
             SCHEMA_VERSION,
-            "v9_security_store",
+            "v10_policy_library",
             checksum(),
             Utc::now().to_rfc3339()
         ],
@@ -113,7 +113,7 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
-    fn schema_is_v9_and_has_26_tables() {
+    fn schema_is_v10_and_has_27_tables() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let version: i64 = conn
@@ -128,21 +128,21 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(count, EXPECTED_TABLES, "schema v9 必须正好 26 张表");
+        assert_eq!(count, EXPECTED_TABLES, "schema v10 必须正好 27 张表");
     }
 
     #[test]
-    fn migration_ledger_records_v9() {
+    fn migration_ledger_records_v10() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let name: String = conn
             .query_row(
-                "SELECT name FROM schema_migrations WHERE version = 9",
+                "SELECT name FROM schema_migrations WHERE version = 10",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(name, "v9_security_store");
+        assert_eq!(name, "v10_policy_library");
     }
 
     #[test]

@@ -49,6 +49,16 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Generate a deliverable export.
+    Deliver {
+        #[command(subcommand)]
+        command: DeliverCommand,
+    },
+    /// Policy library.
+    Policies {
+        #[command(subcommand)]
+        command: PoliciesCommand,
+    },
     /// Security status summary.
     Security {
         #[command(subcommand)]
@@ -128,6 +138,42 @@ enum AssetsCommand {
         note: String,
         #[arg(long)]
         allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum DeliverCommand {
+    /// Export report/checklist/legal/toolkit as HTML.
+    Export {
+        #[arg(long)]
+        kind: String,
+        #[arg(long, default_value = "zh-CN")]
+        locale: String,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum PoliciesCommand {
+    /// Search policies by category and keyword.
+    List {
+        #[arg(long, default_value = "")]
+        category: String,
+        #[arg(long, default_value = "")]
+        q: String,
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+        #[arg(long)]
+        cursor: Option<String>,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Read one policy and its provenance.
+    Get {
+        id: String,
         #[arg(long)]
         json: bool,
     },
@@ -259,6 +305,37 @@ fn main() -> ExitCode {
             ),
         },
         Commands::Plan { json: as_json } => run(&app, "plan.get", json!({}), as_json, false),
+        Commands::Deliver { command } => match command {
+            DeliverCommand::Export {
+                kind,
+                locale,
+                json: as_json,
+            } => run(
+                &app,
+                "deliver.export",
+                json!({ "kind": kind, "locale": locale }),
+                as_json,
+                false,
+            ),
+        },
+        Commands::Policies { command } => match command {
+            PoliciesCommand::List {
+                category,
+                q,
+                limit,
+                cursor,
+                json: as_json,
+            } => run(
+                &app,
+                "policies.list",
+                json!({ "category": category, "q": q, "limit": limit, "cursor": cursor }),
+                as_json,
+                false,
+            ),
+            PoliciesCommand::Get { id, json: as_json } => {
+                run(&app, "policies.get", json!({ "id": id }), as_json, false)
+            }
+        },
         Commands::Security { command } => match command {
             SecurityCommand::Status { json: as_json } => {
                 run(&app, "security.status", json!({}), as_json, false)

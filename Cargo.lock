@@ -425,10 +425,13 @@ dependencies = [
  "digilegacy-contracts",
  "digilegacy-domains",
  "digilegacy-foundation",
+ "digilegacy-render",
  "digilegacy-security",
  "digilegacy-store",
+ "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
