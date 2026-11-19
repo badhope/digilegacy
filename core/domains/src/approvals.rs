@@ -46,6 +46,8 @@ pub struct DecideInput {
     pub decision: String,
     #[serde(default)]
     pub reason: String,
+    #[serde(default)]
+    pub background: bool,
 }
 
 fn row_to_approval(row: &rusqlite::Row<'_>) -> rusqlite::Result<Approval> {
@@ -60,6 +62,21 @@ fn row_to_approval(row: &rusqlite::Row<'_>) -> rusqlite::Result<Approval> {
         created_at: row.get(7)?,
         decided_at: row.get(8)?,
     })
+}
+
+pub fn get(store: &Store, id: &str) -> Result<Approval, DomainError> {
+    store
+        .read(|conn| {
+            conn.query_row(
+                "SELECT id, run_id, tool, object_key, diff_json, status, reason, created_at, decided_at
+                 FROM agent_approvals WHERE id=?1",
+                [id],
+                row_to_approval,
+            )
+            .optional()
+        })
+        .map_err(DomainError::from)?
+        .ok_or_else(|| DomainError::NotFound(format!("审批记录不存在: {id}")))
 }
 
 pub fn list(store: &Store, input: &ListInput) -> Result<ApprovalPage, DomainError> {
@@ -176,6 +193,7 @@ mod tests {
                 id: "appr_1".to_string(),
                 decision: "approve".to_string(),
                 reason: "核对无误".to_string(),
+                background: false,
             },
         )
         .unwrap();
@@ -190,6 +208,7 @@ mod tests {
                     id: "appr_1".to_string(),
                     decision: "reject".to_string(),
                     reason: String::new(),
+                    background: false,
                 }
             ),
             Err(DomainError::Conflict(_))

@@ -425,5 +425,34 @@
     "_meta": {
       "digilegacy/command": "deliver.export"
     }
+  },
+  {
+    "name": "jobs.get",
+    "title": "读取后台任务",
+    "description": "按任务 ID 读取后台执行状态、进度、结果与错误。",
+    "inputSchema": {
+      "title": "IdInput",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "jobs.get"
+    }
   }
 ]

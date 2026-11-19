@@ -77,7 +77,7 @@ mod tests {
             })
             .unwrap();
         let json = store.diagnostics_json().unwrap();
-        assert!(json.contains("\"schema_version\": 10"));
+        assert!(json.contains(&format!("\"schema_version\": {}", crate::SCHEMA_VERSION)));
         assert!(json.contains("\"valid\": true"));
         assert!(json.contains("\"table_count\": 27"));
         assert!(!json.contains("secret_value"), "诊断包不得包含数据值");

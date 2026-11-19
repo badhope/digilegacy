@@ -7,9 +7,9 @@ export function useResource<T>(loader: () => Promise<Envelope<T>>) {
   const error = ref<string | null>(null);
   let sequence = 0;
 
-  async function reload() {
+  async function load(silent = false) {
     const current = ++sequence;
-    loading.value = true;
+    if (!silent) loading.value = true;
     error.value = null;
     try {
       const envelope = await loader();
@@ -23,13 +23,16 @@ export function useResource<T>(loader: () => Promise<Envelope<T>>) {
       if (current !== sequence) return;
       error.value = cause instanceof Error ? cause.message : "request failed";
     } finally {
-      if (current === sequence) {
+      if (current === sequence && !silent) {
         loading.value = false;
       }
     }
   }
 
+  const reload = () => load(false);
+  const refresh = () => load(true);
+
   onMounted(reload);
 
-  return { data, loading, error, reload };
+  return { data, loading, error, reload, refresh };
 }

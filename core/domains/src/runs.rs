@@ -15,6 +15,7 @@ pub struct Run {
     pub title: String,
     pub steps: i64,
     pub started_at: String,
+    pub duration_ms: i64,
     pub tokens: i64,
 }
 
@@ -48,6 +49,7 @@ pub struct RunDetail {
     pub tools_used: String,
     pub rounds: i64,
     pub started_at: String,
+    pub duration_ms: i64,
     pub final_text: String,
 }
 
@@ -57,7 +59,7 @@ pub fn list(store: &Store, status: &str, limit: i64) -> Result<RunsPage, DomainE
     store
         .read(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, started_at, task, outcome, rounds
+                "SELECT id, started_at, task, outcome, rounds, duration_ms
                  FROM agent_run_log
                  WHERE (?1 = 'all' OR outcome = ?1)
                  ORDER BY id DESC LIMIT ?2",
@@ -70,6 +72,7 @@ pub fn list(store: &Store, status: &str, limit: i64) -> Result<RunsPage, DomainE
                         title: r.get(2)?,
                         status: r.get(3)?,
                         steps: r.get(4)?,
+                        duration_ms: r.get(5)?,
                         tokens: 0,
                     })
                 })?
@@ -87,7 +90,7 @@ pub fn get(store: &Store, id: &str) -> Result<RunDetail, DomainError> {
     store
         .read(|conn| {
             conn.query_row(
-                "SELECT id, started_at, task, outcome, rounds, tools_used, steps_json, final_text
+                "SELECT id, started_at, task, outcome, rounds, tools_used, steps_json, final_text, duration_ms
                  FROM agent_run_log WHERE id=?1",
                 [id_num],
                 |r| {
@@ -101,6 +104,7 @@ pub fn get(store: &Store, id: &str) -> Result<RunDetail, DomainError> {
                         tools_used: r.get(5)?,
                         steps: parse_steps(&steps_json),
                         final_text: r.get(7)?,
+                        duration_ms: r.get(8)?,
                     })
                 },
             )

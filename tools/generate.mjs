@@ -89,7 +89,7 @@ const commandNames = new Set();
 const errorCodes = new Set(errors.errors.map((e) => e.code));
 const domains = new Set([
   "app", "assets", "platform", "plan", "trigger", "deliver", "review", "drill",
-  "security", "backup", "checkpoint", "connections", "llm", "agent",
+  "security", "backup", "checkpoint", "connections", "llm", "agent", "jobs",
   "audit", "policy", "policy_sync", "mail", "heartbeat", "diagnostics", "settings",
 ]);
 const permissions = new Set(["read", "draft", "write", "key", "network", "desktop"]);
@@ -500,7 +500,7 @@ const openapi = {
   openapi: "3.1.0",
   info: {
     title: "DigiLegacy Platform API",
-    version: "0.7.7-m3f",
+    version: "0.7.8-m3g",
     description: "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents.",
   },
   servers: [{ url: "http://127.0.0.1:8787", description: "Local platform server" }],

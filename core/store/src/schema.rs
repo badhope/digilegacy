@@ -1,10 +1,10 @@
-//! Schema v10: policies + v9 security/store, additive migrations and ledger.
+//! Schema v11: policy library + agent run duration, additive migrations and ledger.
 
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use sha2::{Digest, Sha256};
 
-pub const SCHEMA_VERSION: i64 = 10;
+pub const SCHEMA_VERSION: i64 = 11;
 pub const SCHEMA_SQL: &str = include_str!("schema.sql");
 pub const EXPECTED_TABLES: i64 = 27;
 
@@ -80,6 +80,7 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
     add_column(conn, "security_config", "recovery_seal", "TEXT DEFAULT ''")?;
     add_column(conn, "security_config", "wrapped_dek", "TEXT DEFAULT ''")?;
     add_column(conn, "agent_run_log", "steps_json", "TEXT DEFAULT '[]'")?;
+    add_column(conn, "agent_run_log", "duration_ms", "INTEGER DEFAULT 0")?;
 
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     conn.execute(
@@ -87,7 +88,7 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
          VALUES (?1, ?2, ?3, ?4)",
         params![
             SCHEMA_VERSION,
-            "v10_policy_library",
+            "v11_agent_run_duration",
             checksum(),
             Utc::now().to_rfc3339()
         ],
@@ -113,7 +114,7 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
-    fn schema_is_v10_and_has_27_tables() {
+    fn schema_is_v11_and_has_27_tables() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let version: i64 = conn
@@ -128,21 +129,21 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(count, EXPECTED_TABLES, "schema v10 必须正好 27 张表");
+        assert_eq!(count, EXPECTED_TABLES, "schema v11 必须正好 27 张表");
     }
 
     #[test]
-    fn migration_ledger_records_v10() {
+    fn migration_ledger_records_v11() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let name: String = conn
             .query_row(
-                "SELECT name FROM schema_migrations WHERE version = 10",
+                "SELECT name FROM schema_migrations WHERE version = 11",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(name, "v10_policy_library");
+        assert_eq!(name, "v11_agent_run_duration");
     }
 
     #[test]

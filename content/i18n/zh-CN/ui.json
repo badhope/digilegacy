@@ -363,5 +363,10 @@
   "runs.detail.cancel": "取消运行",
   "runs.detail.retry": "重试运行",
   "runs.detail.tokenRequired": "需要写令牌：请在设置中填入 DIGILEGACY_API_TOKEN",
-  "runs.step.cancelled": "已取消"
+  "runs.step.cancelled": "已取消",
+  "approvals.background": "已批准，后台正在执行；运行详情每 1.5 秒自动刷新。",
+  "approvals.rejectedNote": "已拒绝，运行会立即终止。",
+  "approvals.viewRun": "查看运行",
+  "runs.detail.duration": "耗时",
+  "runs.detail.live": "运行中，每 1.5 秒静默刷新；切到后台自动暂停。"
 }

@@ -9,6 +9,7 @@ use digilegacy_domains::{approvals, assets, audit, overview, plan, policy, runs,
 use serde_json::{json, Value};
 
 pub mod deliver;
+pub mod jobs;
 pub mod runtime;
 use digilegacy_foundation::PlatformError;
 use digilegacy_security::keyring::FileKeyring;
@@ -17,6 +18,7 @@ use std::sync::Arc;
 
 pub const STATUS: &str = "m2-read-write-core";
 
+#[derive(Clone)]
 pub struct Application {
     store: Arc<Store>,
 }
@@ -88,6 +90,7 @@ impl Application {
             "agent.runs.retry" => runtime::retry(self, args),
             "agent.approvals.list" => self.approvals_list(args),
             "agent.approvals.decide" => self.approvals_decide(args),
+            "jobs.get" => self.jobs_get(args),
             other => Err(PlatformError::unsupported(other)),
         }
     }
@@ -170,8 +173,27 @@ impl Application {
         let input: approvals::DecideInput = parse(args)?;
         let approval = approvals::decide(&self.store, &input).map_err(map_domain)?;
         self.audit("agent.approval.decide", &approval.id)?;
+        if input.background {
+            let job_id = jobs::enqueue(
+                &self.store,
+                "agent.resume",
+                json!({ "approvalId": approval.id }),
+            )?;
+            self.audit("agent.job.enqueue", &job_id)?;
+            let mut value = json!(approval);
+            value["jobId"] = json!(job_id);
+            return Ok(value);
+        }
         runtime::resume(self, &approval)?;
         Ok(json!(approval))
+    }
+
+    pub fn jobs_get(&self, args: Value) -> Result<Value, PlatformError> {
+        let id = args
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| PlatformError::invalid_args("缺少 id"))?;
+        jobs::get(&self.store, id).map(|detail| json!(detail))
     }
 
     pub fn audit_list(&self, args: Value) -> Result<Value, PlatformError> {

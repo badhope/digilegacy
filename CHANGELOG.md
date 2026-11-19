@@ -2,6 +2,30 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.8-m3g] - 2026-11-19
+
+### Added
+
+- durable `jobs` 队列：`agent.resume` 后台执行审批恢复；server 启动单进程 Worker，250ms 轮询，回收超过 120 秒的 `running` 僵尸任务。
+- `jobs.get`（read）：HTTP `GET /api/v1/jobs/{id}`、CLI `jobs get`、MCP/Agent 工具；返回状态、进度、结果、错误与时间戳。
+- HTTP 审批后台化：`agent.approvals.decide` 在 HTTP/通用 invoke 路径强制 `background=true`，批准只更新审批并返回 `jobId`，Resume 交给 Worker；CLI 默认同步，新增 `--background`。
+- `agent_run_log.duration_ms`（schema v11，仍 27 表）：运行详情与列表返回 `durationMs`，记录从启动到终态的耗时（含等待审批）。
+- Web 审批页显示“已批准，后台正在执行”、`jobId` 与“查看运行”；运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏暂停，并显示耗时。
+
+### Changed
+
+- 契约扩至 **24 命令 / 17 工具 / 31 schema / 19 错误码**；`arch-check` 同步，`jobs.get` 加入工具目录。
+- `useResource` 拆分 `reload` / `refresh`：重试仍显示 skeleton，轮询静默更新不闪烁。
+- 版本 `0.7.8-m3g`。
+
+### Verification
+
+- Rust 测试 **111 项**：security 49、store 15、domains 13、application 12、agent 3、server 12、foundation 5、render 2；全仓 `./tools/verify.sh` 通过。
+- HTTP 批准耗时 **1.329 ms**，返回 `jobId`；Worker 约 **45 ms** 完成；运行 1 `succeeded`、`durationMs=4330`、步骤 `done`；`jobs.get` 返回 `succeeded`、`progress=1`。
+- Web 审批页显示后台提示与 `job_...`；运行 4 详情显示耗时 **8.4 s**；运行 5 在等待审批时从外部批准，2.5 秒后页面自动刷新为“已完成”。
+- CLI `approvals decide --background` 返回 `jobId`，`jobs get` 返回 `succeeded`；运行 6 `succeeded`、`durationMs=6945`。
+- Web 总 gzip **104.98 KB / 110 KB**，CSS **18.20 KB / 19 KB**，入口 **63.80 KB / 64 KB**，vendor **98.89 KB / 130 KB**。
+
 ## [0.7.7-m3f] - 2026-11-19
 
 ### Added

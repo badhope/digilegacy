@@ -74,6 +74,7 @@ export interface AgentRun {
   title: string;
   steps: number;
   startedAt: string;
+  durationMs: number;
   tokens: number;
 }
 
@@ -94,6 +95,7 @@ export interface RunDetail {
   toolsUsed: string;
   rounds: number;
   startedAt: string;
+  durationMs: number;
   finalText: string;
 }
 
@@ -193,6 +195,7 @@ export interface Approval {
   reason: string;
   createdAt: string;
   decidedAt: string;
+  jobId?: string;
 }
 
 export interface ApprovalPage {

@@ -148,13 +148,14 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - **M0**：`core/security`、`core/store` 只有边界；Web 使用 mock；不声称已加密。
 - **M1**：从 `legacy/app/src-tauri` 按模块迁入加密、Vault、恢复、备份、DB，不重写算法。
 - **M2**：`core/application` 统一用例分派；入口只做权限/传输；Web 读真实 API，资产筛选服务端化。
-- **M2-B**：schema v10（27 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
+- **M2-B**：schema v10 起步（当前 v11，27 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
 - **M3 第一切片**：`policies.provenance.set` 允许 `unverified/source_cited/verified/disputed` 四态，来源为空回退官方 URL，写 `policy_provenance` 并追加审计 `policy.provenance.set`；HTTP `PATCH /api/v1/policies/{id}/provenance`，CLI `policies provenance`，Web 在详情内编辑。
 - **M3-B**：HTTP `write` Bearer token（`DIGILEGACY_API_TOKEN`）；Web 连接设置存 `sessionStorage` 并只对 `write` 命令附加；资产新增/编辑表单接 `assets.create/update`，写后刷新列表并留审计。
 - **M3-C**：`audit.list` 读审计链（游标 + 类型过滤），HTTP `GET /api/v1/audit`，CLI `audit list`，Web 设置审计页显示时间/类型/对象/结果/hash 前缀。
 - **M3-D**：`agent.approvals.list/decide` 管理 Agent 写操作审批队列；决定更新 `agent_approvals` 状态并写 `agent.approval.decide` 审计；HTTP `GET /api/v1/agent/approvals`、`POST /api/v1/agent/approvals/{id}/decide`，CLI `approvals list/decide`，Web `/automation/approvals`。
 - **M3-E**：`agent.runs.start/get` 驱动确定性 Runtime：按步骤执行注册工具，只读/草稿立即执行，`write` 工具创建审批并暂停；批准后从当前步骤继续执行，拒绝则终止。运行步骤落 `agent_run_log.steps_json`，Web `/automation/runs/new`、`/automation/runs/:id`、`/automation/tools` 接真实数据。
 - **M3-F**：`agent.runs.plan` 用 OpenAI 兼容接口（默认 DeepSeek，`DIGILEGACY_LLM_BASE_URL/API_KEY/MODEL`）把任务拆成注册工具步骤，只返回计划、不执行；Web 人工确认后再 `start`。`agent.runs.cancel` 终止未终态运行并把待审批置 `expired`；`agent.runs.retry` 为 failed/rejected/cancelled 运行创建新运行并保留旧记录；`maxSteps/maxWriteSteps` 在启动前做静态预算校验。
+- **M3-G**：HTTP 审批改为后台执行：`approvals_decide(background=true)` 只更新审批状态、写 `agent.approval.decide` 审计、把 `agent.resume` 入 durable `jobs` 队列并返回 `jobId`；server 启动单进程 Worker，250ms 轮询、回收超过 120 秒的 `running` 僵尸任务。`jobs.get` 提供状态/进度/结果/错误的统一读取；`agent_run_log` 增加 `duration_ms`（schema v11，仍 27 表）。Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏暂停；审批页显示“后台执行 + jobId + 查看运行”。
 - **数据归属**：单工作区抽象保留 `workspaces`，27 张表按领域拆；资产与政策各维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。
@@ -175,7 +176,7 @@ HTTP `write` 已接 `DIGILEGACY_API_TOKEN`：请求必须带 `Authorization: Bea
 - Web 总 gzip 约 87 KB；入口约 49 KB；vendor 98.9 KB raw。
 - CommandBus 约 250 ns/op（M0 release 基线）。
 - 路由级拆包；页面级 CSS 随路由加载。
-- 长任务走 Job/SSE，不让 HTTP 请求阻塞（M2+）。
+- 长任务走 durable `jobs`，不让 HTTP 请求阻塞；进度当前用 1.5 秒静默轮询，SSE 作为后续优化。
 - 性能回归超过 20% 必须解释或回滚（G13）。
 
 ## 10. 关键决策

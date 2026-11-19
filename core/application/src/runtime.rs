@@ -75,6 +75,29 @@ fn rounds(steps: &[runs::RunStep]) -> i64 {
     steps.iter().filter(|step| step.status != "queued").count() as i64
 }
 
+fn elapsed_ms(app: &Application, run_id: i64) -> i64 {
+    app.store()
+        .read(|conn| {
+            conn.query_row(
+                "SELECT started_at FROM agent_run_log WHERE id=?1",
+                [run_id],
+                |r| r.get::<_, String>(0),
+            )
+        })
+        .ok()
+        .and_then(|started| {
+            started
+                .parse::<chrono::DateTime<chrono::FixedOffset>>()
+                .ok()
+        })
+        .map(|started| {
+            (Utc::now() - started.with_timezone(&Utc))
+                .num_milliseconds()
+                .max(0)
+        })
+        .unwrap_or(0)
+}
+
 fn save(
     app: &Application,
     run_id: i64,
@@ -86,13 +109,14 @@ fn save(
         serde_json::to_string(steps).map_err(|e| internal(format!("步骤序列化失败: {e}")))?;
     let used = tools_used(steps);
     let count = rounds(steps);
+    let duration = elapsed_ms(app, run_id);
     app.store()
         .write(|conn| {
             conn.execute(
                 "UPDATE agent_run_log
-                 SET outcome=?2, rounds=?3, tools_used=?4, steps_json=?5, final_text=?6
+                 SET outcome=?2, rounds=?3, tools_used=?4, steps_json=?5, final_text=?6, duration_ms=?7
                  WHERE id=?1",
-                rusqlite::params![run_id, outcome, count, used, steps_json, final_text],
+                rusqlite::params![run_id, outcome, count, used, steps_json, final_text, duration],
             )?;
             Ok(())
         })

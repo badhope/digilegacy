@@ -27,6 +27,7 @@ export const COMMANDS = {
   securityStatus: "security.status",
   connectionsTest: "connections.test",
   diagnosticsExport: "diagnostics.export",
+  jobsGet: "jobs.get",
 } as const;
 
 export type CommandName = (typeof COMMANDS)[keyof typeof COMMANDS];
@@ -55,6 +56,7 @@ export const COMMAND_PERMISSION: Record<CommandName, Permission> = {
   "security.status": "read",
   "connections.test": "network",
   "diagnostics.export": "write",
+  "jobs.get": "read",
 };
 
 export const COMMAND_HTTP: Record<CommandName, string> = {
@@ -81,6 +83,7 @@ export const COMMAND_HTTP: Record<CommandName, string> = {
   "security.status": "GET /api/v1/security",
   "connections.test": "POST /api/v1/connections/test",
   "diagnostics.export": "POST /api/v1/diagnostics/export",
+  "jobs.get": "GET /api/v1/jobs/{id}",
 };
 
 export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
@@ -107,6 +110,7 @@ export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
   "security.status": true,
   "connections.test": true,
   "diagnostics.export": false,
+  "jobs.get": false,
 };
 
 export const COMMAND_AUDIT: Record<CommandName, boolean> = {
@@ -133,6 +137,7 @@ export const COMMAND_AUDIT: Record<CommandName, boolean> = {
   "security.status": false,
   "connections.test": true,
   "diagnostics.export": true,
+  "jobs.get": false,
 };
 
 export const COMMAND_TOOL: Record<CommandName, string | null> = {
@@ -159,6 +164,7 @@ export const COMMAND_TOOL: Record<CommandName, string | null> = {
   "security.status": "security.status",
   "connections.test": null,
   "diagnostics.export": null,
+  "jobs.get": "jobs.get",
 };
 
 export const COMMAND_NAMES = Object.values(COMMANDS);

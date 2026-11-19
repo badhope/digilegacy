@@ -287,6 +287,25 @@
       ],
       "mcp": true,
       "rate_limit": "10/min"
+    },
+    {
+      "name": "jobs.get",
+      "human_equivalent": "jobs.get",
+      "title": "读取后台任务",
+      "description": "按任务 ID 读取后台执行状态、进度、结果与错误。",
+      "input_schema": "schemas/id.input.json",
+      "output_schema": "schemas/job.detail.output.json",
+      "mcp": true,
+      "agent": true,
+      "permission": "read",
+      "approval": "none",
+      "idempotent": true,
+      "audit": false,
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "rate_limit": "60/min"
     }
   ]
 }

@@ -225,11 +225,11 @@ mod tests {
     }
 
     #[test]
-    fn opens_schema_v10_and_integrity_ok() {
+    fn opens_schema_v11_and_integrity_ok() {
         let path = temp_path("v9");
         let store = Store::open(&path, None).unwrap();
         assert_eq!(store.state(), StoreState::Ready);
-        assert_eq!(store.schema_version().unwrap(), 10);
+        assert_eq!(store.schema_version().unwrap(), 11);
         assert_eq!(store.table_count().unwrap(), 27);
         assert_eq!(store.integrity_check().unwrap(), "ok");
         drop(store);
@@ -289,7 +289,7 @@ mod tests {
         assert_eq!(
             ro.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            10
+            11
         );
         drop(ro);
         cleanup(&path);

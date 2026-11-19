@@ -197,7 +197,8 @@ CREATE TABLE IF NOT EXISTS agent_run_log (
     final_text TEXT DEFAULT '',
     rounds INTEGER DEFAULT 0,
     tools_used TEXT DEFAULT '',
-    steps_json TEXT DEFAULT '[]'
+    steps_json TEXT DEFAULT '[]',
+    duration_ms INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS heir_recovery (

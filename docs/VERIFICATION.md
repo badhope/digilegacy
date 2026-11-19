@@ -71,8 +71,8 @@ cargo test --workspace            OK
 - render：2 个
 - server：12 个（真实读接口、写 token 门禁、正确/错误 token、溯源 draft 写与审计、审计链读取、审批列表/决定/冲突、Runtime 启动/详情）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
-- store：15 个（schema v10 / 27 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- domains：13 个；application：10 个；agent：3 个
+- store：15 个（schema v11 / 27 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
+- domains：13 个；application：12 个；agent：3 个
 
 ### M1 安全与数据底座
 
@@ -99,7 +99,7 @@ core/domains: assets 3 + plan 2 + overview 1 + runs 1 + policy 3 = 10 tests
 core/application: 5 tests（读命令、CRUD+审计、签到、政策、交付）
 apps/server: 6 tests（真实读接口、写 token 门禁、404/403）
 core/render: 2 tests（纯文本转义、可信 body 页面壳）
-core/store: 15 tests（schema v10 / 27 表 / 迁移 / 加密 / 诊断）
+core/store: 15 tests（schema v11 / 27 表 / 迁移 / 加密 / 诊断）
 ```
 
 已实测：
@@ -192,14 +192,41 @@ Web /automation/runs/new 的“AI 生成步骤”；运行详情的“取消运�
 未完成边界：
 
 - 规划器需要外部 OpenAI 兼容端点与 key；未配置时明确返回 `UNSUPPORTED`，不会伪造计划。
-- 取消是协作式：已同步进入执行的单个工具不会被中断；审批决定仍同步执行工具。
+- 取消是协作式：已同步进入执行的单个工具不会被中断；HTTP 审批已后台执行，CLI 默认同步。
 - 预算只在启动前静态校验，不落库、不做运行时动态消耗。
 - 运行详情未展示 token/成本；审批影响条数与回滚点未做。
+
+### M3-G 审批后台 Job、运行进度与耗时
+
+```text
+jobs.get            GET /api/v1/jobs/{id}（read）
+HTTP 审批            POST /api/v1/agent/approvals/{id}/decide（强制 background=true）
+CLI approvals decide --background；jobs get <id>
+Worker              单进程 250ms 轮询；回收 >120s 的 running 僵尸任务
+Web                 审批页后台提示 + jobId；运行页 1.5s 静默轮询，页面隐藏暂停
+```
+
+已实测：
+
+- 写运行 `id=1` 审批 `appr_1_0`：HTTP 批准 **1.329 ms** 返回 `jobId`；Worker 约 **45 ms** 完成 `agent.resume`；运行 1 变 `succeeded`，`durationMs=4330`（含等待审批），步骤 `done`。
+- `GET /api/v1/jobs/{jobId}` 返回 `succeeded`、`progress=1`、`result={approvalId,runId,runStatus}`、`finishedAt` 比入队晚 45 ms。
+- Web 第二次审批（运行 4）批准后显示“已批准，后台正在执行”、`job_...` 与“查看运行”；运行详情显示 **耗时 8.4 s**。
+- 运行 5 在页面显示“等待审批”时从外部批准，2.5 秒后页面无刷新自动变为“已完成”，确认静默轮询生效。
+- CLI `approvals decide --background` 返回 `jobId`；`jobs get` 返回 job `succeeded`，运行 6 `succeeded`、`durationMs=6945`。
+- schema v11 为 `agent_run_log` 增加 `duration_ms`，仍 27 表；迁移 ledger `v11_agent_run_duration`。
+- 修复：`jobs.finish` 的 `?2` 复用导致 3 参数对 2 占位符（`Got 3, needed 2`）；`useResource.reload` 被模板事件传入 `PointerEvent`，拆分 `reload` / `refresh`。
+
+未完成边界：
+
+- Web 当前是 1.5 秒静默轮询，不是 SSE；SSE 留作后续优化。
+- token/成本未落库，只记录 `duration_ms`；`Run.tokens` 仍为 0。
+- CLI 审批默认仍同步（可显式 `--background`）；HTTP 已全量后台化。
+- 规划器只对本地 mock provider 验证，真实 DeepSeek/豆包 key 未配置。
 
 ### 未完成边界
 
 - 政策审核工作台与批量核对尚未做；政策溯源写已支持四态与审计。
-- 交付物同步生成，未接 SSE/轮询进度、取消与后台队列。
+- 交付物同步生成；后台 Job 已用于 Agent 审批恢复，交付导出仍为同步。
 - vault 解锁未接 server/Web；元数据读链路当前可读，敏感字段展示仍需解锁。
 
 ### Web
@@ -213,10 +240,10 @@ npm run build       OK
 包体基线：
 
 ```text
-总 gzip         104.15 KB / 110 KB
-CSS gzip        18.12 KB / 19 KB
-入口 raw        62.82 KB / 64 KB
-vendor raw      98.88 KB / 130 KB
+总 gzip         104.98 KB / 110 KB
+CSS gzip        18.20 KB / 19 KB
+入口 raw        63.80 KB / 64 KB
+vendor raw      98.89 KB / 130 KB
 路由最大 raw    8.96 KB / 24 KB
 ```
 
@@ -224,7 +251,7 @@ vendor raw      98.88 KB / 130 KB
 
 | 入口 | 请求 | 结果 |
 |---|---|---|
-| Server | `GET /api/v1/health` | `200 OK`，23 commands / 27 表 / schema v10 |
+| Server | `GET /api/v1/health` | `200 OK`，24 commands / 27 表 / schema v11 |
 | Server | `GET /api/v1/overview` | `200 OK`，真实资产/规划/活动 |
 | Server | 未知命令 | `404 NOT_FOUND` |
 | Server | `assets.create` | `401 AUTH_REQUIRED`（M0 写 token 未接） |

@@ -20,6 +20,11 @@
     },
     "id": {
       "type": "string"
+    },
+    "background": {
+      "type": "boolean",
+      "default": false,
+      "description": "入队后台执行；HTTP 默认开启，CLI 默认同步"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

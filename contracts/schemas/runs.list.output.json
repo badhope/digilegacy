@@ -34,6 +34,10 @@
           },
           "tokens": {
             "type": "integer"
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }

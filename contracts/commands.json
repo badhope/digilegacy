@@ -564,6 +564,30 @@
         "IO",
         "INTERNAL"
       ]
+    },
+    {
+      "name": "jobs.get",
+      "domain": "jobs",
+      "summary": "读取后台任务状态、进度与结果",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/id.input.json",
+      "output": "schemas/job.detail.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "jobs get",
+        "http": "GET /api/v1/jobs/{id}",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "INTERNAL"
+      ]
     }
   ]
 }

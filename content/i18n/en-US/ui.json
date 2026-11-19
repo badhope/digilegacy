@@ -363,5 +363,10 @@
   "runs.detail.cancel": "Cancel run",
   "runs.detail.retry": "Retry run",
   "runs.detail.tokenRequired": "Write token required: set DIGILEGACY_API_TOKEN in Settings",
-  "runs.step.cancelled": "Cancelled"
+  "runs.step.cancelled": "Cancelled",
+  "approvals.background": "Approved; executing in the background. Run details refresh every 1.5s.",
+  "approvals.rejectedNote": "Rejected; the run stops immediately.",
+  "approvals.viewRun": "View run",
+  "runs.detail.duration": "Duration",
+  "runs.detail.live": "Active; silent refresh every 1.5s, paused when the tab is hidden."
 }

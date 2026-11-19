@@ -19,6 +19,9 @@ const filter = ref<"pending" | "approved" | "rejected" | "all">("pending");
 const reasons = reactive<Record<string, string>>({});
 const deciding = ref("");
 const decideError = ref("");
+const decidedRun = ref("");
+const decidedJob = ref("");
+const lastDecision = ref<"approve" | "reject">("approve");
 
 const { data, loading, error, reload } = useResource(() =>
   platformClient.listApprovals({ status: filter.value }),
@@ -71,6 +74,9 @@ async function decide(approval: Approval, decision: "approve" | "reject") {
       return;
     }
     reasons[approval.id] = "";
+    decidedRun.value = approval.runId;
+    decidedJob.value = envelope.data.jobId ?? "";
+    lastDecision.value = decision;
     await reload();
   } finally {
     deciding.value = "";
@@ -119,6 +125,14 @@ async function decide(approval: Approval, decision: "approve" | "reject") {
 
     <template v-else>
       <div v-if="decideError" class="decide-error">{{ decideError }}</div>
+
+      <div v-if="decidedRun" class="decide-note">
+        <span>{{ lastDecision === "approve" ? t("approvals.background") : t("approvals.rejectedNote") }}</span>
+        <span v-if="decidedJob" class="mono">{{ decidedJob }}</span>
+        <AppButton variant="secondary" size="sm" @click="router.push(`/automation/runs/${decidedRun}`)">
+          {{ t("approvals.viewRun") }}
+        </AppButton>
+      </div>
 
       <div v-if="items.length" class="approval-list">
         <article v-for="approval in items" :key="approval.id" class="approval-card">
@@ -196,5 +210,7 @@ async function decide(approval: Approval, decision: "approve" | "reject") {
 .approval-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
 .approval-actions input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--ink); font: inherit; font-size: 12px; }
 .decided-reason { margin-top: 10px; color: var(--muted); font-size: 11px; }
+.decide-note { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--ink-soft); font-size: 12px; }
+.decide-note .mono { color: var(--muted); font-size: 10px; }
 .decide-error { margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--danger, #b42318); background: var(--surface-soft); font-size: 12px; }
 </style>

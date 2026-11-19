@@ -1,0 +1,53 @@
+{
+  "title": "JobDetail",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "jobId",
+    "kind",
+    "status",
+    "progress"
+  ],
+  "properties": {
+    "jobId": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "progress": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "payload": {
+      "type": "object"
+    },
+    "result": {
+      "type": "object"
+    },
+    "errorCode": {
+      "type": "string"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    },
+    "finishedAt": {
+      "type": "string"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

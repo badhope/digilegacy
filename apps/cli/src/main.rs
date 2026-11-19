@@ -64,6 +64,11 @@ enum Commands {
         #[command(subcommand)]
         command: ApprovalsCommand,
     },
+    /// Background jobs.
+    Jobs {
+        #[command(subcommand)]
+        command: JobsCommand,
+    },
     /// Audit hash-chain records.
     Audit {
         #[command(subcommand)]
@@ -86,6 +91,16 @@ enum Commands {
         args: String,
         #[arg(long)]
         allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum JobsCommand {
+    /// Read one job status, progress and result.
+    Get {
+        id: String,
         #[arg(long)]
         json: bool,
     },
@@ -266,6 +281,9 @@ enum ApprovalsCommand {
         decision: String,
         #[arg(long, default_value = "")]
         reason: String,
+        /// Queue the resume as a durable background job instead of waiting.
+        #[arg(long)]
+        background: bool,
         #[arg(long)]
         json: bool,
     },
@@ -471,14 +489,20 @@ fn main() -> ExitCode {
                 id,
                 decision,
                 reason,
+                background,
                 json: as_json,
             } => run(
                 &app,
                 "agent.approvals.decide",
-                json!({ "id": id, "decision": decision, "reason": reason }),
+                json!({ "id": id, "decision": decision, "reason": reason, "background": background }),
                 as_json,
                 true,
             ),
+        },
+        Commands::Jobs { command } => match command {
+            JobsCommand::Get { id, json: as_json } => {
+                run(&app, "jobs.get", json!({ "id": id }), as_json, false)
+            }
         },
         Commands::Audit { command } => match command {
             AuditCommand::List {

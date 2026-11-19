@@ -195,6 +195,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         requires_unlock: false,
         audit: true,
     },
+    CommandSpec {
+        name: "jobs.get",
+        domain: "jobs",
+        permission: "read",
+        http: "GET /api/v1/jobs/{id}",
+        requires_unlock: false,
+        audit: false,
+    },
 ];
 
 pub fn find(name: &str) -> Option<&'static CommandSpec> {

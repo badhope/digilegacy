@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -17,10 +17,36 @@ const route = useRoute();
 const router = useRouter();
 const { t, locale } = useI18n();
 const runId = computed(() => String(route.params.id ?? ""));
-const { data, loading, error, reload } = useResource(() => platformClient.getRun(runId.value));
+const { data, loading, error, reload, refresh } = useResource(() => platformClient.getRun(runId.value));
 watch(runId, () => reload());
 const acting = ref(false);
 const actionError = ref("");
+let pollTimer: number | undefined;
+
+function isActive(status: RunStatus | undefined): boolean {
+  return status === "queued" || status === "running" || status === "waiting_approval";
+}
+
+function stopPolling() {
+  if (pollTimer !== undefined) {
+    window.clearInterval(pollTimer);
+    pollTimer = undefined;
+  }
+}
+
+watch(
+  () => data.value?.status,
+  (status) => {
+    stopPolling();
+    if (!isActive(status)) return;
+    pollTimer = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") refresh();
+    }, 1500);
+  },
+  { immediate: true },
+);
+
+onUnmounted(stopPolling);
 
 async function cancelRun() {
   actionError.value = "";
@@ -66,6 +92,13 @@ function stepTone(status: RunStep["status"]): "ready" | "planned" | "degraded" |
   if (status === "pending_approval") return "degraded";
   if (status === "queued" || status === "cancelled") return "neutral";
   return "planned";
+}
+
+function formatDuration(ms: number): string {
+  if (!ms) return "—";
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
+  return `${Math.floor(ms / 60_000)}m ${Math.round((ms % 60_000) / 1000)}s`;
 }
 
 function formatDate(value: string): string {
@@ -135,7 +168,10 @@ function pretty(value: unknown): string {
         <div><span>{{ t("runs.detail.started") }}</span><strong class="mono">{{ formatDate(data.startedAt) }}</strong></div>
         <div><span>{{ t("runs.detail.rounds") }}</span><strong class="mono">{{ data.rounds }}</strong></div>
         <div><span>{{ t("runs.detail.tools") }}</span><strong class="mono">{{ data.toolsUsed || "—" }}</strong></div>
+        <div><span>{{ t("runs.detail.duration") }}</span><strong class="mono">{{ formatDuration(data.durationMs) }}</strong></div>
       </div>
+
+      <p v-if="isActive(data.status)" class="run-live mono">{{ t("runs.detail.live") }}</p>
 
       <div v-if="data.status === 'waiting_approval'" class="run-banner">
         <span>{{ t("runs.detail.waitingBanner") }}</span>
@@ -177,11 +213,12 @@ function pretty(value: unknown): string {
 .back-arrow { transform: rotate(180deg); }
 .run-detail-page { max-width: var(--content-max); margin: 0 auto; }
 .run-loading { padding: 10px 0; }
-.run-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; background: var(--line); }
+.run-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; background: var(--line); }
 .run-summary > div { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; background: var(--surface); }
 .run-summary span { color: var(--muted); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
 .run-summary strong { font-size: 13px; font-weight: 500; }
 .run-error-banner { margin-bottom: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-sm); color: var(--danger, #b42318); font-size: 12px; }
+.run-live { margin: -6px 0 12px; color: var(--muted); font-size: 10px; letter-spacing: 0.04em; }
 .run-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); color: var(--ink-soft); font-size: 12px; }
 .step-list { display: grid; gap: 10px; }
 .step-card { padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
@@ -197,4 +234,7 @@ function pretty(value: unknown): string {
 .run-final { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
 .run-final span { color: var(--muted); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
 .run-final p { margin: 6px 0 0; font-size: 13px; }
+@media (max-width: 640px) {
+  .run-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 </style>

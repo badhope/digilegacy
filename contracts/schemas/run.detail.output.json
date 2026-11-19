@@ -1,30 +1,86 @@
 {
   "title": "AgentRunDetail",
   "type": "object",
-  "required": ["id", "status", "task", "steps", "toolsUsed", "rounds", "startedAt"],
+  "required": [
+    "id",
+    "status",
+    "task",
+    "steps",
+    "toolsUsed",
+    "rounds",
+    "startedAt"
+  ],
   "properties": {
-    "id": { "type": "string" },
-    "status": { "type": "string", "enum": ["running", "waiting_approval", "succeeded", "failed", "rejected", "cancelled"] },
-    "task": { "type": "string" },
+    "id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "waiting_approval",
+        "succeeded",
+        "failed",
+        "rejected",
+        "cancelled"
+      ]
+    },
+    "task": {
+      "type": "string"
+    },
     "steps": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["tool", "status"],
+        "required": [
+          "tool",
+          "status"
+        ],
         "properties": {
-          "tool": { "type": "string" },
-          "args": { "type": "object" },
-          "status": { "type": "string", "enum": ["queued", "pending_approval", "done", "failed", "rejected"] },
+          "tool": {
+            "type": "string"
+          },
+          "args": {
+            "type": "object"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "pending_approval",
+              "done",
+              "failed",
+              "rejected",
+              "cancelled"
+            ]
+          },
           "result": {},
-          "error": { "type": "string" },
-          "at": { "type": "string" }
+          "error": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          }
         }
       }
     },
-    "toolsUsed": { "type": "string" },
-    "rounds": { "type": "integer" },
-    "startedAt": { "type": "string" },
-    "finalText": { "type": "string" }
+    "toolsUsed": {
+      "type": "string"
+    },
+    "rounds": {
+      "type": "integer"
+    },
+    "startedAt": {
+      "type": "string"
+    },
+    "finalText": {
+      "type": "string"
+    },
+    "durationMs": {
+      "type": "integer",
+      "minimum": 0
+    }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"
 }

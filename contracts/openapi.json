@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.7.7-m3f",
+    "version": "0.7.8-m3g",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -1455,6 +1455,71 @@
           }
         }
       }
+    },
+    "/api/v1/jobs/{id}": {
+      "get": {
+        "operationId": "jobs.get",
+        "summary": "读取后台任务状态、进度与结果",
+        "tags": [
+          "jobs"
+        ],
+        "x-command": "jobs.get",
+        "x-permission": "read",
+        "x-requires-unlock": false,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/job.detail.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1481,6 +1546,11 @@
           },
           "id": {
             "type": "string"
+          },
+          "background": {
+            "type": "boolean",
+            "default": false,
+            "description": "入队后台执行；HTTP 默认开启，CLI 默认同步"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -1548,6 +1618,9 @@
             "type": "string"
           },
           "createdAt": {
+            "type": "string"
+          },
+          "jobId": {
             "type": "string"
           }
         },
@@ -1991,6 +2064,59 @@
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
+      "job.detail.output": {
+        "title": "JobDetail",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "jobId",
+          "kind",
+          "status",
+          "progress"
+        ],
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "progress": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "payload": {
+            "type": "object"
+          },
+          "result": {
+            "type": "object"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
       "job.output": {
         "title": "Job",
         "type": "object",
@@ -2412,6 +2538,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "queued",
               "running",
               "waiting_approval",
               "succeeded",
@@ -2445,7 +2572,8 @@
                     "pending_approval",
                     "done",
                     "failed",
-                    "rejected"
+                    "rejected",
+                    "cancelled"
                   ]
                 },
                 "result": {},
@@ -2469,6 +2597,10 @@
           },
           "finalText": {
             "type": "string"
+          },
+          "durationMs": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -2533,6 +2665,10 @@
                 },
                 "tokens": {
                   "type": "integer"
+                },
+                "durationMs": {
+                  "type": "integer",
+                  "minimum": 0
                 }
               }
             }

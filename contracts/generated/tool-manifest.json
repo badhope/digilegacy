@@ -251,5 +251,21 @@
     "outputSchema": "schemas/job.output.json",
     "rateLimit": "10/min",
     "bulkThreshold": null
+  },
+  {
+    "name": "jobs.get",
+    "command": "jobs.get",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/id.input.json",
+    "outputSchema": "schemas/job.detail.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
   }
 ]

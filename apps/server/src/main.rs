@@ -15,7 +15,7 @@ use axum::{
     routing::{get, patch, post},
     Router,
 };
-use digilegacy_application::Application;
+use digilegacy_application::{jobs, Application};
 use digilegacy_domains::{approvals, assets, audit, policy};
 use digilegacy_foundation::{Envelope, Permission, PlatformError};
 use serde::Deserialize;
@@ -50,6 +50,7 @@ async fn main() {
         tables = application.store().table_count().unwrap_or(-1),
         "store ready"
     );
+    jobs::spawn_worker((*application).clone());
     let write_token = std::env::var("DIGILEGACY_API_TOKEN")
         .ok()
         .filter(|token| !token.trim().is_empty());
@@ -90,6 +91,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/deliverables/export", post(deliver_export))
         .route("/api/v1/exports/{job_id}", get(download_export))
+        .route("/api/v1/jobs/{id}", get(job_detail))
         .route("/api/v1/security", get(security_get))
         .route("/api/v1/agent/runs", get(agent_runs).post(agent_runs_start))
         .route("/api/v1/agent/runs/{id}", get(agent_run_detail))
@@ -143,7 +145,11 @@ async fn invoke(
     headers: HeaderMap,
     Json(request): Json<InvokeRequest>,
 ) -> impl IntoResponse {
-    dispatch(&state, &request.name, request.args, Some(&headers))
+    let mut args = request.args;
+    if request.name == "agent.approvals.decide" {
+        args["background"] = json!(true);
+    }
+    dispatch(&state, &request.name, args, Some(&headers))
 }
 
 async fn assets_list(
@@ -287,7 +293,12 @@ async fn agent_approval_decide(
     Json(mut input): Json<Value>,
 ) -> impl IntoResponse {
     input["id"] = json!(id);
+    input["background"] = json!(true);
     dispatch(&state, "agent.approvals.decide", input, Some(&headers))
+}
+
+async fn job_detail(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
+    dispatch(&state, "jobs.get", json!({ "id": id }), None)
 }
 
 async fn agent_runs(

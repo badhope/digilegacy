@@ -438,7 +438,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-agent"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "digilegacy-contracts",
  "reqwest",
@@ -448,7 +448,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-application"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "chrono",
  "digilegacy-agent",
@@ -462,11 +462,12 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "tracing",
 ]
 
 [[package]]
 name = "digilegacy-cli"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "clap",
  "digilegacy-application",
@@ -477,18 +478,18 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-contracts"
-version = "0.7.7"
+version = "0.7.8"
 
 [[package]]
 name = "digilegacy-desktop"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "digilegacy-domains"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "chrono",
  "digilegacy-store",
@@ -499,7 +500,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-foundation"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "digilegacy-contracts",
  "serde",
@@ -508,11 +509,11 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-integrations"
-version = "0.7.7"
+version = "0.7.8"
 
 [[package]]
 name = "digilegacy-mcp"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "digilegacy-application",
  "digilegacy-store",
@@ -521,11 +522,11 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-render"
-version = "0.7.7"
+version = "0.7.8"
 
 [[package]]
 name = "digilegacy-security"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -546,7 +547,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-server"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "axum",
  "digilegacy-application",
@@ -564,7 +565,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-store"
-version = "0.7.7"
+version = "0.7.8"
 dependencies = [
  "chrono",
  "digilegacy-security",
