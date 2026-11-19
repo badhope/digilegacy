@@ -183,6 +183,51 @@
     }
   },
   {
+    "name": "policies.provenance.set",
+    "title": "记录政策溯源",
+    "description": "由人或 Agent 记录政策来源的核实状态、来源 URL 与备注；不修改政策正文。",
+    "inputSchema": {
+      "title": "PolicyProvenanceInput",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "unverified",
+            "source_cited",
+            "verified",
+            "disputed"
+          ]
+        },
+        "sourceUrl": {
+          "type": "string",
+          "default": ""
+        },
+        "note": {
+          "type": "string",
+          "default": ""
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": false,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "policies.provenance.set"
+    }
+  },
+  {
     "name": "runs.list",
     "title": "列出 Agent 运行",
     "description": "读取运行状态、步骤数与成本摘要。",

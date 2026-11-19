@@ -54,6 +54,8 @@ export const platformClient = {
   getPlan: () => invoke<Plan>(COMMANDS.planGet),
   listPolicies: (args: Record<string, unknown> = {}) => invoke<PoliciesPage>(COMMANDS.policiesList, args),
   getPolicy: (id: string) => invoke<Policy>(COMMANDS.policiesGet, { id }),
+  setPolicyProvenance: (args: { id: string; status: string; sourceUrl?: string; note?: string }) =>
+    invoke<Policy>(COMMANDS.policiesProvenanceSet, args),
   exportDeliverable: (kind: string, locale = "zh-CN") =>
     invoke<DeliverableExport>(COMMANDS.deliverExport, { kind, locale }),
   exportUrl: (path: string) => `${API_BASE}${path}`,

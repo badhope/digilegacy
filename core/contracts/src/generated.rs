@@ -76,6 +76,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: false,
     },
     CommandSpec {
+        name: "policies.provenance.set",
+        domain: "policy",
+        permission: "draft",
+        http: "PATCH /api/v1/policies/{id}/provenance",
+        requires_unlock: false,
+        audit: true,
+    },
+    CommandSpec {
         name: "trigger.checkin",
         domain: "trigger",
         permission: "write",

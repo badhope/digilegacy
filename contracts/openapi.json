@@ -493,6 +493,81 @@
         ]
       }
     },
+    "/api/v1/policies/{id}/provenance": {
+      "patch": {
+        "operationId": "policies.provenance.set",
+        "summary": "记录政策来源的核实状态与备注",
+        "tags": [
+          "policy"
+        ],
+        "x-command": "policies.provenance.set",
+        "x-permission": "draft",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/policy.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/policy.provenance.input"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/trigger/checkin": {
       "post": {
         "operationId": "trigger.checkin",
@@ -1641,6 +1716,38 @@
                 "type": "string"
               }
             }
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "policy.provenance.input": {
+        "title": "PolicyProvenanceInput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unverified",
+              "source_cited",
+              "verified",
+              "disputed"
+            ]
+          },
+          "sourceUrl": {
+            "type": "string",
+            "default": ""
+          },
+          "note": {
+            "type": "string",
+            "default": ""
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

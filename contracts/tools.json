@@ -110,6 +110,24 @@
       "rate_limit": "60/min"
     },
     {
+      "name": "policies.provenance.set",
+      "title": "记录政策溯源",
+      "description": "由人或 Agent 记录政策来源的核实状态、来源 URL 与备注；不修改政策正文。",
+      "permission": "draft",
+      "approval": "none",
+      "input_schema": "schemas/policy.provenance.input.json",
+      "output_schema": "schemas/policy.output.json",
+      "idempotent": true,
+      "audit": true,
+      "human_equivalent": "policies.provenance.set",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "60/min"
+    },
+    {
       "name": "runs.list",
       "title": "列出 Agent 运行",
       "description": "读取运行状态、步骤数与成本摘要。",

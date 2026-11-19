@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
+import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import EmptyState from "@/shared/ui/EmptyState.vue";
 import ErrorState from "@/shared/ui/ErrorState.vue";
@@ -26,6 +27,11 @@ const { data, loading, error, reload } = useResource(() =>
 );
 const selected = ref<Policy | null>(null);
 const loadingMore = ref(false);
+const provenanceStatus = ref("unverified");
+const provenanceSource = ref("");
+const provenanceNote = ref("");
+const provenanceSaving = ref(false);
+const provenanceSaved = ref("");
 const detailLoading = ref(false);
 const detailError = ref<string | null>(null);
 const items = computed(() => data.value?.items ?? []);
@@ -60,6 +66,10 @@ watch([query, category], () => {
 
 async function select(policy: Policy) {
   selected.value = policy;
+  provenanceStatus.value = policy.provenance.status;
+  provenanceSource.value = policy.provenance.sourceUrl;
+  provenanceNote.value = policy.provenance.note;
+  provenanceSaved.value = "";
   detailLoading.value = true;
   detailError.value = null;
   const envelope = await platformClient.getPolicy(policy.id);
@@ -69,6 +79,32 @@ async function select(policy: Policy) {
     return;
   }
   selected.value = envelope.data;
+  provenanceStatus.value = envelope.data.provenance.status;
+  provenanceSource.value = envelope.data.provenance.sourceUrl;
+  provenanceNote.value = envelope.data.provenance.note;
+  provenanceSaved.value = "";
+}
+
+async function saveProvenance() {
+  if (!selected.value || provenanceSaving.value) return;
+  provenanceSaving.value = true;
+  provenanceSaved.value = "";
+  try {
+    const envelope = await platformClient.setPolicyProvenance({
+      id: selected.value.id,
+      status: provenanceStatus.value,
+      sourceUrl: provenanceSource.value.trim(),
+      note: provenanceNote.value.trim(),
+    });
+    if (!envelope.success || !envelope.data) {
+      detailError.value = envelope.message || envelope.code;
+      return;
+    }
+    selected.value = envelope.data;
+    provenanceSaved.value = t("policies.provenance.saved");
+  } finally {
+    provenanceSaving.value = false;
+  }
 }
 
 function statusTone(status: ProvenanceStatus): "ready" | "planned" | "degraded" {
@@ -247,6 +283,36 @@ function splitList(value: string): string[] {
               </div>
             </section>
 
+            <section class="provenance-editor">
+              <h3>{{ t("policies.provenance.edit") }}</h3>
+              <p class="muted">{{ t("policies.provenance.hint") }}</p>
+              <div class="provenance-grid">
+                <label>
+                  <span>{{ t("policies.provenance.status") }}</span>
+                  <select v-model="provenanceStatus">
+                    <option value="unverified">{{ t("policies.provenance.unverified") }}</option>
+                    <option value="source_cited">{{ t("policies.provenance.source_cited") }}</option>
+                    <option value="verified">{{ t("policies.provenance.verified") }}</option>
+                    <option value="disputed">{{ t("policies.provenance.disputed") }}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{{ t("policies.provenance.sourceUrl") }}</span>
+                  <input v-model="provenanceSource" type="url" placeholder="https://" />
+                </label>
+              </div>
+              <label class="provenance-note">
+                <span>{{ t("policies.provenance.note") }}</span>
+                <textarea v-model="provenanceNote" rows="2" />
+              </label>
+              <div class="provenance-actions">
+                <AppButton variant="primary" size="sm" :disabled="provenanceSaving" @click="saveProvenance">
+                  {{ provenanceSaving ? t("policies.provenance.saving") : t("policies.provenance.save") }}
+                </AppButton>
+                <span v-if="provenanceSaved" class="provenance-saved">{{ provenanceSaved }}</span>
+              </div>
+            </section>
+
             <div v-if="selected.tags" class="tag-row">
               <span v-for="tag in splitList(selected.tags)" :key="tag" class="tag mono">#{{ tag }}</span>
             </div>
@@ -298,6 +364,16 @@ function splitList(value: string): string[] {
 .source-block .source-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 .source-link { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-strong); font-size: 11px; text-decoration: none; }
 .source-link:hover { text-decoration: underline; }
+.provenance-editor { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); }
+.provenance-editor h3 { margin: 0 0 4px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+.provenance-editor .muted { margin: 0 0 10px; font-size: 10px; }
+.provenance-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 8px; }
+.provenance-grid label, .provenance-note { display: grid; gap: 4px; }
+.provenance-grid span, .provenance-note span { color: var(--muted); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
+.provenance-grid select, .provenance-grid input, .provenance-note textarea { width: 100%; padding: 7px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink); font: inherit; font-size: 11px; outline: none; }
+.provenance-note { margin-top: 8px; }
+.provenance-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.provenance-saved { color: var(--accent-strong); font-size: 10px; }
 .tag-row { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
 .tag { padding: 3px 7px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: 9px; }
 .detail-placeholder { display: grid; min-height: 320px; place-items: center; align-content: center; gap: 10px; color: var(--muted); text-align: center; font-size: 12px; }

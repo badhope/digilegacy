@@ -1,0 +1,13 @@
+{
+  "title": "PolicyProvenanceInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "status"],
+  "properties": {
+    "id": { "type": "string" },
+    "status": { "type": "string", "enum": ["unverified", "source_cited", "verified", "disputed"] },
+    "sourceUrl": { "type": "string", "default": "" },
+    "note": { "type": "string", "default": "" }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

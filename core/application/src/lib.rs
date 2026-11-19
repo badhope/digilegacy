@@ -74,6 +74,7 @@ impl Application {
             "plan.get" => self.plan(),
             "policies.list" => self.policies_list(args),
             "policies.get" => self.policies_get(args),
+            "policies.provenance.set" => self.policies_set_provenance(args),
             "trigger.checkin" => self.checkin(),
             "deliver.export" => self.deliver_export(args),
             "security.status" => self.security_status(),
@@ -148,6 +149,13 @@ impl Application {
         policy::get(&self.store, id.trim_matches('"'))
             .map(|data| json!(data))
             .map_err(map_domain)
+    }
+
+    pub fn policies_set_provenance(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: policy::ProvenanceInput = parse(args)?;
+        let updated = policy::set_provenance(&self.store, &input).map_err(map_domain)?;
+        self.audit("policy.provenance.set", &updated.id)?;
+        Ok(json!(updated))
     }
 
     pub fn checkin(&self) -> Result<Value, PlatformError> {
@@ -344,6 +352,18 @@ mod tests {
         let one = app.dispatch("policies.get", json!({ "id": id })).unwrap();
         assert!(!one["name"].as_str().unwrap().is_empty());
         assert_eq!(one["provenance"]["status"], "unverified");
+
+        let updated = app
+            .dispatch(
+                "policies.provenance.set",
+                json!({ "id": id, "status": "verified", "sourceUrl": "https://example.com", "note": "测试核对" }),
+            )
+            .unwrap();
+        assert_eq!(updated["provenance"]["status"], "verified");
+        assert!(!updated["provenance"]["verifiedAt"]
+            .as_str()
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

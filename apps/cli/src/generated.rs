@@ -9,6 +9,7 @@ pub const COMMAND_LINES: &[&str] = &[
     "plan get",
     "policies list",
     "policies get",
+    "policies provenance",
     "trigger checkin",
     "deliver export",
     "agents runs",

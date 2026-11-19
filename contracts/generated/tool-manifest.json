@@ -96,6 +96,22 @@
     "bulkThreshold": null
   },
   {
+    "name": "policies.provenance.set",
+    "command": "policies.provenance.set",
+    "permission": "draft",
+    "approval": "none",
+    "audit": true,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/policy.provenance.input.json",
+    "outputSchema": "schemas/policy.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
     "name": "runs.list",
     "command": "agent.runs.list",
     "permission": "read",

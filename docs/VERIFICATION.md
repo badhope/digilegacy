@@ -14,7 +14,7 @@
 | G06 | 契约检查（生成物 + OpenAPI） | 已接入生成一致性；OpenAPI 已派生 | `tools/generate.mjs --check`、`arch-check` |
 | G07 | 生产构建 + 无 mock 分块 | 部分：build 已接入；mock 分块未强制排除 | `web build` |
 | G08 | 文档事实一致性 | 未接入 | 计划 M2 |
-| G09 | 政策溯源棘轮 | 未接入 | 计划 M2 |
+| G09 | 政策溯源棘轮 | 部分接入（M3-A 写四态 + 审计） | 审核工作台待 M3 |
 | G10 | 依赖漏洞（npm/cargo） | 未接入 | 计划 M1 |
 | G11 | 密钥扫描 | 未接入 | 计划 M1 |
 | G12 | E2E 主路径 + 可访问性 | 未接入 | 计划 M2/M3 |
@@ -65,14 +65,14 @@ cargo clippy --workspace --all-targets -- -D warnings  OK
 cargo test --workspace            OK
 ```
 
-已观察测试（M1）：
+已观察测试（M3）：
 
 - foundation：5 个
-- render：1 个
-- server：5 个
+- render：2 个
+- server：7 个（真实读接口、写 token 门禁、溯源 draft 写与审计）
 - security：49 个（crypto/vault/recovery/Shamir/backup/session/keyring）
-- store：15 个（schema v9、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
-- 其余 crate：0 个（尚未接领域的边界）
+- store：15 个（schema v10 / 27 表、SQLCipher、迁移、旧备份导入、检查点、审计、诊断）
+- domains：10 个；application：5 个
 
 ### M1 安全与数据底座
 
@@ -95,7 +95,7 @@ M1 退出条件中的“加密、恢复、备份、迁移、审计全绿”已�
 ### M2 真实领域与入口接线
 
 ```text
-core/domains: assets 3 + plan 2 + overview 1 + runs 1 + policy 2 = 9 tests
+core/domains: assets 3 + plan 2 + overview 1 + runs 1 + policy 3 = 10 tests
 core/application: 5 tests（读命令、CRUD+审计、签到、政策、交付）
 apps/server: 6 tests（真实读接口、写 token 门禁、404/403）
 core/render: 2 tests（纯文本转义、可信 body 页面壳）
@@ -129,7 +129,7 @@ deliver.export：report/checklist/legal/toolkit 四类 HTML，jobs + deliverable
 未完成边界：
 
 - Web 写入仍受 HTTP 写 token 和解锁流程阻塞；资产创建/更新目前走 CLI `--allow-write`。
-- 政策溯源只读，没有“标记已核实/争议”的写命令与审核界面。
+- 政策溯源已支持写：`policies.provenance.set`（draft）写四态与审计；Web 详情可编辑，CLI/HTTP 实测通过。审核工作台与批量核对尚未做。
 - 交付物同步生成，未接 SSE/轮询进度、取消与后台队列。
 - vault 解锁未接 server/Web；元数据读链路当前可读，敏感字段展示仍需解锁。
 

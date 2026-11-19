@@ -262,5 +262,13 @@
   "asset.detail.policy": "平台政策",
   "deliverables.ready": "可生成",
   "assets.tab.assets": "资产清单",
-  "assets.tab.policies": "平台政策"
+  "assets.tab.policies": "平台政策",
+  "policies.provenance.edit": "记录来源核实",
+  "policies.provenance.status": "溯源状态",
+  "policies.provenance.sourceUrl": "来源 URL",
+  "policies.provenance.note": "核对备注",
+  "policies.provenance.save": "保存溯源",
+  "policies.provenance.saving": "保存中",
+  "policies.provenance.saved": "已保存，审计已记录",
+  "policies.provenance.hint": "只修改溯源元数据，不改政策正文；状态按实际核对结果填写。"
 }

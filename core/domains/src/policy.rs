@@ -104,6 +104,17 @@ pub struct ListInput {
     pub q: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProvenanceInput {
+    pub id: String,
+    pub status: String,
+    #[serde(default)]
+    pub source_url: String,
+    #[serde(default)]
+    pub note: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PolicyPage {
@@ -305,6 +316,50 @@ pub fn find_by_name(store: &Store, name: &str) -> Result<Option<Policy>, DomainE
         .map_err(DomainError::from)
 }
 
+pub fn set_provenance(store: &Store, input: &ProvenanceInput) -> Result<Policy, DomainError> {
+    if !matches!(
+        input.status.as_str(),
+        "unverified" | "source_cited" | "verified" | "disputed"
+    ) {
+        return Err(DomainError::Invalid(format!(
+            "未知溯源状态: {}",
+            input.status
+        )));
+    }
+    let current = get(store, &input.id)?;
+    let source_url = if input.source_url.trim().is_empty() {
+        current.official_policy_url.clone()
+    } else {
+        input.source_url.trim().to_string()
+    };
+    let note = if input.note.trim().is_empty() {
+        current.provenance.note.clone()
+    } else {
+        input.note.trim().to_string()
+    };
+    let verified_at = if matches!(input.status.as_str(), "verified" | "source_cited") {
+        Utc::now().to_rfc3339()
+    } else {
+        String::new()
+    };
+    let id: i64 = input
+        .id
+        .parse()
+        .map_err(|_| DomainError::Invalid(format!("政策 id 不是数字: {}", input.id)))?;
+    store
+        .write(|conn| {
+            conn.execute(
+                "INSERT OR REPLACE INTO policy_provenance
+                 (platform_id, status, source_url, verified_at, verified_by, evidence_hash, note)
+                 VALUES (?1, ?2, ?3, ?4, 'local-user', '', ?5)",
+                rusqlite::params![id, input.status, source_url, verified_at, note],
+            )?;
+            Ok(())
+        })
+        .map_err(DomainError::from)?;
+    get(store, &input.id)
+}
+
 pub fn get(store: &Store, id: &str) -> Result<Policy, DomainError> {
     let id: i64 = id
         .parse()
@@ -364,5 +419,36 @@ mod tests {
     fn get_unknown_is_not_found() {
         let store = Store::open_in_memory(None).unwrap();
         assert!(matches!(get(&store, "9999"), Err(DomainError::NotFound(_))));
+    }
+
+    #[test]
+    fn provenance_can_be_marked_verified_and_rejects_bad_status() {
+        let store = Store::open_in_memory(None).unwrap();
+        seed_if_empty(&store).unwrap();
+        let updated = set_provenance(
+            &store,
+            &ProvenanceInput {
+                id: "1".to_string(),
+                status: "verified".to_string(),
+                source_url: "https://example.com/policy".to_string(),
+                note: "人工核对".to_string(),
+            },
+        )
+        .unwrap();
+        assert_eq!(updated.provenance.status, "verified");
+        assert_eq!(updated.provenance.source_url, "https://example.com/policy");
+        assert!(!updated.provenance.verified_at.is_empty());
+        assert!(matches!(
+            set_provenance(
+                &store,
+                &ProvenanceInput {
+                    id: "1".to_string(),
+                    status: "trust-me".to_string(),
+                    source_url: String::new(),
+                    note: String::new(),
+                },
+            ),
+            Err(DomainError::Invalid(_))
+        ));
     }
 }

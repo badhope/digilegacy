@@ -22,7 +22,7 @@
         └───────────────┴─────────────┴─────────────┴───────────────┘
 ```
 
-M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真实领域，Web 默认走 Platform API；M2-B 加入政策库与交付物导出。
+M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真实领域，Web 默认走 Platform API；M2-B 加入政策库与交付物导出；M3 第一切片加入政策溯源写与审核界面。
 
 ## 2. Workspace 成员
 
@@ -34,7 +34,7 @@ M0 完成壳与边界；M1 完成安全/Store；M2 以 `core/application` 接真
 | `core/contracts` | 生成后的命令/错误表 | 已实现 |
 | `core/security` | Vault/密钥/恢复/备份/审计 | 已实现（M1） |
 | `core/store` | SQLite/SQLCipher、迁移、导入、检查点 | 已实现（M1） |
-| `core/domains` | assets/plan/overview/runs/policy 真实领域 | 已实现（M2 首批 + M2-B 政策库） |
+| `core/domains` | assets/plan/overview/runs/policy 真实领域 | 已实现（M2 首批 + M2-B 政策库 + M3 溯源写） |
 | `core/application` | 用例层：共享 HTTP/CLI/MCP 的业务分派、审计、交付导出 | 已实现（M2/M2-B） |
 | `core/integrations` | 连接类型/状态 | 枚举 |
 | `core/agent` | Run/Approval 状态机 | 枚举 |
@@ -148,6 +148,7 @@ M0 未实现写权限 token，因此 HTTP `write` 返回 `401 AUTH_REQUIRED`，�
 - **M1**：从 `legacy/app/src-tauri` 按模块迁入加密、Vault、恢复、备份、DB，不重写算法。
 - **M2**：`core/application` 统一用例分派；入口只做权限/传输；Web 读真实 API，资产筛选服务端化。
 - **M2-B**：schema v10（27 表）新增 `policies`/`policy_provenance`；政策库与交付导出走同一 `Application`；`deliver.export` 写 `jobs`/`deliverable_exports`，下载路由做路径边界校验。
+- **M3 第一切片**：`policies.provenance.set` 允许 `unverified/source_cited/verified/disputed` 四态，来源为空回退官方 URL，写 `policy_provenance` 并追加审计 `policy.provenance.set`；HTTP `PATCH /api/v1/policies/{id}/provenance`，CLI `policies provenance`，Web 在详情内编辑。
 - **数据归属**：单工作区抽象保留 `workspaces`，27 张表按领域拆；资产与政策各维护一份事实。
 - **审计**：写操作、Agent 调用、审批决定必须可追溯；`audit=true` 的命令不允许静默执行。
 - **密钥**：密钥不进日志、不进前端、不进 MCP tool 结果；`security.status` 只返回摘要。

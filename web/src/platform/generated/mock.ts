@@ -375,6 +375,34 @@ const MOCK_DATA: Record<string, unknown> = {
       "note": ""
     }
   },
+  "policies.provenance.set": {
+    "id": "80",
+    "name": "微信公众号",
+    "nameEn": "WeChat Official Account",
+    "category": "内容创作",
+    "subtype": "创作平台",
+    "hasProperty": true,
+    "hasPersonality": true,
+    "inheritable": false,
+    "requiredDocuments": "公众号可迁移",
+    "processDescription": "类型不同政策不同。个人号不支持继承，可迁移至新主体。企业号按企业流程处理",
+    "estimatedDifficulty": "困难",
+    "officialPolicyUrl": "https://mp.weixin.qq.com",
+    "estimatedTimeDays": "60-180天",
+    "notes": "有商业价值的公众号（有广告收入和有粉丝）可申请主体变更",
+    "dataSource": "",
+    "inheritanceFormUrl": "",
+    "monetizationPath": "",
+    "legalTemplateIds": "",
+    "riskWarnings": "",
+    "tags": "",
+    "provenance": {
+      "status": "unverified",
+      "sourceUrl": "https://mp.weixin.qq.com",
+      "verifiedAt": "",
+      "note": ""
+    }
+  },
   "trigger.checkin": {
     "checkedInAt": "2026-11-19T09:00:00+08:00",
     "nextCheckAt": "2027-02-17T09:00:00+08:00",

@@ -12,7 +12,7 @@ use axum::{
     extract::{Json, Path, Query, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, patch, post},
     Router,
 };
 use digilegacy_application::Application;
@@ -68,6 +68,10 @@ pub fn router(store: AppState) -> Router {
         .route("/api/v1/plan", get(plan_get))
         .route("/api/v1/policies", get(policies_list))
         .route("/api/v1/policies/{id}", get(policy_get))
+        .route(
+            "/api/v1/policies/{id}/provenance",
+            patch(policy_provenance_set),
+        )
         .route("/api/v1/deliverables/export", post(deliver_export))
         .route("/api/v1/exports/{job_id}", get(download_export))
         .route("/api/v1/security", get(security_get))
@@ -175,6 +179,15 @@ async fn download_export(State(app): State<AppState>, Path(job_id): Path<String>
     }
 }
 
+async fn policy_provenance_set(
+    State(app): State<AppState>,
+    Path(id): Path<String>,
+    Json(mut input): Json<Value>,
+) -> impl IntoResponse {
+    input["id"] = json!(id);
+    dispatch(&app, "policies.provenance.set", input)
+}
+
 async fn security_get(State(app): State<AppState>) -> impl IntoResponse {
     dispatch(&app, "security.status", json!({}))
 }
@@ -237,9 +250,11 @@ mod tests {
     use digilegacy_contracts as contracts;
 
     fn test_app() -> Application {
-        Application::new(Arc::new(
+        let app = Application::new(Arc::new(
             digilegacy_store::Store::open_in_memory(None).unwrap(),
-        ))
+        ));
+        policy::seed_if_empty(app.store()).unwrap();
+        app
     }
 
     #[test]
@@ -282,6 +297,28 @@ mod tests {
         let data = envelope.0.data.clone().unwrap();
         assert_eq!(data["total"], 0);
         assert!(data["items"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn draft_provenance_write_is_allowed_and_audited() {
+        let app = test_app();
+        let (status, envelope) = dispatch(
+            &app,
+            "policies.provenance.set",
+            json!({ "id": "1", "status": "verified", "sourceUrl": "https://example.com", "note": "test" }),
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert!(envelope.success);
+        let data = envelope.0.data.clone().unwrap();
+        assert_eq!(data["provenance"]["status"], "verified");
+
+        let (_, envelope) = dispatch(&app, "app.overview", json!({}));
+        let overview = envelope.0.data.unwrap();
+        assert!(overview["activity"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| item["kind"] == "policy.provenance.set"));
     }
 
     #[test]

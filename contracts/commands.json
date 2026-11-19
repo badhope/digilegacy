@@ -199,6 +199,31 @@
       ]
     },
     {
+      "name": "policies.provenance.set",
+      "domain": "policy",
+      "summary": "记录政策来源的核实状态与备注",
+      "permission": "draft",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/policy.provenance.input.json",
+      "output": "schemas/policy.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "policies provenance",
+        "http": "PATCH /api/v1/policies/{id}/provenance",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "VAULT_LOCKED",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "trigger.checkin",
       "domain": "trigger",
       "summary": "记录一次安全签到，重置触发计时",

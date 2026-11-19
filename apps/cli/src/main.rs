@@ -177,6 +177,18 @@ enum PoliciesCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Record a policy provenance check (metadata only).
+    Provenance {
+        id: String,
+        #[arg(long, value_parser = ["unverified", "source_cited", "verified", "disputed"])]
+        status: String,
+        #[arg(long, default_value = "")]
+        source_url: String,
+        #[arg(long, default_value = "")]
+        note: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -335,6 +347,19 @@ fn main() -> ExitCode {
             PoliciesCommand::Get { id, json: as_json } => {
                 run(&app, "policies.get", json!({ "id": id }), as_json, false)
             }
+            PoliciesCommand::Provenance {
+                id,
+                status,
+                source_url,
+                note,
+                json: as_json,
+            } => run(
+                &app,
+                "policies.provenance.set",
+                json!({ "id": id, "status": status, "sourceUrl": source_url, "note": note }),
+                as_json,
+                false,
+            ),
         },
         Commands::Security { command } => match command {
             SecurityCommand::Status { json: as_json } => {

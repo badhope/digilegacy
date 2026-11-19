@@ -262,5 +262,13 @@
   "asset.detail.policy": "Platform policy",
   "deliverables.ready": "Ready",
   "assets.tab.assets": "Assets",
-  "assets.tab.policies": "Policies"
+  "assets.tab.policies": "Policies",
+  "policies.provenance.edit": "Record source check",
+  "policies.provenance.status": "Provenance status",
+  "policies.provenance.sourceUrl": "Source URL",
+  "policies.provenance.note": "Review note",
+  "policies.provenance.save": "Save provenance",
+  "policies.provenance.saving": "Saving",
+  "policies.provenance.saved": "Saved and audited",
+  "policies.provenance.hint": "Updates provenance metadata only, never the policy body. Record what was actually checked."
 }

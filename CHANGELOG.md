@@ -2,6 +2,23 @@
 
 所有重要变更记录在此。格式参考 Keep a Changelog，版本按平台里程碑推进。
 
+## [0.7.2-m3] - 2026-11-19
+
+### Added
+
+- 政策溯源写：`policies.provenance.set`（draft / 免解锁 / idempotent / audit），四态 `unverified/source_cited/verified/disputed`。
+- 溯源写入规则：来源为空回退官方 URL；备注为空保留旧备注；`verified/source_cited` 写 `verified_at`；写 `policy_provenance` 后追加审计 `policy.provenance.set`。
+- HTTP `PATCH /api/v1/policies/{id}/provenance`；CLI `policies provenance <id> --status ... --source-url ... --note ...`；MCP 工具由契约生成。
+- Web 政策详情新增“记录来源核实”编辑器：状态下拉、来源 URL、核对备注、保存与“已保存，审计已记录”；保存后同步更新列表状态。
+- 契约扩至 16 命令 / 13 工具 / 22 schema / 19 错误码；生成器与 `arch-check` 同步。
+
+### Verification
+
+- `cargo test -p digilegacy-domains` 10 通过；`-p digilegacy-application` 5 通过；`-p digilegacy-server` 7 通过。
+- HTTP `PATCH /policies/1/provenance` 返回 `verified` 与 `verifiedAt`；CLI `policies provenance` 返回 `source_cited`。
+- Web 浏览器实测：详情编辑区选“已核实”、填备注、保存，详情状态更新，提示“已保存，审计已记录”。
+- `GET /api/v1/overview` 出现三条 `policy.provenance.set` 审计；`arch-check: OK`。
+
 ## [0.7.1-m2b] - 2026-11-19
 
 ### Added
