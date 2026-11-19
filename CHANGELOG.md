@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.8.8-m4h] - 2026-11-19
+
+### Added
+
+- `content/assets/catalog.json`：8 个分类、36 条资产建议，包含中英文名称/理由、类型与平台。
+- `assets.discover`：按分类/关键词读取建议，按现有资产 name+platform 标记 `exists`；只读，MCP/Agent 可调用。
+- `assets.bulkCreate`：预校验后批量创建，最多 50 项；同名同平台自动跳过；返回 `created/skipped/items`，写 `assets.bulk_create` 审计。
+- Web `/assets/discover`：三步资产发现向导，分类卡片、建议勾选、已入库禁用、确认清单、成功统计；资产页增加“发现向导”入口。
+- CLI `assets discover --category --q`、`assets bulk-create --file <json> --allow-write`。
+- HTTP `GET /api/v1/assets/discover`、`POST /api/v1/assets/bulk`。
+
+### Changed
+
+- 契约扩至 **31 命令 / 20 工具 / 41 schema / 19 错误码**；schema 仍 v14 / 29 表。
+- Web 预算调整为入口 76 KB、JS gzip 97 KB、CSS gzip 21 KB、总 gzip 118 KB。
+
+### Verification
+
+- Rust 127 项、Web 10 项通过；`./tools/verify.sh` exit 0。
+- HTTP：无 token 批量写 401；带 token 首次 `created=2`，重跑 `created=0/skipped=1`。
+- CLI：`assets discover --category finance` 返回 6 条；批量文件导入成功 1 条；无 `--allow-write` 被拒绝。
+- Web：实测“资金账户 → 微信零钱/支付宝余额 → 确认”成功新建 2 条；再次进入显示“已在库”且不可勾选。
+- 预算：入口 74.68 KB / 76 KB、JS gzip 95.86 KB / 97 KB、CSS gzip 20.30 KB / 21 KB、总 gzip 116.17 KB / 118 KB；发现页路由块 8.72 KB。
+
+### Known limits
+
+- 目录是静态建议，不是网络扫描；不会自动发现真实账号。
+- 批量导入仅接受 JSON 文件，不解析 CSV/Excel；同名同平台按精确匹配跳过。
+- 发现向导只创建资产记录，不写入凭据、估值或继承人；导入后仍需逐条补充。
+- 一次最多 50 项；建议内容更新需改 `catalog.json` 并重新构建。
+
 ## [0.8.7-m4g] - 2026-11-19
 
 ### Added

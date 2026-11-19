@@ -1,5 +1,34 @@
 [
   {
+    "name": "assets.discover",
+    "title": "发现资产",
+    "description": "按分类读取可解释的资产清单；已在资产库的项目会标记 exists，避免重复添加。",
+    "inputSchema": {
+      "title": "AssetsDiscoverInput",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "q": {
+          "type": "string",
+          "maxLength": 120
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "idempotentHint": true
+    },
+    "_meta": {
+      "digilegacy/command": "assets.discover"
+    }
+  },
+  {
     "name": "overview.get",
     "title": "读取平台概览",
     "description": "读取完成度、待办、审批数与运行态摘要。",

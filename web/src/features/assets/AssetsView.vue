@@ -110,6 +110,7 @@ async function createAsset() {
   <div class="assets-page">
     <PageHeader eyebrow="ASSETS / REGISTRY" :title="t('assets.title')" :description="t('assets.description')">
       <template #actions>
+        <AppButton variant="secondary" size="sm" @click="router.push('/assets/discover')">{{ t("assets.discover.open") }}</AppButton>
         <AppButton variant="primary" size="sm" @click="createOpen = !createOpen">{{ t("assets.create.open") }}</AppButton>
         <StatusPill tone="ready" :label="t('app.mode')" />
       </template>

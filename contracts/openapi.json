@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.8.7-m4g",
+    "version": "0.8.8-m4h",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -12,6 +12,124 @@
     }
   ],
   "paths": {
+    "/api/v1/assets/discover": {
+      "get": {
+        "operationId": "assets.discover",
+        "summary": "读取按分类组织的资产发现清单，标注已在库项目",
+        "tags": [
+          "assets"
+        ],
+        "x-command": "assets.discover",
+        "x-permission": "read",
+        "x-requires-unlock": true,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/assets.discover.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/assets/bulk": {
+      "post": {
+        "operationId": "assets.bulkCreate",
+        "summary": "批量创建资产；同名同平台自动跳过，最多 50 项",
+        "tags": [
+          "assets"
+        ],
+        "x-command": "assets.bulkCreate",
+        "x-permission": "write",
+        "x-requires-unlock": true,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/assets.bulk.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/assets.bulk.input"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/overview": {
       "get": {
         "operationId": "app.overview",
@@ -2092,6 +2210,179 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "assets.bulk.input": {
+        "title": "AssetsBulkInput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "kind"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "platform": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "value": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 2000
+                }
+              }
+            }
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "assets.bulk.output": {
+        "title": "AssetsBulkOutput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "created",
+          "skipped",
+          "items"
+        ],
+        "properties": {
+          "created": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "assets.discover.input": {
+        "title": "AssetsDiscoverInput",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "q": {
+            "type": "string",
+            "maxLength": 120
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "assets.discover.output": {
+        "title": "AssetsDiscoverOutput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "categories",
+          "suggestions",
+          "total"
+        ],
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "label",
+                "labelEn",
+                "count"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "labelEn": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "kind",
+                "platform",
+                "category",
+                "reason",
+                "reasonEn",
+                "exists"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "platform": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "reasonEn": {
+                  "type": "string"
+                },
+                "exists": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

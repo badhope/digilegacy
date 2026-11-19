@@ -1,0 +1,379 @@
+{
+  "schemaVersion": "1.0.0",
+  "categories": [
+    {
+      "id": "finance",
+      "label": "资金账户",
+      "labelEn": "Money accounts",
+      "count": 6
+    },
+    {
+      "id": "social",
+      "label": "社交账号",
+      "labelEn": "Social accounts",
+      "count": 6
+    },
+    {
+      "id": "cloud",
+      "label": "云存储",
+      "labelEn": "Cloud storage",
+      "count": 4
+    },
+    {
+      "id": "subscription",
+      "label": "订阅与云服务",
+      "labelEn": "Subscriptions & cloud",
+      "count": 5
+    },
+    {
+      "id": "device",
+      "label": "设备",
+      "labelEn": "Devices",
+      "count": 4
+    },
+    {
+      "id": "identity",
+      "label": "证件与文件",
+      "labelEn": "Identity & documents",
+      "count": 4
+    },
+    {
+      "id": "property",
+      "label": "实体资产",
+      "labelEn": "Physical assets",
+      "count": 3
+    },
+    {
+      "id": "business",
+      "label": "经营账号",
+      "labelEn": "Business accounts",
+      "count": 4
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "fin_wechat",
+      "name": "微信零钱",
+      "kind": "account",
+      "platform": "微信",
+      "category": "finance",
+      "reason": "最常见的零钱与红包余额，需记录归属与提取方式。",
+      "reasonEn": "Wallet balance and red packets; record ownership and withdrawal."
+    },
+    {
+      "id": "fin_alipay",
+      "name": "支付宝余额",
+      "kind": "account",
+      "platform": "支付宝",
+      "category": "finance",
+      "reason": "余额、余额宝与绑卡信息集中在一处。",
+      "reasonEn": "Balance, money fund and linked cards in one place."
+    },
+    {
+      "id": "fin_bank",
+      "name": "银行卡",
+      "kind": "account",
+      "platform": "银行",
+      "category": "finance",
+      "reason": "工资、理财与自动扣款的主要通道。",
+      "reasonEn": "Primary channel for salary, wealth products and auto-debits."
+    },
+    {
+      "id": "fin_security",
+      "name": "证券账户",
+      "kind": "account",
+      "platform": "券商",
+      "category": "finance",
+      "reason": "股票、基金与打新资金需要单独交接。",
+      "reasonEn": "Securities and IPO funds need a separate handover."
+    },
+    {
+      "id": "fin_fund",
+      "name": "基金账户",
+      "kind": "account",
+      "platform": "基金平台",
+      "category": "finance",
+      "reason": "场外基金与定投计划容易被忽略。",
+      "reasonEn": "Off-exchange funds and recurring investment plans are easy to miss."
+    },
+    {
+      "id": "fin_unionpay",
+      "name": "云闪付",
+      "kind": "account",
+      "platform": "云闪付",
+      "category": "finance",
+      "reason": "银行卡聚合与优惠权益。",
+      "reasonEn": "Card aggregation and discount benefits."
+    },
+    {
+      "id": "soc_wechat",
+      "name": "微信账号",
+      "kind": "account",
+      "platform": "微信",
+      "category": "social",
+      "reason": "联系人、群聊、朋友圈与微信支付关联。",
+      "reasonEn": "Contacts, groups, moments and payment linkage."
+    },
+    {
+      "id": "soc_qq",
+      "name": "QQ 账号",
+      "kind": "account",
+      "platform": "QQ",
+      "category": "social",
+      "reason": "老联系人、QQ 邮箱与空间资料。",
+      "reasonEn": "Legacy contacts, QQ mail and profile data."
+    },
+    {
+      "id": "soc_weibo",
+      "name": "微博账号",
+      "kind": "account",
+      "platform": "微博",
+      "category": "social",
+      "reason": "公开内容与私信，需明确纪念或注销。",
+      "reasonEn": "Public posts and DMs need a memorial or deletion decision."
+    },
+    {
+      "id": "soc_xhs",
+      "name": "小红书账号",
+      "kind": "account",
+      "platform": "小红书",
+      "category": "social",
+      "reason": "笔记、收藏与商业合作记录。",
+      "reasonEn": "Notes, saves and brand collaboration records."
+    },
+    {
+      "id": "soc_douyin",
+      "name": "抖音账号",
+      "kind": "account",
+      "platform": "抖音",
+      "category": "social",
+      "reason": "作品、直播收益与绑定钱包。",
+      "reasonEn": "Videos, live income and linked wallet."
+    },
+    {
+      "id": "soc_bili",
+      "name": "哔哩哔哩账号",
+      "kind": "account",
+      "platform": "哔哩哔哩",
+      "category": "social",
+      "reason": "稿件、收藏与大会员权益。",
+      "reasonEn": "Uploads, favorites and membership benefits."
+    },
+    {
+      "id": "cloud_baidu",
+      "name": "百度网盘",
+      "kind": "account",
+      "platform": "百度网盘",
+      "category": "cloud",
+      "reason": "家庭照片、备份与共享链接。",
+      "reasonEn": "Family photos, backups and shared links."
+    },
+    {
+      "id": "cloud_ali",
+      "name": "阿里云盘",
+      "kind": "account",
+      "platform": "阿里云盘",
+      "category": "cloud",
+      "reason": "大文件与跨端同步资料。",
+      "reasonEn": "Large files and cross-device sync."
+    },
+    {
+      "id": "cloud_quark",
+      "name": "夸克网盘",
+      "kind": "account",
+      "platform": "夸克网盘",
+      "category": "cloud",
+      "reason": "浏览器与网盘联合保存的资料。",
+      "reasonEn": "Files saved across browser and cloud."
+    },
+    {
+      "id": "cloud_tencent",
+      "name": "腾讯微云",
+      "kind": "account",
+      "platform": "腾讯微云",
+      "category": "cloud",
+      "reason": "QQ/微信生态内的历史文件。",
+      "reasonEn": "Legacy files in the QQ/WeChat ecosystem."
+    },
+    {
+      "id": "sub_video",
+      "name": "视频会员",
+      "kind": "subscription",
+      "platform": "视频平台",
+      "category": "subscription",
+      "reason": "自动续费与家庭共享权益。",
+      "reasonEn": "Auto-renewals and family sharing."
+    },
+    {
+      "id": "sub_music",
+      "name": "音乐会员",
+      "kind": "subscription",
+      "platform": "音乐平台",
+      "category": "subscription",
+      "reason": "曲库、歌单与家庭组。",
+      "reasonEn": "Library, playlists and family group."
+    },
+    {
+      "id": "sub_server",
+      "name": "云服务器",
+      "kind": "subscription",
+      "platform": "云厂商",
+      "category": "subscription",
+      "reason": "网站、应用与数据托管的根凭证。",
+      "reasonEn": "Root credentials for sites, apps and hosted data."
+    },
+    {
+      "id": "sub_domain",
+      "name": "域名",
+      "kind": "domain",
+      "platform": "域名注册商",
+      "category": "subscription",
+      "reason": "域名续费、DNS 与备案信息。",
+      "reasonEn": "Renewal, DNS and registration records."
+    },
+    {
+      "id": "sub_software",
+      "name": "软件订阅",
+      "kind": "subscription",
+      "platform": "软件服务",
+      "category": "subscription",
+      "reason": "办公、设计与 AI 工具的账号与账单。",
+      "reasonEn": "Accounts and bills for work, design and AI tools."
+    },
+    {
+      "id": "dev_phone",
+      "name": "手机",
+      "kind": "device",
+      "platform": "手机",
+      "category": "device",
+      "reason": "设备锁、云备份与 SIM 卡。",
+      "reasonEn": "Device lock, cloud backup and SIM."
+    },
+    {
+      "id": "dev_laptop",
+      "name": "电脑",
+      "kind": "device",
+      "platform": "电脑",
+      "category": "device",
+      "reason": "本地资料、加密盘与登录态。",
+      "reasonEn": "Local files, encrypted disks and sessions."
+    },
+    {
+      "id": "dev_nas",
+      "name": "NAS",
+      "kind": "device",
+      "platform": "NAS",
+      "category": "device",
+      "reason": "家庭数据与照片备份的集中点。",
+      "reasonEn": "Central store for family data and photo backups."
+    },
+    {
+      "id": "dev_router",
+      "name": "路由器",
+      "kind": "device",
+      "platform": "路由器",
+      "category": "device",
+      "reason": "网络配置、宽带账号与智能家居入口。",
+      "reasonEn": "Network config, broadband account and smart-home entry."
+    },
+    {
+      "id": "id_card",
+      "name": "身份证",
+      "kind": "file",
+      "platform": "证件",
+      "category": "identity",
+      "reason": "证件影像与用途说明，注意最小化保存。",
+      "reasonEn": "ID images and usage notes; minimize storage."
+    },
+    {
+      "id": "id_passport",
+      "name": "护照",
+      "kind": "file",
+      "platform": "证件",
+      "category": "identity",
+      "reason": "出行证件与有效期。",
+      "reasonEn": "Travel document and expiry."
+    },
+    {
+      "id": "id_house",
+      "name": "房产证",
+      "kind": "file",
+      "platform": "不动产",
+      "category": "identity",
+      "reason": "产权、抵押与共有人信息。",
+      "reasonEn": "Ownership, mortgage and co-owners."
+    },
+    {
+      "id": "id_insurance",
+      "name": "保险单",
+      "kind": "file",
+      "platform": "保险",
+      "category": "identity",
+      "reason": "受益人、保额与理赔联系方式。",
+      "reasonEn": "Beneficiaries, coverage and claims contact."
+    },
+    {
+      "id": "prop_house",
+      "name": "房产",
+      "kind": "physical",
+      "platform": "不动产",
+      "category": "property",
+      "reason": "地址、钥匙/门锁与维护记录。",
+      "reasonEn": "Address, keys/locks and maintenance."
+    },
+    {
+      "id": "prop_car",
+      "name": "车辆",
+      "kind": "physical",
+      "platform": "车辆",
+      "category": "property",
+      "reason": "行驶证、保险与停车/充电信息。",
+      "reasonEn": "Registration, insurance and parking/charging."
+    },
+    {
+      "id": "prop_valuables",
+      "name": "贵重物品",
+      "kind": "physical",
+      "platform": "家庭",
+      "category": "property",
+      "reason": "首饰、收藏与保管位置。",
+      "reasonEn": "Jewelry, collections and storage location."
+    },
+    {
+      "id": "biz_work",
+      "name": "企业微信",
+      "kind": "account",
+      "platform": "企业微信",
+      "category": "business",
+      "reason": "组织、客户与审批记录。",
+      "reasonEn": "Org, customers and approval records."
+    },
+    {
+      "id": "biz_mp",
+      "name": "公众号",
+      "kind": "account",
+      "platform": "微信公众平台",
+      "category": "business",
+      "reason": "内容资产、粉丝与广告收益。",
+      "reasonEn": "Content assets, followers and ad revenue."
+    },
+    {
+      "id": "biz_mini",
+      "name": "小程序",
+      "kind": "account",
+      "platform": "微信公众平台",
+      "category": "business",
+      "reason": "代码、云开发与支付配置。",
+      "reasonEn": "Code, cloud functions and payment config."
+    },
+    {
+      "id": "biz_shop",
+      "name": "商家后台",
+      "kind": "account",
+      "platform": "电商平台",
+      "category": "business",
+      "reason": "订单、结算与保证金。",
+      "reasonEn": "Orders, settlement and deposits."
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
 import { cachedQuery, clearQueryCache, invalidateQuery, queryCacheKey } from "./queryCache";
-import type { UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
+import type { UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, DiscoveryResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, Overview, Plan, PoliciesPage, Policy, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -97,6 +97,10 @@ export const platformClient = {
     write<Asset>(COMMANDS.assetsCreate, args, ["assets", "overview"]),
   updateAsset: (args: Record<string, unknown>) =>
     write<Asset>(COMMANDS.assetsUpdate, args, ["assets", "overview"]),
+  discoverAssets: (args: { category?: string; q?: string } = {}) =>
+    read<DiscoveryResult>(COMMANDS.assetsDiscover, args, "assets.discover"),
+  bulkCreateAssets: (items: Array<{ name: string; kind: string; platform?: string; value?: string; note?: string }>) =>
+    write<BulkCreateResult>(COMMANDS.assetsBulkCreate, { items }, ["assets", "overview", "assets.discover"]),
   getPlan: () => read<Plan>(COMMANDS.planGet, {}, "plan"),
   configureTrigger: (args: { enabled?: boolean; days?: number; pauseDays?: number }) =>
     write<Trigger>(COMMANDS.triggerConfigure, args, ["plan", "trigger.events", "overview"]),

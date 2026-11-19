@@ -16,6 +16,7 @@ export interface ToolCatalogItem {
 }
 
 export const TOOL_CATALOG: ToolCatalogItem[] = [
+  { name: "assets.discover", title: "发现资产", description: "按分类读取可解释的资产清单；已在资产库的项目会标记 exists，避免重复添加。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "assets.discover", inputSchema: "schemas/assets.discover.input.json", outputSchema: "schemas/assets.discover.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
   { name: "overview.get", title: "读取平台概览", description: "读取完成度、待办、审批数与运行态摘要。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "app.overview", inputSchema: "schemas/empty.input.json", outputSchema: "schemas/overview.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },
   { name: "audit.list", title: "读取审计记录", description: "按时间倒序分页读取平台审计哈希链，可按事件类型过滤；只读。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "audit.list", inputSchema: "schemas/audit.list.input.json", outputSchema: "schemas/audit.page.output.json", availableTo: ["builtin","external"], rateLimit: "120/min" },
   { name: "assets.list", title: "列出资产", description: "按状态与关键词列出资产，返回游标分页结果。", permission: "read", approval: "none", audit: false, mcp: true, humanEquivalent: "assets.list", inputSchema: "schemas/assets.list.input.json", outputSchema: "schemas/assets.list.output.json", availableTo: ["builtin","external"], rateLimit: "60/min" },

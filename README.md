@@ -35,12 +35,13 @@
 | 运行中协作取消 | 已做完（M4-D：`cancel_requested` 协作标志、步骤边界收口、succeeded 写入拦截） |
 | 规划签到闭环 | 已做完（M4-E：`trigger.checkin` Web 操作、上次/下次签到展示、写后静默刷新） |
 | 触发链完整生命周期 | 已做完（M4-G：`trigger.configure/evaluate/events.list`、四阶段等待、暂停/恢复、事件时间线） |
+| 资产发现与批量导入 | 已做完（M4-H：分类向导、36 条建议、已入库标记、同名同平台跳过） |
 | Agent Runtime / 审批恢复 | 已做完（M3-E：运行步骤、工具注册表、审批暂停/恢复） |
 | 后台任务队列 / 运行进度 | 已做完（M3-G：审批后台执行、`jobs.get`、运行耗时、Web 静默轮询） |
 | Agent 规划 / 取消 / 预算 / 重试 | 已做完（M3-F） |
 | 桌面客户端 | 已取消（平台只保留 Web / CLI / MCP / HTTP） |
 
-当前版本：`0.8.7-m4g`。
+当前版本：`0.8.8-m4h`。
 
 M1 已落地：AES-256-GCM / Argon2id / HKDF 两层密钥、恢复码 + Shamir 3-of-5、SQLCipher schema v9、旧备份导入、认证备份/检查点、审计链与诊断包。
 
@@ -51,6 +52,8 @@ M2-B 已落地：政策库 schema v10 起步（当前 v14，29 表）、152 条�
 M3 已落地九段：政策溯源写、平台写令牌与资产新增/编辑、审计链查询、Agent 审批队列、确定性 Agent Runtime、M3-F 的规划器/取消/预算/重试、M3-G 的审批后台 Job 化/运行进度/耗时，M3-H 的交付物后台导出，以及 M3-I 的 SSE snapshot 事件流与排队任务取消。规划器接 OpenAI 兼容接口（默认 DeepSeek），只生成注册工具步骤；人工确认后再启动，写操作仍进审批。取消会把待审批置为 `expired`，重试会创建新运行并保留旧记录。HTTP 审批改为先落审批、再入 durable `jobs` 队列，批准请求毫秒级返回；Web 运行详情对 `queued/running/waiting_approval` 每 1.5 秒静默刷新，页面隐藏时暂停。
 
 M4-G 触发链：schema v14 新增 `trigger_events` 与 `triggered_at/trigger_stage`；`trigger.configure` 管理开关、签到间隔和暂停天数（暂停/关闭会中止当前触发），`trigger.evaluate` 按四阶段等待期幂等推进，`trigger.events.list` 返回只追加时间线；签到会清空触发状态并写事件。Web 规划页提供启用、间隔、暂停/恢复、评估与时间线；HTTP 提供 `PATCH /api/v1/trigger`、`POST /api/v1/trigger/evaluate`、`GET /api/v1/trigger/events`，CLI 提供 `trigger configure/evaluate/events`，MCP 只暴露事件时间线读取；server 每 30 分钟自动评估一次，关机期间不触发。
+
+M4-H 资产发现：`content/assets/catalog.json` 维护 8 个分类、36 条可解释建议；`assets.discover` 按分类/关键词返回建议并标记 `exists`，`assets.bulkCreate` 一次最多导入 50 项，同名同平台自动跳过。Web 新增 `/assets/discover` 三步向导（选分类 → 勾选 → 确认），CLI 新增 `assets discover` / `assets bulk-create --file`，HTTP 新增 `GET /api/v1/assets/discover` 与 `POST /api/v1/assets/bulk`。
 
 M4-E 规划签到：`plan.get` 补充 `lastCheckIn`/`nextCheckAt`，Web/CLI/HTTP 共用 `trigger.checkin`；规划页可直接完成签到，成功提示并静默刷新触发链，失败显示写令牌缺失或服务端错误。
 
@@ -206,9 +209,9 @@ node tools/bench/web-budget.mjs
 M4 基线：
 
 - Web 测试 10 项（缓存 4 + 路由/页面 6）
-- Rust 测试 123 项：security 49、store 15、domains 17、application 19、agent 4、server 12、foundation 5、render 2（M4-G 全仓 verify 通过）
-- Web 总 gzip **110.63 KB / 112 KB**，JS gzip **91.85 KB / 93 KB**，CSS **18.78 KB / 19 KB**
-- 入口 chunk **70.41 KB raw / 72 KB**，vendor **101.88 KB raw / 130 KB**
+- Rust 测试 127 项：security 49、store 15、domains 20、application 20、agent 4、server 12、foundation 5、render 2（M4-H 全仓 verify 通过）
+- Web 总 gzip **116.17 KB / 118 KB**，JS gzip **95.86 KB / 97 KB**，CSS **20.30 KB / 21 KB**
+- 入口 chunk **74.68 KB raw / 76 KB**，vendor **101.88 KB raw / 130 KB**
 - CommandBus 约 **250 ns/op**（本机 release 基线，M2 测得）
 
 ---

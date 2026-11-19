@@ -9,6 +9,7 @@
 pub mod approvals;
 pub mod assets;
 pub mod audit;
+pub mod discovery;
 pub mod overview;
 pub mod plan;
 pub mod policy;

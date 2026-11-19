@@ -2,6 +2,24 @@
   "schemaVersion": "1.0.0",
   "tools": [
     {
+      "name": "assets.discover",
+      "title": "发现资产",
+      "description": "按分类读取可解释的资产清单；已在资产库的项目会标记 exists，避免重复添加。",
+      "permission": "read",
+      "approval": "none",
+      "input_schema": "schemas/assets.discover.input.json",
+      "output_schema": "schemas/assets.discover.output.json",
+      "idempotent": true,
+      "audit": false,
+      "human_equivalent": "assets.discover",
+      "available_to": [
+        "builtin",
+        "external"
+      ],
+      "mcp": true,
+      "rate_limit": "60/min"
+    },
+    {
       "name": "overview.get",
       "title": "读取平台概览",
       "description": "读取完成度、待办、审批数与运行态摘要。",

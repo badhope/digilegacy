@@ -1,0 +1,45 @@
+{
+  "title": "AssetsBulkInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "items"
+  ],
+  "properties": {
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "kind"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "kind": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "value": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

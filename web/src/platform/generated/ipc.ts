@@ -4,6 +4,8 @@ export type Permission = "read" | "draft" | "write" | "key" | "network" | "deskt
 
 export const INVOKE_PATH = "/api/v1/invoke";
 export const COMMANDS = {
+  assetsDiscover: "assets.discover",
+  assetsBulkCreate: "assets.bulkCreate",
   appOverview: "app.overview",
   auditList: "audit.list",
   assetsList: "assets.list",
@@ -38,6 +40,8 @@ export const COMMANDS = {
 export type CommandName = (typeof COMMANDS)[keyof typeof COMMANDS];
 
 export const COMMAND_PERMISSION: Record<CommandName, Permission> = {
+  "assets.discover": "read",
+  "assets.bulkCreate": "write",
   "app.overview": "read",
   "audit.list": "read",
   "assets.list": "read",
@@ -70,6 +74,8 @@ export const COMMAND_PERMISSION: Record<CommandName, Permission> = {
 };
 
 export const COMMAND_HTTP: Record<CommandName, string> = {
+  "assets.discover": "GET /api/v1/assets/discover",
+  "assets.bulkCreate": "POST /api/v1/assets/bulk",
   "app.overview": "GET /api/v1/overview",
   "audit.list": "GET /api/v1/audit",
   "assets.list": "GET /api/v1/assets",
@@ -102,6 +108,8 @@ export const COMMAND_HTTP: Record<CommandName, string> = {
 };
 
 export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
+  "assets.discover": true,
+  "assets.bulkCreate": true,
   "app.overview": false,
   "audit.list": false,
   "assets.list": true,
@@ -134,6 +142,8 @@ export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
 };
 
 export const COMMAND_AUDIT: Record<CommandName, boolean> = {
+  "assets.discover": false,
+  "assets.bulkCreate": true,
   "app.overview": false,
   "audit.list": false,
   "assets.list": false,
@@ -166,6 +176,8 @@ export const COMMAND_AUDIT: Record<CommandName, boolean> = {
 };
 
 export const COMMAND_TOOL: Record<CommandName, string | null> = {
+  "assets.discover": "assets.discover",
+  "assets.bulkCreate": null,
   "app.overview": "overview.get",
   "audit.list": "audit.list",
   "assets.list": "assets.list",

@@ -3,6 +3,96 @@
 import type { CommandName } from "./ipc";
 
 const MOCK_DATA: Record<string, unknown> = {
+  "assets.discover": {
+    "categories": [
+      {
+        "id": "finance",
+        "label": "资金账户",
+        "labelEn": "Money accounts",
+        "count": 6
+      },
+      {
+        "id": "social",
+        "label": "社交账号",
+        "labelEn": "Social accounts",
+        "count": 6
+      },
+      {
+        "id": "cloud",
+        "label": "云存储",
+        "labelEn": "Cloud storage",
+        "count": 4
+      },
+      {
+        "id": "subscription",
+        "label": "订阅与云服务",
+        "labelEn": "Subscriptions & cloud",
+        "count": 5
+      },
+      {
+        "id": "device",
+        "label": "设备",
+        "labelEn": "Devices",
+        "count": 4
+      },
+      {
+        "id": "identity",
+        "label": "证件与文件",
+        "labelEn": "Identity & documents",
+        "count": 4
+      },
+      {
+        "id": "property",
+        "label": "实体资产",
+        "labelEn": "Physical assets",
+        "count": 3
+      },
+      {
+        "id": "business",
+        "label": "经营账号",
+        "labelEn": "Business accounts",
+        "count": 4
+      }
+    ],
+    "suggestions": [
+      {
+        "id": "fin_wechat",
+        "name": "微信零钱",
+        "kind": "account",
+        "platform": "微信",
+        "category": "finance",
+        "reason": "最常见的零钱与红包余额，需记录归属与提取方式。",
+        "reasonEn": "Wallet balance and red packets; record ownership and withdrawal.",
+        "exists": false
+      },
+      {
+        "id": "fin_alipay",
+        "name": "支付宝余额",
+        "kind": "account",
+        "platform": "支付宝",
+        "category": "finance",
+        "reason": "余额、余额宝与绑卡信息集中在一处。",
+        "reasonEn": "Balance, money fund and linked cards in one place.",
+        "exists": false
+      },
+      {
+        "id": "fin_bank",
+        "name": "银行卡",
+        "kind": "account",
+        "platform": "银行",
+        "category": "finance",
+        "reason": "工资、理财与自动扣款的主要通道。",
+        "reasonEn": "Primary channel for salary, wealth products and auto-debits.",
+        "exists": true
+      }
+    ],
+    "total": 3
+  },
+  "assets.bulkCreate": {
+    "created": 2,
+    "skipped": 0,
+    "items": []
+  },
   "app.overview": {
     "workspace": "林家数字遗产",
     "completion": 62,

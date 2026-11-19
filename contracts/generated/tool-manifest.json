@@ -1,5 +1,21 @@
 [
   {
+    "name": "assets.discover",
+    "command": "assets.discover",
+    "permission": "read",
+    "approval": "none",
+    "audit": false,
+    "availableTo": [
+      "builtin",
+      "external"
+    ],
+    "mcp": true,
+    "inputSchema": "schemas/assets.discover.input.json",
+    "outputSchema": "schemas/assets.discover.output.json",
+    "rateLimit": "60/min",
+    "bulkThreshold": null
+  },
+  {
     "name": "overview.get",
     "command": "app.overview",
     "permission": "read",

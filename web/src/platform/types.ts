@@ -54,6 +54,36 @@ export interface AssetsPage {
   total: number;
 }
 
+export interface DiscoveryCategory {
+  id: string;
+  label: string;
+  labelEn: string;
+  count: number;
+}
+
+export interface DiscoverySuggestion {
+  id: string;
+  name: string;
+  kind: AssetKind;
+  platform: string;
+  category: string;
+  reason: string;
+  reasonEn: string;
+  exists: boolean;
+}
+
+export interface DiscoveryResult {
+  categories: DiscoveryCategory[];
+  suggestions: DiscoverySuggestion[];
+  total: number;
+}
+
+export interface BulkCreateResult {
+  created: number;
+  skipped: number;
+  items: Asset[];
+}
+
 export interface Heir {
   id: string;
   name: string;

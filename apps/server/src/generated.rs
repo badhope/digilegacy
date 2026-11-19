@@ -12,6 +12,22 @@ pub struct CommandSpec {
 
 pub const COMMANDS: &[CommandSpec] = &[
     CommandSpec {
+        name: "assets.discover",
+        domain: "assets",
+        permission: "read",
+        http: "GET /api/v1/assets/discover",
+        requires_unlock: true,
+        audit: false,
+    },
+    CommandSpec {
+        name: "assets.bulkCreate",
+        domain: "assets",
+        permission: "write",
+        http: "POST /api/v1/assets/bulk",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
         name: "app.overview",
         domain: "app",
         permission: "read",

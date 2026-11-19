@@ -6,7 +6,7 @@
 #![forbid(unsafe_code)]
 
 use digilegacy_domains::{
-    approvals, assets, audit, overview, plan, policy, runs, usage, DomainError,
+    approvals, assets, audit, discovery, overview, plan, policy, runs, usage, DomainError,
 };
 use serde_json::{json, Value};
 
@@ -77,6 +77,8 @@ impl Application {
             "assets.get" => self.assets_get(args),
             "assets.create" => self.assets_create(args),
             "assets.update" => self.assets_update(args),
+            "assets.discover" => self.assets_discover(args),
+            "assets.bulkCreate" => self.assets_bulk_create(args),
             "plan.get" => self.plan(),
             "policies.list" => self.policies_list(args),
             "policies.get" => self.policies_get(args),
@@ -141,6 +143,23 @@ impl Application {
         let asset = assets::update(&self.store, &input).map_err(map_domain)?;
         self.audit("asset.update", &asset.id)?;
         Ok(json!(asset))
+    }
+
+    pub fn assets_discover(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: discovery::DiscoverInput = parse(args)?;
+        discovery::discover(&self.store, &input)
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn assets_bulk_create(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: assets::BulkCreateInput = parse(args)?;
+        let result = assets::bulk_create(&self.store, &input).map_err(map_domain)?;
+        self.audit(
+            "assets.bulk_create",
+            &format!("created={};skipped={}", result.created, result.skipped),
+        )?;
+        Ok(json!(result))
     }
 
     pub fn plan(&self) -> Result<Value, PlatformError> {
@@ -473,6 +492,35 @@ mod tests {
         assert_eq!(data["trigger"]["days"], 30);
         let data = app.dispatch("assets.list", json!({})).unwrap();
         assert_eq!(data["total"], 0);
+    }
+
+    #[test]
+    fn discovery_and_bulk_create_are_idempotent() {
+        let app = app();
+        let result = app
+            .dispatch("assets.discover", json!({ "category": "finance" }))
+            .unwrap();
+        assert_eq!(result["total"], 6);
+        let bulk = app
+            .dispatch(
+                "assets.bulkCreate",
+                json!({ "items": [
+                    { "name": "微信零钱", "kind": "account", "platform": "微信" },
+                    { "name": "支付宝余额", "kind": "account", "platform": "支付宝" }
+                ] }),
+            )
+            .unwrap();
+        assert_eq!(bulk["created"], 2);
+        let rerun = app
+            .dispatch(
+                "assets.bulkCreate",
+                json!({ "items": [
+                    { "name": "微信零钱", "kind": "account", "platform": "微信" }
+                ] }),
+            )
+            .unwrap();
+        assert_eq!(rerun["created"], 0);
+        assert_eq!(rerun["skipped"], 1);
     }
 
     #[test]

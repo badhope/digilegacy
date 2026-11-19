@@ -19,7 +19,7 @@ use axum::{
     Router,
 };
 use digilegacy_application::{jobs, Application};
-use digilegacy_domains::{approvals, assets, audit, plan, policy};
+use digilegacy_domains::{approvals, assets, audit, discovery, plan, policy};
 use digilegacy_foundation::{Envelope, Permission, PlatformError};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -87,6 +87,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/overview", get(overview))
         .route("/api/v1/audit", get(audit_list))
         .route("/api/v1/assets", get(assets_list))
+        .route("/api/v1/assets/discover", get(assets_discover))
+        .route("/api/v1/assets/bulk", post(assets_bulk_create))
         .route("/api/v1/assets/{id}", get(asset_get))
         .route("/api/v1/plan", get(plan_get))
         .route("/api/v1/trigger/checkin", post(trigger_checkin))
@@ -179,6 +181,22 @@ async fn assets_list(
 async fn asset_get(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
     let (status, envelope) = dispatch(&state, "assets.get", json!({ "id": id }), None);
     (status, envelope)
+}
+
+async fn assets_discover(
+    State(state): State<AppState>,
+    Query(input): Query<discovery::DiscoverInput>,
+) -> impl IntoResponse {
+    let (status, envelope) = dispatch(&state, "assets.discover", json!(input), None);
+    (status, envelope)
+}
+
+async fn assets_bulk_create(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(args): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "assets.bulkCreate", args, Some(&headers))
 }
 
 async fn plan_get(State(state): State<AppState>) -> impl IntoResponse {

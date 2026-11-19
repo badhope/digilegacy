@@ -1,0 +1,86 @@
+{
+  "title": "AssetsDiscoverOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "categories",
+    "suggestions",
+    "total"
+  ],
+  "properties": {
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "labelEn",
+          "count"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "labelEn": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "platform",
+          "category",
+          "reason",
+          "reasonEn",
+          "exists"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "reasonEn": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "total": {
+      "type": "integer"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

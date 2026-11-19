@@ -281,6 +281,68 @@ pub fn create(store: &Store, input: &Mutation) -> Result<Asset, DomainError> {
     get(store, &id.to_string())
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkCreateInput {
+    pub items: Vec<Mutation>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkCreateResult {
+    pub created: i64,
+    pub skipped: i64,
+    pub items: Vec<Asset>,
+}
+
+/// Create selected discovery suggestions as assets. Existing name/platform pairs are
+/// skipped so the wizard is safe to rerun after a partial failure.
+pub fn bulk_create(
+    store: &Store,
+    input: &BulkCreateInput,
+) -> Result<BulkCreateResult, DomainError> {
+    if input.items.is_empty() {
+        return Err(DomainError::Invalid("至少选择一项资产".to_string()));
+    }
+    if input.items.len() > 50 {
+        return Err(DomainError::Invalid("一次最多导入 50 项资产".to_string()));
+    }
+    for item in &input.items {
+        validate_mutation(item)?;
+    }
+
+    let mut created_items = Vec::with_capacity(input.items.len());
+    let mut skipped = 0i64;
+    for item in &input.items {
+        let name = item.name.trim();
+        let platform = item.platform.as_deref().unwrap_or("").trim();
+        let already_exists = store
+            .read(|conn| {
+                let count: i64 = conn.query_row(
+                    "SELECT count(*) FROM digital_assets a
+                     LEFT JOIN platforms p ON p.id=a.platform_id
+                     WHERE coalesce(a.account_description,'')=?1
+                       AND coalesce(p.name,'')=?2",
+                    rusqlite::params![name, platform],
+                    |row| row.get(0),
+                )?;
+                Ok(count > 0)
+            })
+            .map_err(DomainError::from)?;
+        if already_exists {
+            skipped += 1;
+            continue;
+        }
+        created_items.push(create(store, item)?);
+    }
+    let created = created_items.len() as i64;
+    Ok(BulkCreateResult {
+        created,
+        skipped,
+        items: created_items,
+    })
+}
+
 pub fn update(store: &Store, input: &Mutation) -> Result<Asset, DomainError> {
     validate_mutation(input)?;
     let id: i64 = input
@@ -325,6 +387,57 @@ pub fn update(store: &Store, input: &Mutation) -> Result<Asset, DomainError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bulk_create_skips_existing_pairs_and_rejects_empty_batches() {
+        let store = Store::open_in_memory(None).unwrap();
+        let first = bulk_create(
+            &store,
+            &BulkCreateInput {
+                items: vec![Mutation {
+                    id: None,
+                    name: "主邮箱".to_string(),
+                    kind: "account".to_string(),
+                    platform: Some("邮箱".to_string()),
+                    value: None,
+                    note: None,
+                }],
+            },
+        )
+        .unwrap();
+        assert_eq!(first.created, 1);
+        assert_eq!(first.skipped, 0);
+
+        let second = bulk_create(
+            &store,
+            &BulkCreateInput {
+                items: vec![
+                    Mutation {
+                        id: None,
+                        name: "主邮箱".to_string(),
+                        kind: "account".to_string(),
+                        platform: Some("邮箱".to_string()),
+                        value: None,
+                        note: None,
+                    },
+                    Mutation {
+                        id: None,
+                        name: "备用邮箱".to_string(),
+                        kind: "account".to_string(),
+                        platform: Some("邮箱".to_string()),
+                        value: None,
+                        note: None,
+                    },
+                ],
+            },
+        )
+        .unwrap();
+        assert_eq!(second.created, 1);
+        assert_eq!(second.skipped, 1);
+
+        let empty = bulk_create(&store, &BulkCreateInput { items: vec![] });
+        assert!(matches!(empty, Err(DomainError::Invalid(_))));
+    }
 
     #[test]
     fn create_list_get_update_roundtrip() {

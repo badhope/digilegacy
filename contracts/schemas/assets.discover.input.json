@@ -1,0 +1,16 @@
+{
+  "title": "AssetsDiscoverInput",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "category": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "q": {
+      "type": "string",
+      "maxLength": 120
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

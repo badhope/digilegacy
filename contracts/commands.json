@@ -3,6 +3,56 @@
   "generatedFrom": "contracts/commands.json",
   "commands": [
     {
+      "name": "assets.discover",
+      "domain": "assets",
+      "summary": "读取按分类组织的资产发现清单，标注已在库项目",
+      "permission": "read",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/assets.discover.input.json",
+      "output": "schemas/assets.discover.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "assets discover",
+        "http": "GET /api/v1/assets/discover",
+        "mcp": true,
+        "agent": true
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "INVALID_ARGS",
+        "VAULT_LOCKED",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "assets.bulkCreate",
+      "domain": "assets",
+      "summary": "批量创建资产；同名同平台自动跳过，最多 50 项",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": false,
+      "input": "schemas/assets.bulk.input.json",
+      "output": "schemas/assets.bulk.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "assets bulk-create",
+        "http": "POST /api/v1/assets/bulk",
+        "mcp": false,
+        "agent": true
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "VAULT_LOCKED",
+        "CONFLICT",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "app.overview",
       "domain": "app",
       "summary": "读取平台概览：完成度、待办、审批、运行态",

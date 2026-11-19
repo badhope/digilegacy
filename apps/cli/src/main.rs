@@ -242,6 +242,24 @@ enum AssetsCommand {
         #[arg(long)]
         json: bool,
     },
+    /// List curated asset suggestions, filtered by category or query.
+    Discover {
+        #[arg(long, default_value = "")]
+        category: String,
+        #[arg(long, default_value = "")]
+        q: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Create multiple assets from a JSON file containing {"items":[...]}.
+    BulkCreate {
+        #[arg(long)]
+        file: String,
+        #[arg(long)]
+        allow_write: bool,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -494,6 +512,42 @@ fn main() -> ExitCode {
                 as_json,
                 allow_write,
             ),
+            AssetsCommand::Discover {
+                category,
+                q,
+                json: as_json,
+            } => run(
+                &app,
+                "assets.discover",
+                json!({ "category": category, "q": q }),
+                as_json,
+                false,
+            ),
+            AssetsCommand::BulkCreate {
+                file,
+                allow_write,
+                json: as_json,
+            } => {
+                let raw = match std::fs::read_to_string(&file) {
+                    Ok(raw) => raw,
+                    Err(error) => {
+                        return fail(PlatformError::new(
+                            "INVALID_ARGS",
+                            format!("读取批量文件失败: {error}"),
+                        ))
+                    }
+                };
+                let args: Value = match serde_json::from_str(&raw) {
+                    Ok(args) => args,
+                    Err(error) => {
+                        return fail(PlatformError::new(
+                            "INVALID_ARGS",
+                            format!("批量文件不是合法 JSON: {error}"),
+                        ))
+                    }
+                };
+                run(&app, "assets.bulkCreate", args, as_json, allow_write)
+            }
         },
         Commands::Plan { json: as_json } => run(&app, "plan.get", json!({}), as_json, false),
         Commands::Trigger { command } => match command {

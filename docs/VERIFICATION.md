@@ -334,7 +334,7 @@ trigger.events.list -> 只追加时间线（配置/签到/阶段）
 - 重启 server 时自动评估线程立即执行：过期签到被置为 `triggered/stage=1`，并写 `trigger.evaluate.auto` 审计；把 `triggered_at` 置老后评估可推进到 `stage=4/final`。
 - Web 实测“暂停 7 天”进入 `paused` 并显示暂停至日期；恢复布防、评估触发链、事件时间线均可操作。
 - CLI 实测 `trigger configure --enabled --days 30`、`trigger evaluate`、`trigger events`。
-- `./tools/verify.sh` exit 0：123 Rust + 10 Web；契约 **29 命令 / 19 工具 / 37 schema / 19 错误码**；schema v14 / 29 表。
+- `./tools/verify.sh` exit 0：127 Rust + 10 Web；契约 **31 命令 / 20 工具 / 41 schema / 19 错误码**；schema v14 / 29 表。
 - 预算：入口 70.41 KB / 72 KB、JS gzip 91.85 KB / 93 KB、CSS 18.78 KB / 19 KB、总 gzip 110.63 KB / 112 KB。
 
 ### M4-F 旧代码清退
@@ -488,3 +488,13 @@ M0 可以判定“工程壳完成”的条件：
 - 把 `key/network/desktop` 暴露给 Agent/MCP：阻断合并。
 - 旧路由重新出现：阻断合并。
 - 前端新增页面没有加载/空/错误三态：阻断合并。
+
+### M4-H 资产发现与批量导入
+
+- `content/assets/catalog.json`：8 分类、36 条建议；每条包含名称、类型、平台、中文/英文理由。
+- `assets.discover`：支持 `category`/`q` 过滤；按现有资产的 name+platform 标记 `exists`，不返回重复建议。
+- `assets.bulkCreate`：预校验所有条目；最多 50 条；已存在同名同平台跳过；返回 `created/skipped/items`；写审计 `assets.bulk_create`。
+- HTTP：无 token `POST /api/v1/assets/bulk` 返回 401；带 `test-write-token` 首次创建 2 条、重跑返回 `created=0/skipped=1`。
+- CLI：`assets discover --category finance` 返回 6 条；`assets bulk-create --file /tmp/digilegacy-bulk.json --allow-write` 成功创建 1 条。
+- Web：`/assets/discover` 实测分类 → 勾选微信零钱/支付宝余额 → 确认 → 成功页（新建 2、跳过 0）；再次进入同一分类显示“已在库”，不能重复勾选。
+- 预算调整：入口 **74.68 KB / 76 KB**、JS gzip **95.86 KB / 97 KB**、CSS gzip **20.30 KB / 21 KB**、总 gzip **116.17 KB / 118 KB**；新增 `AssetsDiscoverView` 路由块 8.72 KB。

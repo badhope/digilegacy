@@ -1,0 +1,26 @@
+{
+  "title": "AssetsBulkOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "created",
+    "skipped",
+    "items"
+  ],
+  "properties": {
+    "created": {
+      "type": "integer"
+    },
+    "skipped": {
+      "type": "integer"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

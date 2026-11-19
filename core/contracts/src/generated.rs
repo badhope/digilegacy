@@ -12,6 +12,22 @@ pub struct CommandSpec {
 
 pub const COMMANDS: &[CommandSpec] = &[
     CommandSpec {
+        name: "assets.discover",
+        domain: "assets",
+        permission: "read",
+        http: "GET /api/v1/assets/discover",
+        requires_unlock: true,
+        audit: false,
+    },
+    CommandSpec {
+        name: "assets.bulkCreate",
+        domain: "assets",
+        permission: "write",
+        http: "POST /api/v1/assets/bulk",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
         name: "app.overview",
         domain: "app",
         permission: "read",
@@ -256,6 +272,7 @@ pub struct ToolSpec {
 }
 
 pub const TOOLS: &[ToolSpec] = &[
+    ToolSpec { name: "assets.discover", command: "assets.discover", permission: "read", title: "发现资产", description: "按分类读取可解释的资产清单；已在资产库的项目会标记 exists，避免重复添加。", input_schema: "{\n  \"title\": \"AssetsDiscoverInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"category\": {\n      \"type\": \"string\",\n      \"maxLength\": 40\n    },\n    \"q\": {\n      \"type\": \"string\",\n      \"maxLength\": 120\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "overview.get", command: "app.overview", permission: "read", title: "读取平台概览", description: "读取完成度、待办、审批数与运行态摘要。", input_schema: "{\n  \"title\": \"EmptyInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "audit.list", command: "audit.list", permission: "read", title: "读取审计记录", description: "按时间倒序分页读取平台审计哈希链，可按事件类型过滤；只读。", input_schema: "{\n  \"title\": \"AuditListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"cursor\": { \"type\": [\"string\", \"null\"], \"default\": null },\n    \"limit\": { \"type\": \"integer\", \"minimum\": 1, \"maximum\": 100, \"default\": 20 },\n    \"kind\": { \"type\": [\"string\", \"null\"], \"default\": null }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },
     ToolSpec { name: "assets.list", command: "assets.list", permission: "read", title: "列出资产", description: "按状态与关键词列出资产，返回游标分页结果。", input_schema: "{\n  \"title\": \"AssetsListInput\",\n  \"type\": \"object\",\n  \"additionalProperties\": false,\n  \"properties\": {\n    \"cursor\": {\n      \"type\": [\n        \"string\",\n        \"null\"\n      ]\n    },\n    \"limit\": {\n      \"type\": \"integer\",\n      \"minimum\": 1,\n      \"maximum\": 200,\n      \"default\": 50\n    },\n    \"status\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"active\",\n        \"archived\",\n        \"all\"\n      ],\n      \"default\": \"active\"\n    },\n    \"q\": {\n      \"type\": \"string\",\n      \"maxLength\": 120\n    }\n  },\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\"\n}" },

@@ -23,6 +23,7 @@ describe("router contract", () => {
   });
 
   it("resolves detail and scaffold routes", () => {
+    expect(router.resolve("/assets/discover").name).toBe("asset-discover");
     expect(router.resolve("/assets/ast_01").name).toBe("asset-detail");
     expect(router.resolve("/deliverables/rep_01").name).toBe("deliverable-detail");
     expect(router.resolve("/automation/runs/run_01").name).toBe("run-detail");
