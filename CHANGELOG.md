@@ -4,6 +4,19 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.23] - November 2026
+
+### Changed
+
+- Local models are now presented strictly as capability-test candidates. The "recommended" badge, the "default" wording and the default MiniCPM5-1B copy were removed; users choose which model to download, enable and switch to. No model is bundled in the release package or enabled automatically.
+- The test environment now preinstalls and enables **MiniCPM5-2B**, matching the requested 2B model. The local MiniCPM5-1B file was removed; 1B remains in the catalog for users who want the lighter test candidate.
+
+### Testing
+
+- Settings copy and catalog metadata no longer contain a default or recommended model.
+- API reports 1B as `missing` and 2B as `ready`/active in the test environment; no model file is shipped in the archive.
+- Rust workspace: 189 passed / 0 failed. Web: 79 passed / 0 failed.
+
 ## [0.0.22] - November 2026
 
 ### Removed

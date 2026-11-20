@@ -26,7 +26,7 @@ const localModelCopy = computed(() =>
   locale.value === "zh-CN"
     ? {
         title: "本地模型",
-        note: "内置推荐模型，下载后由程序自带适配层加载；默认 MiniCPM5-1B，1.08B 参数、128K 上下文。",
+        note: "用于能力测试的本地模型，按需下载和启用；不内置、不默认启用，用户自行选择。",
         root: "模型目录",
         download: "下载",
         downloading: "下载中",
@@ -38,31 +38,27 @@ const localModelCopy = computed(() =>
         retry: "重试",
         tokenRequired: "先在“安全与数据”填写平台写令牌，才能下载或启用模型。",
         runtimeHint: "启用会启动本地推理 sidecar，默认 8K 运行时上下文；可用 DIGILEGACY_LOCAL_MODEL_CTX 调整，并把规划器切到该模型；无需外部 Ollama。",
-        quality: "质量档",
-        strict: "<2B",
-        notStrict: "实际 >2B",
         verified: "SHA256 已校验",
-        empty: "暂无推荐模型。",
+        empty: "暂无可测试模型。",
         downloaded: "已下载",
         failed: "失败",
         partial: "未完成",
         missing: "未下载",
-        recommended: "推荐",
         context: "上下文",
         items: {
           "minicpm5-1b": {
             params: "1.08B 稠密",
-            description: "1B 级开源 SOTA，128K 上下文，标准 Llama 架构；中文规划、工具选择和日常生成均衡，默认推荐。",
+            description: "轻量测试候选：1.08B 稠密参数，128K 上下文，标准 Llama 架构，适合基础规划与日常生成测试。",
           },
           "minicpm5-2b": {
             params: "2.52B 稠密",
-            description: "2B 级质量档，代码、数学、长文本和工具调用更强；实际参数 2.52B，不属于严格 <2B。",
+            description: "较大测试候选：2.52B 稠密参数，128K 上下文，适合长文本与工具调用测试。",
           },
         },
       }
     : {
         title: "Local models",
-        note: "Curated models with a bundled adapter. Default is MiniCPM5-1B: 1.08B parameters, 128K context.",
+        note: "Local models for capability testing. Download and enable on demand; none are bundled or enabled by default. Choose your own.",
         root: "Model directory",
         download: "Download",
         downloading: "Downloading",
@@ -74,25 +70,21 @@ const localModelCopy = computed(() =>
         retry: "Retry",
         tokenRequired: "Set the platform write token in Security & data before downloading or enabling a model.",
         runtimeHint: "Enable starts the local inference sidecar (8K runtime context by default; set DIGILEGACY_LOCAL_MODEL_CTX to raise it) and switches the planner to this model; no external Ollama needed.",
-        quality: "Quality tier",
-        strict: "<2B",
-        notStrict: "Actually >2B",
         verified: "SHA256 verified",
-        empty: "No curated models.",
+        empty: "No test models.",
         downloaded: "Downloaded",
         failed: "Failed",
         partial: "Incomplete",
         missing: "Not downloaded",
-        recommended: "Recommended",
         context: "context",
         items: {
           "minicpm5-1b": {
             params: "1.08B dense",
-            description: "1B-class open-source SOTA with 128K context and a standard Llama architecture; balanced Chinese planning, tool selection, and everyday generation. Default recommendation.",
+            description: "Lightweight test candidate: 1.08B dense parameters, 128K context, standard Llama architecture; suits basic planning and everyday generation tests.",
           },
           "minicpm5-2b": {
             params: "2.52B dense",
-            description: "Quality tier above 2B with stronger code, math, long-text, and tool-calling; at 2.52B parameters it is not strictly under 2B.",
+            description: "Larger test candidate: 2.52B dense parameters, 128K context; suits long-text and tool-calling tests.",
           },
         },
       },
@@ -250,11 +242,6 @@ onUnmounted(() => {
         <div class="local-model-card-head">
           <div>
             <strong>{{ item.name }}</strong>
-            <div class="local-model-badges">
-              <span v-if="item.recommended" class="model-badge recommended">{{ localModelCopy.recommended }}</span>
-              <span class="model-badge" :class="{ 'under-2b': item.strictUnder2b }">{{ item.strictUnder2b ? localModelCopy.strict : localModelCopy.notStrict }}</span>
-              <span v-if="!item.strictUnder2b" class="model-badge quality">{{ localModelCopy.quality }}</span>
-            </div>
           </div>
           <StatusPill :tone="localModelTone(item)" :label="localModelStatusLabel(item)" />
         </div>
@@ -312,11 +299,6 @@ onUnmounted(() => {
 .local-model-card { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .local-model-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .local-model-card-head strong { color: var(--ink); font-size: 13px; }
-.local-model-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-.model-badge { padding: 2px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 9px; line-height: 1.4; }
-.model-badge.recommended { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-soft); color: var(--accent-strong); }
-.model-badge.under-2b { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); }
-.model-badge.quality { border-color: color-mix(in srgb, var(--amber) 45%, transparent); color: var(--amber); }
 .local-model-description { margin: 0; color: var(--ink-soft); font-size: 11px; line-height: 1.6; }
 .local-model-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 10px; }
 .local-model-progress { display: flex; align-items: center; gap: 10px; }

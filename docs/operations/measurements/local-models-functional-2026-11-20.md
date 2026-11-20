@@ -1,4 +1,4 @@
-# 本地模型功能测试记录（0.0.20–0.0.22）
+# 本地模型功能测试记录（0.0.20–0.0.23）
 
 测试日期：2026-11-20 至 2026-11-21  
 环境：Linux，2 核 CPU，3.9 GiB 内存，`llama-cpp-python 0.3.37`  
@@ -6,7 +6,7 @@
 
 ## 结论
 
-第一轮主链路和异常分支已实测，发现的 5 个问题已修复并复验；第二轮补做并发、资源边界、恢复性和 i18n，又修了 6 个问题；0.0.22 按产品决策移除 Spark-X2.5-1.7B，只保留 MiniCPM5-1B 与 MiniCPM5-2B。
+第一轮主链路和异常分支已实测，发现的 5 个问题已修复并复验；第二轮补做并发、资源边界、恢复性和 i18n，又修了 6 个问题；0.0.22 按产品决策移除 Spark-X2.5-1.7B，只保留 MiniCPM5-1B 与 MiniCPM5-2B；0.0.23 按用户纠正移除“推荐/默认”定位，测试环境改为预装并启用 2B，1B 本机文件删除、目录保留为可选测试候选。
 
 - Rust workspace：189 passed / 0 failed（新增 2 条断言：目录只保留 MiniCPM、移除模型的 active 记录会被清理）。
 - Web：79 passed / 0 failed；typecheck、build、web-budget 通过。
@@ -18,7 +18,7 @@
 
 | 场景 | 结果 | 证据 |
 | --- | --- | --- |
-| 目录、推荐标记、严格 <2B 标记 | PASS | 3 个模型字段与大小正确 |
+| 目录（0.0.23） | PASS | 2 个模型；无 `recommended`、无档位徽标；1B `missing`、2B `ready` |
 | 下载/启用/停止鉴权 | PASS | 无 token 均返回 401 `AUTH_REQUIRED` |
 | 未知模型下载 | PASS | 404 `NOT_FOUND` |
 | 未知模型启用 | PASS | 404 `NOT_FOUND` |
@@ -108,3 +108,13 @@ Spark-X2.5-1.7B 能加载、能返回合法计划，但唯一差异化能力是�
 - 未压测两个不同模型同时下载；磁盘写满只用 `ulimit -f` 模拟，没有真实写满整块盘；只读目录已实测。
 - 发布包尚未做“干净机无 Python 依赖”的模型启用演练；当前依赖系统 Python 与 `llama-cpp-python`。
 - 状态页的“SHA256 已校验”表示下载时校验过；同尺寸的后期篡改只会在启用前被重新计算拦截。
+
+## 0.0.23 纠正复验
+
+| 场景 | 结果 | 证据 |
+| --- | --- | --- |
+| 模型定位 | PASS | 面板说明为“用于能力测试、按需下载和启用；不内置、不默认启用，用户自行选择”；API 无 `recommended` 字段 |
+| 本机安装模型 | PASS | `data/models` 仅 `minicpm5-2b` 与 `runtime.log`，1B 文件已删除，目录总量 1.5 GB |
+| 2B 启用 | PASS | HTTP 200，41.316 s；PID 20212，`http://127.0.0.1:11435/v1`，默认 8K 上下文 |
+| 2B 真实规划 | PASS | HTTP 200，104.369 s；`MiniCPM5-2B-Q4_K_M`，返回 `overview.get`，3598 in / 12 out |
+| 完整门禁 | PASS | Rust 189 passed / 0 failed；Web 79 passed / 0 failed；`./tools/verify.sh` exit 0；web-budget OK |

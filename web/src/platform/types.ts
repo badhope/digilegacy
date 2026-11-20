@@ -472,8 +472,6 @@ export interface LocalModelItem {
   sha256: string;
   license: string;
   description: string;
-  recommended: boolean;
-  strictUnder2b: boolean;
   runtime: "llama.cpp" | "experimental" | string;
   fileName: string;
   downloadUrl: string;
