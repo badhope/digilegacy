@@ -2,6 +2,25 @@
 
 [English](../../CHANGELOG.md) | 简体中文
 
+## [0.0.19] - 2026-11-20
+
+### 新增
+
+- 恢复码解锁接入四条链路：`security.recover` 契约、`POST /api/v1/security/recover`、CLI `security recover` 与 Web 锁屏“使用恢复码”。恢复码从初始化输出中离线保存，解锁成功后只装载当前进程会话，不落盘。
+- Web 锁屏保留主密码表单，增加恢复码模式切换；错误恢复码、空输入和限速分别显示本地化提示，成功后仍把焦点移到主区域。
+
+### 安全
+
+- `security.unlock` 与 `security.recover` 共享进程内失败限速：60 秒窗口内累计 5 次失败后锁定 30 秒，返回 `429 RATE_LIMITED`；锁定期间即使输入正确主密码也不放行。成功解锁会清零计数。
+- 全局锁门禁的放行名单加入 `security.recover`，锁定时恢复码入口不会被 `VAULT_LOCKED` 误拦；其余命令仍返回 `423`。
+- CLI 的 `security recover` 从标准输入读取恢复码，和 `security unlock` 一样只在当前进程生效；脚本仍可用 `DIGILEGACY_VAULT_PASSWORD` 解锁普通命令。
+
+### 测试
+
+- `tools/verify.sh` exit 0：**184 Rust + 79 Web**；契约 **44 命令 / 23 工具 / 60 schema / 21 错误码**；schema v16 / 31 表。入口 80.75/82 KB，JS gzip 104.95/105.2 KB，CSS gzip 20.22/21.1 KB，总 gzip 125.17/125.5 KB。
+- 隔离保险库真实 API：锁定概览 `423` → 错误口令 `400` → 正确解锁 `200` → 概览 `200` → 再锁定后恢复码 `200` → 资产 `200`（1 条）→ 再锁定；连续 5 次错误口令为 `400/400/400/400/429`，限速期间正确口令仍为 `429`。证据 `security-recovery-0.0.19-2026-11-20.json`。
+- CLI：锁定状态可读；无口令 `assets list` 返回 `VAULT_LOCKED`；带 `DIGILEGACY_VAULT_PASSWORD` 读到 1 条；`security recover` 成功，但进程退出后下一条命令仍被锁。真实 Chromium 覆盖密码、恢复码、再次锁定与 390px，axe 0、页面异常 0；14/14 真实路由和 9/9 视觉基线通过。
+
 ## [0.0.18] - 2026-11-20
 
 ### 新增

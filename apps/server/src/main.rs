@@ -234,6 +234,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/events", get(events))
         .route("/api/v1/security", get(security_get))
         .route("/api/v1/security/unlock", post(security_unlock))
+        .route("/api/v1/security/recover", post(security_recover))
         .route("/api/v1/security/lock", post(security_lock))
         .route("/api/v1/agent/runs", get(agent_runs).post(agent_runs_start))
         .route("/api/v1/agent/usage", get(agent_usage))
@@ -644,6 +645,13 @@ async fn security_unlock(
     dispatch(&state, "security.unlock", input, None)
 }
 
+async fn security_recover(
+    State(state): State<AppState>,
+    Json(input): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "security.recover", input, None)
+}
+
 async fn security_lock(State(state): State<AppState>) -> impl IntoResponse {
     dispatch(&state, "security.lock", json!({}), None)
 }
@@ -991,7 +999,11 @@ mod tests {
         let state = test_app();
         let init = state.app.security_init("correct horse battery").unwrap();
         assert_eq!(init["configured"], true);
-        assert!(!init["recoveryCode"].as_str().unwrap_or_default().is_empty());
+        let recovery = init["recoveryCode"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        assert!(!recovery.is_empty());
         // A fresh server process starts locked even after the CLI bootstraps it.
         digilegacy_security::session::lock();
 
@@ -1025,6 +1037,17 @@ mod tests {
         assert_eq!(envelope.data.as_ref().unwrap()["locked"], true);
         let (status, _) = dispatch(&state, "assets.list", json!({}), None);
         assert_eq!(status, StatusCode::LOCKED);
+
+        let (status, envelope) = dispatch(
+            &state,
+            "security.recover",
+            json!({ "code": recovery }),
+            None,
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(envelope.data.as_ref().unwrap()["locked"], false);
+        let (status, _) = dispatch(&state, "assets.list", json!({}), None);
+        assert_eq!(status, StatusCode::OK);
     }
 
     #[test]

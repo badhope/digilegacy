@@ -573,6 +573,11 @@ enum SecurityCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Unlock this process with the one-time recovery code. Reads it from stdin.
+    Recover {
+        #[arg(long)]
+        json: bool,
+    },
     /// Clear the in-memory data key for this process.
     Lock {
         #[arg(long)]
@@ -1082,6 +1087,16 @@ fn main() -> ExitCode {
                 ),
                 Err(error) => fail(error),
             },
+            SecurityCommand::Recover { json: as_json } => match read_recovery_code() {
+                Ok(code) => run(
+                    &app,
+                    "security.recover",
+                    json!({ "code": code.as_str() }),
+                    as_json,
+                    false,
+                ),
+                Err(error) => fail(error),
+            },
             SecurityCommand::Lock { json: as_json } => {
                 run(&app, "security.lock", json!({}), as_json, false)
             }
@@ -1198,6 +1213,7 @@ fn security_passthrough(command: &Commands) -> bool {
         Commands::Security {
             command: SecurityCommand::Init { .. }
                 | SecurityCommand::Unlock { .. }
+                | SecurityCommand::Recover { .. }
                 | SecurityCommand::Status { .. }
                 | SecurityCommand::Lock { .. }
         }
@@ -1232,16 +1248,27 @@ fn unlock_cli_vault(app: &Application) -> Result<(), PlatformError> {
 }
 
 fn read_password() -> Result<Zeroizing<String>, PlatformError> {
+    read_secret("主密码")
+}
+
+fn read_recovery_code() -> Result<Zeroizing<String>, PlatformError> {
+    read_secret("恢复码")
+}
+
+fn read_secret(label: &str) -> Result<Zeroizing<String>, PlatformError> {
     let mut line = String::new();
     std::io::stdin()
         .lock()
         .read_line(&mut line)
-        .map_err(|e| PlatformError::new("IO", format!("读取主密码失败：{e}")))?;
-    let password = line.trim_end_matches(['\r', '\n']).to_string();
-    if password.is_empty() {
-        return Err(PlatformError::new("INVALID_ARGS", "主密码不能为空"));
+        .map_err(|e| PlatformError::new("IO", format!("读取{label}失败：{e}")))?;
+    let value = line.trim_end_matches(['\r', '\n']).to_string();
+    if value.is_empty() {
+        return Err(PlatformError::new(
+            "INVALID_ARGS",
+            format!("{label}不能为空"),
+        ));
     }
-    Ok(Zeroizing::new(password))
+    Ok(Zeroizing::new(value))
 }
 
 fn local(result: Result<Value, PlatformError>, as_json: bool) -> ExitCode {

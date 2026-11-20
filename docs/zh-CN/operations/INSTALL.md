@@ -13,8 +13,8 @@
 ## 全新安装
 
 ```bash
-tar -xzf packages/digilegacy-0.0.18-linux-x86_64.tar.gz -C /tmp
-cd /tmp/digilegacy-0.0.18
+tar -xzf packages/digilegacy-0.0.19-linux-x86_64.tar.gz -C /tmp
+cd /tmp/digilegacy-0.0.19
 ./install.sh --prefix /opt/digilegacy --data-dir /var/lib/digilegacy
 /opt/digilegacy/bin/digilegacy-start
 ```

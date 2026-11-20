@@ -451,5 +451,14 @@
   "settings.security.configured": "保险库",
   "settings.security.configured.yes": "已初始化",
   "settings.security.configured.no": "未初始化",
-  "settings.security.setupHint": "首次设置只走本地 CLI：digilegacy security init，从标准输入读取主密码。"
+  "settings.security.setupHint": "首次设置只走本地 CLI：digilegacy security init，从标准输入读取主密码。",
+  "lock.recovery": "恢复码",
+  "lock.recoveryPlaceholder": "XXXX-XXXX-XXXX-XXXX-XXXX-XXXX",
+  "lock.recoveryRequired": "请输入恢复码",
+  "lock.invalidRecovery": "恢复码不正确",
+  "lock.recovering": "正在恢复…",
+  "lock.recoveryNote": "输入初始化时生成的一次性恢复码。恢复码只用于本地解锁，不会保存到浏览器。",
+  "lock.useRecovery": "使用恢复码",
+  "lock.usePassword": "使用主密码",
+  "lock.rateLimited": "尝试次数过多，请稍后再试"
 }

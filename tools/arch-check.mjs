@@ -55,10 +55,10 @@ const tools = JSON.parse(read("contracts/tools.json")).tools;
 const errors = JSON.parse(read("contracts/errors.json")).errors;
 const schemas = fs.readdirSync(path.join(root, "contracts/schemas")).filter((name) => name.endsWith(".json"));
 
-if (commands.length !== 43) fail(`commands: expected 43, got ${commands.length}`);
+if (commands.length !== 44) fail(`commands: expected 44, got ${commands.length}`);
 if (tools.length !== 23) fail(`tools: expected 23, got ${tools.length}`);
 if (errors.length !== 21) fail(`errors: expected 21, got ${errors.length}`);
-if (schemas.length !== 59) fail(`schemas: expected 59, got ${schemas.length}`);
+if (schemas.length !== 60) fail(`schemas: expected 60, got ${schemas.length}`);
 notes.push(`contracts: ${commands.length} commands, ${tools.length} tools, ${schemas.length} schemas, ${errors.length} errors`);
 
 const commandNames = new Set();

@@ -1,10 +1,10 @@
 # 发布清单
 
-版本：**0.0.18**（Linux x86_64，2026-11-20）
+版本：**0.0.19**（Linux x86_64，2026-11-20）
 
 状态：**工程证据齐全，尚未人工签字。**
 
-归档校验值在 `packages/digilegacy-0.0.18-linux-x86_64.tar.gz.sha256`，归档内也有
+归档校验值在 `packages/digilegacy-0.0.19-linux-x86_64.tar.gz.sha256`，归档内也有
 `SHA256SUMS`。不要从聊天消息里抄校验值，必须以归档同目录文件为准。
 
 ## 自动证据
@@ -12,22 +12,21 @@
 | 门禁 | 结果 | 证据 |
 | --- | --- | --- |
 | 契约 / 架构 / 格式 / clippy | 通过 | `./tools/verify.sh` exit 0 |
-| Rust + Web 测试 | **182 Rust + 77 Web** | `./tools/verify.sh` |
-| 契约 | **43 命令 / 23 工具 / 59 schema / 21 错误码** | `./tools/generate.mjs --check` |
+| Rust + Web 测试 | **184 Rust + 79 Web** | `./tools/verify.sh` |
+| 契约 | **44 命令 / 23 工具 / 60 schema / 21 错误码** | `./tools/generate.mjs --check` |
 | Schema | **v16 / 31 表** | health + diagnostics |
-| 体积预算 | 入口 79.72/82 KB；JS 104.46/104.6 KB；CSS 20.15/21.1 KB；总 124.61/124.8 KB gzip | `web-budget` |
-| 真实 Chromium + axe | 14/14 路由通过，axe 0 违规 | `measurements/live-browser-0.0.18-2026-11-20.json` |
+| 体积预算 | 入口 80.75/82 KB；JS 104.95/105.2 KB；CSS 20.22/21.1 KB；总 125.17/125.5 KB gzip | `web-budget` |
+| 真实 Chromium + axe | 14/14 路由通过，axe 0 违规 | `measurements/live-browser-0.0.19-2026-11-20.json` |
 | 视觉基线 | 9/9 在 0.4% 内；最大 overview-mobile 0.173% | `tools/visual/regress.py` |
-| 保险库锁 API + CLI | 423 → 400 → 200 → 200 → 423；CLI 无口令环境变量被拒 | `measurements/security-lock-0.0.18-2026-11-20.json` |
-| 干净机安装 | 12 步 PASS，重装可读保留库 | `measurements/install-0.0.18-2026-11-20.json` |
+| 恢复码 + 失败限速 | 锁定 423；错误 400；解锁 200；再锁定；恢复码 200；资产 200；5 次失败以 429 收尾；限速中正确口令仍 429 | `measurements/security-recovery-0.0.19-2026-11-20.json` |
+| 保险库锁 API + CLI | 423 → 400 → 200 → 200 → 423；CLI 无口令环境变量被拒 | `measurements/security-lock-0.0.18-2026-11-20.json`（0.0.18 基线） |
+| 干净机安装 | 12 步 PASS，重装可读保留库 | `measurements/install-0.0.19-2026-11-20.json` |
+| 归档 | `packages/digilegacy-0.0.19-linux-x86_64.tar.gz`，18,293,344 bytes，SHA256 `53f86e570d59571dccfd27c0df789af665978551f4d413d61c14296cb805e8ee` | `...tar.gz.sha256` |
 
-归档：`packages/digilegacy-0.0.18-linux-x86_64.tar.gz`，18,274,248 bytes，
-SHA256 `0b947a3dd13f5618f0e324bf9e4182029052f3e21f6efc7b9ba941bd6f252ee6`。
+## 继承自 0.0.18 的运行基线
 
-## 继承自 0.0.17 的运行基线
-
-这些演练测于 0.0.17 代码线，本补丁未重跑。保险库锁改动不触及出站代理、容量、
-恢复、DNS 钉住与政策来源路径；把它们当作基线证据，不要当成新的 0.0.18 测量。
+这些演练测于 0.0.18 代码线，本补丁未重跑。恢复码与限速改动不触及出站代理、容量、
+恢复、DNS 钉住与政策来源路径；把它们当作基线证据，不要当成新的 0.0.19 测量。
 
 | 门禁 | 基线 | 证据 |
 | --- | --- | --- |

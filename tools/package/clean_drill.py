@@ -81,7 +81,7 @@ def main() -> int:
     parser.add_argument(
         "--archive",
         type=Path,
-        default=ROOT / "packages" / "digilegacy-0.0.18-linux-x86_64.tar.gz",
+        default=ROOT / "packages" / "digilegacy-0.0.19-linux-x86_64.tar.gz",
     )
     parser.add_argument(
         "--json-out",

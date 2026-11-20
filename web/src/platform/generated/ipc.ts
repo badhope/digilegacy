@@ -47,6 +47,7 @@ export const COMMANDS = {
   triggerEventsList: "trigger.events.list",
   notificationsList: "notifications.list",
   notificationsSend: "notifications.send",
+  securityRecover: "security.recover",
 } as const;
 
 export type CommandName = (typeof COMMANDS)[keyof typeof COMMANDS];
@@ -95,6 +96,7 @@ export const COMMAND_PERMISSION: Record<CommandName, Permission> = {
   "trigger.events.list": "read",
   "notifications.list": "read",
   "notifications.send": "write",
+  "security.recover": "draft",
 };
 
 export const COMMAND_HTTP: Record<CommandName, string> = {
@@ -141,6 +143,7 @@ export const COMMAND_HTTP: Record<CommandName, string> = {
   "trigger.events.list": "GET /api/v1/trigger/events",
   "notifications.list": "GET /api/v1/notifications",
   "notifications.send": "POST /api/v1/notifications/send",
+  "security.recover": "POST /api/v1/security/recover",
 };
 
 export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
@@ -187,6 +190,7 @@ export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
   "trigger.events.list": false,
   "notifications.list": false,
   "notifications.send": false,
+  "security.recover": false,
 };
 
 export const COMMAND_AUDIT: Record<CommandName, boolean> = {
@@ -233,6 +237,7 @@ export const COMMAND_AUDIT: Record<CommandName, boolean> = {
   "trigger.events.list": false,
   "notifications.list": false,
   "notifications.send": true,
+  "security.recover": true,
 };
 
 export const COMMAND_TOOL: Record<CommandName, string | null> = {
@@ -279,6 +284,7 @@ export const COMMAND_TOOL: Record<CommandName, string | null> = {
   "trigger.events.list": "trigger.events.list",
   "notifications.list": "notifications.list",
   "notifications.send": null,
+  "security.recover": null,
 };
 
 export const COMMAND_NAMES = Object.values(COMMANDS);

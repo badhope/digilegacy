@@ -1062,6 +1062,31 @@
         "STORE_NOT_READY",
         "INTERNAL"
       ]
+    },
+    {
+      "name": "security.recover",
+      "domain": "security",
+      "summary": "用一次性恢复码解锁当前服务进程的保险库会话",
+      "permission": "draft",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/security.recovery.input.json",
+      "output": "schemas/security.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "security recover",
+        "http": "POST /api/v1/security/recover",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "CONFLICT",
+        "RATE_LIMITED",
+        "INTERNAL"
+      ]
     }
   ]
 }

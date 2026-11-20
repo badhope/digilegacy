@@ -44,6 +44,7 @@ pub const COMMAND_LINES: &[&str] = &[
     "trigger events",
     "notifications list",
     "notifications send",
+    "security recover",
 ];
 
 pub fn print_help() {

@@ -725,7 +725,25 @@ M0 可以判定“工程壳完成”的条件：
 - CLI 独立进程：无 `DIGILEGACY_VAULT_PASSWORD` 时 `assets list` 返回 `VAULT_LOCKED`；带变量时返回“锁定前资产”。`security status` 不受锁影响。
 - 验收：`./tools/verify.sh` exit 0，**182 Rust + 77 Web**；契约 **43 命令 / 23 工具 / 59 schema / 21 错误码**；schema v16 / 31 表；入口 79.72/82 KB，JS gzip 104.46/104.6 KB，CSS gzip 20.15/21.1 KB，总 gzip 124.61/124.8 KB；日志 `/tmp/digilegacy-verify-0.0.18.log`。
 - 真实浏览器 14/14 路由 PASS（`/tmp/digilegacy-live-smoke-final.json`），9/9 视觉基线 PASS；锁屏截图 `/tmp/digilegacy-lock-ui/`。
-- 边界：Web 暂无恢复码解锁；解锁 API 默认只随服务绑定回环地址，对外暴露需在反向代理限流；SQLCipher 文件密钥仍保留，保险库 DEK 负责字段密钥与会话。
+- 边界：0.0.18 时 Web 暂无恢复码入口、解锁未做失败限速；这两项在 0.0.19 补齐。解锁 API 默认只随服务绑定回环地址，对外暴露需在反向代理限流；SQLCipher 文件密钥仍保留，保险库 DEK 负责字段密钥与会话。
+
+### M6-R 恢复码解锁与失败限速（2026-11-20）
+
+- 新增 `security.recover`：契约权限 `draft`、`requiresUnlock=false`，HTTP 为 `POST /api/v1/security/recover`，CLI 为 `security recover`，从标准输入读取恢复码。应用层把恢复码入口加入锁门禁放行名单。
+- `security.unlock` 与 `security.recover` 共享进程内限速：60 秒窗口内累计 5 次失败后锁定 30 秒，返回 `429 RATE_LIMITED`；锁定期间正确口令也不放行，成功解锁清零。错误码体系沿用已有 `RATE_LIMITED`，总数仍为 21。
+- Web 锁屏增加主密码/恢复码切换；恢复码模式使用 `autocomplete=one-time-code`，错误、空输入与限速都有本地化提示。真实 Chromium 覆盖密码、恢复码、再次锁定与 390px：锁屏/解锁后 axe 0，错误口令提示“主密码不正确”，恢复码成功进入主区域，页面异常 0，移动端无横向溢出。
+- 隔离保险库真实 API：锁定概览 `423` → 错误口令 `400` → 正确解锁 `200` → 概览 `200` → 再锁定后恢复码 `200` → 资产 `200`（1 条）→ 再锁定；连续 5 次错误口令为 `400/400/400/400/429`，限速期间正确口令仍为 `429`。
+- CLI：锁定状态可读；无 `DIGILEGACY_VAULT_PASSWORD` 的 `assets list` 退出码 5、`VAULT_LOCKED`；带变量读到 1 条；`security recover` 成功，但下一条独立进程仍被锁。证据 `security-recovery-0.0.19-2026-11-20.json`。
+- 验收：`./tools/verify.sh` exit 0，**184 Rust + 79 Web**；契约 **44 命令 / 23 工具 / 60 schema / 21 错误码**；schema v16 / 31 表；入口 80.75/82 KB，JS gzip 104.95/105.2 KB，CSS gzip 20.22/21.1 KB，总 gzip 125.17/125.5 KB；日志 `/tmp/digilegacy-verify-0.0.19.log`。
+- 真实浏览器 14/14 路由 PASS、axe 0、无页面异常、无横向溢出，证据 `live-browser-0.0.19-2026-11-20.json`；9/9 视觉基线 PASS，最大 0.173%。
+- 边界：失败限速是进程内状态，重启清空；恢复码仍是初始化时只输出一次的离线材料；SQLCipher 文件密钥未替换，保险库 DEK 继续只负责字段密钥与会话。
+
+### 0.0.19 发布归档
+
+- `tools/package/build.sh` 生成 `packages/digilegacy-0.0.19-linux-x86_64.tar.gz`（18,293,344 bytes，SHA256 `53f86e570d59571dccfd27c0df789af665978551f4d413d61c14296cb805e8ee`）。
+- 干净机演练 12/12 PASS：全新 HOME/前缀/数据目录/最小环境；安装、health v16/31、诊断审计、检查点验证、卸载保留数据与密钥、重装读库、彻底卸载。证据 `install-0.0.19-2026-11-20.json`，归档 SHA 与包一致。
+- 0.0.19 真实 Chromium：14/14 路由、axe 0、无页面异常、390px 无横向溢出。证据 `live-browser-0.0.19-2026-11-20.json`。
+- 恢复码与限速：API、CLI、桌面/移动锁屏均通过；证据 `security-recovery-0.0.19-2026-11-20.json`。视觉回归 9/9。
 
 ### 0.0.18 发布归档
 

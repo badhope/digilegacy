@@ -451,5 +451,14 @@
   "settings.security.configured": "Vault",
   "settings.security.configured.yes": "Initialised",
   "settings.security.configured.no": "Not initialised",
-  "settings.security.setupHint": "First-time setup stays local: run digilegacy security init and pipe the master password on stdin."
+  "settings.security.setupHint": "First-time setup stays local: run digilegacy security init and pipe the master password on stdin.",
+  "lock.recovery": "Recovery code",
+  "lock.recoveryPlaceholder": "XXXX-XXXX-XXXX-XXXX-XXXX-XXXX",
+  "lock.recoveryRequired": "Enter the recovery code",
+  "lock.invalidRecovery": "Incorrect recovery code",
+  "lock.recovering": "Recovering…",
+  "lock.recoveryNote": "Enter the one-time recovery code created during setup. It is used only for local unlock and is never stored in the browser.",
+  "lock.useRecovery": "Use a recovery code",
+  "lock.usePassword": "Use the master password",
+  "lock.rateLimited": "Too many attempts. Try again shortly."
 }

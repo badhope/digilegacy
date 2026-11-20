@@ -355,6 +355,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         requires_unlock: false,
         audit: true,
     },
+    CommandSpec {
+        name: "security.recover",
+        domain: "security",
+        permission: "draft",
+        http: "POST /api/v1/security/recover",
+        requires_unlock: false,
+        audit: true,
+    },
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.0.18",
+    "version": "0.0.19",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -2697,6 +2697,70 @@
           }
         }
       }
+    },
+    "/api/v1/security/recover": {
+      "post": {
+        "operationId": "security.recover",
+        "summary": "用一次性恢复码解锁当前服务进程的保险库会话",
+        "tags": [
+          "security"
+        ],
+        "x-command": "security.recover",
+        "x-permission": "draft",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/security.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/security.recovery.input"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5006,6 +5070,22 @@
           "password": {
             "type": "string",
             "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "security.recovery.input": {
+        "title": "SecurityRecoveryInput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 8,
             "maxLength": 128
           }
         },

@@ -21,10 +21,14 @@ use digilegacy_security::derive_domain_key;
 use digilegacy_security::keyring::FileKeyring;
 use digilegacy_store::{checkpoint, Store};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
 
 const CONNECTION_CONFIG_DOMAIN: &[u8] = b"digilegacy/connection-config/v1";
+const UNLOCK_MAX_FAILURES: u32 = 5;
+const UNLOCK_WINDOW: Duration = Duration::from_secs(60);
+const UNLOCK_BLOCK: Duration = Duration::from_secs(30);
 
 pub const STATUS: &str = "m2-read-write-core";
 
@@ -96,11 +100,68 @@ fn notification_payload(channel: &str, item: &notify::Notification) -> Value {
     }
 }
 
+#[derive(Debug)]
+struct UnlockGuard {
+    failures: u32,
+    window_start: Instant,
+    blocked_until: Option<Instant>,
+}
+
+impl Default for UnlockGuard {
+    fn default() -> Self {
+        Self {
+            failures: 0,
+            window_start: Instant::now(),
+            blocked_until: None,
+        }
+    }
+}
+
+impl UnlockGuard {
+    fn check(&mut self) -> Result<(), PlatformError> {
+        if let Some(until) = self.blocked_until {
+            if until > Instant::now() {
+                let seconds = until.duration_since(Instant::now()).as_secs().max(1);
+                return Err(PlatformError::new(
+                    "RATE_LIMITED",
+                    format!("尝试次数过多，请在 {seconds} 秒后重试"),
+                ));
+            }
+            self.reset();
+        }
+        if self.window_start.elapsed() > UNLOCK_WINDOW {
+            self.failures = 0;
+            self.window_start = Instant::now();
+        }
+        Ok(())
+    }
+
+    fn fail(&mut self) -> bool {
+        if self.window_start.elapsed() > UNLOCK_WINDOW {
+            self.failures = 0;
+            self.window_start = Instant::now();
+        }
+        self.failures += 1;
+        if self.failures >= UNLOCK_MAX_FAILURES {
+            self.blocked_until = Some(Instant::now() + UNLOCK_BLOCK);
+            return true;
+        }
+        false
+    }
+
+    fn reset(&mut self) {
+        self.failures = 0;
+        self.window_start = Instant::now();
+        self.blocked_until = None;
+    }
+}
+
 #[derive(Clone)]
 pub struct Application {
     store: Arc<Store>,
     config_key: Option<Zeroizing<[u8; 32]>>,
     db_key: Option<Zeroizing<[u8; 32]>>,
+    unlock_guard: Arc<Mutex<UnlockGuard>>,
 }
 
 impl Application {
@@ -109,6 +170,7 @@ impl Application {
             store,
             config_key: None,
             db_key: None,
+            unlock_guard: Arc::new(Mutex::new(UnlockGuard::default())),
         }
     }
 
@@ -118,6 +180,7 @@ impl Application {
             store,
             config_key: Some(Zeroizing::new(key)),
             db_key: None,
+            unlock_guard: Arc::new(Mutex::new(UnlockGuard::default())),
         }
     }
 
@@ -167,6 +230,7 @@ impl Application {
             store: Arc::new(store),
             config_key,
             db_key,
+            unlock_guard: Arc::new(Mutex::new(UnlockGuard::default())),
         };
         policy::seed_if_empty(app.store()).map_err(|e| format!("政策库初始化失败: {e}"))?;
         app.seed_environment_connections()?;
@@ -190,8 +254,8 @@ impl Application {
     }
 
     pub fn dispatch(&self, name: &str, args: Value) -> Result<Value, PlatformError> {
-        // A configured vault is a real console lock: only the three security
-        // lifecycle commands stay reachable until the process session is unlocked.
+        // A configured vault is a real console lock: only the security lifecycle
+        // commands stay reachable until the process session is unlocked.
         if self.vault_configured()?
             && matches!(
                 digilegacy_security::session::state(),
@@ -199,7 +263,7 @@ impl Application {
             )
             && !matches!(
                 name,
-                "security.status" | "security.unlock" | "security.lock"
+                "security.status" | "security.unlock" | "security.recover" | "security.lock"
             )
         {
             return Err(PlatformError::new(
@@ -238,6 +302,7 @@ impl Application {
             "deliver.export" => self.deliver_export(args),
             "security.status" => self.security_status(),
             "security.unlock" => self.security_unlock(args),
+            "security.recover" => self.security_recover(args),
             "security.lock" => self.security_lock(),
             "agent.runs.list" => self.runs_list(args),
             "agent.usage.summary" => self.usage_summary(args),
@@ -882,6 +947,12 @@ impl Application {
         Ok(self.vault_config()?.is_some())
     }
 
+    fn unlock_guard(&self) -> Result<std::sync::MutexGuard<'_, UnlockGuard>, PlatformError> {
+        self.unlock_guard
+            .lock()
+            .map_err(|_| PlatformError::new("INTERNAL", "解锁限速器不可用"))
+    }
+
     /// Bootstrap the vault from the local CLI. This is deliberately absent from
     /// the HTTP/Agent surfaces: only the machine owner can set the first password.
     pub fn security_init(&self, password: &str) -> Result<Value, PlatformError> {
@@ -945,9 +1016,66 @@ impl Application {
                 "保险库尚未初始化；请先在本地 CLI 执行 security init",
             )
         })?;
-        digilegacy_security::session::unlock(password, &config)
-            .map_err(|e| PlatformError::new("INVALID_ARGS", e))?;
+        let mut guard = self.unlock_guard()?;
+        guard.check()?;
+        if let Err(error) = digilegacy_security::session::unlock(password, &config) {
+            let blocked = guard.fail();
+            drop(guard);
+            if blocked {
+                return Err(PlatformError::new(
+                    "RATE_LIMITED",
+                    "尝试次数过多，请稍后再试",
+                ));
+            }
+            return Err(PlatformError::new("INVALID_ARGS", error));
+        }
+        guard.reset();
+        drop(guard);
         self.audit("security.unlock", "vault")?;
+        self.security_status()
+    }
+
+    pub fn security_recover(&self, args: Value) -> Result<Value, PlatformError> {
+        let code = args
+            .get("code")
+            .and_then(Value::as_str)
+            .ok_or_else(|| PlatformError::new("INVALID_ARGS", "缺少恢复码"))?;
+        let config = self.vault_config()?.ok_or_else(|| {
+            PlatformError::new(
+                "CONFLICT",
+                "保险库尚未初始化；请先在本地 CLI 执行 security init",
+            )
+        })?;
+        let seal: String = self
+            .store
+            .read(|conn| {
+                conn.query_row(
+                    "SELECT coalesce(recovery_seal,'') FROM security_config WHERE id=1",
+                    [],
+                    |row| row.get(0),
+                )
+            })
+            .map_err(|error| PlatformError::new("INTERNAL", error.to_string()))?;
+        if seal.trim().is_empty() {
+            return Err(PlatformError::new("CONFLICT", "保险库未配置恢复码"));
+        }
+        let mut guard = self.unlock_guard()?;
+        guard.check()?;
+        if let Err(error) = digilegacy_security::session::unlock_with_recovery(code, &seal, &config)
+        {
+            let blocked = guard.fail();
+            drop(guard);
+            if blocked {
+                return Err(PlatformError::new(
+                    "RATE_LIMITED",
+                    "尝试次数过多，请稍后再试",
+                ));
+            }
+            return Err(PlatformError::new("INVALID_ARGS", error));
+        }
+        guard.reset();
+        drop(guard);
+        self.audit("security.recover", "vault")?;
         self.security_status()
     }
 
@@ -1087,6 +1215,30 @@ mod tests {
     }
 
     #[test]
+    fn unlock_guard_blocks_after_five_failures() {
+        let mut guard = UnlockGuard::default();
+        for _ in 0..4 {
+            assert!(!guard.fail());
+        }
+        assert!(guard.fail());
+        assert_eq!(guard.check().unwrap_err().code, "RATE_LIMITED");
+        guard.reset();
+        assert!(guard.check().is_ok());
+    }
+
+    #[test]
+    fn security_recovery_unlocks_with_one_time_code() {
+        let app = Application::new(Arc::new(Store::open_in_memory(None).unwrap()));
+        let init = app.security_init("correct horse battery").unwrap();
+        let code = init["recoveryCode"].as_str().unwrap().to_string();
+        digilegacy_security::session::lock();
+        let status = app.security_recover(json!({ "code": code })).unwrap();
+        assert_eq!(status["configured"], true);
+        assert_eq!(status["locked"], false);
+        digilegacy_security::session::lock();
+    }
+
+    #[test]
     fn security_init_rekeys_existing_connection_secrets() {
         let app =
             Application::with_config_key(Arc::new(Store::open_in_memory(None).unwrap()), [3u8; 32]);
@@ -1131,6 +1283,7 @@ mod tests {
             store: Arc::new(store),
             config_key: None,
             db_key: Some(Zeroizing::new(key)),
+            unlock_guard: Arc::new(Mutex::new(UnlockGuard::default())),
         };
 
         let meta = app.security_checkpoint("before-upgrade").unwrap();

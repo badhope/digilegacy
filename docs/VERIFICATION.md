@@ -86,8 +86,8 @@ review worklist, not a verification result.
 - Boundary: the script does not edit policy data or provenance. A reachable
   home page does not prove the page contains the cited rule.
 - The verify gate now byte-compiles the policy audit, clean-host drill and
-  capacity scripts; the last full run is **182 Rust + 77 Web** tests, with
-  **43 commands / 23 tools / 59 schemas / 21 errors** and schema v16 / 31 tables.
+  capacity scripts; the last full run is **184 Rust + 79 Web** tests, with
+  **44 commands / 23 tools / 60 schemas / 21 errors** and schema v16 / 31 tables.
 
 ## Manual smoke before release
 
@@ -120,6 +120,24 @@ review worklist, not a verification result.
 - [ ] A verified checkpoint exists before any migration or destructive repair; restore follows the offline runbook.
 
 The detailed Chinese verification record keeps the historical evidence for each delivery. The English page describes the gates and the expected behavior, not a running tally.
+
+## 0.0.19 recovery and failure limit
+
+- Added `security.recover`: draft permission, `requiresUnlock=false`, `POST /api/v1/security/recover`, CLI `security recover` reading the code from stdin. The application vault gate explicitly allows the recovery command while locked.
+- `security.unlock` and `security.recover` share an in-process limiter: five failures inside 60 seconds block attempts for 30 seconds and return `429 RATE_LIMITED`; a correct password is also refused while blocked, and success resets the counter. The existing `RATE_LIMITED` error keeps the total at 21.
+- The Web lock screen switches between master password and recovery code. Recovery uses `autocomplete=one-time-code`; empty input, wrong code and rate limiting have localized messages. Real Chromium covered password, recovery, relock and 390 px: 0 axe violations on the lock screen and unlocked page, the wrong-password message is "主密码不正确", recovery opens the main region, 0 page errors and no mobile horizontal overflow.
+- Isolated vault real API: locked overview `423` → wrong password `400` → correct unlock `200` → overview `200` → relock, recovery `200` → assets `200` (one item) → relock. Five wrong passwords were `400/400/400/400/429`; a correct password during the block still returned `429`.
+- CLI: status readable while locked; `assets list` without `DIGILEGACY_VAULT_PASSWORD` exited 5 with `VAULT_LOCKED`; with the variable it read one item; `security recover` succeeded, but the next independent process was still locked. Evidence: `security-recovery-0.0.19-2026-11-20.json`.
+- Gate: `./tools/verify.sh` exit 0, **184 Rust + 79 Web**, **44 commands / 23 tools / 60 schemas / 21 errors**, schema v16 / 31 tables. Entry 80.75/82 KB, JS gzip 104.95/105.2 KB, CSS gzip 20.22/21.1 KB, total 125.17/125.5 KB. Log: `/tmp/digilegacy-verify-0.0.19.log`.
+- Live Chromium: 14/14 routes, 0 axe violations, no page errors, no horizontal overflow, `live-browser-0.0.19-2026-11-20.json`; 9/9 visual baselines, max 0.173%.
+- Boundary: the limiter is process-local and resets on restart; the recovery code remains a one-time offline material printed only at setup; the SQLCipher file key is unchanged, and the vault DEK still covers field keys and the session only.
+
+## 0.0.19 release archive
+
+- `tools/package/build.sh` produced `packages/digilegacy-0.0.19-linux-x86_64.tar.gz` (18,293,344 bytes, SHA256 `53f86e570d59571dccfd27c0df789af665978551f4d413d61c14296cb805e8ee`).
+- Clean-host drill: 12/12 PASS, fresh HOME/prefix/data/minimal environment; install, health v16/31, diagnostics, checkpoint verification, uninstall preserving data and keys, reinstall reading the preserved database, and full purge. Evidence: `install-0.0.19-2026-11-20.json`; the archive SHA matches the package.
+- Live Chromium 0.0.19: 14/14 routes, 0 axe violations, no page errors, no 390 px horizontal overflow. Evidence: `live-browser-0.0.19-2026-11-20.json`.
+- Recovery and rate limiting passed through API, CLI, desktop and mobile lock screens; evidence: `security-recovery-0.0.19-2026-11-20.json`. Visual regression: 9/9.
 
 ## 0.0.18 release archive
 

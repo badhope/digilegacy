@@ -4,6 +4,25 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.19] - November 2026
+
+### Added
+
+- Recovery-code unlock is wired through all four surfaces: the `security.recover` contract, `POST /api/v1/security/recover`, CLI `security recover`, and a "Use a recovery code" mode on the Web lock screen. The code is meant to be stored offline from the one-time setup output; a successful unlock only installs the current process session and is never persisted.
+- The lock screen keeps the master-password form and adds a recovery mode switch. Empty input, a wrong code and rate limiting each get a localized message; focus still moves to the main region after success.
+
+### Security
+
+- `security.unlock` and `security.recover` share an in-process failure limiter: five failures inside a 60-second window block further attempts for 30 seconds and return `429 RATE_LIMITED`. A correct password is also refused while blocked. A successful unlock resets the counter.
+- The global vault gate now allows `security.recover`, so the recovery path is not rejected with `VAULT_LOCKED`; every other command still returns `423` while locked.
+- CLI `security recover` reads the code from stdin and, like `security unlock`, only affects that process. Scripts can still use `DIGILEGACY_VAULT_PASSWORD` for ordinary commands.
+
+### Testing
+
+- `tools/verify.sh` exit 0: **184 Rust + 79 Web** tests; contracts **44 commands / 23 tools / 60 schemas / 21 errors**; schema v16 / 31 tables. Web entry 80.75/82 KB, JS gzip 104.95/105.2 KB, CSS gzip 20.22/21.1 KB, total 125.17/125.5 KB.
+- Real API drill on an isolated vault database: locked overview `423` → wrong password `400` → correct unlock `200` → overview `200` → relock, recovery code `200` → assets `200` (one item) → relock. Five wrong passwords produced `400/400/400/400/429`, and a correct password during the block still returned `429`. Evidence: `security-recovery-0.0.19-2026-11-20.json`.
+- CLI: status readable while locked; `assets list` without a password returns `VAULT_LOCKED`; with `DIGILEGACY_VAULT_PASSWORD` it read one item; `security recover` succeeded, but the next process was still locked. Real Chromium covered password, recovery, relock and 390 px, with 0 axe violations and 0 page errors; 14/14 live routes and 9/9 visual baselines passed.
+
 ## [0.0.18] - November 2026
 
 ### Added

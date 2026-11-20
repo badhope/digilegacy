@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-11-20T12:39:25+00:00",
+  "version": "0.0.19",
+  "result": "PASS",
+  "database": "/tmp/digilegacy-lock-0.0.19.db",
+  "api": {
+    "lockedOverview": {
+      "status": 423,
+      "code": "VAULT_LOCKED",
+      "message": "保险库已锁定；请先执行 security.unlock"
+    },
+    "wrongPassword": {
+      "status": 400,
+      "code": "INVALID_ARGS"
+    },
+    "correctUnlock": {
+      "status": 200,
+      "locked": false,
+      "configured": true
+    },
+    "overviewAfterUnlock": {
+      "status": 200
+    },
+    "lockBeforeRecovery": {
+      "status": 200
+    },
+    "recoveryUnlock": {
+      "status": 200,
+      "locked": false
+    },
+    "assetsAfterRecovery": {
+      "status": 200,
+      "count": 1
+    },
+    "lockBeforeRateLimit": {
+      "status": 200
+    },
+    "rateLimitAttempts": [
+      {
+        "attempt": 1,
+        "status": 400,
+        "code": "INVALID_ARGS"
+      },
+      {
+        "attempt": 2,
+        "status": 400,
+        "code": "INVALID_ARGS"
+      },
+      {
+        "attempt": 3,
+        "status": 400,
+        "code": "INVALID_ARGS"
+      },
+      {
+        "attempt": 4,
+        "status": 400,
+        "code": "INVALID_ARGS"
+      },
+      {
+        "attempt": 5,
+        "status": 429,
+        "code": "RATE_LIMITED"
+      }
+    ],
+    "correctPasswordWhileBlocked": {
+      "status": 429,
+      "code": "RATE_LIMITED"
+    }
+  },
+  "cli": {
+    "statusLocked": {
+      "success": true,
+      "code": "OK",
+      "message": "ok",
+      "data": {
+        "locked": true,
+        "configured": true,
+        "recoveryConfigured": true
+      }
+    },
+    "listWithoutPassword": {
+      "exit": 5,
+      "stderr": "VAULT_LOCKED: 保险库已锁定；请在终端输入主密码，或设置 DIGILEGACY_VAULT_PASSWORD"
+    },
+    "listWithPassword": {
+      "success": true,
+      "code": "OK",
+      "message": "ok",
+      "data": {},
+      "count": 1
+    },
+    "recover": {
+      "success": true,
+      "code": "OK",
+      "message": "ok",
+      "data": {
+        "locked": false,
+        "configured": true,
+        "recoveryConfigured": true
+      }
+    },
+    "listAfterRecoverProcess": {
+      "exit": 5,
+      "stderr": "VAULT_LOCKED: 保险库已锁定；请在终端输入主密码，或设置 DIGILEGACY_VAULT_PASSWORD"
+    }
+  },
+  "browser": {
+    "shellHiddenWhenLocked": true,
+    "lockAxe": [],
+    "wrongPasswordMessage": "主密码不正确",
+    "focusAfterWrong": "INPUT:password",
+    "unlockedMainVisible": true,
+    "versionVisible": true,
+    "focusAfterUnlock": "main",
+    "unlockedAxe": [],
+    "relockReturnedToLockScreen": true,
+    "recoveryUnlockedMainVisible": true,
+    "recoveryAxe": [],
+    "relockedBeforeMobile": true,
+    "mobileOverflowLocked": false,
+    "mobileOverflowUnlocked": false,
+    "pageErrors": [],
+    "engine": "chromium",
+    "axeViolations": 0,
+    "screenshots": [
+      "/tmp/digilegacy-lock-ui-0.0.19/locked.png",
+      "/tmp/digilegacy-lock-ui-0.0.19/unlocked.png",
+      "/tmp/digilegacy-lock-ui-0.0.19/recovered.png",
+      "/tmp/digilegacy-lock-ui-0.0.19/locked-mobile.png",
+      "/tmp/digilegacy-lock-ui-0.0.19/recovered-mobile.png"
+    ]
+  },
+  "note": "恢复码与限速均在隔离数据库和真实服务进程上验证；恢复码为测试值，不写入证据。"
+}

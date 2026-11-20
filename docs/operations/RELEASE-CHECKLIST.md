@@ -1,10 +1,10 @@
 # Release Checklist
 
-Release: **0.0.18** (Linux x86_64, 2026-11-20)
+Release: **0.0.19** (Linux x86_64, 2026-11-20)
 
 Status: **engineering evidence complete; human sign-off not yet given.**
 
-The archive checksum is in `packages/digilegacy-0.0.18-linux-x86_64.tar.gz.sha256`
+The archive checksum is in `packages/digilegacy-0.0.19-linux-x86_64.tar.gz.sha256`
 and inside the archive as `SHA256SUMS`. Do not copy a checksum from a chat
 message; verify the file next to the archive.
 
@@ -13,24 +13,23 @@ message; verify the file next to the archive.
 | Gate | Result | Evidence |
 | --- | --- | --- |
 | Contract / architecture / format / clippy | pass | `./tools/verify.sh` exit 0 |
-| Rust + Web tests | **182 Rust + 77 Web** | `./tools/verify.sh` |
-| Contracts | **43 commands / 23 tools / 59 schemas / 21 errors** | `./tools/generate.mjs --check` |
+| Rust + Web tests | **184 Rust + 79 Web** | `./tools/verify.sh` |
+| Contracts | **44 commands / 23 tools / 60 schemas / 21 errors** | `./tools/generate.mjs --check` |
 | Schema | **v16 / 31 tables** | health + diagnostics |
-| Bundle budget | entry 79.72/82 KB; JS 104.46/104.6 KB; CSS 20.15/21.1 KB; total 124.61/124.8 KB gzip | `web-budget` |
-| Live Chromium + axe | 14/14 routes pass, 0 axe violations | `measurements/live-browser-0.0.18-2026-11-20.json` |
+| Bundle budget | entry 80.75/82 KB; JS 104.95/105.2 KB; CSS 20.22/21.1 KB; total 125.17/125.5 KB gzip | `web-budget` |
+| Live Chromium + axe | 14/14 routes pass, 0 axe violations | `measurements/live-browser-0.0.19-2026-11-20.json` |
 | Visual baselines | 9/9 within 0.4%; max overview-mobile 0.173% | `tools/visual/regress.py` |
-| Vault lock API + CLI | 423 → 400 → 200 → 200 → 423; CLI blocked without password env | `measurements/security-lock-0.0.18-2026-11-20.json` |
-| Clean-host install | 12 steps PASS; reinstall reads preserved DB | `measurements/install-0.0.18-2026-11-20.json` |
+| Vault recovery + rate limit | locked 423; wrong 400; unlock 200; relock; recovery 200; assets 200; five failures end in 429; correct password still 429 | `measurements/security-recovery-0.0.19-2026-11-20.json` |
+| Vault lock API + CLI | 423 → 400 → 200 → 200 → 423; CLI blocked without password env | `measurements/security-lock-0.0.18-2026-11-20.json` (0.0.18 baseline) |
+| Clean-host install | 12 steps PASS; reinstall reads preserved DB | `measurements/install-0.0.19-2026-11-20.json` |
+| Archive | `packages/digilegacy-0.0.19-linux-x86_64.tar.gz`, 18,293,344 bytes, SHA256 `53f86e570d59571dccfd27c0df789af665978551f4d413d61c14296cb805e8ee` | `...tar.gz.sha256` |
 
-Archive: `packages/digilegacy-0.0.18-linux-x86_64.tar.gz`, 18,274,248 bytes,
-SHA256 `0b947a3dd13f5618f0e324bf9e4182029052f3e21f6efc7b9ba941bd6f252ee6`.
+## Operational baselines carried from 0.0.18
 
-## Operational baselines carried from 0.0.17
-
-These drills were measured on the 0.0.17 code line and were not rerun for this
-patch. The vault-lock changes do not touch the outbound proxy, capacity,
-restore, DNS-pinning or policy-source paths; treat them as baseline evidence,
-not fresh 0.0.18 measurements.
+These drills were measured on the 0.0.18 code line and were not rerun for this
+patch. The recovery and rate-limit changes do not touch the outbound proxy,
+capacity, restore, DNS-pinning or policy-source paths; treat them as baseline
+evidence, not fresh 0.0.19 measurements.
 
 | Gate | Baseline | Evidence |
 | --- | --- | --- |

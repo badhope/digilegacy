@@ -5,7 +5,9 @@ import LockScreen from "./LockScreen.vue";
 import { ui } from "@/platform/ui";
 
 const unlockVault = vi.hoisted(() => vi.fn());
+const recoverVault = vi.hoisted(() => vi.fn());
 vi.mock("@/platform/securityUnlock", () => ({ unlockVault }));
+vi.mock("@/platform/securityRecover", () => ({ recoverVault }));
 
 async function submit(password: string) {
   const input = document.body.querySelector<HTMLInputElement>("input[type=password]");
@@ -24,6 +26,7 @@ beforeEach(() => {
   ui.securityReady = true;
   ui.securityConfigured = true;
   unlockVault.mockReset();
+  recoverVault.mockReset();
   document.body.innerHTML = "";
 });
 
@@ -42,6 +45,31 @@ describe("LockScreen", () => {
     expect(document.body.textContent).toContain("主密码不正确");
     expect(unlockVault).toHaveBeenCalledWith("wrong-password");
     expect(document.activeElement).toBe(document.body.querySelector("input[type=password]"));
+  });
+
+  it("unlocks with a recovery code after the server accepts it", async () => {
+    recoverVault.mockResolvedValue({ success: true, code: "OK", data: { locked: false } });
+    wrapper = mount(LockScreen, { attachTo: document.body });
+    document.body.querySelector<HTMLButtonElement>(".lock-switch")!.click();
+    await nextTick();
+    const input = document.body.querySelector<HTMLInputElement>("input[type=text]");
+    expect(input).not.toBeNull();
+    input!.value = "PTVC-L2HC-6EAH-LTY3-VJBS-Y6ZM";
+    input!.dispatchEvent(new Event("input"));
+    await nextTick();
+    document.body.querySelector("form")!.dispatchEvent(new Event("submit"));
+    await flushPromises();
+    expect(recoverVault).toHaveBeenCalledWith("PTVC-L2HC-6EAH-LTY3-VJBS-Y6ZM");
+    expect(unlockVault).not.toHaveBeenCalled();
+    expect(ui.locked).toBe(false);
+  });
+
+  it("shows a rate-limit message and stays locked", async () => {
+    unlockVault.mockResolvedValue({ success: false, code: "RATE_LIMITED", message: "too many" });
+    wrapper = mount(LockScreen, { attachTo: document.body });
+    await submit("wrong-password");
+    expect(ui.locked).toBe(true);
+    expect(document.body.textContent).toContain("尝试次数过多");
   });
 
   it("only unlocks after the server accepts the password and moves focus to main", async () => {
