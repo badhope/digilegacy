@@ -11,6 +11,12 @@ echo "== contracts =="
 node tools/generate.mjs --check
 node tools/arch-check.mjs
 
+echo "== ops tools =="
+python3 -m py_compile \
+  tools/policies/source_audit.py \
+  tools/package/clean_drill.py \
+  tools/bench/capacity.py
+
 echo "== rust =="
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings

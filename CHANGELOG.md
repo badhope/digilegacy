@@ -15,6 +15,10 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 - A versioned Linux release archive with `install.sh`, `start.sh`, `stop.sh` and `uninstall.sh`. The installer preserves the environment file on upgrade, never prints the write token, and keeps database keys when data is preserved. A clean-host drill installs, exports diagnostics, verifies a checkpoint, uninstalls and reinstalls against the preserved database.
 - Outbound clients bypass environment HTTP proxies. A proxy would resolve the target again outside the pinned address set, so proxy routing is deliberately not used for these connection probes.
 
+### Operations
+
+- Added a policy-source precheck (`tools/policies/source_audit.py`) and a 152-row human worklist. It reports URL presence, HTTPS, root vs deep link, duplicate groups and reachability; it never edits policy data or provenance. The 2026-11-20 run found 150 root URLs, 2 deep links, 17 duplicate groups and 152/152 entries still needing human review.
+
 ### Testing
 
 - A live Chromium smoke renders 15 route/theme/viewport combinations against the real API and Vue dev server, runs axe WCAG A/AA/2.2 AA with colour contrast, and requires no page exceptions, API 5xx or horizontal overflow. It caught and fixed two topbar `label-content-name-mismatch` issues; the final run has zero axe violations. The nine visual baseline shots also re-passed.

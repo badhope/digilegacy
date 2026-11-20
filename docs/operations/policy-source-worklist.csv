@@ -1,0 +1,153 @@
+id,name,url,url_kind,duplicate_count,http_status,reachability,note
+1,支付宝,https://help.alipay.com,root,1,200,reachable,平台首页，需补具体政策深链
+2,微信支付,https://weixin.qq.com,root,3,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+3,云闪付,https://www.unionpay.com,root,1,200,reachable,平台首页，需补具体政策深链
+4,京东支付,https://www.jdpay.com,root,1,200,reachable,平台首页，需补具体政策深链
+10,微信,https://weixin.qq.com,root,3,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+11,QQ,https://im.qq.com,root,1,200,reachable,平台首页，需补具体政策深链
+12,微博,https://weibo.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+13,小红书,https://www.xiaohongshu.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+14,抖音,https://www.douyin.com,root,1,200,reachable,平台首页，需补具体政策深链
+15,快手,https://www.kuaishou.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+16,B站(bilibili),https://www.bilibili.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+17,知乎,https://www.zhihu.com,root,4,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+18,陌陌,https://www.immomo.com,root,1,200,reachable,平台首页，需补具体政策深链
+19,钉钉,https://www.dingtalk.com,root,1,200,reachable,平台首页，需补具体政策深链
+20,腾讯游戏综合,https://www.qq.com,root,1,200,reachable,平台首页，需补具体政策深链
+21,网易游戏,https://www.163.com,root,1,200,reachable,平台首页，需补具体政策深链
+22,Steam,https://store.steampowered.com,root,1,,timeout,平台首页，需补具体政策深链; 请求超时
+23,米哈游（原神等）,https://www.mihoyo.com,root,1,200,reachable,平台首页，需补具体政策深链
+24,暴雪战网,https://www.blizzard.com,root,1,200,reachable,平台首页，需补具体政策深链
+30,淘宝,https://www.taobao.com,root,1,200,reachable,平台首页，需补具体政策深链
+31,京东,https://www.jd.com,root,1,200,reachable,平台首页，需补具体政策深链
+32,拼多多,https://www.pinduoduo.com,root,1,200,reachable,平台首页，需补具体政策深链
+33,闲鱼,https://www.goofish.com,root,1,200,reachable,平台首页，需补具体政策深链
+34,得物,https://www.dewu.com,root,1,200,reachable,平台首页，需补具体政策深链
+40,同花顺,https://www.10jqka.com.cn,root,1,200,reachable,平台首页，需补具体政策深链
+41,东方财富,https://www.eastmoney.com,root,1,200,reachable,平台首页，需补具体政策深链
+42,蚂蚁财富,https://www.antfortune.com,root,1,200,reachable,平台首页，需补具体政策深链
+43,微信零钱通,https://weixin.qq.com,root,3,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+44,招商银行APP,https://www.cmbchina.com,root,1,200,reachable,平台首页，需补具体政策深链
+50,得到APP,https://www.dedao.cn,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+51,知乎盐选,https://www.zhihu.com,root,4,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+52,喜马拉雅,https://www.ximalaya.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+53,腾讯课堂,https://ke.qq.com,root,1,200,reachable,平台首页，需补具体政策深链
+60,iCloud,https://support.apple.com/zh-cn/HT212360,deep-link,2,200,reachable,与其他平台重复
+61,百度网盘,https://pan.baidu.com,root,1,200,reachable,平台首页，需补具体政策深链
+62,阿里云盘,https://www.aliyundrive.com,root,1,200,reachable,平台首页，需补具体政策深链
+63,WPS Office,https://www.wps.cn,root,1,200,reachable,平台首页，需补具体政策深链
+64,Office 365 / Microsoft 365,https://www.microsoft.com,root,1,200,reachable,平台首页，需补具体政策深链
+65,网易云音乐,https://music.163.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+66,QQ音乐,https://y.qq.com,root,1,200,reachable,平台首页，需补具体政策深链
+70,12306铁路,https://www.12306.cn,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+71,携程,https://www.ctrip.com,root,1,200,reachable,平台首页，需补具体政策深链
+72,滴滴出行,https://www.didiglobal.com,root,1,200,reachable,平台首页，需补具体政策深链
+73,美团,https://www.meituan.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+74,饿了么,https://www.ele.me,root,1,200,reachable,平台首页，需补具体政策深链
+80,微信公众号,https://mp.weixin.qq.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+81,今日头条,https://www.toutiao.com,root,1,200,reachable,平台首页，需补具体政策深链
+82,百家号,https://baijiahao.baidu.com,root,1,200,reachable,平台首页，需补具体政策深链
+83,视频号,https://channels.weixin.qq.com,root,1,200,reachable,平台首页，需补具体政策深链
+90,腾讯微云,https://www.weiyun.com,root,1,200,reachable,平台首页，需补具体政策深链
+91,OneDrive,https://onedrive.live.com,root,1,,timeout,平台首页，需补具体政策深链; 请求超时
+92,Google Drive,https://drive.google.com,root,1,,timeout,平台首页，需补具体政策深链; 请求超时
+93,Dropbox,https://www.dropbox.com,root,2,,timeout,平台首页，需补具体政策深链; 与其他平台重复; 请求超时
+100,广州医保,https://www.gz.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+101,广东社保,https://www.gd.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+102,公积金,https://www.cqgjj.cn,root,3,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+45,工商银行,https://www.icbc.com.cn,root,1,200,reachable,平台首页，需补具体政策深链
+46,建设银行,https://www.ccb.com,root,1,,error,"平台首页，需补具体政策深链; HTTPSConnectionPool(host='www.ccb.com', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLError(1, '[SSL: UNSAFE_LEGACY_RENEGOTIATION_DISABLED] unsafe legacy renegotiation disabled (_"
+47,农业银行,https://www.abchina.com,root,1,200,reachable,平台首页，需补具体政策深链
+48,中国银行,https://www.boc.cn,root,1,200,reachable,平台首页，需补具体政策深链
+49,交通银行,https://www.bankcomm.com,root,1,,error,"平台首页，需补具体政策深链; HTTPSConnectionPool(host='www.bankcomm.com', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLError(1, '[SSL: UNSAFE_LEGACY_RENEGOTIATION_DISABLED] unsafe legacy renegotiation disabl"
+104,平安银行,https://www.pingan.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+105,中信证券,https://www.citics.com,root,1,200,reachable,平台首页，需补具体政策深链
+106,华泰证券,https://www.htsc.com.cn,root,1,200,reachable,平台首页，需补具体政策深链
+107,中国人寿,https://www.e-chinalife.com,root,1,200,reachable,平台首页，需补具体政策深链
+108,平安保险,https://www.pingan.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+109,太平洋保险,https://www.cpic.com.cn,root,1,200,reachable,平台首页，需补具体政策深链
+110,天弘基金,https://www.tianhong.cn,root,1,200,reachable,平台首页，需补具体政策深链
+111,华夏基金,https://www.chinaamc.com,root,1,200,reachable,平台首页，需补具体政策深链
+112,易方达基金,https://www.efunds.com.cn,root,1,200,reachable,平台首页，需补具体政策深链
+113,Epic Games,https://www.epicgames.com,root,1,403,blocked,平台首页，需补具体政策深链
+114,任天堂Switch Online,https://www.nintendo.com,root,1,200,reachable,平台首页，需补具体政策深链
+115,PlayStation Network,https://www.playstation.com,root,1,200,reachable,平台首页，需补具体政策深链
+116,Xbox Live,https://www.xbox.com,root,1,200,reachable,平台首页，需补具体政策深链
+117,Origin/EA,https://www.ea.com,root,1,200,reachable,平台首页，需补具体政策深链
+118,Ubisoft Connect,https://www.ubisoft.com,root,1,200,reachable,平台首页，需补具体政策深链
+119,Riot Games,https://www.riotgames.com,root,1,200,reachable,平台首页，需补具体政策深链
+120,完美世界,https://www.wanmei.com,root,1,200,reachable,平台首页，需补具体政策深链
+121,三七互娱,https://www.37.com,root,1,200,reachable,平台首页，需补具体政策深链
+122,莉莉丝游戏,https://www.lilith.com,root,1,200,reachable,平台首页，需补具体政策深链
+123,库洛游戏,https://www.kurogames.com,root,1,200,reachable,平台首页，需补具体政策深链
+124,叠纸游戏,https://www.papegames.com,root,1,200,reachable,平台首页，需补具体政策深链
+125,唯品会,https://www.vip.com,root,1,200,reachable,平台首页，需补具体政策深链
+126,苏宁易购,https://www.suning.com,root,1,200,reachable,平台首页，需补具体政策深链
+127,网易严选,https://you.163.com,root,1,200,reachable,平台首页，需补具体政策深链
+128,小红书店铺,https://www.xiaohongshu.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+130,快手小店,https://www.kuaishou.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+131,美团外卖,https://www.meituan.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+132,大众点评,https://www.dianping.com,root,1,200,reachable,平台首页，需补具体政策深链
+133,豆瓣,https://www.douban.com,root,1,200,reachable,平台首页，需补具体政策深链
+134,贴吧,https://tieba.baidu.com,root,1,,timeout,平台首页，需补具体政策深链; 请求超时
+135,虎扑,https://www.hupu.com,root,1,200,reachable,平台首页，需补具体政策深链
+136,AcFun,https://www.acfun.cn,root,1,200,reachable,平台首页，需补具体政策深链
+138,微博大V,https://weibo.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+139,知乎创作者,https://www.zhihu.com,root,4,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+140,微信公众号订阅号,https://mp.weixin.qq.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+141,坚果云,https://www.jianguoyun.com,root,1,200,reachable,平台首页，需补具体政策深链
+142,腾讯文档,https://docs.qq.com,root,1,200,reachable,平台首页，需补具体政策深链
+143,语雀,https://www.yuque.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+144,Notion,https://www.notion.so,root,1,200,reachable,平台首页，需补具体政策深链
+145,Figma,https://www.figma.com,root,1,200,reachable,平台首页，需补具体政策深链
+146,GitHub,https://github.com,root,1,200,reachable,平台首页，需补具体政策深链
+147,Gitee,https://gitee.com,root,1,200,reachable,平台首页，需补具体政策深链
+148,语雀企业版,https://www.yuque.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+149,爱奇艺,https://www.iqiyi.com,root,1,200,reachable,平台首页，需补具体政策深链
+150,腾讯视频,https://v.qq.com,root,1,200,reachable,平台首页，需补具体政策深链
+151,优酷,https://www.youku.com,root,1,200,reachable,平台首页，需补具体政策深链
+152,芒果TV,https://www.mgtv.com,root,1,200,reachable,平台首页，需补具体政策深链
+153,哔哩哔哩大会员,https://www.bilibili.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+154,网易云音乐黑胶,https://music.163.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+155,Apple Music,https://music.apple.com,root,1,200,reachable,平台首页，需补具体政策深链
+156,Spotify,https://www.spotify.com,root,1,,timeout,平台首页，需补具体政策深链; 请求超时
+157,飞猪,https://www.fliggy.com,root,1,200,reachable,平台首页，需补具体政策深链
+158,去哪儿,https://www.qunar.com,root,1,200,reachable,平台首页，需补具体政策深链
+159,马蜂窝,https://www.mafengwo.cn,root,1,202,reachable,平台首页，需补具体政策深链
+160,航旅纵横,https://www.umetrip.com,root,1,200,reachable,平台首页，需补具体政策深链
+161,高铁管家,https://www.12306.cn,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+162,哈啰出行,https://hellobike.com,root,1,200,reachable,平台首页，需补具体政策深链
+163,学信网,https://www.chsi.com.cn,root,1,200,reachable,平台首页，需补具体政策深链
+164,中国大学MOOC,https://www.icourse163.org,root,1,200,reachable,平台首页，需补具体政策深链
+165,网易公开课,https://open.163.com,root,1,200,reachable,平台首页，需补具体政策深链
+166,Coursera,https://www.coursera.org,root,1,200,reachable,平台首页，需补具体政策深链
+167,Udemy,https://www.udemy.com,root,1,200,reachable,平台首页，需补具体政策深链
+168,知乎盐选会员,https://www.zhihu.com,root,4,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+169,得到课堂,https://www.dedao.cn,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+170,喜马拉雅VIP会员,https://www.ximalaya.com,root,2,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+171,Apple ID,https://support.apple.com/zh-cn/HT212360,deep-link,2,200,reachable,与其他平台重复
+172,Google账号,https://myaccount.google.com,root,1,,timeout,平台首页，需补具体政策深链; 请求超时
+173,Microsoft账号,https://account.microsoft.com,root,1,200,reachable,平台首页，需补具体政策深链
+174,Dropbox Business,https://www.dropbox.com,root,2,,timeout,平台首页，需补具体政策深链; 与其他平台重复; 请求超时
+175,Instagram,https://www.instagram.com,root,1,,timeout,平台首页，需补具体政策深链; 请求超时
+176,Facebook,https://www.facebook.com,root,1,,timeout,平台首页，需补具体政策深链; 请求超时
+177,国家医保服务平台,https://www.nhsa.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+178,个人所得税APP,https://www.chinatax.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+179,交管12123,https://gab.122.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+180,住房公积金管理中心,https://www.cqgjj.cn,root,3,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+181,社保卡,https://www.mohrss.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+182,公积金联名卡,https://www.cqgjj.cn,root,3,200,reachable,平台首页，需补具体政策深链; 与其他平台重复
+183,数字人民币,https://www.pbc.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+184,粤省事,https://www.gdzwfw.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+185,比特币/加密货币钱包,https://www.blockchain.com,root,1,,error,"平台首页，需补具体政策深链; HTTPSConnectionPool(host='www.blockchain.com', port=443): Max retries exceeded with url: / (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol"
+186,域名（阿里云万网）,https://wanwang.aliyun.com,root,1,200,reachable,平台首页，需补具体政策深链
+187,域名（GoDaddy）,https://www.godaddy.com,root,1,,timeout,平台首页，需补具体政策深链; 请求超时
+188,网站备案/ICP,https://beian.miit.gov.cn,root,1,521,broken,平台首页，需补具体政策深链
+189,软件著作权,https://www.ccopyright.com.cn,root,1,200,reachable,平台首页，需补具体政策深链
+190,专利,https://www.cnipa.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+191,商标,https://sbj.cnipa.gov.cn,root,1,200,reachable,平台首页，需补具体政策深链
+192,个人博客/独立站,https://www.wordpress.com,root,1,200,reachable,平台首页，需补具体政策深链
+193,蔚来APP,https://www.nio.com,root,1,567,broken,平台首页，需补具体政策深链
+194,特斯拉APP,https://www.tesla.com,root,1,403,blocked,平台首页，需补具体政策深链
+195,小鹏汽车APP,https://www.xiaopeng.com,root,1,200,reachable,平台首页，需补具体政策深链
+196,理想汽车APP,https://www.lixiang.com,root,1,200,reachable,平台首页，需补具体政策深链

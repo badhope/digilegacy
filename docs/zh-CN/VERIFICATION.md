@@ -678,8 +678,8 @@ M0 可以判定“工程壳完成”的条件：
 
 - 新增 `tools/package/build.sh`：release 构建 server/cli/mcp，打包 Web dist、content 与运维文档，输出 `packages/digilegacy-0.0.17-linux-x86_64.tar.gz` 与 `.sha256`。
 - 新增 `packaging/install.sh`、`start.sh`、`stop.sh`、`uninstall.sh`：安装时生成 0600 env 与随机写令牌（不打印），首次 health 建 schema/密钥；启动做 HTTP 健康探测；卸载默认保留数据与密钥，`--purge-data` 显式彻底删除。
-- 新增 `tools/package/clean_drill.py`：全新 HOME、前缀、数据目录、最小环境变量与随机回环端口，执行安装→健康/metrics→诊断导出→检查点验证→卸载保留→重装读库→彻底卸载，12 步全通过，总耗时约 2.1 秒。
-- 证据：`docs/operations/measurements/install-2026-11-20.json`；归档 18,073,862 bytes，SHA256 `95019afd…`，诊断 `audit.valid: true`，schema v16 / 31 表；重装后数据库与审计链仍可读。
+- 新增 `tools/package/clean_drill.py`：全新 HOME、前缀、数据目录、最小环境变量与随机回环端口，执行安装→健康/metrics→诊断导出→检查点验证→卸载保留→重装读库→彻底卸载，12 步全通过，总耗时约 1.3 秒。
+- 证据：`docs/operations/measurements/install-2026-11-20.json`；归档 18,091,259 bytes，SHA256 `cfd687a9…`，诊断 `audit.valid: true`，schema v16 / 31 表；重装后数据库与审计链仍可读。
 - 中英文 `docs/operations/INSTALL.md` 说明安装、nginx 同源代理、升级、导出、检查点、卸载与密钥保留策略。
 - 边界：API 不直接托管 SPA，生产需反向代理；Windows 代码签名与自动更新（G-37/G-38）仍未做，不属于本次 Linux 干净机演练范围。
 
@@ -702,3 +702,13 @@ M0 可以判定“工程壳完成”的条件：
 - 预算：入口 **81.28 / 82 KB**、JS 总 gzip **102.95 / 103.1 KB**、CSS gzip **21.05 / 21.1 KB**、总 gzip **124.00 / 124.2 KB**；vendor 99.50 / 130 KB 与单路由 24 KB 不变。
 - 验收：`./tools/verify.sh` exit 0，**173 Rust + 67 Web**；契约 39 / 23 / 56 / 21；schema v16 / 31 表；日志 `/tmp/m6g-verify2.log`。
 - 边界：这是填写入口和交接材料，不是账号代填；真实通知时延仍需账号本人填完后用真实服务商跑一次。
+
+### M6-L 政策来源预审（2026-11-20）
+
+- 新增 `tools/policies/source_audit.py`，只输出机器预审清单与可达性，不改 `content/policies/platforms.json`、不改数据库、不修改 provenance 状态。
+- 152 条全部有 URL 且为 HTTPS；150 条是平台首页，只有 2 条是具体深链（iCloud / Apple ID 共用 `https://support.apple.com/zh-cn/HT212360`）。
+- 17 组重复 URL，覆盖 38 条；134 条可访问、2 条被拦截（403 等）、2 条失效（521/567）、11 条超时、3 条传输错误。超时/拦截可能是跨境访问或反爬，不能直接判死链。
+- 152 条全部需要人工复核：每条要么是首页、要么重复、要么没有干净 2xx/3xx。机器预审不能作为 G-16 的关闭证据。
+- 证据：`docs/operations/measurements/policy-sources-2026-11-20.json`；清单：`docs/operations/policy-source-worklist.csv`；流程：`docs/operations/POLICY-SOURCES.md`。
+- 边界：脚本依赖 Python `requests`；政策来源仍是用户侧人工内容决策，代码不伪造核对人、日期或法律结论。G-16 状态为 PARTIAL。
+- 验收：`./tools/verify.sh` exit 0，**175 Rust + 68 Web**；`ops tools` 段新增 `py_compile`，覆盖政策预审、干净机演练与容量脚本；日志 `/tmp/m6m-verify.log`。

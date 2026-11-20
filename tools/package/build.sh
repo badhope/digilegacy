@@ -23,7 +23,7 @@ OUT="$ROOT/packages"
 ARCHIVE="$OUT/digilegacy-$VERSION-linux-$ARCH.tar.gz"
 
 rm -rf "$STAGE"
-install -d -m 0755 "$STAGE/bin" "$STAGE/web" "$STAGE/content" "$STAGE/docs"
+install -d -m 0755 "$STAGE/bin" "$STAGE/web" "$STAGE/content" "$STAGE/docs" "$STAGE/tools/policies"
 install -d -m 0755 "$OUT"
 
 echo "building release binaries for $VERSION ($ARCH)"
@@ -41,7 +41,12 @@ install -m 0755 "$ROOT/target/release/digilegacy-cli" "$STAGE/bin/digilegacy-cli
 install -m 0755 "$ROOT/target/release/digilegacy-mcp" "$STAGE/bin/digilegacy-mcp"
 cp -R "$ROOT/web/dist/." "$STAGE/web/"
 cp -R "$ROOT/content/." "$STAGE/content/"
+install -m 0755 "$ROOT/tools/policies/source_audit.py" "$STAGE/tools/policies/source_audit.py"
+find "$STAGE/tools" -type d -name __pycache__ -prune -exec rm -rf {} +
 cp -R "$ROOT/docs/operations" "$STAGE/docs/operations"
+# The install drill evidence describes the archive produced from this tree;
+# embedding a pre-build copy would make the archive cite a different SHA.
+rm -f "$STAGE/docs/operations/measurements/install-2026-11-20.json"
 install -d -m 0755 "$STAGE/docs/zh-CN"
 cp -R "$ROOT/docs/zh-CN/operations" "$STAGE/docs/zh-CN/operations"
 install -m 0644 "$ROOT/packaging/README.md" "$STAGE/README.md"

@@ -85,7 +85,7 @@ for required in \
   }
 done
 
-install -d -m 0755 "$PREFIX" "$PREFIX/bin" "$PREFIX/web" "$PREFIX/content" "$PREFIX/docs" "$PREFIX/etc" "$PREFIX/run" "$PREFIX/log"
+install -d -m 0755 "$PREFIX" "$PREFIX/bin" "$PREFIX/web" "$PREFIX/content" "$PREFIX/docs" "$PREFIX/tools" "$PREFIX/etc" "$PREFIX/run" "$PREFIX/log"
 install -d -m 0700 "$DATA_DIR" "$DATA_DIR/keys"
 
 install -m 0755 "$ROOT/bin/digilegacy-server" "$PREFIX/bin/digilegacy-server"
@@ -97,6 +97,9 @@ install -m 0755 "$ROOT/uninstall.sh" "$PREFIX/bin/digilegacy-uninstall"
 cp -R "$ROOT/web/." "$PREFIX/web/"
 cp -R "$ROOT/content/." "$PREFIX/content/"
 cp -R "$ROOT/docs/." "$PREFIX/docs/"
+if [[ -d "$ROOT/tools" ]]; then
+  cp -R "$ROOT/tools/." "$PREFIX/tools/"
+fi
 install -m 0644 "$ROOT/README.md" "$PREFIX/README.md"
 install -m 0644 "$ROOT/VERSION" "$PREFIX/VERSION"
 if [[ -f "$ROOT/SECURITY.md" ]]; then

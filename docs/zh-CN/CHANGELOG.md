@@ -13,6 +13,10 @@
 - 新增带版本号的 Linux 发布归档与 `install.sh`、`start.sh`、`stop.sh`、`uninstall.sh`。安装脚本升级时保留环境文件、不打印写令牌，保留数据时一并保留数据库密钥；干净机演练覆盖安装、诊断导出、检查点验证、卸载与重装读库。
 - 出站客户端绕过环境 HTTP 代理。代理会绕开地址钉住、重新解析目标，因此这些连接探针明确不走代理。
 
+### Operations
+
+- 新增政策来源预审 `tools/policies/source_audit.py` 与 152 行人工清单：报告 URL 是否存在、HTTPS、首页/深链、重复组与可达性，不改政策数据或 provenance。2026-11-20 首轮结果：150 条首页、2 条深链、17 组重复，152/152 仍需人工复核。
+
 ### Testing
 
 - 新增真实浏览器路由冒烟：真实 API + Vue dev server + Chromium 146 覆盖 15 个路由/主题/视口组合，并在真实浏览器运行 axe WCAG A/AA/2.2 AA（含对比度），无页面异常、API 5xx 或横向溢出。首轮抓到并修复顶栏 2 个 `label-content-name-mismatch`，最终 axe 违规为 0；9 张视觉基线也复跑通过。

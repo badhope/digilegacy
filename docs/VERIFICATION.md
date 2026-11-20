@@ -67,6 +67,26 @@ node tools/bench/web-budget.mjs
 - **Manual smoke** checks the path a person actually clicks.
 - **Visual regression** captures nine fixed-viewport WebP shots against a mock build with a frozen clock, locale and theme. It runs outside `tools/verify.sh`; see [tools/visual/README.md](../tools/visual/README.md).
 
+## Policy source precheck
+
+`content/policies/platforms.json` holds 152 policies and every provenance row
+starts as `unverified`. `python3 tools/policies/source_audit.py` produces a
+review worklist, not a verification result.
+
+- 2026-11-20: 152/152 URLs present and HTTPS; 150 platform root URLs, only 2
+  specific deep links; 17 duplicate groups covering 38 entries.
+- Reachability: 134 reachable, 2 blocked, 2 broken, 11 timeout, 3 transport
+  errors. Timeout/blocked is not proof of a dead source.
+- 152/152 still need human review because every row is a root URL, a duplicate,
+  or did not return a clean 2xx/3xx.
+- Evidence: `docs/operations/measurements/policy-sources-2026-11-20.json`;
+  worklist: `docs/operations/policy-source-worklist.csv`; procedure:
+  `docs/operations/POLICY-SOURCES.md`.
+- Boundary: the script does not edit policy data or provenance. A reachable
+  home page does not prove the page contains the cited rule.
+- The verify gate now byte-compiles the policy audit, clean-host drill and
+  capacity scripts; the last full run is 175 Rust + 68 Web tests.
+
 ## Manual smoke before release
 
 1. Start the API and the Web console with a fresh data directory.

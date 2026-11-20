@@ -23,7 +23,7 @@ cd digilegacy-<version>
 
 The installer:
 
-- copies binaries, Web assets, content and docs;
+- copies binaries, Web assets, content, docs and the optional operations tools;
 - creates `etc/digilegacy.env` with mode `0600` and a random write token;
 - creates the data directory and initializes schema v16 plus key files;
 - never prints the write token.
@@ -57,6 +57,13 @@ set -a; . "$HOME/digilegacy/etc/digilegacy.env"; set +a
 `diagnostics export` is structural and sanitized. A checkpoint is written under
 the database directory’s `checkpoints/` folder; verify it with
 `security verify <id>`.
+
+## Policy source worklist
+
+The archive includes `tools/policies/source_audit.py`. It needs Python 3 and the
+`requests` package, and writes a precheck JSON plus a CSV worklist under
+`docs/operations/`. It does not verify policy text or change provenance; see
+`docs/operations/POLICY-SOURCES.md`.
 
 ## Uninstall
 

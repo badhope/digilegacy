@@ -7,6 +7,7 @@
 - [安装、升级与卸载](INSTALL.md) 说明发布包与干净机演练。
 - [运行手册](RUNBOOK.md)：启动、日常检查、检查点、恢复、升级与常见故障。
 - [连接配置交接](CONNECTION-SETUP.md)：邮箱或 Webhook 账号属于别人时，直接发给填写人。
+- [政策来源预审](POLICY-SOURCES.md)：152 条来源清单，以及“机器可达”与“人工核实”的边界。
 
 产品默认是单节点部署。`GET /api/v1/metrics` 以 JSON 暴露进程内计数与延迟桶，不是 Prometheus 文本格式；SLO 文档说明健康探针、metrics、诊断导出与检查点的测量方式。
 
