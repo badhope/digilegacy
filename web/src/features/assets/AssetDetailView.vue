@@ -24,16 +24,21 @@ const { data, loading, error, reload } = useResource(() => loadAsset(assetId.val
 const editing = ref(false);
 const saving = ref(false);
 const saveError = ref("");
+const saveNotice = ref("");
+const statusSaving = ref(false);
+const statusError = ref("");
 
 function startEdit() {
   if (!data.value) return;
   saveError.value = "";
+  saveNotice.value = "";
   editing.value = true;
 }
 
 async function saveEdit(draft: AssetDraft) {
   if (!data.value) return;
   saveError.value = "";
+  saveNotice.value = "";
   saving.value = true;
   try {
     const envelope = await platformClient.updateAsset({ id: data.value.id, ...draft });
@@ -43,11 +48,43 @@ async function saveEdit(draft: AssetDraft) {
     }
     data.value = envelope.data;
     editing.value = false;
+    saveNotice.value = t("asset.detail.saved");
   } finally {
     saving.value = false;
   }
 }
 
+async function toggleStatus() {
+  const asset = data.value;
+  if (!asset || statusSaving.value) return;
+  const next = asset.status === "active" ? "archived" : "active";
+  statusError.value = "";
+  saveNotice.value = "";
+  statusSaving.value = true;
+  try {
+    const envelope = await platformClient.updateAsset({
+      id: asset.id,
+      name: asset.name,
+      kind: asset.kind,
+      platform: asset.platform,
+      value: asset.value,
+      note: asset.note,
+      status: next,
+    });
+    if (!envelope.success || !envelope.data) {
+      statusError.value =
+        envelope.code === "AUTH_REQUIRED"
+          ? t("assets.create.tokenRequired")
+          : envelope.message || envelope.code;
+      return;
+    }
+    data.value = envelope.data;
+    saveNotice.value =
+      next === "archived" ? t("asset.detail.archivedNotice") : t("asset.detail.restoredNotice");
+  } finally {
+    statusSaving.value = false;
+  }
+}
 </script>
 
 <template>
@@ -91,6 +128,9 @@ async function saveEdit(draft: AssetDraft) {
         </template>
       </PageHeader>
 
+      <div v-if="statusError" class="detail-error" role="alert">{{ statusError }}</div>
+      <div v-else-if="saveNotice" class="detail-notice" role="status">{{ saveNotice }}</div>
+
       <AssetEditor
         v-if="editing"
         mode="edit"
@@ -121,6 +161,29 @@ async function saveEdit(draft: AssetDraft) {
               <dd class="mono">{{ formatDate(data.updatedAt, locale) }}</dd>
             </div>
           </dl>
+
+          <div v-if="!editing" class="asset-lifecycle">
+            <div>
+              <strong>{{ t("asset.detail.lifecycle") }}</strong>
+              <p>
+                {{ data.status === "active" ? t("asset.detail.archiveNote") : t("asset.detail.restoreNote") }}
+              </p>
+            </div>
+            <AppButton
+              variant="secondary"
+              size="sm"
+              :disabled="statusSaving"
+              @click="toggleStatus"
+            >
+              {{
+                statusSaving
+                  ? t("assets.create.saving")
+                  : data.status === "active"
+                    ? t("asset.detail.archive")
+                    : t("asset.detail.restore")
+              }}
+            </AppButton>
+          </div>
         </SectionCard>
 
         <SectionCard :title="t('asset.detail.value')" :subtitle="t('asset.detail.note')">
@@ -206,6 +269,45 @@ async function saveEdit(draft: AssetDraft) {
   line-height: 1.8;
 }
 
+.detail-notice,
+.detail-error {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.detail-error {
+  border-color: color-mix(in srgb, var(--danger, #b42318) 45%, var(--line));
+  color: var(--danger, #b42318);
+}
+
+.asset-lifecycle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.asset-lifecycle strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.asset-lifecycle p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 .detail-loading {
   display: flex;
   flex-direction: column;
@@ -215,6 +317,13 @@ async function saveEdit(draft: AssetDraft) {
 @media (max-width: 800px) {
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .asset-lifecycle {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

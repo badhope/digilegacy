@@ -159,6 +159,12 @@ function openRun(run: AgentRun) {
                 <span>STEPS</span>
                 <span>{{ t("assets.table.updated") }}</span>
               </div>
+              <div v-if="!data.items.length" class="run-empty">
+                <p>{{ t("automation.runs.empty") }}</p>
+                <AppButton variant="secondary" size="sm" @click="router.push('/automation/runs/new')">
+                  {{ t("automation.runs.new") }}
+                </AppButton>
+              </div>
               <button v-for="run in data.items" :key="run.id" class="run-row" type="button" @click="openRun(run)">
                 <span class="mono run-id">{{ run.id }}</span>
                 <span class="run-title">{{ run.title }}</span>
@@ -296,6 +302,27 @@ function openRun(run: AgentRun) {
   color: var(--muted);
   font-size: 9px;
   letter-spacing: 0.08em;
+}
+
+.run-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 22px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.run-empty p {
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .run-empty {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .run-row {

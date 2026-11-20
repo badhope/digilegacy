@@ -98,8 +98,15 @@ export const platformClient = {
   getAsset: (id: string) => read<Asset>(COMMANDS.assetsGet, { id }, "assets"),
   createAsset: (args: { name: string; kind: string; platform?: string; value?: string; note?: string }) =>
     write<Asset>(COMMANDS.assetsCreate, args, ["assets", "overview"]),
-  updateAsset: (args: { id: string; name: string; kind: string; platform?: string; value?: string; note?: string }) =>
-    write<Asset>(COMMANDS.assetsUpdate, args, ["assets", "overview"]),
+  updateAsset: (args: {
+    id: string;
+    name: string;
+    kind: string;
+    platform?: string;
+    value?: string;
+    note?: string;
+    status?: Asset["status"];
+  }) => write<Asset>(COMMANDS.assetsUpdate, args, ["assets", "overview"]),
   discoverAssets: (args: { category?: string; q?: string } = {}) =>
     read<DiscoveryResult>(COMMANDS.assetsDiscover, args, "assets.discover"),
   bulkCreateAssets: (items: Array<{ name: string; kind: string; platform?: string; value?: string; note?: string }>) =>

@@ -131,6 +131,9 @@ pub fn decide(store: &Store, input: &DecideInput) -> Result<Approval, DomainErro
             existing.status
         )));
     }
+    if input.decision == "reject" && reason.is_empty() {
+        return Err(DomainError::Invalid("拒绝审批必须填写理由".to_string()));
+    }
     let decided_at = Utc::now().to_rfc3339();
     store
         .write(|conn| {
@@ -213,5 +216,37 @@ mod tests {
             ),
             Err(DomainError::Conflict(_))
         ));
+    }
+
+    #[test]
+    fn rejects_pending_require_reason_and_allow_reasoned_rejection() {
+        let store = Store::open_in_memory(None).unwrap();
+        seed(&store, "appr_3", "pending");
+
+        assert!(matches!(
+            decide(
+                &store,
+                &DecideInput {
+                    id: "appr_3".to_string(),
+                    decision: "reject".to_string(),
+                    reason: "   ".to_string(),
+                    background: false,
+                }
+            ),
+            Err(DomainError::Invalid(_))
+        ));
+
+        let rejected = decide(
+            &store,
+            &DecideInput {
+                id: "appr_3".to_string(),
+                decision: "reject".to_string(),
+                reason: "资料不完整".to_string(),
+                background: false,
+            },
+        )
+        .unwrap();
+        assert_eq!(rejected.status, "rejected");
+        assert_eq!(rejected.reason, "资料不完整");
     }
 }

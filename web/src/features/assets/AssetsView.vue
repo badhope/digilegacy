@@ -28,6 +28,7 @@ const addMenuOpen = ref(false);
 const addMenu = ref<HTMLElement | null>(null);
 const creating = ref(false);
 const createError = ref("");
+const createNotice = ref("");
 
 const loadPage = () =>
   loadAssets({
@@ -39,6 +40,11 @@ const { data, loading, error, reload } = useResource(loadPage);
 const items = computed(() => data.value?.items ?? []);
 const total = computed(() => data.value?.total ?? items.value.length);
 const nextCursor = computed(() => data.value?.nextCursor ?? null);
+const hasFilters = computed(() => Boolean(query.value.trim()) || status.value !== "all");
+const emptyTitle = computed(() => (hasFilters.value ? t("assets.table.empty") : t("assets.empty")));
+const emptyActionLabel = computed(() =>
+  hasFilters.value ? t("assets.filter.clear") : t("assets.add.open"),
+);
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 watch([query, status], () => {
@@ -69,7 +75,21 @@ function openAsset(asset: Asset) {
 
 function openCreate() {
   addMenuOpen.value = false;
+  createNotice.value = "";
   createOpen.value = true;
+}
+
+function resetFilters() {
+  query.value = "";
+  status.value = "all";
+}
+
+function handleEmptyAction() {
+  if (hasFilters.value) {
+    resetFilters();
+    return;
+  }
+  openCreate();
 }
 
 function openDiscover() {
@@ -94,6 +114,7 @@ async function createAsset(draft: AssetDraft) {
       return;
     }
     createOpen.value = false;
+    createNotice.value = t("assets.create.saved");
     await reload();
   } finally {
     creating.value = false;
@@ -128,6 +149,8 @@ async function createAsset(draft: AssetDraft) {
       @submit="createAsset"
       @cancel="createOpen = false"
     />
+
+    <div v-if="createNotice" class="save-note" role="status">{{ createNotice }}</div>
 
     <div v-if="loading" class="assets-loading" aria-busy="true">
       <div class="toolbar-skeleton">
@@ -211,9 +234,9 @@ async function createAsset(draft: AssetDraft) {
         </AppButton>
       </div>
 
-      <EmptyState v-if="!items.length" :title="t('assets.table.empty')" :note="t('empty.note')" icon="assets">
+      <EmptyState v-if="!items.length" :title="emptyTitle" :note="t('empty.note')" icon="assets">
         <template #action>
-          <AppButton variant="secondary" size="sm" @click="query = ''; status = 'all'">{{ t("common.all") }}</AppButton>
+          <AppButton variant="secondary" size="sm" @click="handleEmptyAction">{{ emptyActionLabel }}</AppButton>
         </template>
       </EmptyState>
     </template>
@@ -224,6 +247,16 @@ async function createAsset(draft: AssetDraft) {
 .assets-page {
   max-width: var(--content-max);
   margin: 0 auto;
+}
+
+.save-note {
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  font-size: 12px;
 }
 
 .add-menu-wrap {

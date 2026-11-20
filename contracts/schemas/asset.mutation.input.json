@@ -38,6 +38,13 @@
     "note": {
       "type": "string",
       "maxLength": 2000
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "archived"
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

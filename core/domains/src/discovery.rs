@@ -197,6 +197,7 @@ mod tests {
                 platform: Some("微信".to_string()),
                 value: None,
                 note: None,
+                status: None,
             },
         )
         .unwrap();

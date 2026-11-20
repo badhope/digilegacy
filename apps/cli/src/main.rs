@@ -333,6 +333,9 @@ enum AssetsCommand {
         value: String,
         #[arg(long, default_value = "")]
         note: String,
+        /// active | archived; empty keeps the current status.
+        #[arg(long, default_value = "")]
+        status: String,
         #[arg(long)]
         allow_write: bool,
         #[arg(long)]
@@ -659,6 +662,7 @@ fn main() -> ExitCode {
                 platform,
                 value,
                 note,
+                status,
                 allow_write,
                 json: as_json,
             } => run(
@@ -666,7 +670,8 @@ fn main() -> ExitCode {
                 "assets.update",
                 json!({
                     "id": id, "name": name, "kind": kind, "platform": platform,
-                    "value": value, "note": note
+                    "value": value, "note": note,
+                    "status": if status.is_empty() { None } else { Some(status) }
                 }),
                 as_json,
                 allow_write,

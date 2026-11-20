@@ -46,7 +46,7 @@ const connectionCopy = computed(() =>
     ? {
         test: "测试",
         testing: "测试中…",
-        tokenRequired: "缺少平台写令牌",
+        tokenRequired: "缺少平台写令牌：到“安全与数据”填写 DIGILEGACY_API_TOKEN。",
         add: "新增连接",
         edit: "编辑",
         remove: "删除",
@@ -73,7 +73,7 @@ const connectionCopy = computed(() =>
     : {
         test: "Test",
         testing: "Testing…",
-        tokenRequired: "Write token required",
+        tokenRequired: "Missing platform write token: fill DIGILEGACY_API_TOKEN in Security & data.",
         add: "Add connection",
         edit: "Edit",
         remove: "Delete",

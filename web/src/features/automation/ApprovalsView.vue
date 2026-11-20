@@ -50,12 +50,17 @@ function prettyDiff(value: string): string {
 async function decide(approval: Approval, decision: "approve" | "reject") {
   if (deciding.value) return;
   decideError.value = "";
+  const reason = (reasons[approval.id] ?? "").trim();
+  if (decision === "reject" && !reason) {
+    decideError.value = t("approvals.reasonRequired");
+    return;
+  }
   deciding.value = approval.id;
   try {
     const envelope = await platformClient.decideApproval(
       approval.id,
       decision,
-      reasons[approval.id] ?? "",
+      reason,
     );
     if (!envelope.success || !envelope.data) {
       decideError.value =
@@ -149,6 +154,7 @@ async function decide(approval: Approval, decision: "approve" | "reject") {
               type="text"
               maxlength="500"
               :placeholder="t('approvals.reasonPlaceholder')"
+              @input="decideError = ''"
             />
             <AppButton
               variant="primary"

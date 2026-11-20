@@ -20,6 +20,8 @@ pub const ASSET_KINDS: &[&str] = &[
     "other",
 ];
 
+pub const ASSET_STATUSES: &[&str] = &["active", "archived"];
+
 #[derive(Debug)]
 pub enum DomainError {
     NotFound(String),
@@ -90,6 +92,9 @@ pub struct Mutation {
     pub value: Option<String>,
     #[serde(default)]
     pub note: Option<String>,
+    /// Optional on update. `None` keeps the existing status.
+    #[serde(default)]
+    pub status: Option<String>,
 }
 
 fn row_to_asset(row: &rusqlite::Row<'_>) -> rusqlite::Result<Asset> {
@@ -127,6 +132,11 @@ fn validate_mutation(input: &Mutation) -> Result<(), DomainError> {
     if let Some(value) = &input.value {
         if !value.trim().is_empty() && value.parse::<f64>().is_err() {
             return Err(DomainError::Invalid("资产估值必须是数字".to_string()));
+        }
+    }
+    if let Some(status) = &input.status {
+        if !ASSET_STATUSES.contains(&status.as_str()) {
+            return Err(DomainError::Invalid(format!("未知资产状态: {status}")));
         }
     }
     Ok(())
@@ -258,6 +268,7 @@ pub fn create(store: &Store, input: &Mutation) -> Result<Asset, DomainError> {
     validate_mutation(input)?;
     let value = parse_value(input)?;
     let platform = input.platform.clone().unwrap_or_default();
+    let status = input.status.as_deref().unwrap_or("active");
     let now = Utc::now().to_rfc3339();
 
     let id = store
@@ -270,8 +281,8 @@ pub fn create(store: &Store, input: &Mutation) -> Result<Asset, DomainError> {
                   value_currency, disposal_method, heir_name, heir_contact, notes, credential_enc,
                   is_confirmed, created_at, updated_at, status, last_verified_at, source, policy_snapshot_hash)
                  VALUES (?1, '', ?2, ?3, ?4, 'CNY', 'no_action', '', '', ?5, '', 0, ?6, ?6,
-                         'active', '', 'manual', '')",
-                params![platform_id, input.name.trim(), input.kind, value, input.note.clone().unwrap_or_default(), now],
+                         ?7, '', 'manual', '')",
+                params![platform_id, input.name.trim(), input.kind, value, input.note.clone().unwrap_or_default(), now, status],
             )?;
             let id = tx.last_insert_rowid();
             tx.commit()?;
@@ -362,7 +373,7 @@ pub fn update(store: &Store, input: &Mutation) -> Result<Asset, DomainError> {
             let changed = tx.execute(
                 "UPDATE digital_assets
                  SET account_description=?2, category=?3, platform_id=?4,
-                     estimated_value=?5, notes=?6, updated_at=?7
+                     estimated_value=?5, notes=?6, status=coalesce(?7, status), updated_at=?8
                  WHERE id=?1",
                 params![
                     id,
@@ -371,6 +382,7 @@ pub fn update(store: &Store, input: &Mutation) -> Result<Asset, DomainError> {
                     platform_id,
                     value,
                     input.note.clone().unwrap_or_default(),
+                    input.status.as_deref(),
                     now
                 ],
             )?;
@@ -401,6 +413,7 @@ mod tests {
                     platform: Some("邮箱".to_string()),
                     value: None,
                     note: None,
+                    status: None,
                 }],
             },
         )
@@ -419,6 +432,7 @@ mod tests {
                         platform: Some("邮箱".to_string()),
                         value: None,
                         note: None,
+                        status: None,
                     },
                     Mutation {
                         id: None,
@@ -427,6 +441,7 @@ mod tests {
                         platform: Some("邮箱".to_string()),
                         value: None,
                         note: None,
+                        status: None,
                     },
                 ],
             },
@@ -451,11 +466,13 @@ mod tests {
                 platform: Some("示例邮箱".to_string()),
                 value: Some("120".to_string()),
                 note: Some("留给家人".to_string()),
+                status: None,
             },
         )
         .unwrap();
         assert_eq!(created.name, "主邮箱");
         assert_eq!(created.value, "120");
+        assert_eq!(created.status, "active");
 
         let page = list(
             &store,
@@ -482,11 +499,52 @@ mod tests {
                 platform: Some("示例邮箱".to_string()),
                 value: Some("150".to_string()),
                 note: Some("新备注".to_string()),
+                status: Some("archived".to_string()),
             },
         )
         .unwrap();
         assert_eq!(updated.name, "主邮箱（已更新）");
         assert_eq!(updated.value, "150");
+        assert_eq!(updated.status, "archived");
+
+        let active_page = list(
+            &store,
+            &ListInput {
+                cursor: None,
+                limit: Some(10),
+                status: Some("active".to_string()),
+                q: Some("邮箱".to_string()),
+            },
+        )
+        .unwrap();
+        assert_eq!(active_page.total, 0);
+
+        let archived_page = list(
+            &store,
+            &ListInput {
+                cursor: None,
+                limit: Some(10),
+                status: Some("archived".to_string()),
+                q: Some("邮箱".to_string()),
+            },
+        )
+        .unwrap();
+        assert_eq!(archived_page.total, 1);
+
+        let restored = update(
+            &store,
+            &Mutation {
+                id: Some(created.id.clone()),
+                name: "主邮箱（已更新）".to_string(),
+                kind: "account".to_string(),
+                platform: Some("示例邮箱".to_string()),
+                value: Some("150".to_string()),
+                note: Some("新备注".to_string()),
+                status: Some("active".to_string()),
+            },
+        )
+        .unwrap();
+        assert_eq!(restored.status, "active");
     }
 
     #[test]
@@ -508,6 +566,22 @@ mod tests {
                     platform: None,
                     value: None,
                     note: None,
+                    status: None,
+                }
+            ),
+            Err(DomainError::Invalid(_))
+        ));
+        assert!(matches!(
+            create(
+                &store,
+                &Mutation {
+                    id: None,
+                    name: "合法名称".to_string(),
+                    kind: "account".to_string(),
+                    platform: None,
+                    value: None,
+                    note: None,
+                    status: Some("deleted".to_string()),
                 }
             ),
             Err(DomainError::Invalid(_))
