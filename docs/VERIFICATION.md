@@ -34,7 +34,7 @@ node tools/bench/web-budget.mjs
 | Rust tests | Do domain rules, storage upgrades and entry points still behave? |
 | Web typecheck | Do generated types and components agree? |
 | Web tests | Do cache, routing and page states still work? |
-| Web accessibility | Do the shell and modal layers pass the axe WCAG A/AA rules, and do light/dark text tokens hold at least 4.5:1? |
+| Web accessibility | Do every route and modal layer pass the axe WCAG A/AA rules, and do light/dark text tokens hold at least 4.5:1? |
 | Production build | Does the app compile without hidden runtime-only imports? |
 | Bundle budget | Did a change quietly make the main experience heavier? |
 | Schema diagnostics | Does a fresh database open at the expected version? |
@@ -47,7 +47,8 @@ node tools/bench/web-budget.mjs
 - **Network guard tests** cover metadata/private/link-local URL rejection, loopback allowance and signed policy-feed transport against a local HTTP server.
 - **SMTP TLS tests** start local STARTTLS and implicit TLS servers with a test certificate, then verify the full mail dialog and UTF-8 body.
 - **Server tests** cover transport behavior and error mapping.
-- **Web tests** cover cache behavior, routing, page states, modal focus containment, the mobile navigation drawer, and an axe WCAG A/AA scan of the app shell and the three dialogs.
+- **Web tests** cover cache behavior, routing, page states, modal focus containment, the mobile navigation drawer, and axe WCAG A/AA scans of the app shell, the three dialogs and all fifteen feature routes.
+- **Route accessibility tests** mount each view against the real router, settle its data, then run axe on the rendered body. A failing route reports the violation ID and help text, so a new page cannot regress silently.
 - **Contrast tests** parse the light and dark design tokens and require at least 4.5:1 for 15 foreground/background pairs in each theme. This supplements axe, which cannot compute colour contrast reliably in jsdom.
 - **Manual smoke** checks the path a person actually clicks.
 
@@ -61,6 +62,7 @@ node tools/bench/web-budget.mjs
 6. Sync a policy feed and confirm the library is unchanged until a candidate is approved.
 7. Open the mobile layout and the dark theme; check for overflow and unreadable text.
 8. On a narrow viewport, open the navigation drawer with the keyboard: focus should enter the drawer, `Escape` should close it and return focus to the menu button.
+9. Open the tools page and move through the search field and permission filter with the keyboard; both should announce a name, and the filter should expose its current value.
 
 ## Release checklist
 

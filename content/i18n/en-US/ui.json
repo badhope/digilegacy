@@ -317,6 +317,7 @@
   "tools.back": "Back to automation",
   "tools.count": "{count} tools",
   "tools.search": "Search tool name or title",
+  "tools.permission": "Filter by permission",
   "tools.empty": "No matching tools",
   "tools.emptyNote": "Adjust the permission filter or search term.",
   "runs.start.plan": "AI plan",

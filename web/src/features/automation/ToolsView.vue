@@ -45,8 +45,8 @@ function tone(value: string): "ready" | "planned" | "degraded" | "danger" | "neu
     </PageHeader>
 
     <div class="tool-toolbar">
-      <input v-model="query" type="search" :placeholder="t('tools.search')" />
-      <select v-model="permission">
+      <input v-model="query" type="search" :placeholder="t('tools.search')" :aria-label="t('tools.search')" />
+      <select v-model="permission" :aria-label="t('tools.permission')">
         <option v-for="item in permissions" :key="item" :value="item">
           {{ item === "all" ? t("common.all") : item }}
         </option>

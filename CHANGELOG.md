@@ -4,6 +4,13 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.11] - November 2026
+
+### Accessibility
+
+- The axe WCAG A/AA gate now scans every Web route, not only the app shell and modal layers. Fifteen route renders are checked after their data settles: overview, assets, policies, discovery, asset detail, planning, deliverables, automation, run start, run detail, tools, approvals, both settings sections and not-found.
+- The tool permission filter and its search field now have explicit accessible names.
+
 ## [0.0.10] - November 2026
 
 ### Added
@@ -48,4 +55,4 @@ The project previously shipped the security kernel, encrypted storage, recovery 
 ## Unreleased
 
 - DNS-resolved private address checks and a configurable outbound allowlist for deployments that need more than literal-IP blocking.
-- Full-route axe coverage and a committed visual-regression baseline; the current a11y gate covers the app shell and modal layers, not every feature page.
+- A committed visual-regression baseline; the a11y gate now covers every feature route, but browser-level light/dark and screen-reader checks are still manual.

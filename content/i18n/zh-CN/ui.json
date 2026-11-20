@@ -317,6 +317,7 @@
   "tools.back": "返回自动化",
   "tools.count": "{count} 个工具",
   "tools.search": "搜索工具名或标题",
+  "tools.permission": "按权限筛选",
   "tools.empty": "没有匹配工具",
   "tools.emptyNote": "调整权限筛选或搜索词。",
   "runs.start.plan": "AI 生成步骤",

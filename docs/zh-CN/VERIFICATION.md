@@ -609,3 +609,16 @@ M0 可以判定“工程壳完成”的条件：
 - 预算：入口 **79.16 / 80 KB**、vendor 99.50 / 130 KB、JS 总 gzip **101.07 / 101.1 KB**、CSS gzip **20.85 / 21 KB**、总 gzip **121.93 / 122 KB**；为容纳壳层移动导航语义，仅将 JS 总 gzip 预算从 101 调到 101.1 KB。
 - 边界：axe 覆盖壳层与三个弹层，不等于全路由审计；对比度用令牌测试补齐，但仍需真实浏览器亮/暗与读屏人工验收；视觉回归基线未在本片交付。
 - 复验命令：`./tools/verify.sh`；日志 `/tmp/m6a-verify.log`。
+
+
+
+### M6-B 全路由 a11y 门禁
+
+- 新增 `web/src/features/routesA11y.test.ts`：用真实内存路由挂载 15 条 Web 路由，推进 mock 数据计时器并落定后，对 `document.body` 按 WCAG 2.0/2.1/2.2 A/AA 标签执行 axe。
+- 覆盖路由：概览、资产、政策、发现、资产详情、规划、交付、自动化、新建运行、运行详情、工具、审批、设置工作区、设置安全、404。
+- 首次扫描只发现工具目录权限筛选 `select-name` 违规；搜索框与 `select` 补 `aria-label`，新增 `tools.permission` 中英文案后 15/15 通过。
+- 路由测试在数据落定后切回真实计时器再执行 axe，避免 axe 内部计时器被 fake timers 卡住。
+- `./tools/verify.sh` exit 0：**164 Rust + 66 Web**；契约 **39 命令 / 23 工具 / 56 schema / 21 错误码**；schema v16 / 31 表；workspace members=12。
+- 预算：入口 **79.24 / 80 KB**、vendor 99.50 / 130 KB、JS 总 gzip **101.09 / 101.1 KB**、CSS gzip **20.85 / 21 KB**、总 gzip **121.94 / 122 KB**。
+- 边界：jsdom 中 axe 不计算真实颜色对比度，仍由 30 组令牌对比度测试兜底；真实浏览器亮/暗检查、读屏人工验收和视觉回归基线仍未完成。
+- 复验命令：`./tools/verify.sh`；日志 `/tmp/m6b-verify.log`。
