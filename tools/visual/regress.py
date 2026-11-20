@@ -112,6 +112,9 @@ def capture(base_url: str, output: Path) -> None:
                 page.emulate_media(reduced_motion="reduce")
                 page.goto(f"{base_url.rstrip('/')}{shot.path}", wait_until="networkidle")
                 page.wait_for_timeout(1100)
+                page.add_style_tag(
+                    content=".rail-meta span:first-child { visibility: hidden !important; }"
+                )
                 target = output / f"{shot.name}.webp"
                 page.screenshot(
                     path=str(target),

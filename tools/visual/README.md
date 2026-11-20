@@ -1,7 +1,7 @@
 # Visual regression
 
 Nine fixed-viewport snapshots of the Web console, stored as lossy WebP. The
-baseline is about 292 KB, not the multi-megabyte screenshot set that was removed
+baseline is about 270 KB, not the multi-megabyte screenshot set that was removed
 from this repository earlier.
 
 ## Why this is a manual gate
@@ -46,7 +46,8 @@ ignored by Git.
 
 The clock is frozen at `2026-11-20T10:00:00+08:00`, the locale is `zh-CN`, and
 the theme is set before the page loads. Those choices keep relative timestamps
-and locale-specific copy stable.
+and locale-specific copy stable. The rail version label is hidden before each
+shot so a patch release does not invalidate the baseline.
 
 ## Difference policy
 
