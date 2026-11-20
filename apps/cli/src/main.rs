@@ -520,6 +520,24 @@ enum SecurityCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Create an authenticated checkpoint beside the live database.
+    Checkpoint {
+        #[arg(long, default_value = "manual")]
+        label: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// List checkpoints with their paths and timestamps.
+    Checkpoints {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Verify one checkpoint without writing.
+    Verify {
+        id: String,
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 fn main() -> ExitCode {
@@ -937,6 +955,16 @@ fn main() -> ExitCode {
             SecurityCommand::Status { json: as_json } => {
                 run(&app, "security.status", json!({}), as_json, false)
             }
+            SecurityCommand::Checkpoint {
+                label,
+                json: as_json,
+            } => local(app.security_checkpoint(&label), as_json),
+            SecurityCommand::Checkpoints { json: as_json } => {
+                local(app.security_checkpoints(), as_json)
+            }
+            SecurityCommand::Verify { id, json: as_json } => {
+                local(app.security_verify_checkpoint(&id), as_json)
+            }
         },
         Commands::Usage { command } => match command {
             UsageCommand::Summary {
@@ -1031,6 +1059,23 @@ fn main() -> ExitCode {
             };
             run(&app, &name, args, as_json, allow_write)
         }
+    }
+}
+
+fn local(result: Result<Value, PlatformError>, as_json: bool) -> ExitCode {
+    match result {
+        Ok(data) => {
+            if as_json {
+                print_ok(data, "ok");
+            } else {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&data).unwrap_or_default()
+                );
+            }
+            ExitCode::SUCCESS
+        }
+        Err(error) => fail(error),
     }
 }
 

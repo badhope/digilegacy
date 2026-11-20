@@ -19,7 +19,8 @@ pub mod runtime;
 use digilegacy_foundation::PlatformError;
 use digilegacy_security::derive_domain_key;
 use digilegacy_security::keyring::FileKeyring;
-use digilegacy_store::Store;
+use digilegacy_store::{checkpoint, Store};
+use std::path::Path;
 use std::sync::Arc;
 use zeroize::Zeroizing;
 
@@ -99,6 +100,7 @@ fn notification_payload(channel: &str, item: &notify::Notification) -> Value {
 pub struct Application {
     store: Arc<Store>,
     config_key: Option<Zeroizing<[u8; 32]>>,
+    db_key: Option<Zeroizing<[u8; 32]>>,
 }
 
 impl Application {
@@ -106,6 +108,7 @@ impl Application {
         Self {
             store,
             config_key: None,
+            db_key: None,
         }
     }
 
@@ -114,6 +117,7 @@ impl Application {
         Self {
             store,
             config_key: Some(Zeroizing::new(key)),
+            db_key: None,
         }
     }
 
@@ -153,6 +157,7 @@ impl Application {
         let app = Self {
             store: Arc::new(store),
             config_key,
+            db_key,
         };
         policy::seed_if_empty(app.store()).map_err(|e| format!("政策库初始化失败: {e}"))?;
         app.seed_environment_connections()?;
@@ -745,6 +750,50 @@ impl Application {
             .map_err(map_domain)
     }
 
+    /// Create an authenticated checkpoint next to the live database.
+    ///
+    /// This is a local privileged command: the CLI passes the database key so
+    /// the manifest gets an HMAC, and the audit log records `backup.create`.
+    pub fn security_checkpoint(&self, label: &str) -> Result<Value, PlatformError> {
+        let meta = checkpoint::create_checkpoint(
+            &self.store,
+            self.checkpoint_root(),
+            label,
+            false,
+            self.db_key.as_deref(),
+        )
+        .map_err(|error| PlatformError::new("INTERNAL", format!("创建检查点失败: {error}")))?;
+        self.audit("backup.create", &meta.id)?;
+        Ok(json!(meta))
+    }
+
+    pub fn security_checkpoints(&self) -> Result<Value, PlatformError> {
+        Ok(json!(checkpoint::list_checkpoints(self.checkpoint_root())))
+    }
+
+    pub fn security_verify_checkpoint(&self, id: &str) -> Result<Value, PlatformError> {
+        let meta = checkpoint::list_checkpoints(self.checkpoint_root())
+            .into_iter()
+            .find(|item| item.id == id)
+            .ok_or_else(|| PlatformError::invalid_args("检查点不存在"))?;
+        checkpoint::verify_checkpoint(&meta, self.db_key.as_deref())
+            .map_err(|error| PlatformError::new("INTERNAL", format!("校验检查点失败: {error}")))?;
+        Ok(json!({
+            "verified": true,
+            "id": meta.id,
+            "schemaVersion": meta.schema_version,
+            "createdAt": meta.created_at,
+        }))
+    }
+
+    fn checkpoint_root(&self) -> &Path {
+        self.store
+            .path()
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .unwrap_or(Path::new("."))
+    }
+
     pub fn security_status(&self) -> Result<Value, PlatformError> {
         let locked = matches!(
             digilegacy_security::session::state(),
@@ -809,6 +858,46 @@ mod tests {
 
     fn app() -> Application {
         Application::new(Arc::new(Store::open_in_memory(None).unwrap()))
+    }
+
+    #[test]
+    fn checkpoint_commands_create_list_and_verify() {
+        let dir = std::env::temp_dir().join(format!(
+            "dgl_ckpt_app_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let key = [7u8; 32];
+        let store = Store::open(dir.join("live.db"), Some(&key)).unwrap();
+        let app = Application {
+            store: Arc::new(store),
+            config_key: None,
+            db_key: Some(Zeroizing::new(key)),
+        };
+
+        let meta = app.security_checkpoint("before-upgrade").unwrap();
+        let id = meta["id"].as_str().unwrap().to_string();
+        assert_eq!(meta["schema_version"], 16);
+        assert_eq!(
+            app.security_checkpoints()
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        let verified = app.security_verify_checkpoint(&id).unwrap();
+        assert_eq!(verified["verified"], true);
+        assert!(app.security_verify_checkpoint("missing").is_err());
+        let status = app.security_status().unwrap();
+        assert!(!status["lastBackupAt"].as_str().unwrap().is_empty());
+
+        drop(app);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
