@@ -12,7 +12,7 @@ import { formatDate } from "@/shared/format";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
 import { platformClient } from "@/platform/client";
-import type { NotificationItem, TriggerEvent } from "@/platform/types";
+import type { HeirDraft, NotificationItem, TriggerEvent } from "@/platform/types";
 import { loadPlan } from "./api";
 
 const router = useRouter();
@@ -46,6 +46,16 @@ const notificationsLoading = ref(false);
 const notificationsError = ref("");
 const notificationsNotice = ref("");
 const notifying = ref(false);
+const profileEditing = ref(false);
+const profileName = ref("");
+const profileBusy = ref(false);
+const profileError = ref("");
+const profileNotice = ref("");
+const heirsEditing = ref(false);
+const heirDrafts = ref<HeirDraft[]>([]);
+const heirsBusy = ref(false);
+const heirsError = ref("");
+const heirsNotice = ref("");
 
 watch(
   data,
@@ -209,6 +219,111 @@ async function checkIn() {
     acting.value = false;
   }
 }
+
+function startProfileEdit() {
+  profileName.value = data.value?.holder.name ?? "";
+  profileError.value = "";
+  profileNotice.value = "";
+  profileEditing.value = true;
+}
+
+async function saveProfile() {
+  const name = profileName.value.trim();
+  if (!name) {
+    profileError.value = t("planning.form.nameRequired");
+    return;
+  }
+  profileBusy.value = true;
+  profileError.value = "";
+  try {
+    const envelope = await platformClient.setPlanProfile(name);
+    if (!envelope.success || !envelope.data) {
+      profileError.value =
+        envelope.code === "AUTH_REQUIRED"
+          ? t("runs.detail.tokenRequired")
+          : envelope.message || envelope.code;
+      return;
+    }
+    data.value = envelope.data;
+    profileEditing.value = false;
+    profileNotice.value = t("planning.profile.saved");
+  } catch (cause) {
+    profileError.value = cause instanceof Error ? cause.message : "profile update failed";
+  } finally {
+    profileBusy.value = false;
+  }
+}
+
+function startHeirsEdit(addBlank = false) {
+  heirDrafts.value = (data.value?.heirs ?? []).map((heir) => ({
+    id: heir.id,
+    name: heir.name,
+    role: heir.role === "executor" ? "" : heir.role,
+    isExecutor: heir.role === "executor",
+  }));
+  heirsError.value = "";
+  heirsNotice.value = "";
+  heirsEditing.value = true;
+  if (!heirDrafts.value.length || addBlank) addHeirDraft();
+}
+
+function addHeirDraft() {
+  if (heirDrafts.value.length >= 20) {
+    heirsError.value = t("planning.form.maxHeirs");
+    return;
+  }
+  heirDrafts.value.push({ name: "", role: "", isExecutor: false });
+}
+
+function removeHeirDraft(index: number) {
+  heirDrafts.value.splice(index, 1);
+}
+
+function toggleExecutor(index: number) {
+  const next = !heirDrafts.value[index]?.isExecutor;
+  heirDrafts.value.forEach((heir, current) => {
+    heir.isExecutor = next && current === index;
+  });
+}
+
+async function saveHeirs() {
+  const drafts = heirDrafts.value.map((heir) => ({
+    id: heir.id,
+    name: heir.name.trim(),
+    role: (heir.role ?? "").trim(),
+    isExecutor: Boolean(heir.isExecutor),
+  }));
+  if (drafts.some((heir) => !heir.name)) {
+    heirsError.value = t("planning.form.nameRequired");
+    return;
+  }
+  heirsBusy.value = true;
+  heirsError.value = "";
+  try {
+    const envelope = await platformClient.setPlanHeirs(
+      drafts.map((heir) => ({
+        ...(heir.id ? { id: heir.id } : {}),
+        name: heir.name,
+        role: heir.role,
+        isExecutor: heir.isExecutor,
+      })),
+    );
+    if (!envelope.success || !envelope.data) {
+      heirsError.value =
+        envelope.code === "AUTH_REQUIRED"
+          ? t("runs.detail.tokenRequired")
+          : envelope.message || envelope.code;
+      return;
+    }
+    data.value = envelope.data;
+    heirsEditing.value = false;
+    heirsNotice.value = t("planning.heirs.saved");
+  } catch (cause) {
+    heirsError.value = cause instanceof Error ? cause.message : "heirs update failed";
+  } finally {
+    heirsBusy.value = false;
+  }
+}
 </script>
 
 <template>
@@ -234,26 +349,96 @@ async function checkIn() {
     <template v-else-if="data">
       <div class="planning-grid">
         <SectionCard :title="t('planning.holder')" :subtitle="t('planning.updated')">
-          <div class="holder-block">
+          <template #action>
+            <AppButton v-if="!profileEditing" variant="ghost" size="sm" @click="startProfileEdit">
+              {{ t("planning.profile.edit") }}
+            </AppButton>
+          </template>
+          <div v-if="profileEditing" class="edit-form">
+            <label class="form-field">
+              <span>{{ t("planning.profile.name") }}</span>
+              <input v-model="profileName" type="text" maxlength="120" @keyup.enter="saveProfile" />
+            </label>
+            <div class="form-actions">
+              <AppButton variant="primary" size="sm" :disabled="profileBusy" @click="saveProfile">
+                {{ profileBusy ? t("planning.form.saving") : t("common.save") }}
+              </AppButton>
+              <AppButton variant="ghost" size="sm" :disabled="profileBusy" @click="profileEditing = false">
+                {{ t("planning.form.cancel") }}
+              </AppButton>
+            </div>
+            <div v-if="profileError" class="form-error" role="alert">{{ profileError }}</div>
+          </div>
+          <div v-else class="holder-block">
             <span class="holder-mark"><AppIcon name="shield" :size="21" /></span>
             <div>
               <h3>{{ data.holder.name || t("planning.holder.empty") }}</h3>
               <p class="mono">{{ formatDate(data.holder.updatedAt, locale) }}</p>
             </div>
           </div>
+          <div v-if="profileNotice" class="trigger-notice" role="status">{{ profileNotice }}</div>
         </SectionCard>
 
         <SectionCard :title="t('planning.heirs')" :subtitle="`${heirCount} ${t('overview.unit.people')}`">
-          <div v-if="!heirCount" class="heir-empty">{{ t("planning.heirs.empty") }}</div>
-          <div v-else class="heir-list">
-            <div v-for="heir in data.heirs" :key="heir.id" class="heir-row">
-              <span class="heir-avatar">{{ heir.name.slice(0, 1) }}</span>
-              <span class="heir-copy">
-                <strong>{{ heir.name }}</strong>
-                <small>{{ heir.role }}</small>
-              </span>
+          <template #action>
+            <AppButton
+              v-if="!heirsEditing"
+              variant="ghost"
+              size="sm"
+              @click="startHeirsEdit(!heirCount)"
+            >
+              {{ heirCount ? t("planning.heirs.manage") : t("planning.heirs.add") }}
+            </AppButton>
+          </template>
+          <div v-if="heirsEditing" class="edit-form heir-edit-form">
+            <div v-for="(heir, index) in heirDrafts" :key="heir.id ?? `new-${index}`" class="heir-edit-row">
+              <label class="form-field">
+                <span>{{ t("planning.heirs.name") }}</span>
+                <input v-model="heir.name" type="text" maxlength="120" />
+              </label>
+              <label class="form-field">
+                <span>{{ t("planning.heirs.role") }}</span>
+                <input v-model="heir.role" type="text" maxlength="80" />
+              </label>
+              <label class="executor-toggle">
+                <input
+                  type="checkbox"
+                  :checked="Boolean(heir.isExecutor)"
+                  @change="toggleExecutor(index)"
+                />
+                <span>{{ t("planning.heirs.executor") }}</span>
+              </label>
+              <AppButton variant="ghost" size="sm" :disabled="heirsBusy" @click="removeHeirDraft(index)">
+                {{ t("planning.heirs.remove") }}
+              </AppButton>
+            </div>
+            <AppButton variant="ghost" size="sm" :disabled="heirsBusy || heirDrafts.length >= 20" @click="addHeirDraft">
+              {{ t("planning.heirs.add") }}
+            </AppButton>
+            <p class="form-note">{{ t("planning.heirs.note") }}</p>
+            <div v-if="heirsError" class="form-error" role="alert">{{ heirsError }}</div>
+            <div class="form-actions">
+              <AppButton variant="primary" size="sm" :disabled="heirsBusy" @click="saveHeirs">
+                {{ heirsBusy ? t("planning.form.saving") : t("common.save") }}
+              </AppButton>
+              <AppButton variant="ghost" size="sm" :disabled="heirsBusy" @click="heirsEditing = false">
+                {{ t("planning.form.cancel") }}
+              </AppButton>
             </div>
           </div>
+          <template v-else>
+            <div v-if="!heirCount" class="heir-empty">{{ t("planning.heirs.empty") }}</div>
+            <div v-else class="heir-list">
+              <div v-for="heir in data.heirs" :key="heir.id" class="heir-row">
+                <span class="heir-avatar">{{ heir.name.slice(0, 1) }}</span>
+                <span class="heir-copy">
+                  <strong>{{ heir.name }}</strong>
+                  <small>{{ heir.role }}</small>
+                </span>
+              </div>
+            </div>
+            <div v-if="heirsNotice" class="trigger-notice" role="status">{{ heirsNotice }}</div>
+          </template>
         </SectionCard>
 
         <SectionCard :title="t('planning.trigger')" :subtitle="t('planning.trigger.status')">
@@ -440,6 +625,80 @@ async function checkIn() {
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 11px;
+}
+
+.edit-form {
+  display: grid;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.form-field {
+  display: grid;
+  gap: 4px;
+}
+
+.form-field span {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.form-field input {
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.form-error {
+  color: var(--danger, #b54949);
+  font-size: 11px;
+}
+
+.form-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.heir-edit-form {
+  gap: 12px;
+}
+
+.heir-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.heir-edit-row:first-child {
+  border-top: 0;
+}
+
+.executor-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .heir-list {
@@ -630,6 +889,13 @@ async function checkIn() {
   .planning-grid,
   .planning-loading {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .heir-edit-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 }
 .heir-empty {

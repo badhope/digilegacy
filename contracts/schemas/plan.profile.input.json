@@ -1,0 +1,14 @@
+{
+  "title": "PlanProfileInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

@@ -46,7 +46,9 @@ enum Commands {
     },
     /// Holder, heirs and trigger chain.
     Plan {
-        #[arg(long)]
+        #[command(subcommand)]
+        command: Option<PlanCommand>,
+        #[arg(long, global = true)]
         json: bool,
     },
     /// Trigger chain and check-in.
@@ -279,6 +281,26 @@ enum RunsCommand {
         id: String,
         #[arg(long)]
         json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum PlanCommand {
+    /// Read the current plan.
+    Get,
+    /// Update the holder display name.
+    Profile {
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        allow_write: bool,
+    },
+    /// Replace the heir list from a JSON file containing {"heirs":[...]}.
+    Heirs {
+        #[arg(long)]
+        file: String,
+        #[arg(long)]
+        allow_write: bool,
     },
 }
 
@@ -713,7 +735,40 @@ fn main() -> ExitCode {
                 run(&app, "assets.bulkCreate", args, as_json, allow_write)
             }
         },
-        Commands::Plan { json: as_json } => run(&app, "plan.get", json!({}), as_json, false),
+        Commands::Plan {
+            command,
+            json: as_json,
+        } => match command {
+            None | Some(PlanCommand::Get) => run(&app, "plan.get", json!({}), as_json, false),
+            Some(PlanCommand::Profile { name, allow_write }) => run(
+                &app,
+                "plan.profile.set",
+                json!({ "name": name }),
+                as_json,
+                allow_write,
+            ),
+            Some(PlanCommand::Heirs { file, allow_write }) => {
+                let raw = match std::fs::read_to_string(&file) {
+                    Ok(raw) => raw,
+                    Err(error) => {
+                        return fail(PlatformError::new(
+                            "INVALID_ARGS",
+                            format!("读取继承人文件失败: {error}"),
+                        ))
+                    }
+                };
+                let args: Value = match serde_json::from_str(&raw) {
+                    Ok(args) => args,
+                    Err(error) => {
+                        return fail(PlatformError::new(
+                            "INVALID_ARGS",
+                            format!("继承人文件不是合法 JSON: {error}"),
+                        ))
+                    }
+                };
+                run(&app, "plan.heirs.set", args, as_json, allow_write)
+            }
+        },
         Commands::Trigger { command } => match command {
             TriggerCommand::Checkin { json: as_json } => {
                 run(&app, "trigger.checkin", json!({}), as_json, true)

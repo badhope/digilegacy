@@ -427,5 +427,20 @@
   "settings.security.data": "Data & backups",
   "settings.security.dataNote": "Backups, checkpoints, migration and diagnostics are managed by the CLI/server; the web UI only shows status, not a second ops surface.",
   "settings.audit.title": "Recent audit",
-  "overview.next.approval": "Review pending runs"
+  "overview.next.approval": "Review pending runs",
+  "planning.profile.edit": "Edit",
+  "planning.profile.name": "Holder name",
+  "planning.profile.saved": "Holder saved.",
+  "planning.heirs.manage": "Manage",
+  "planning.heirs.add": "Add heir",
+  "planning.heirs.name": "Name",
+  "planning.heirs.role": "Relation / role",
+  "planning.heirs.executor": "Primary executor",
+  "planning.heirs.saved": "Heirs saved.",
+  "planning.heirs.remove": "Remove",
+  "planning.heirs.note": "Only one primary executor; removing a row and saving deletes it.",
+  "planning.form.nameRequired": "Please enter a name.",
+  "planning.form.maxHeirs": "Up to 20 heirs.",
+  "planning.form.saving": "Saving…",
+  "planning.form.cancel": "Cancel"
 }

@@ -546,6 +546,134 @@
         }
       }
     },
+    "/api/v1/plan/profile": {
+      "patch": {
+        "operationId": "plan.profile.set",
+        "summary": "更新持有人显示名称；其余档案字段保持不变",
+        "tags": [
+          "plan"
+        ],
+        "x-command": "plan.profile.set",
+        "x-permission": "write",
+        "x-requires-unlock": true,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/plan.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/plan.profile.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plan/heirs": {
+      "put": {
+        "operationId": "plan.heirs.set",
+        "summary": "整表替换继承人；带 id 的更新、不带 id 的新增、未提交的删除，最多一位执行人",
+        "tags": [
+          "plan"
+        ],
+        "x-command": "plan.heirs.set",
+        "x-permission": "write",
+        "x-requires-unlock": true,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/plan.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/plan.heirs.input"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/policies": {
       "get": {
         "operationId": "policies.list",
@@ -3770,6 +3898,48 @@
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
+      "plan.heirs.input": {
+        "title": "PlanHeirsInput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "heirs"
+        ],
+        "properties": {
+          "heirs": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "role": {
+                  "type": "string",
+                  "maxLength": 80,
+                  "default": "heir"
+                },
+                "isExecutor": {
+                  "type": "boolean",
+                  "default": false
+                }
+              }
+            }
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
       "plan.output": {
         "title": "Plan",
         "type": "object",
@@ -3857,6 +4027,22 @@
                 "maximum": 4
               }
             }
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "plan.profile.input": {
+        "title": "PlanProfileInput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

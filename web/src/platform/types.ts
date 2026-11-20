@@ -90,6 +90,13 @@ export interface Heir {
   role: string;
 }
 
+export interface HeirDraft {
+  id?: string;
+  name: string;
+  role?: string;
+  isExecutor?: boolean;
+}
+
 export interface CheckinResult {
   checkedInAt: string;
   nextCheckAt: string;

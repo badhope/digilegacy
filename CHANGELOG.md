@@ -4,6 +4,20 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [Unreleased]
+
+### Added
+
+- Asset lifecycle is now explicit: assets accept `active` / `archived`, the detail page can archive and restore in place, and the CLI exposes `assets update --status`. Archiving hides an asset from the default list without deleting it.
+- Planning is editable: `plan.profile.set` updates the holder name and `plan.heirs.set` replaces the heir list with add, edit, reorder, executor selection and deletion. Both return a fresh `plan.get` snapshot and are exposed through CLI, HTTP and the Web planning page.
+- Empty states now carry the next action: a truly empty asset list opens the editor, a filtered empty list clears filters, and an empty automation run list starts a run.
+- Approval rejection requires a reason in both the Web form and the domain command; the console also gets inline save confirmation.
+
+### Fixed
+
+- Write-token guidance now points to **Settings → Security & data** everywhere, matching where `DIGILEGACY_API_TOKEN` is actually entered.
+- The server now mounts the asset write routes declared by the contract: `POST /api/v1/assets` and `PATCH /api/v1/assets/{id}`.
+
 ## [0.0.17] - November 2026
 
 ### Security

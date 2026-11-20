@@ -8,7 +8,7 @@ use chrono::{DateTime, Duration, FixedOffset, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
-use digilegacy_store::Store;
+use digilegacy_store::{Store, StoreError};
 
 use crate::assets::DomainError;
 use crate::notify;
@@ -192,6 +192,168 @@ fn insert_event(
         params![at, kind, stage, detail],
     )?;
     Ok(())
+}
+
+const MAX_HEIRS: usize = 20;
+const MAX_NAME: usize = 120;
+const MAX_ROLE: usize = 80;
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileInput {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeirInput {
+    #[serde(default)]
+    pub id: Option<String>,
+    pub name: String,
+    #[serde(default)]
+    pub role: Option<String>,
+    #[serde(default)]
+    pub is_executor: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HeirsInput {
+    pub heirs: Vec<HeirInput>,
+}
+
+fn clean_text(value: &str, max: usize, field: &str) -> Result<String, DomainError> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(DomainError::Invalid(format!("{field}不能为空")));
+    }
+    if trimmed.chars().count() > max {
+        return Err(DomainError::Invalid(format!(
+            "{field}不能超过 {max} 个字符"
+        )));
+    }
+    Ok(trimmed.to_string())
+}
+
+/// Update the holder display name. The rest of the profile is untouched.
+pub fn set_profile(store: &Store, input: &ProfileInput) -> Result<Plan, DomainError> {
+    let name = clean_text(&input.name, MAX_NAME, "持有人姓名")?;
+    let now = Utc::now().to_rfc3339();
+    store
+        .write(|conn| {
+            conn.execute(
+                "INSERT INTO user_profile (id, full_name, created_at, updated_at)
+                 VALUES (1, ?1, ?2, ?2)
+                 ON CONFLICT(id) DO UPDATE SET full_name=excluded.full_name, updated_at=excluded.updated_at",
+                params![name, now],
+            )?;
+            Ok(())
+        })
+        .map_err(DomainError::from)?;
+    get(store)
+}
+
+/// Replace the heir list in one transaction.
+///
+/// Rows with an `id` are updated in place (and keep their phone/email/notes);
+/// rows without one are appended; omitted rows are deleted. At most one heir
+/// can be marked executor.
+pub fn set_heirs(store: &Store, input: &HeirsInput) -> Result<Plan, DomainError> {
+    if input.heirs.len() > MAX_HEIRS {
+        return Err(DomainError::Invalid(format!(
+            "继承人不能超过 {MAX_HEIRS} 人"
+        )));
+    }
+    let mut seen = std::collections::HashSet::new();
+    let mut executor_count = 0;
+    let mut rows = Vec::with_capacity(input.heirs.len());
+    for heir in &input.heirs {
+        let name = clean_text(&heir.name, MAX_NAME, "继承人姓名")?;
+        let role = heir.role.clone().unwrap_or_default();
+        let role = role.trim();
+        if role.chars().count() > MAX_ROLE {
+            return Err(DomainError::Invalid(format!(
+                "继承关系不能超过 {MAX_ROLE} 个字符"
+            )));
+        }
+        let is_executor = heir.is_executor.unwrap_or(false);
+        if is_executor {
+            executor_count += 1;
+        }
+        let id = match heir
+            .id
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            Some(value) => Some(
+                value
+                    .parse::<i64>()
+                    .map_err(|_| DomainError::Invalid(format!("继承人 ID 无效: {value}")))?,
+            ),
+            None => None,
+        };
+        if let Some(id) = id {
+            if !seen.insert(id) {
+                return Err(DomainError::Invalid(format!("继承人 ID 重复: {id}")));
+            }
+        }
+        rows.push((id, name, role.to_string(), is_executor));
+    }
+    if executor_count > 1 {
+        return Err(DomainError::Invalid("只能指定一位主要执行人".to_string()));
+    }
+
+    let now = Utc::now().to_rfc3339();
+    store
+        .write(|conn| {
+            let tx = conn.transaction()?;
+            let mut keep_ids = Vec::with_capacity(rows.len());
+            for (index, (id, name, role, is_executor)) in rows.iter().enumerate() {
+                let sort_order = (index + 1) as i64;
+                match id {
+                    Some(id) => {
+                        let changed = tx.execute(
+                            "UPDATE heirs
+                             SET name=?2, relation=?3, is_executor=?4, sort_order=?5, updated_at=?6
+                             WHERE id=?1",
+                            params![id, name, role, i64::from(*is_executor), sort_order, now],
+                        )?;
+                        if changed == 0 {
+                            return Err(StoreError::Sql(rusqlite::Error::QueryReturnedNoRows));
+                        }
+                        keep_ids.push(*id);
+                    }
+                    None => {
+                        tx.execute(
+                            "INSERT INTO heirs (name, relation, is_executor, sort_order, created_at, updated_at)
+                             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+                            params![name, role, i64::from(*is_executor), sort_order, now],
+                        )?;
+                        keep_ids.push(tx.last_insert_rowid());
+                    }
+                }
+            }
+            if keep_ids.is_empty() {
+                tx.execute("DELETE FROM heirs", [])?;
+            } else {
+                let placeholders = (1..=keep_ids.len())
+                    .map(|index| format!("?{index}"))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let sql = format!("DELETE FROM heirs WHERE id NOT IN ({placeholders})");
+                tx.execute(&sql, rusqlite::params_from_iter(keep_ids))?;
+            }
+            tx.commit()?;
+            Ok(())
+        })
+        .map_err(|error| match error {
+            StoreError::Sql(rusqlite::Error::QueryReturnedNoRows) => {
+                DomainError::NotFound("继承人不存在".to_string())
+            }
+            other => DomainError::from(other),
+        })?;
+    get(store)
 }
 
 pub fn get(store: &Store) -> Result<Plan, DomainError> {
@@ -452,6 +614,127 @@ mod tests {
         assert!(plan.heirs.is_empty());
         assert_eq!(plan.trigger.days, 30);
         assert_eq!(plan.trigger.status, "off");
+    }
+
+    #[test]
+    fn profile_and_heirs_crud_roundtrip() {
+        let store = Store::open_in_memory(None).unwrap();
+        let profile = set_profile(
+            &store,
+            &ProfileInput {
+                name: "  林知远  ".to_string(),
+            },
+        )
+        .unwrap();
+        assert_eq!(profile.holder.name, "林知远");
+
+        let first = set_heirs(
+            &store,
+            &HeirsInput {
+                heirs: vec![HeirInput {
+                    id: None,
+                    name: "林若岚".to_string(),
+                    role: Some("配偶".to_string()),
+                    is_executor: Some(true),
+                }],
+            },
+        )
+        .unwrap();
+        assert_eq!(first.heirs.len(), 1);
+        assert_eq!(first.heirs[0].role, "executor");
+        let first_id = first.heirs[0].id.clone();
+
+        let updated = set_heirs(
+            &store,
+            &HeirsInput {
+                heirs: vec![
+                    HeirInput {
+                        id: Some(first_id.clone()),
+                        name: "林若岚（更新）".to_string(),
+                        role: Some("配偶".to_string()),
+                        is_executor: Some(true),
+                    },
+                    HeirInput {
+                        id: None,
+                        name: "林一川".to_string(),
+                        role: Some("子女".to_string()),
+                        is_executor: None,
+                    },
+                ],
+            },
+        )
+        .unwrap();
+        assert_eq!(updated.heirs.len(), 2);
+        assert_eq!(updated.heirs[0].id, first_id);
+        assert_eq!(updated.heirs[0].name, "林若岚（更新）");
+        assert_eq!(updated.heirs[1].name, "林一川");
+        let second_id = updated.heirs[1].id.clone();
+
+        let removed = set_heirs(
+            &store,
+            &HeirsInput {
+                heirs: vec![HeirInput {
+                    id: Some(second_id),
+                    name: "林一川".to_string(),
+                    role: Some("子女".to_string()),
+                    is_executor: None,
+                }],
+            },
+        )
+        .unwrap();
+        assert_eq!(removed.heirs.len(), 1);
+        assert_eq!(removed.heirs[0].name, "林一川");
+        assert_eq!(removed.heirs[0].role, "子女");
+    }
+
+    #[test]
+    fn plan_mutations_reject_invalid_input() {
+        let store = Store::open_in_memory(None).unwrap();
+        assert!(matches!(
+            set_profile(
+                &store,
+                &ProfileInput {
+                    name: "   ".to_string(),
+                },
+            ),
+            Err(DomainError::Invalid(_))
+        ));
+        assert!(matches!(
+            set_heirs(
+                &store,
+                &HeirsInput {
+                    heirs: vec![
+                        HeirInput {
+                            id: None,
+                            name: "甲".to_string(),
+                            role: None,
+                            is_executor: Some(true),
+                        },
+                        HeirInput {
+                            id: None,
+                            name: "乙".to_string(),
+                            role: None,
+                            is_executor: Some(true),
+                        }
+                    ],
+                },
+            ),
+            Err(DomainError::Invalid(_))
+        ));
+        assert!(matches!(
+            set_heirs(
+                &store,
+                &HeirsInput {
+                    heirs: vec![HeirInput {
+                        id: Some("999".to_string()),
+                        name: "甲".to_string(),
+                        role: None,
+                        is_executor: None,
+                    }],
+                },
+            ),
+            Err(DomainError::NotFound(_))
+        ));
     }
 
     #[test]

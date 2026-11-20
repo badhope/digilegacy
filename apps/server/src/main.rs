@@ -16,7 +16,7 @@ use axum::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
     },
-    routing::{delete, get, patch, post},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 use digilegacy_application::{jobs, Application};
@@ -196,11 +196,13 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/commands", get(commands))
         .route("/api/v1/overview", get(overview))
         .route("/api/v1/audit", get(audit_list))
-        .route("/api/v1/assets", get(assets_list))
+        .route("/api/v1/assets", get(assets_list).post(assets_create))
         .route("/api/v1/assets/discover", get(assets_discover))
         .route("/api/v1/assets/bulk", post(assets_bulk_create))
-        .route("/api/v1/assets/{id}", get(asset_get))
+        .route("/api/v1/assets/{id}", get(asset_get).patch(asset_update))
         .route("/api/v1/plan", get(plan_get))
+        .route("/api/v1/plan/profile", patch(plan_profile_set))
+        .route("/api/v1/plan/heirs", put(plan_heirs_set))
         .route("/api/v1/trigger/checkin", post(trigger_checkin))
         .route("/api/v1/trigger", patch(trigger_configure))
         .route("/api/v1/trigger/evaluate", post(trigger_evaluate))
@@ -333,6 +335,24 @@ async fn assets_discover(
     (status, envelope)
 }
 
+async fn assets_create(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(args): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "assets.create", args, Some(&headers))
+}
+
+async fn asset_update(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(mut args): Json<Value>,
+) -> impl IntoResponse {
+    args["id"] = json!(id);
+    dispatch(&state, "assets.update", args, Some(&headers))
+}
+
 async fn assets_bulk_create(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -343,6 +363,22 @@ async fn assets_bulk_create(
 
 async fn plan_get(State(state): State<AppState>) -> impl IntoResponse {
     dispatch(&state, "plan.get", json!({}), None)
+}
+
+async fn plan_profile_set(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(args): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "plan.profile.set", args, Some(&headers))
+}
+
+async fn plan_heirs_set(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(args): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "plan.heirs.set", args, Some(&headers))
 }
 
 async fn trigger_checkin(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
@@ -838,6 +874,103 @@ mod tests {
             format!("Bearer {token}").parse().unwrap(),
         );
         headers
+    }
+
+    #[tokio::test]
+    async fn plan_write_routes_update_holder_and_heirs() {
+        let state = test_app_with_token(Some("test-token"));
+        let profile = router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri("/api/v1/plan/profile")
+                    .header(header::AUTHORIZATION, "Bearer test-token")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"name":"林知远"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(profile.status(), StatusCode::OK);
+
+        let heirs = router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/api/v1/plan/heirs")
+                    .header(header::AUTHORIZATION, "Bearer test-token")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"heirs":[{"name":"林若岚","role":"配偶","isExecutor":true}]}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(heirs.status(), StatusCode::OK);
+
+        let plan = router(state)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/plan")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(plan.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(plan.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let plan: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(plan["data"]["holder"]["name"], "林知远");
+        assert_eq!(plan["data"]["heirs"][0]["name"], "林若岚");
+        assert_eq!(plan["data"]["heirs"][0]["role"], "executor");
+    }
+
+    #[tokio::test]
+    async fn asset_write_routes_accept_token_and_persist_status() {
+        let state = test_app_with_token(Some("test-token"));
+        let create = router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/assets")
+                    .header(header::AUTHORIZATION, "Bearer test-token")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"name":"路由资产","kind":"account"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(create.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(create.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let created: Value = serde_json::from_slice(&bytes).unwrap();
+        let id = created["data"]["id"].as_str().unwrap().to_string();
+        assert_eq!(created["data"]["status"], "active");
+
+        let update = router(state)
+            .oneshot(
+                Request::builder()
+                    .method("PATCH")
+                    .uri(format!("/api/v1/assets/{id}"))
+                    .header(header::AUTHORIZATION, "Bearer test-token")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"name":"路由资产","kind":"account","status":"archived"}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(update.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(update.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let updated: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(updated["data"]["status"], "archived");
     }
 
     #[test]

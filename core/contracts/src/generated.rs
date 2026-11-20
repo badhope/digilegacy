@@ -84,6 +84,22 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: false,
     },
     CommandSpec {
+        name: "plan.profile.set",
+        domain: "plan",
+        permission: "write",
+        http: "PATCH /api/v1/plan/profile",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
+        name: "plan.heirs.set",
+        domain: "plan",
+        permission: "write",
+        http: "PUT /api/v1/plan/heirs",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
         name: "policies.list",
         domain: "policy",
         permission: "read",

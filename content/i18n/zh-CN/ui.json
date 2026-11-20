@@ -427,5 +427,20 @@
   "settings.security.data": "数据与备份",
   "settings.security.dataNote": "备份、检查点、迁移与诊断包由 CLI/服务端管理；Web 端只显示状态，不复制一套运维入口。",
   "settings.audit.title": "最近审计",
-  "overview.next.approval": "处理待审批的运行"
+  "overview.next.approval": "处理待审批的运行",
+  "planning.profile.edit": "编辑",
+  "planning.profile.name": "持有人姓名",
+  "planning.profile.saved": "持有人已保存。",
+  "planning.heirs.manage": "管理",
+  "planning.heirs.add": "添加继承人",
+  "planning.heirs.name": "姓名",
+  "planning.heirs.role": "关系 / 角色",
+  "planning.heirs.executor": "主要执行人",
+  "planning.heirs.saved": "继承人已保存。",
+  "planning.heirs.remove": "移除",
+  "planning.heirs.note": "只保留一位主要执行人；移除后保存即删除。",
+  "planning.form.nameRequired": "请填写姓名。",
+  "planning.form.maxHeirs": "最多 20 位继承人。",
+  "planning.form.saving": "保存中…",
+  "planning.form.cancel": "取消"
 }

@@ -1,0 +1,38 @@
+{
+  "title": "PlanHeirsInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["heirs"],
+  "properties": {
+    "heirs": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "role": {
+            "type": "string",
+            "maxLength": 80,
+            "default": "heir"
+          },
+          "isExecutor": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

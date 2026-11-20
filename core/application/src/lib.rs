@@ -191,6 +191,8 @@ impl Application {
             "assets.discover" => self.assets_discover(args),
             "assets.bulkCreate" => self.assets_bulk_create(args),
             "plan.get" => self.plan(),
+            "plan.profile.set" => self.plan_profile_set(args),
+            "plan.heirs.set" => self.plan_heirs_set(args),
             "policies.list" => self.policies_list(args),
             "policies.get" => self.policies_get(args),
             "policies.provenance.set" => self.policies_set_provenance(args),
@@ -226,6 +228,20 @@ impl Application {
 
     pub fn overview(&self) -> Result<Value, PlatformError> {
         overview::get(&self.store)
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn plan_profile_set(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: plan::ProfileInput = parse(args)?;
+        plan::set_profile(&self.store, &input)
+            .map(|data| json!(data))
+            .map_err(map_domain)
+    }
+
+    pub fn plan_heirs_set(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: plan::HeirsInput = parse(args)?;
+        plan::set_heirs(&self.store, &input)
             .map(|data| json!(data))
             .map_err(map_domain)
     }

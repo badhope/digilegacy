@@ -224,6 +224,55 @@
       ]
     },
     {
+      "name": "plan.profile.set",
+      "domain": "plan",
+      "summary": "更新持有人显示名称；其余档案字段保持不变",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/plan.profile.input.json",
+      "output": "schemas/plan.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "plan profile",
+        "http": "PATCH /api/v1/plan/profile",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "plan.heirs.set",
+      "domain": "plan",
+      "summary": "整表替换继承人；带 id 的更新、不带 id 的新增、未提交的删除，最多一位执行人",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/plan.heirs.input.json",
+      "output": "schemas/plan.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "plan heirs",
+        "http": "PUT /api/v1/plan/heirs",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "policies.list",
       "domain": "policy",
       "summary": "按分类与关键词分页读取政策库",

@@ -1,7 +1,7 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
 import { cachedQuery, clearQueryCache, invalidateQuery, queryCacheKey } from "./queryCache";
-import type { UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, ConnectionKind,
+import type { HeirDraft, UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, ConnectionKind,
   ConnectionItem,
   ConnectionUpsertInput,
   ConnectionDeleteResult, ConnectionPage, ConnectionTestResult, DiscoveryResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, NotificationPage, NotificationSendResult, Overview, Plan, PoliciesPage, Policy, PolicyCandidate, PolicyCandidatePage, PolicySyncResult, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
@@ -112,6 +112,10 @@ export const platformClient = {
   bulkCreateAssets: (items: Array<{ name: string; kind: string; platform?: string; value?: string; note?: string }>) =>
     write<BulkCreateResult>(COMMANDS.assetsBulkCreate, { items }, ["assets", "overview", "assets.discover"]),
   getPlan: () => read<Plan>(COMMANDS.planGet, {}, "plan"),
+  setPlanProfile: (name: string) =>
+    write<Plan>(COMMANDS.planProfileSet, { name }, ["plan", "overview"]),
+  setPlanHeirs: (heirs: HeirDraft[]) =>
+    write<Plan>(COMMANDS.planHeirsSet, { heirs }, ["plan", "overview"]),
   configureTrigger: (args: { enabled?: boolean; days?: number; pauseDays?: number }) =>
     write<Trigger>(COMMANDS.triggerConfigure, args, ["plan", "trigger.events", "overview"]),
   evaluateTrigger: () => write<Trigger>(COMMANDS.triggerEvaluate, {}, ["plan", "trigger.events", "overview"]),
