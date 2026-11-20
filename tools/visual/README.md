@@ -37,6 +37,23 @@ baseline images and confirming the change is intended. The script writes
 per-shot differences to `tools/visual/artifacts/` on failure; that directory is
 ignored by Git.
 
+## Live API smoke
+
+The mock baseline proves layout stability. For a release candidate, also run the
+same pages against the real API and a real Chromium:
+
+```bash
+# terminal 1: API on 127.0.0.1:8787
+# terminal 2: cd web && npm run dev -- --port 5173 --strictPort
+python3 tools/visual/live_smoke.py
+```
+
+It visits 15 route/theme/viewport combinations, requires a `main` element, no
+horizontal overflow, no page exceptions, no API 5xx and no console errors. The
+evidence JSON goes to `docs/operations/measurements/live-browser-2026-11-20.json`;
+screenshots stay in a temporary directory. This still does not replace human
+screen-reader review.
+
 ## What is covered
 
 - Desktop light: overview, assets, policies, planning, deliverables, automation,

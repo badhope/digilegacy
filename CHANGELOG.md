@@ -8,11 +8,16 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 
 ### Security
 
+- The optional `DIGILEGACY_OUTBOUND_ALLOWLIST` is now enforced when a connection URL is validated, not only when it is probed. A disallowed host is refused before DNS resolution.
 - Outbound HTTP(S), policy-feed and SMTP/IMAP probes now resolve the host once, validate every returned address, and pin the HTTP/TCP connection to that validated set. A hostname cannot pass the check as public and then connect to a private address on a second DNS answer.
 - Cloud metadata addresses are rejected even when `DIGILEGACY_ALLOW_PRIVATE_NETWORK` is on; carrier-grade NAT, benchmarking, reserved and documentation ranges are rejected too.
 - `DIGILEGACY_OUTBOUND_ALLOWLIST` adds an optional comma-separated host allowlist (`example.com`, `*.example.com`). When set, any host outside it is refused before DNS resolution.
 - A versioned Linux release archive with `install.sh`, `start.sh`, `stop.sh` and `uninstall.sh`. The installer preserves the environment file on upgrade, never prints the write token, and keeps database keys when data is preserved. A clean-host drill installs, exports diagnostics, verifies a checkpoint, uninstalls and reinstalls against the preserved database.
 - Outbound clients bypass environment HTTP proxies. A proxy would resolve the target again outside the pinned address set, so proxy routing is deliberately not used for these connection probes.
+
+### Testing
+
+- A live Chromium smoke renders 15 route/theme/viewport combinations against the real API and Vue dev server, with no page exceptions, API 5xx or horizontal overflow; the nine visual baseline shots also re-passed.
 
 ## [0.0.16] - November 2026
 

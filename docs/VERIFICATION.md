@@ -51,6 +51,7 @@ node tools/bench/web-budget.mjs
 - **Application tests** exercise use cases without HTTP.
 - **Network guard tests** cover metadata/private/link-local URL rejection, loopback allowance and signed policy-feed transport against a local HTTP server.
 - **SMTP TLS tests** start local STARTTLS and implicit TLS servers with a test certificate, then verify the full mail dialog and UTF-8 body.
+- **Live Chromium smoke** renders 15 route/theme/viewport combinations against the real API and Vue dev server. It requires a `main` element, no horizontal overflow, no page exceptions, no API 5xx and no console errors. The 2026-11-20 run passed all 15; evidence is `docs/operations/measurements/live-browser-2026-11-20.json`. This supplements, but does not replace, human screen-reader review.
 - **Release package drill** builds a versioned tar archive, unpacks it under a fresh HOME, prefix and data directory, installs, starts, checks health and metrics, runs `diagnostics export`, creates and verifies a checkpoint, uninstalls while preserving data, reinstalls against the preserved database and finally purges. Evidence: `docs/operations/measurements/install-2026-11-20.json`.
 - **Outbound resolution tests** resolve a loopback URL, assert every returned address passes the block rules, and reject metadata, CGNAT, benchmarking, reserved and documentation ranges. The HTTP, policy-sync and SMTP paths then connect to the resolved address list instead of resolving the hostname again.
 - **Fuzz smoke tests** use fixed seeds and 45,000 inputs across five public boundaries: URL validation, recovery seals, paper shares, KDF parameters and HTML escaping. They are deterministic regression tests, not coverage-guided fuzzing.
@@ -77,7 +78,7 @@ node tools/bench/web-budget.mjs
 7. Open the mobile layout and the dark theme; check for overflow and unreadable text.
 8. On a narrow viewport, open the navigation drawer with the keyboard: focus should enter the drawer, `Escape` should close it and return focus to the menu button.
 9. Open the tools page and move through the search field and permission filter with the keyboard; both should announce a name, and the filter should expose its current value.
-10. Build the mock console, start the preview server and run `python3 tools/visual/regress.py`; all nine shots should stay within the 0.4% pixel budget.
+10. Build the mock console, start the preview server and run `python3 tools/visual/regress.py`; all nine shots should stay within the 0.4% pixel budget. Then start the API and the dev server and run `python3 tools/visual/live_smoke.py`; all 15 route/theme/viewport combinations should pass.
 11. Create a checkpoint with `security checkpoint --label smoke`, list it, run `security verify <id>` and confirm `security status` reports the new `lastBackupAt`.
 12. Read `/api/v1/metrics`; confirm counters increase after a few requests and contain no path, asset name or token.
 13. Run `diagnostics export --allow-write --json`; confirm `audit.valid: true` and schema v16 / 31 tables.

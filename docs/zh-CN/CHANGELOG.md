@@ -6,11 +6,16 @@
 
 ### Security
 
+- 可选 `DIGILEGACY_OUTBOUND_ALLOWLIST` 现在在连接 URL 校验时即生效，不再只等到探测时拒绝；不在表内的主机在 DNS 解析前就被拒绝。
 - 出站 HTTP(S)、政策 feed 与 SMTP/IMAP 探针改为“解析一次、校验全部返回地址、连接钉住已验地址”。主机名不能第一次解析为公网通过检查、第二次解析为私网再连接。
 - 即使打开 `DIGILEGACY_ALLOW_PRIVATE_NETWORK`，云元数据地址仍拒绝；运营商级 NAT、基准测试、保留与文档网段也一并拒绝。
 - 新增可选 `DIGILEGACY_OUTBOUND_ALLOWLIST`：逗号分隔的主机 allowlist（`example.com`、`*.example.com`）；设置后不在表内的主机在 DNS 解析前即拒绝。
 - 新增带版本号的 Linux 发布归档与 `install.sh`、`start.sh`、`stop.sh`、`uninstall.sh`。安装脚本升级时保留环境文件、不打印写令牌，保留数据时一并保留数据库密钥；干净机演练覆盖安装、诊断导出、检查点验证、卸载与重装读库。
 - 出站客户端绕过环境 HTTP 代理。代理会绕开地址钉住、重新解析目标，因此这些连接探针明确不走代理。
+
+### Testing
+
+- 新增真实浏览器路由冒烟：真实 API + Vue dev server + Chromium 146 覆盖 15 个路由/主题/视口组合，无页面异常、API 5xx 或横向溢出；9 张视觉基线也复跑通过。
 
 ## [0.0.16] - 2026-11-20
 

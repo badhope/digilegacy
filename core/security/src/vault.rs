@@ -358,7 +358,13 @@ fn split_socket_address(endpoint: &str) -> Result<(String, u16), String> {
 }
 
 fn host_allowed(host: &str) -> bool {
-    let raw = std::env::var("DIGILEGACY_OUTBOUND_ALLOWLIST").unwrap_or_default();
+    host_allowed_by(
+        host,
+        &std::env::var("DIGILEGACY_OUTBOUND_ALLOWLIST").unwrap_or_default(),
+    )
+}
+
+fn host_allowed_by(host: &str, raw: &str) -> bool {
     let patterns = raw
         .split(',')
         .map(str::trim)
@@ -427,6 +433,9 @@ pub fn validate_external_url(url: &str) -> Result<String, String> {
     }
     let host = host_from_authority(authority);
     let host_lower = host.trim_matches(['[', ']']).to_ascii_lowercase();
+    if !host_allowed(host_lower.trim_end_matches('.')) {
+        return Err("链接主机不在 DIGILEGACY_OUTBOUND_ALLOWLIST 中，已拒绝".to_string());
+    }
     if is_metadata_host(host_lower.trim_end_matches('.')) {
         return Err("链接指向云元数据地址，已拒绝".to_string());
     }
@@ -651,6 +660,16 @@ mod tests {
         for reserved in ["100.64.0.1", "192.0.0.1", "198.18.0.1", "240.0.0.1"] {
             assert!(is_blocked_outbound_ip(reserved.parse().unwrap(), false));
         }
+    }
+
+    #[test]
+    fn host_allowlist_matches_exact_and_subdomain_patterns() {
+        assert!(host_allowed_by("smtp.example.com", ""));
+        assert!(host_allowed_by("smtp.example.com", "smtp.example.com"));
+        assert!(host_allowed_by("mail.example.com", "*.example.com"));
+        assert!(!host_allowed_by("example.com", "*.example.com"));
+        assert!(!host_allowed_by("evil-example.com", "*.example.com"));
+        assert!(!host_allowed_by("other.example.net", "smtp.example.com"));
     }
 
     #[test]
