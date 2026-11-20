@@ -9,8 +9,6 @@
 //! - v1：裸 base64 盐 + PBKDF2-HMAC-SHA256 100k（历史数据，只读兼容）
 //! - v2：`v2.` + base64 盐 + PBKDF2-HMAC-SHA256 600k
 //! - v3：`v3.<m>.<t>.<p>.` + base64 盐 + Argon2id（参数随盐串存储，便于将来上调）
-#![allow(dead_code)]
-
 use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Key, Nonce,
