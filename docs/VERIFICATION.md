@@ -53,11 +53,12 @@ node tools/bench/web-budget.mjs
 - **SMTP TLS tests** start local STARTTLS and implicit TLS servers with a test certificate, then verify the full mail dialog and UTF-8 body.
 - **Fuzz smoke tests** use fixed seeds and 45,000 inputs across five public boundaries: URL validation, recovery seals, paper shares, KDF parameters and HTML escaping. They are deterministic regression tests, not coverage-guided fuzzing.
 - **Checkpoint CLI test** creates a checkpoint in a temporary encrypted store, lists it, verifies its manifest, and confirms `security status` sees the audit record.
+- **Connections route test** mounts `Settings/Settings/connections` with the handoff guide and connection form, then runs the same axe gate used by every other route.
 - **Server tests** cover transport behavior, error mapping, the metrics snapshot, middleware counting of both handled routes and fallback 404s, and the absence of secrets or asset names in the output.
 - **Diagnostics test** exports the structural snapshot and requires `audit.valid`, schema v16, 31 tables and no row values.
 - **Capacity drill** seeds 1,000 assets, 250 heirs and 10,000 audit rows, then runs 1,200 reads and 120 writes over real HTTP. The 2026-11-20 result was read p95 9.54 ms / p99 11.09 ms and write p95 3.70 ms with zero errors.
 - **Restore drill** copies a verified 3.5 MB checkpoint to a new path, starts a temporary instance, probes health, reads counts and verifies 10,120 audit rows. The 2026-11-20 result was healthy in 158 ms.
-- **Web tests** cover cache behavior, routing, page states, modal focus containment, the mobile navigation drawer, and axe WCAG A/AA scans of the app shell, the three dialogs and all fifteen feature routes.
+- **Web tests** cover cache behavior, routing, page states, modal focus containment, the mobile navigation drawer, and axe WCAG A/AA scans of the app shell, the three dialogs and all sixteen feature routes.
 - **Route accessibility tests** mount each view against the real router, settle its data, then run axe on the rendered body. A failing route reports the violation ID and help text, so a new page cannot regress silently.
 - **Contrast tests** parse the light and dark design tokens and require at least 4.5:1 for 15 foreground/background pairs in each theme. This supplements axe, which cannot compute colour contrast reliably in jsdom.
 - **Manual smoke** checks the path a person actually clicks.

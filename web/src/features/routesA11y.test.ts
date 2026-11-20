@@ -99,6 +99,7 @@ const cases: Array<[string, Component, string]> = [
   ["approvals", ApprovalsView, "/automation/approvals"],
   ["settings workspace", SettingsView, "/settings/workspace"],
   ["settings security", SettingsView, "/settings/security"],
+  ["settings connections", SettingsView, "/settings/connections"],
   ["not found", NotFoundView, "/missing"],
 ];
 

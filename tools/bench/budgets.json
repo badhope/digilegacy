@@ -1,8 +1,8 @@
 {
-  "entryRawKb": 80,
+  "entryRawKb": 82,
   "vendorRawKb": 130,
   "routeRawKb": 24,
-  "totalJsGzipKb": 101.15,
-  "totalCssGzipKb": 21,
-  "totalGzipKb": 122.1
+  "totalJsGzipKb": 103.1,
+  "totalCssGzipKb": 21.1,
+  "totalGzipKb": 124.2
 }

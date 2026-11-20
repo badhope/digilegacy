@@ -166,6 +166,65 @@ function openAddConnection() {
   connectionFormOpen.value = true;
 }
 
+const guideNotice = ref("");
+
+function startGuidedConnection(kind: ConnectionKind) {
+  resetConnectionForm();
+  connectionForm.value.kind = kind;
+  connectionForm.value.label = kind === "smtp" ? "work-mail" : kind;
+  connectionFormOpen.value = true;
+  guideNotice.value = "";
+  window.requestAnimationFrame(() => {
+    document.getElementById("connection-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+async function copyConnectionGuide() {
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const text =
+    locale.value === "zh-CN"
+      ? `DigiLegacy 账号接入填写说明
+填写入口：${origin}/settings/connections
+
+给填写人：用自己的账号填写，不要把密码或令牌发到群里；平台保存后不会回显凭据。
+
+需要准备：
+- SMTP：服务器地址 host:port、用户名、密码或授权码、发件人地址、加密方式（465 用 TLS，587 用 STARTTLS）
+- Webhook：完整 URL、访问令牌（如服务商要求）
+- 飞书 / 企业微信：机器人 Webhook 完整 URL
+
+步骤：
+1. 在页面顶部填平台写令牌。
+2. 点“新增连接”，选择对应类型。
+3. 填写名称、地址、凭据；SMTP 还要填用户名、发件人、加密方式。
+4. 保存后点“测试”，确认显示 OK。
+5. 把连接名称和状态截图交给管理员；不要回传凭据。`
+      : `DigiLegacy account setup note
+Entry: ${origin}/settings/connections
+
+For the filler: use your own account. Do not post passwords or tokens in chat; the platform never echoes the credential after saving.
+
+Prepare:
+- SMTP: host:port, username, password or app password, From address, security (465 uses TLS, 587 uses STARTTLS)
+- Webhook: full URL and access token if the provider requires one
+- Feishu / WeCom: full bot webhook URL
+
+Steps:
+1. Enter the platform write token at the top of the page.
+2. Press Add connection and pick the kind.
+3. Fill the label, endpoint and credential; for SMTP also fill username, From and security.
+4. Save, press Test, and confirm it reports OK.
+5. Send the connection label and status screenshot back; never send the credential.`;
+  guideNotice.value = "";
+  try {
+    if (!navigator.clipboard) throw new Error("clipboard unavailable");
+    await navigator.clipboard.writeText(text);
+    guideNotice.value = t("settings.connections.guide.copied");
+  } catch {
+    guideNotice.value = t("settings.connections.guide.copyFailed");
+  }
+}
+
 function openEditConnection(item: ConnectionItem) {
   resetConnectionForm();
   editingConnectionId.value = item.id;
@@ -387,6 +446,39 @@ function go(section: Section) {
         </SectionCard>
 
         <SectionCard v-else-if="active === 'connections'" :title="t('settings.tab.connections')" :subtitle="t('settings.tab.connections.note')">
+          <div class="connection-guide">
+            <div class="connection-guide-head">
+              <div>
+                <strong>{{ t("settings.connections.guide.title") }}</strong>
+                <p class="setting-hint">{{ t("settings.connections.guide.note") }}</p>
+              </div>
+              <StatusPill tone="planned" :label="t('settings.connections.guide.handoff')" />
+            </div>
+            <ol class="connection-guide-steps">
+              <li>{{ t("settings.connections.guide.step1") }}</li>
+              <li>{{ t("settings.connections.guide.step2") }}</li>
+              <li>{{ t("settings.connections.guide.step3") }}</li>
+            </ol>
+            <div class="connection-guide-actions">
+              <button type="button" class="link-button" @click="startGuidedConnection('smtp')">
+                {{ t("settings.connections.guide.smtp") }}
+              </button>
+              <button type="button" class="link-button" @click="startGuidedConnection('webhook')">
+                {{ t("settings.connections.guide.webhook") }}
+              </button>
+              <button type="button" class="link-button" @click="startGuidedConnection('feishu')">
+                {{ t("settings.connections.guide.feishu") }}
+              </button>
+              <button type="button" class="link-button" @click="startGuidedConnection('wecom')">
+                {{ t("settings.connections.guide.wecom") }}
+              </button>
+              <button type="button" class="link-button" @click="copyConnectionGuide">
+                {{ t("settings.connections.guide.copy") }}
+              </button>
+            </div>
+            <p v-if="guideNotice" class="connection-notice">{{ guideNotice }}</p>
+          </div>
+
           <div class="setting-row token-row">
             <div>
               <span>{{ t("settings.connections.token") }}</span>
@@ -406,7 +498,7 @@ function go(section: Section) {
             <button type="button" class="link-button" @click="reloadConnections()">{{ t("common.refresh") }}</button>
           </div>
 
-          <form v-if="connectionFormOpen" class="connection-form" @submit.prevent="saveConnection">
+          <form v-if="connectionFormOpen" id="connection-form" class="connection-form" @submit.prevent="saveConnection">
             <div class="connection-form-head">
               <strong>{{ editingConnectionId ? connectionCopy.formTitleEdit : connectionCopy.formTitleAdd }}</strong>
               <span v-if="editingConnectionId" class="mono">#{{ editingConnectionId }}</span>
@@ -550,7 +642,7 @@ function go(section: Section) {
           <div class="about-grid">
             <div class="about-item">
               <span class="mono">{{ t("settings.about.version") }}</span>
-              <strong>0.0.15</strong>
+              <strong>0.0.16</strong>
             </div>
             <div class="about-item">
               <span class="mono">{{ t("settings.about.contracts") }}</span>
@@ -643,6 +735,14 @@ function go(section: Section) {
 .audit-table th { padding: 8px 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-weight: 500; text-align: left; white-space: nowrap; }
 .audit-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--ink-soft); vertical-align: middle; }
 .audit-table .hash-cell { color: var(--muted); }
+.connection-guide { display: grid; gap: 12px; margin: 0 0 16px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }
+.connection-guide-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.connection-guide-head strong { color: var(--ink); font-size: 13px; }
+.connection-guide-head .setting-hint { margin: 6px 0 0; max-width: 68ch; }
+.connection-guide-steps { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: var(--ink-soft); font-size: 11px; line-height: 1.55; }
+.connection-guide-actions { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.connection-guide-actions .link-button { min-height: 30px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
+.connection-guide-actions .link-button:hover { border-color: var(--accent); color: var(--accent-strong); }
 .token-row { align-items: flex-start; }
 .setting-hint { max-width: 420px; margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .token-form { display: flex; align-items: center; gap: 8px; padding: 0 0 12px; }
@@ -753,6 +853,8 @@ function go(section: Section) {
   .connection-actions { grid-column: 1 / -1; justify-self: stretch; justify-content: flex-end; }
   .token-form { flex-wrap: wrap; }
   .connection-toolbar { align-items: flex-start; }
+  .connection-guide-head { flex-direction: column; }
+  .connection-guide-actions .link-button { flex: 1 1 44%; }
 }
 @media (max-width: 900px) {
   .settings-shell {

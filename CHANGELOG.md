@@ -4,6 +4,21 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.16] - November 2026
+
+### Added
+
+- A handoff-oriented account setup guide in **Settings → Connections**. SMTP, Webhook, Feishu and WeCom buttons prefill the existing encrypted connection form, and a copy action produces a note that can be sent to the account owner.
+- `docs/operations/CONNECTION-SETUP.md` and its Chinese mirror, with the fields each provider needs, the separation between the platform write token and the account credential, and a checklist for handing the tested connection back.
+
+### Accessibility
+
+- The connections settings route is now part of the all-route axe gate, raising it from 15 to 16 routes.
+
+### Changed
+
+- Bundle budget moves to entry 82 KB, JS total 103.1 KB gzip, CSS 21.1 KB gzip and total 124.2 KB gzip for the setup guide. The 24 KB route budget and 130 KB vendor budget are unchanged; the settings route is 20.79 KB.
+
 ## [0.0.15] - November 2026
 
 ### Added
