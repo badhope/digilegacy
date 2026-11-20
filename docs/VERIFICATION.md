@@ -95,9 +95,9 @@ review worklist, not a verification result.
 2. Run `printf '%s\n' "<master-password>" | digilegacy security init`, save the recovery code, restart the API, and confirm `/api/v1/overview` returns `423 VAULT_LOCKED` until the Web lock screen accepts the password.
 3. Run `DIGILEGACY_VAULT_PASSWORD="<master-password>" digilegacy assets list` against the same database and confirm the CLI returns the asset list; without the variable it must exit with `VAULT_LOCKED`.
 4. Create an asset, edit it, and confirm the detail page and delivered report show the same value.
-3. Configure an heir and complete a check-in.
-4. Ask the Agent to draft a plan; confirm a write step waits for approval.
-5. Approve one write and reject another with a reason; confirm both outcomes are audited.
+5. Configure an heir and complete a check-in.
+6. Ask the Agent to draft a plan; confirm a write step waits for approval.
+7. Approve one write and reject another with a reason; confirm both outcomes are audited.
 6. Sync a policy feed and confirm the library is unchanged until a candidate is approved.
 7. Open the mobile layout and the dark theme; check for overflow and unreadable text.
 8. On a narrow viewport, open the navigation drawer with the keyboard: focus should enter the drawer, `Escape` should close it and return focus to the menu button.
