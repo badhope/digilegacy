@@ -8,24 +8,31 @@ import MetricCard from "@/shared/ui/MetricCard.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import SectionCard from "@/shared/ui/SectionCard.vue";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
-import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
-import { openAgent } from "@/platform/ui";
-import type { ModuleStatus } from "@/platform/types";
 import { loadOverview } from "./api";
 
 const router = useRouter();
 const { t, locale } = useI18n();
 const { data, loading, error, reload } = useResource(loadOverview);
 
-const nextItems = computed(() => [
-  { key: "overview.next.asset", path: "/assets", state: "planned" as const },
-  { key: "overview.next.heir", path: "/planning", state: "planned" as const },
-  { key: "overview.next.checkin", path: "/planning", state: "ready" as const },
-]);
-
-const tone = (status: ModuleStatus) => (status === "ready" ? "ready" : status === "degraded" ? "degraded" : "planned");
+const nextItems = computed(() => {
+  if (!data.value) return [];
+  const items: Array<{ key: string; path: string }> = [];
+  if (data.value.approvalsPending > 0) {
+    items.push({ key: "overview.next.approval", path: "/automation?tab=approvals" });
+  }
+  if (data.value.assetsTotal === 0) {
+    items.push({ key: "overview.next.asset", path: "/assets" });
+  }
+  if (data.value.heirsTotal === 0) {
+    items.push({ key: "overview.next.heir", path: "/planning" });
+  }
+  if (items.length < 3) {
+    items.push({ key: "overview.next.checkin", path: "/planning" });
+  }
+  return items.slice(0, 3);
+});
 
 function formatTime(value: string): string {
   const date = new Date(value);
@@ -47,7 +54,7 @@ function formatTime(value: string): string {
       :description="t('overview.description')"
     >
       <template #actions>
-        <AppButton variant="secondary" @click="router.push('/automation/approvals')">
+        <AppButton variant="secondary" @click="router.push('/automation?tab=approvals')">
           {{ t("overview.action.review") }}
           <AppIcon name="arrow-right" :size="15" />
         </AppButton>
@@ -89,20 +96,7 @@ function formatTime(value: string): string {
           <span class="eyebrow">{{ t("app.workspace") }}</span>
           <strong>{{ data.workspace }}</strong>
         </div>
-        <div class="strip-divider" />
-        <div class="strip-progress">
-          <div class="progress-label">
-            <span>{{ t("overview.metric.completion") }}</span>
-            <span class="mono">{{ data.completion }}%</span>
-          </div>
-          <div class="progress-track" aria-hidden="true">
-            <span :style="{ width: `${data.completion}%` }" />
-          </div>
-        </div>
-        <div class="strip-state">
-          <StatusPill tone="ready" :label="t('app.mode')" />
-          <StatusPill tone="planned" :label="t('overview.status.note')" />
-        </div>
+        <span class="strip-note">{{ t("overview.status.note") }}</span>
       </section>
 
       <section class="metrics-grid" :aria-label="t('overview.eyebrow')">
@@ -153,36 +147,12 @@ function formatTime(value: string): string {
               <span class="next-index mono">0{{ index + 1 }}</span>
               <span class="next-copy">
                 <span class="next-title">{{ t(item.key) }}</span>
-                <StatusPill
-                  :tone="item.state === 'ready' ? 'ready' : 'planned'"
-                  :label="item.state === 'ready' ? t('common.ready') : t('common.pending')"
-                />
               </span>
               <AppIcon name="chevron-right" :size="16" />
             </button>
           </div>
-          <div class="next-footer">
-            <span class="mono">M2 / 3 ITEMS</span>
-            <span>{{ t("overview.next.subtitle") }}</span>
-          </div>
         </SectionCard>
 
-        <SectionCard :title="t('overview.status.title')" :subtitle="t('overview.status.subtitle')">
-          <div class="status-list">
-            <div v-for="module in data.modules" :key="module.id" class="status-row">
-              <span class="status-id mono">{{ module.id }}</span>
-              <span class="status-label">{{ module.label }}</span>
-              <StatusPill :tone="tone(module.status)" :label="module.status === 'ready' ? t('common.ready') : t('common.planned')" />
-            </div>
-          </div>
-          <div class="runtime-note">
-            <AppIcon name="database" :size="15" />
-            <span>{{ t("overview.runtime.note") }}</span>
-          </div>
-        </SectionCard>
-      </section>
-
-      <section class="lower-grid">
         <SectionCard :title="t('overview.activity.title')" :subtitle="t('overview.activity.subtitle')">
           <div v-if="data.activity.length" class="activity-list">
             <div v-for="item in data.activity" :key="`${item.at}-${item.title}`" class="activity-row">
@@ -195,27 +165,6 @@ function formatTime(value: string): string {
           </div>
           <p v-else class="empty-copy">{{ t("overview.activity.empty") }}</p>
         </SectionCard>
-
-        <aside class="agent-card">
-          <div class="agent-card-top">
-            <span class="agent-mark"><AppIcon name="agent" :size="20" /></span>
-            <StatusPill tone="ready" :label="t('overview.agent.badge')" />
-          </div>
-          <h2>{{ t("overview.agent.title") }}</h2>
-          <p>{{ t("overview.agent.subtitle") }}</p>
-          <div class="tool-chips">
-            <span class="mono">assets.list</span>
-            <span class="mono">plan.get</span>
-            <span class="mono">security.status</span>
-          </div>
-          <div class="agent-card-foot">
-            <span class="agent-online"><span class="pulse" />{{ t("overview.agent.online") }}</span>
-            <AppButton variant="secondary" size="sm" @click="openAgent()">
-              {{ t("overview.agent.open") }}
-              <AppIcon name="arrow-right" :size="14" />
-            </AppButton>
-          </div>
-        </aside>
       </section>
     </template>
   </div>
@@ -256,8 +205,7 @@ function formatTime(value: string): string {
   background: var(--surface);
 }
 
-.overview-grid,
-.lower-grid {
+.overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.85fr);
   gap: 16px;
@@ -295,47 +243,13 @@ function formatTime(value: string): string {
   font-weight: 500;
 }
 
-.strip-divider {
-  width: 1px;
-  height: 34px;
-  background: var(--line);
-}
-
-.strip-progress {
-  flex: 1;
-  min-width: 160px;
-}
-
-.progress-label {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 7px;
-  color: var(--muted-strong);
+.strip-note {
+  margin-left: auto;
+  color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.progress-track {
-  height: 5px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--surface-strong);
-}
-
-.progress-track span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
-  transition: width 600ms var(--ease);
-}
-
-.strip-state {
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
 }
 
 .next-list {
@@ -384,59 +298,6 @@ function formatTime(value: string): string {
   color: var(--muted);
 }
 
-.next-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.status-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.status-row {
-  display: grid;
-  grid-template-columns: 74px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-}
-
-.status-row:first-child {
-  border-top: 0;
-}
-
-.status-id {
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.status-label {
-  color: var(--ink-soft);
-  font-size: 12px;
-}
-
-.runtime-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin-top: 14px;
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.55;
-}
-
 .activity-list {
   display: flex;
   flex-direction: column;
@@ -480,112 +341,12 @@ function formatTime(value: string): string {
   font-size: 12px;
 }
 
-.agent-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  padding: 22px;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
-  border-radius: var(--radius-md);
-  background:
-    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%),
-    var(--surface);
-  box-shadow: var(--shadow-sm);
-}
-
-.agent-card::after {
-  position: absolute;
-  right: -50px;
-  bottom: -60px;
-  width: 170px;
-  height: 170px;
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-  border-radius: 50%;
-  content: "";
-}
-
-.agent-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.agent-mark {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  color: var(--accent-strong);
-  place-items: center;
-  background: var(--accent-soft);
-}
-
-.agent-card h2 {
-  margin-top: 24px;
-  font-size: 24px;
-}
-
-.agent-card p {
-  max-width: 320px;
-  margin: 7px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.tool-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 20px;
-}
-
-.tool-chips span {
-  padding: 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--muted-strong);
-  font-size: 9px;
-}
-
-.agent-card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: auto;
-  padding-top: 24px;
-}
-
-.agent-online {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.pulse {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
 @media (max-width: 1100px) {
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .overview-grid,
-  .lower-grid {
+  .overview-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -593,14 +354,6 @@ function formatTime(value: string): string {
 @media (max-width: 700px) {
   .status-strip {
     flex-wrap: wrap;
-  }
-
-  .strip-divider {
-    display: none;
-  }
-
-  .strip-state {
-    width: 100%;
   }
 
   .metrics-grid {

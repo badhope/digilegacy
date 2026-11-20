@@ -16,6 +16,7 @@ import type { Approval } from "@/platform/types";
 
 const router = useRouter();
 const { t, locale } = useI18n();
+defineProps<{ embedded?: boolean }>();
 const filter = ref<"pending" | "approved" | "rejected" | "all">("pending");
 const reasons = reactive<Record<string, string>>({});
 const deciding = ref("");
@@ -75,8 +76,8 @@ async function decide(approval: Approval, decision: "approve" | "reject") {
 </script>
 
 <template>
-  <div class="approvals-page">
-    <PageHeader eyebrow="AUTOMATION / APPROVALS" :title="t('automation.approvals.title')" :description="t('approvals.description')">
+  <div class="approvals-page" :class="{ embedded }">
+    <PageHeader v-if="!embedded" eyebrow="AUTOMATION / APPROVALS" :title="t('automation.approvals.title')" :description="t('approvals.description')">
       <template #actions>
         <AppButton variant="secondary" size="sm" @click="router.push('/automation')">
           <AppIcon name="arrow-right" :size="14" class="back-arrow" />
@@ -184,6 +185,7 @@ async function decide(approval: Approval, decision: "approve" | "reject") {
 <style scoped>
 .back-arrow { transform: rotate(180deg); }
 .approvals-page { max-width: var(--content-max); margin: 0 auto; }
+.approvals-page.embedded { max-width: none; }
 .approval-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .filter-field { display: flex; align-items: center; gap: 9px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 12px; }
 .filter-field select { border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 12px; }

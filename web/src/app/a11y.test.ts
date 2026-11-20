@@ -16,7 +16,7 @@ type AuditResult = {
 const routes = [
   { path: "/overview", name: "overview", component: { template: "<div>Overview</div>" } },
   { path: "/assets", name: "assets", component: { template: "<div>Assets</div>" } },
-  { path: "/settings/workspace", name: "settings", component: { template: "<div>Settings</div>" } },
+  { path: "/settings/connections", name: "settings", component: { template: "<div>Settings</div>" } },
   { path: "/:pathMatch(.*)*", name: "not-found", component: { template: "<div>Not found</div>" } },
 ];
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -24,6 +24,8 @@ const query = ref("");
 const status = ref<"all" | "active" | "archived">("all");
 const loadingMore = ref(false);
 const createOpen = ref(false);
+const addMenuOpen = ref(false);
+const addMenu = ref<HTMLElement | null>(null);
 const creating = ref(false);
 const createError = ref("");
 
@@ -65,6 +67,23 @@ function openAsset(asset: Asset) {
   router.push(`/assets/${asset.id}`);
 }
 
+function openCreate() {
+  addMenuOpen.value = false;
+  createOpen.value = true;
+}
+
+function openDiscover() {
+  addMenuOpen.value = false;
+  router.push("/assets/discover");
+}
+
+function closeAddMenu(event: MouseEvent) {
+  if (addMenu.value && !addMenu.value.contains(event.target as Node)) addMenuOpen.value = false;
+}
+
+onMounted(() => document.addEventListener("click", closeAddMenu));
+onBeforeUnmount(() => document.removeEventListener("click", closeAddMenu));
+
 async function createAsset(draft: AssetDraft) {
   createError.value = "";
   creating.value = true;
@@ -86,8 +105,16 @@ async function createAsset(draft: AssetDraft) {
   <div class="assets-page">
     <PageHeader eyebrow="ASSETS / REGISTRY" :title="t('assets.title')" :description="t('assets.description')">
       <template #actions>
-        <AppButton variant="secondary" size="sm" @click="router.push('/assets/discover')">{{ t("assets.discover.open") }}</AppButton>
-        <AppButton variant="primary" size="sm" @click="createOpen = !createOpen">{{ t("assets.create.open") }}</AppButton>
+        <div ref="addMenu" class="add-menu-wrap">
+          <AppButton variant="primary" size="sm" @click="addMenuOpen = !addMenuOpen">
+            {{ t("assets.add.open") }}
+            <AppIcon name="plus" :size="14" />
+          </AppButton>
+          <div v-if="addMenuOpen" class="add-menu">
+            <button type="button" @click="openCreate">{{ t("assets.add.single") }}</button>
+            <button type="button" @click="openDiscover">{{ t("assets.add.bulk") }}</button>
+          </div>
+        </div>
       </template>
     </PageHeader>
 
@@ -197,6 +224,38 @@ async function createAsset(draft: AssetDraft) {
 .assets-page {
   max-width: var(--content-max);
   margin: 0 auto;
+}
+
+.add-menu-wrap {
+  position: relative;
+}
+
+.add-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 12;
+  min-width: 180px;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-float);
+}
+
+.add-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--ink-soft);
+  font-size: 11px;
+  text-align: left;
+}
+
+.add-menu button:hover {
+  background: var(--surface-soft);
+  color: var(--accent-strong);
 }
 
 .asset-toolbar {

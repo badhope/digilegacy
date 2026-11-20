@@ -5,8 +5,8 @@ import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { TOOL_CATALOG } from "@/platform/generated/tools";
+import { platformClient } from "@/platform/client";
 import { useResource } from "@/platform/useResource";
-import { loadRuns } from "@/features/automation/api";
 import { closeAgent, ui } from "@/platform/ui";
 import { useI18n } from "@/platform/i18n";
 import { useDialogFocus } from "./dialogFocus";
@@ -14,13 +14,18 @@ import { useDialogFocus } from "./dialogFocus";
 const router = useRouter();
 const { t } = useI18n();
 const panel = ref<HTMLElement | null>(null);
-const readTools = computed(() => TOOL_CATALOG.filter((tool) => tool.mcp));
-const { data: runs } = useResource(loadRuns);
-const waitingRuns = computed(() => runs.value?.items.filter((run) => run.status === "waiting_approval") ?? []);
+const toolCount = TOOL_CATALOG.length;
+const { data: approvals } = useResource(() => platformClient.listApprovals({ status: "pending" }));
+const pending = computed(() => approvals.value?.pending ?? 0);
 useDialogFocus(computed(() => ui.agentOpen), panel);
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === "Escape" && ui.agentOpen) closeAgent();
+}
+
+function open(path: string) {
+  router.push(path);
+  closeAgent();
 }
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
@@ -48,55 +53,39 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
           <div class="drawer-status">
             <StatusPill tone="ready" :label="t('overview.agent.online')" />
             <StatusPill tone="planned" :label="t('overview.agent.readonly')" />
-            <span class="mono status-num">{{ readTools.length }} TOOLS</span>
+            <span class="mono status-num">{{ toolCount }} TOOLS</span>
           </div>
 
           <p class="drawer-note">{{ t("agent.drawer.subtitle") }}</p>
 
-          <section class="drawer-section">
-            <h3>{{ t("agent.drawer.tools") }}</h3>
-            <div class="drawer-tools">
-              <button
-                v-for="tool in readTools"
-                :key="tool.name"
-                type="button"
-                class="drawer-tool"
-                @click="router.push('/automation/tools'); closeAgent()"
-              >
-                <span class="tool-sign"><AppIcon name="command" :size="14" /></span>
-                <span class="tool-copy">
-                  <strong class="mono">{{ tool.name }}</strong>
-                  <small>{{ tool.title }}</small>
-                </span>
-                <AppIcon name="chevron-right" :size="14" />
-              </button>
+          <div class="pending-box">
+            <span class="pending-sign"><AppIcon name="clock" :size="16" /></span>
+            <div class="pending-copy">
+              <strong>{{ t("agent.drawer.approvals") }}</strong>
+              <small>{{ t("automation.approvals.subtitle") }}</small>
             </div>
-          </section>
+            <StatusPill :tone="pending ? 'degraded' : 'ready'" :label="t('approvals.pendingCount', { count: pending })" />
+          </div>
 
-          <section class="drawer-section">
-            <div class="section-head">
-              <h3>{{ t("agent.drawer.approvals") }}</h3>
-              <span class="mono section-count">{{ waitingRuns.length }}</span>
-            </div>
-            <div v-if="waitingRuns.length" class="approval-list">
-              <div v-for="run in waitingRuns" :key="run.id" class="approval-row">
-                <span class="approval-sign"><AppIcon name="clock" :size="15" /></span>
-                <div>
-                  <strong>{{ run.title }}</strong>
-                  <small class="mono">{{ run.id }} · {{ t("run.status.waiting_approval") }}</small>
-                </div>
-              </div>
-            </div>
-            <div v-else class="approval-empty">
-              <span class="approval-sign"><AppIcon name="check" :size="16" /></span>
-              <span>{{ t("automation.approvals.empty") }}</span>
-            </div>
-          </section>
+          <div class="drawer-actions">
+            <AppButton variant="primary" @click="open('/automation/runs/new')">
+              {{ t("automation.runs.new") }}
+              <AppIcon name="arrow-right" :size="14" />
+            </AppButton>
+            <AppButton variant="secondary" @click="open('/automation?tab=approvals')">
+              {{ t("automation.approvals") }}
+              <AppIcon name="arrow-right" :size="14" />
+            </AppButton>
+            <AppButton variant="secondary" @click="open('/automation?tab=tools')">
+              {{ t("automation.tools") }}
+              <AppIcon name="arrow-right" :size="14" />
+            </AppButton>
+          </div>
 
           <p class="drawer-disclaimer">{{ t("agent.drawer.note") }}</p>
 
           <footer class="drawer-foot">
-            <AppButton variant="primary" @click="router.push('/automation'); closeAgent()">
+            <AppButton variant="secondary" @click="open('/automation')">
               {{ t("agent.drawer.open") }}
               <AppIcon name="arrow-right" :size="14" />
             </AppButton>
@@ -201,132 +190,57 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
   line-height: 1.6;
 }
 
-.drawer-section {
-  margin-top: 24px;
-}
-
-.drawer-section h3 {
-  font-family: var(--font-body);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.drawer-tools {
-  margin-top: 8px;
-  border-top: 1px solid var(--line);
-}
-
-.drawer-tool {
+.pending-box {
   display: flex;
   align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-  text-align: left;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
 }
 
-.drawer-tool:hover .tool-copy strong {
-  color: var(--accent-strong);
-}
-
-.tool-sign {
+.pending-sign {
   display: grid;
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  color: var(--muted-strong);
-  place-items: center;
-  background: var(--surface-soft);
-}
-
-.tool-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.tool-copy strong {
-  display: block;
-  color: var(--ink-soft);
-  font-size: 10px;
-  font-weight: 500;
-  transition: color var(--fast) var(--ease);
-}
-
-.tool-copy small {
-  display: block;
-  margin-top: 2px;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.drawer-tool > :last-child {
-  color: var(--muted);
-}
-
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.section-count {
-  color: var(--muted);
-  font-size: 10px;
-}
-
-.approval-list {
-  margin-top: 8px;
-  border-top: 1px solid var(--line);
-}
-
-.approval-row {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.approval-row strong {
-  display: block;
-  color: var(--ink-soft);
-  font-size: 11px;
-}
-
-.approval-row small {
-  display: block;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 8px;
-}
-
-.approval-empty {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: 10px;
-  padding: 12px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-soft);
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.approval-sign {
-  display: grid;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   color: var(--accent-strong);
   place-items: center;
   background: var(--accent-soft);
+}
+
+.pending-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pending-copy strong {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.pending-copy small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.drawer-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.drawer-actions :deep(.app-button) {
+  justify-content: space-between;
 }
 
 .drawer-disclaimer {

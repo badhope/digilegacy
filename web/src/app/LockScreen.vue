@@ -2,7 +2,6 @@
 import { computed, ref } from "vue";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
-import StatusPill from "@/shared/ui/StatusPill.vue";
 import { ui, unlockConsole } from "@/platform/ui";
 import { useI18n } from "@/platform/i18n";
 import { useDialogFocus } from "./dialogFocus";
@@ -20,7 +19,6 @@ useDialogFocus(computed(() => ui.locked), panel, "first");
         <span class="eyebrow">DIGILEGACY / LOCKED</span>
         <h1>{{ t("lock.title") }}</h1>
         <p>{{ t("lock.note") }}</p>
-        <StatusPill tone="ready" :label="t('app.mode')" />
         <AppButton variant="primary" @click="unlockConsole()">
           {{ t("lock.action") }}
           <AppIcon name="arrow-right" :size="14" />
@@ -78,9 +76,5 @@ useDialogFocus(computed(() => ui.locked), panel, "first");
   color: var(--muted);
   font-size: 12px;
   line-height: 1.7;
-}
-
-.lock-panel > :nth-last-child(2) {
-  margin-bottom: 18px;
 }
 </style>

@@ -12,6 +12,8 @@ import { useI18n } from "@/platform/i18n";
 import { useTheme } from "@/platform/theme";
 import { lockConsole, openAgent, openPalette } from "@/platform/ui";
 
+const appVersion = __APP_VERSION__;
+
 const route = useRoute();
 const router = useRouter();
 const { t, locale, toggleLocale } = useI18n();
@@ -36,7 +38,7 @@ const prefetchNames: Record<string, string> = {
   "/planning": "planning",
   "/deliverables": "deliverables",
   "/automation": "automation",
-  "/settings/workspace": "settings",
+  "/settings/connections": "settings",
 };
 
 function isActive(path: string) {
@@ -130,27 +132,9 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="rail-bottom">
-        <button type="button" class="workspace-card" @mouseenter="prefetch('/settings/workspace')" @focus="prefetch('/settings/workspace')" @click="go('/settings/workspace')">
-          <span class="workspace-dot" />
-          <span>
-            <strong>{{ t("app.workspace") }}</strong>
-            <small>{{ t("app.workspace.note") }}</small>
-          </span>
-          <AppIcon name="chevron-right" :size="14" />
-        </button>
-
-        <button type="button" class="agent-rail" @click="openAgent()">
-          <span class="agent-rail-icon"><AppIcon name="agent" :size="16" /></span>
-          <span>
-            <strong>{{ t("topbar.agent") }}</strong>
-            <small>{{ t("overview.agent.online") }} · {{ t("overview.agent.readonly") }}</small>
-          </span>
-          <span class="online-dot" />
-        </button>
-
         <div class="rail-meta mono">
-          <span>v0.0.17</span>
-          <span>M6 / LIVE</span>
+          <span>v{{ appVersion }}</span>
+          <span>{{ t("app.tagline") }}</span>
         </div>
       </div>
     </aside>
@@ -213,7 +197,7 @@ onBeforeUnmount(() => {
             <AppIcon name="lock" :size="16" />
           </button>
 
-          <button class="tool-button" type="button" :aria-label="t('topbar.settings')" @click="go('/settings/workspace')">
+          <button class="tool-button" type="button" :aria-label="t('topbar.settings')" @click="go('/settings/connections')">
             <AppIcon name="settings" :size="17" />
           </button>
         </div>
@@ -395,76 +379,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 10px;
   padding-top: 16px;
-}
-
-.workspace-card,
-.agent-rail {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 9px;
-  text-align: left;
-  background: rgba(255, 255, 255, 0.035);
-  transition: background var(--fast) var(--ease);
-}
-
-.workspace-card:hover,
-.agent-rail:hover {
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.workspace-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #b5cba8;
-}
-
-.workspace-card > span:nth-child(2),
-.agent-rail > span:nth-child(2) {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.workspace-card strong,
-.agent-rail strong {
-  color: #edf2e9;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.workspace-card small,
-.agent-rail small {
-  margin-top: 2px;
-  overflow: hidden;
-  color: rgba(233, 238, 227, 0.45);
-  font-size: 8px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workspace-card > :last-child {
-  color: rgba(233, 238, 227, 0.32);
-}
-
-.agent-rail {
-  border-color: rgba(145, 173, 134, 0.24);
-  background: rgba(145, 173, 134, 0.09);
-}
-
-.agent-rail-icon {
-  display: grid;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  color: #c6d9ba;
-  place-items: center;
-  background: rgba(145, 173, 134, 0.18);
 }
 
 .online-dot {

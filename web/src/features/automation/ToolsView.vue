@@ -11,6 +11,7 @@ import { TOOL_CATALOG } from "@/platform/generated/tools";
 
 const router = useRouter();
 const { t } = useI18n();
+defineProps<{ embedded?: boolean }>();
 const query = ref("");
 const permission = ref("all");
 
@@ -33,8 +34,8 @@ function tone(value: string): "ready" | "planned" | "degraded" | "danger" | "neu
 </script>
 
 <template>
-  <div class="tools-page">
-    <PageHeader eyebrow="AUTOMATION / TOOLS" :title="t('automation.tools.title')" :description="t('automation.tools.subtitle')">
+  <div class="tools-page" :class="{ embedded }">
+    <PageHeader v-if="!embedded" eyebrow="AUTOMATION / TOOLS" :title="t('automation.tools.title')" :description="t('automation.tools.subtitle')">
       <template #actions>
         <AppButton variant="secondary" size="sm" @click="router.push('/automation')">
           <AppIcon name="arrow-right" :size="14" class="back-arrow" />
@@ -86,6 +87,7 @@ function tone(value: string): "ready" | "planned" | "degraded" | "danger" | "neu
 <style scoped>
 .back-arrow { transform: rotate(180deg); }
 .tools-page { max-width: var(--content-max); margin: 0 auto; }
+.tools-page.embedded { max-width: none; }
 .tool-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .tool-toolbar input, .tool-toolbar select { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; }
 .tool-toolbar input { flex: 1; }

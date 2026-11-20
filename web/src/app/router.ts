@@ -88,26 +88,32 @@ const routes: RouteRecordRaw[] = [
   {
     path: "/automation/tools",
     name: "tools",
-    component: () => import("@/features/automation/ToolsView.vue"),
-    meta: {
-      titleKey: "automation.tools.title",
-      eyebrowKey: "automation.eyebrow",
-      descriptionKey: "automation.tools.subtitle",
-      modules: ["AGT-02", "IFC-03"],
-      commands: ["agent.runs.get", "assets.list", "assets.get", "plan.get"],
-    },
+    redirect: { path: "/automation", query: { tab: "tools" } },
   },
   {
     path: "/automation/approvals",
     name: "approvals",
-    component: () => import("@/features/automation/ApprovalsView.vue"),
-    meta: {
-      titleKey: "automation.approvals.title",
-      eyebrowKey: "automation.eyebrow",
-      descriptionKey: "automation.approvals.subtitle",
-      modules: ["AGT-03", "WEB-09"],
-      commands: ["agent.approvals.list", "agent.approvals.decide"],
-    },
+    redirect: { path: "/automation", query: { tab: "approvals" } },
+  },
+  {
+    path: "/settings/workspace",
+    redirect: "/settings/connections",
+  },
+  {
+    path: "/settings/appearance",
+    redirect: "/settings/connections",
+  },
+  {
+    path: "/settings/data",
+    redirect: "/settings/security",
+  },
+  {
+    path: "/settings/about",
+    redirect: "/settings/connections",
+  },
+  {
+    path: "/settings/audit",
+    redirect: "/settings/security",
   },
   {
     path: "/settings/:section?",

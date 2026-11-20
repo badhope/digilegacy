@@ -203,11 +203,7 @@ function splitList(value: string): string[] {
 
 <template>
   <div class="policies-page">
-    <PageHeader eyebrow="POLICY / LIBRARY" :title="tp('policies.title')" :description="tp('policies.description')">
-      <template #actions>
-        <StatusPill tone="ready" :label="t('app.mode')" />
-      </template>
-    </PageHeader>
+    <PageHeader eyebrow="POLICY / LIBRARY" :title="tp('policies.title')" :description="tp('policies.description')" />
 
     <AssetTabs />
 

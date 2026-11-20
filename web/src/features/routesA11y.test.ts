@@ -13,8 +13,6 @@ import DeliverablesView from "@/features/deliverables/DeliverablesView.vue";
 import AutomationView from "@/features/automation/AutomationView.vue";
 import RunStartView from "@/features/automation/RunStartView.vue";
 import RunDetailView from "@/features/automation/RunDetailView.vue";
-import ToolsView from "@/features/automation/ToolsView.vue";
-import ApprovalsView from "@/features/automation/ApprovalsView.vue";
 import SettingsView from "@/features/settings/SettingsView.vue";
 import NotFoundView from "@/features/notfound/NotFoundView.vue";
 
@@ -93,11 +91,10 @@ const cases: Array<[string, Component, string]> = [
   ["planning", PlanningView, "/planning"],
   ["deliverables", DeliverablesView, "/deliverables"],
   ["automation", AutomationView, "/automation"],
+  ["automation approvals tab", AutomationView, "/automation?tab=approvals"],
+  ["automation tools tab", AutomationView, "/automation?tab=tools"],
   ["run start", RunStartView, "/automation/runs/new"],
   ["run detail", RunDetailView, "/automation/runs/run_01"],
-  ["tools", ToolsView, "/automation/tools"],
-  ["approvals", ApprovalsView, "/automation/approvals"],
-  ["settings workspace", SettingsView, "/settings/workspace"],
   ["settings security", SettingsView, "/settings/security"],
   ["settings connections", SettingsView, "/settings/connections"],
   ["not found", NotFoundView, "/missing"],

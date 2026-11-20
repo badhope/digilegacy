@@ -4,7 +4,6 @@ import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import EmptyState from "@/shared/ui/EmptyState.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
-import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
 
 const router = useRouter();
@@ -13,11 +12,7 @@ const { t } = useI18n();
 
 <template>
   <div class="not-found">
-    <PageHeader eyebrow="ROUTE / 404" :title="t('notfound.title')" :description="t('notfound.note')">
-      <template #actions>
-        <StatusPill tone="danger" :label="t('app.mode')" />
-      </template>
-    </PageHeader>
+    <PageHeader eyebrow="ROUTE / 404" :title="t('notfound.title')" :description="t('notfound.note')" />
     <EmptyState :title="t('notfound.title')" :note="t('notfound.note')" icon="alert">
       <template #action>
         <AppButton variant="primary" @click="router.push('/overview')">

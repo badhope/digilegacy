@@ -213,11 +213,7 @@ async function checkIn() {
 
 <template>
   <div class="planning-page">
-    <PageHeader eyebrow="PLANNING / PEOPLE & TRIGGER" :title="t('planning.title')" :description="t('planning.description')">
-      <template #actions>
-        <StatusPill tone="ready" :label="t('app.mode')" />
-      </template>
-    </PageHeader>
+    <PageHeader eyebrow="PLANNING / PEOPLE & TRIGGER" :title="t('planning.title')" :description="t('planning.description')" />
 
     <div v-if="loading" class="planning-loading">
       <div v-for="index in 3" :key="index" class="plan-skeleton">
@@ -244,10 +240,6 @@ async function checkIn() {
               <h3>{{ data.holder.name || t("planning.holder.empty") }}</h3>
               <p class="mono">{{ formatDate(data.holder.updatedAt, locale) }}</p>
             </div>
-          </div>
-          <div class="plan-line">
-            <span>{{ t("settings.workspace.mode") }}</span>
-            <StatusPill tone="ready" :label="t('app.mode')" />
           </div>
         </SectionCard>
 
@@ -408,6 +400,7 @@ async function checkIn() {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+  align-items: start;
 }
 
 .holder-block {

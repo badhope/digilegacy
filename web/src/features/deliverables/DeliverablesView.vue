@@ -155,11 +155,9 @@ onUnmounted(() => {
 
 <template>
   <div class="deliverables-page">
-    <PageHeader eyebrow="DELIVERABLES / EXPORT" :title="t('deliverables.title')" :description="t('deliverables.description')">
-      <template #actions>
-        <StatusPill tone="ready" :label="t('app.mode')" />
-      </template>
-    </PageHeader>
+    <PageHeader eyebrow="DELIVERABLES / EXPORT" :title="t('deliverables.title')" :description="t('deliverables.description')" />
+
+    <p class="deliverable-boundary">{{ t("deliverables.boundary") }}</p>
 
     <div class="deliverable-grid">
       <article v-for="kind in kinds" :key="kind.kind" class="deliverable-card">
@@ -171,7 +169,6 @@ onUnmounted(() => {
           />
         </div>
         <h2>{{ t(kind.key) }}</h2>
-        <p>{{ t("deliverables.boundary") }}</p>
 
         <div v-if="results[kind.kind]?.status === 'succeeded'" class="deliverable-result">
           <span class="mono">{{ results[kind.kind]?.fileName }}</span>
@@ -207,7 +204,6 @@ onUnmounted(() => {
             <AppIcon name="plus" :size="14" />
             {{ busy === kind.kind ? t("deliverables.generating") : t("deliverables.generate") }}
           </AppButton>
-          <span class="deliverable-meta mono">M3 / LIVE</span>
         </div>
       </article>
     </div>
@@ -221,20 +217,6 @@ onUnmounted(() => {
           <StatusPill tone="ready" :label="t('deliverables.generated')" />
         </div>
       </SectionCard>
-
-      <SectionCard :title="t('deliverables.quality')" :subtitle="t('deliverables.boundary')">
-        <div class="drill-callout">
-          <AppIcon name="shield" :size="17" />
-          <div>
-            <strong>{{ t("deliverables.generated") }}</strong>
-            <p>{{ t("deliverables.note") }}</p>
-          </div>
-        </div>
-        <div class="drill-line">
-          <span class="mono">deliver.export</span>
-          <StatusPill tone="ready" :label="t('common.ready')" />
-        </div>
-      </SectionCard>
     </div>
   </div>
 </template>
@@ -243,6 +225,13 @@ onUnmounted(() => {
 .deliverables-page {
   max-width: var(--content-max);
   margin: 0 auto;
+}
+
+.deliverable-boundary {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
 }
 
 .deliverable-grid {
@@ -254,7 +243,6 @@ onUnmounted(() => {
 .deliverable-card {
   display: flex;
   flex-direction: column;
-  min-height: 230px;
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
@@ -349,13 +337,11 @@ onUnmounted(() => {
 
 .deliverable-lower {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 14px;
   margin-top: 14px;
 }
 
 .queue-row,
-.drill-line,
 .queue-empty {
   display: flex;
   align-items: center;
@@ -367,7 +353,6 @@ onUnmounted(() => {
 }
 
 .queue-row:first-child,
-.drill-line:first-child,
 .queue-empty:first-child {
   border-top: 0;
 }
@@ -389,27 +374,6 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.drill-callout {
-  display: flex;
-  gap: 12px;
-  padding: 14px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-soft);
-  color: var(--muted-strong);
-}
-
-.drill-callout strong {
-  display: block;
-  color: var(--ink);
-  font-size: 12px;
-}
-
-.drill-callout p {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: 11px;
-}
-
 @media (max-width: 1100px) {
   .deliverable-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -417,8 +381,7 @@ onUnmounted(() => {
 }
 
 @media (max-width: 780px) {
-  .deliverable-grid,
-  .deliverable-lower {
+  .deliverable-grid {
     grid-template-columns: 1fr;
   }
 }

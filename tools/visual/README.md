@@ -48,8 +48,9 @@ same pages against the real API and a real Chromium:
 python3 tools/visual/live_smoke.py
 ```
 
-It visits 15 route/theme/viewport combinations, requires a `main` element, no
-horizontal overflow, no page exceptions, no API 5xx and no console errors, then
+It visits the primary routes, automation tabs, both settings sections, and the
+dark/mobile variants, requiring a `main` element, no horizontal overflow, no
+page exceptions, no API 5xx and no console errors, then
 runs axe WCAG A/AA/2.2 AA in the real browser with colour contrast enabled. The
 first run caught two `label-content-name-mismatch` violations in the topbar; the
 fixed run has zero. Evidence goes to
@@ -59,7 +60,7 @@ a temporary directory. This still does not replace human screen-reader review.
 ## What is covered
 
 - Desktop light: overview, assets, policies, planning, deliverables, automation,
-  settings workspace
+  settings connections
 - Desktop dark: overview
 - Mobile light: overview at 390 x 844
 

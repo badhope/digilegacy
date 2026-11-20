@@ -570,6 +570,33 @@ const MOCK_DATA: Record<string, unknown> = {
       }
     ]
   },
+  "agent.approvals.list": {
+    "items": [
+      {
+        "id": "apr_demo_01",
+        "runId": "run_01",
+        "tool": "assets.update",
+        "objectKey": "ast_01",
+        "diff": "{\n  \"field\": \"status\",\n  \"before\": \"active\",\n  \"after\": \"archived\"\n}",
+        "status": "pending",
+        "reason": "",
+        "createdAt": "2026-11-19T09:31:00+08:00",
+        "decidedAt": ""
+      },
+      {
+        "id": "apr_demo_02",
+        "runId": "run_01",
+        "tool": "planning.trigger.update",
+        "objectKey": "trigger",
+        "diff": "{\n  \"field\": \"waitDays\",\n  \"before\": 90,\n  \"after\": 60\n}",
+        "status": "pending",
+        "reason": "",
+        "createdAt": "2026-11-19T09:34:00+08:00",
+        "decidedAt": ""
+      }
+    ],
+    "pending": 2
+  },
   "agent.approvals.decide": {
     "id": "apr_demo_01",
     "status": "approved",

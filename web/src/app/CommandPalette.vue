@@ -3,16 +3,16 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import type { IconName } from "@/shared/icons/paths";
-import { COMMAND_NAMES, COMMAND_PERMISSION } from "@/platform/generated/ipc";
-import { closePalette, ui } from "@/platform/ui";
+import { closePalette, lockConsole, ui } from "@/platform/ui";
 import { useI18n } from "@/platform/i18n";
+import { useTheme } from "@/platform/theme";
 import { useDialogFocus } from "./dialogFocus";
 
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale, toggleLocale } = useI18n();
+const { theme, toggleTheme } = useTheme();
 const panel = ref<HTMLElement | null>(null);
 const query = ref("");
-const copied = ref<string | null>(null);
 
 const navItems: Array<{ path: string; labelKey: string; icon: IconName }> = [
   { path: "/overview", labelKey: "nav.overview", icon: "overview" },
@@ -20,17 +20,71 @@ const navItems: Array<{ path: string; labelKey: string; icon: IconName }> = [
   { path: "/planning", labelKey: "nav.planning", icon: "planning" },
   { path: "/deliverables", labelKey: "nav.deliverables", icon: "deliverables" },
   { path: "/automation", labelKey: "nav.automation", icon: "automation" },
-  { path: "/settings", labelKey: "nav.settings", icon: "settings" },
+  { path: "/settings/connections", labelKey: "nav.settings", icon: "settings" },
 ];
+
+const actions = computed<Array<{ id: string; label: string; icon: IconName; run: () => void }>>(() => [
+  {
+    id: "new-run",
+    label: t("command.action.newRun"),
+    icon: "agent",
+    run: () => go("/automation/runs/new"),
+  },
+  {
+    id: "approvals",
+    label: t("command.action.approvals"),
+    icon: "clock",
+    run: () => go("/automation?tab=approvals"),
+  },
+  {
+    id: "tools",
+    label: t("command.action.tools"),
+    icon: "command",
+    run: () => go("/automation?tab=tools"),
+  },
+  {
+    id: "connections",
+    label: t("command.action.connections"),
+    icon: "settings",
+    run: () => go("/settings/connections"),
+  },
+  {
+    id: "lock",
+    label: t("command.action.lock"),
+    icon: "lock",
+    run: () => {
+      close();
+      lockConsole();
+    },
+  },
+  {
+    id: "theme",
+    label: theme.value === "light" ? t("command.action.dark") : t("command.action.light"),
+    icon: theme.value === "light" ? "moon" : "sun",
+    run: () => {
+      toggleTheme();
+      close();
+    },
+  },
+  {
+    id: "language",
+    label: locale.value === "zh-CN" ? t("command.action.english") : t("command.action.chinese"),
+    icon: "settings",
+    run: () => {
+      toggleLocale();
+      close();
+    },
+  },
+]);
 
 const filteredNav = computed(() => {
   const keyword = query.value.trim().toLowerCase();
   return navItems.filter((item) => !keyword || t(item.labelKey).toLowerCase().includes(keyword));
 });
 
-const filteredCommands = computed(() => {
+const filteredActions = computed(() => {
   const keyword = query.value.trim().toLowerCase();
-  return COMMAND_NAMES.filter((command) => !keyword || command.toLowerCase().includes(keyword)).slice(0, 8);
+  return actions.value.filter((item) => !keyword || item.label.toLowerCase().includes(keyword));
 });
 
 function close() {
@@ -42,18 +96,6 @@ function go(path: string) {
   close();
 }
 
-async function copyCommand(command: string) {
-  try {
-    await navigator.clipboard?.writeText(command);
-    copied.value = command;
-    window.setTimeout(() => {
-      if (copied.value === command) copied.value = null;
-    }, 1600);
-  } catch {
-    copied.value = null;
-  }
-}
-
 function onKeydown(event: KeyboardEvent) {
   if (event.key === "Escape" && ui.paletteOpen) close();
 }
@@ -63,10 +105,7 @@ useDialogFocus(computed(() => ui.paletteOpen), panel, "first");
 watch(
   () => ui.paletteOpen,
   (open) => {
-    if (open) {
-      query.value = "";
-      copied.value = null;
-    }
+    if (open) query.value = "";
   },
 );
 
@@ -101,22 +140,14 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
             </section>
 
             <section class="palette-group">
-              <span class="group-label">{{ t("command.title") }} / {{ t("command.permission") }}</span>
-              <button
-                v-for="command in filteredCommands"
-                :key="command"
-                class="palette-row"
-                type="button"
-                @click="copyCommand(command)"
-              >
-                <span class="row-icon"><AppIcon name="command" :size="15" /></span>
-                <span class="row-copy mono">{{ command }}</span>
-                <span class="mono row-meta">{{ COMMAND_PERMISSION[command] }}</span>
-                <span class="copy-state mono" :aria-live="copied === command ? 'polite' : 'off'">{{ copied === command ? t("command.copied") : t("command.copy") }}</span>
+              <span class="group-label">{{ t("command.actions") }}</span>
+              <button v-for="action in filteredActions" :key="action.id" class="palette-row" type="button" @click="action.run">
+                <span class="row-icon"><AppIcon :name="action.icon" :size="15" /></span>
+                <span class="row-copy">{{ action.label }}</span>
               </button>
             </section>
 
-            <p v-if="!filteredNav.length && !filteredCommands.length" class="palette-empty">
+            <p v-if="!filteredNav.length && !filteredActions.length" class="palette-empty">
               {{ t("command.empty") }}
             </p>
           </div>
@@ -233,14 +264,6 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 .row-meta {
   color: var(--muted);
   font-size: 9px;
-}
-
-.copy-state {
-  min-width: 38px;
-  color: var(--accent-strong);
-  font-size: 8px;
-  text-align: right;
-  text-transform: uppercase;
 }
 
 .palette-empty {

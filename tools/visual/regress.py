@@ -61,7 +61,7 @@ SHOTS: tuple[Shot, ...] = (
     Shot("planning-light", "/planning"),
     Shot("deliverables-light", "/deliverables"),
     Shot("automation-light", "/automation"),
-    Shot("settings-light", "/settings/workspace"),
+    Shot("settings-light", "/settings/connections"),
     Shot("overview-dark", "/overview", theme="dark"),
     Shot("overview-mobile", "/overview", width=390, height=844),
 )

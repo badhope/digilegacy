@@ -14,7 +14,6 @@ import type { BulkCreateResult, DiscoveryCategory, DiscoverySuggestion } from "@
 
 const router = useRouter();
 const { t, locale, isEnglish } = useI18n();
-const step = ref(0);
 const activeCategory = ref("");
 const query = ref("");
 const selected = ref<DiscoverySuggestion[]>([]);
@@ -55,7 +54,7 @@ function isSelected(id: string): boolean {
 function chooseCategory(id: string) {
   activeCategory.value = id;
   query.value = "";
-  step.value = 1;
+  submitError.value = "";
 }
 function toggleSuggestion(suggestion: DiscoverySuggestion) {
   if (suggestion.exists) return;
@@ -107,11 +106,18 @@ async function submit() {
     }
     result.value = envelope.data;
     selected.value = [];
-    step.value = 3;
     await reload();
   } finally {
     submitting.value = false;
   }
+}
+function discoverMore() {
+  result.value = null;
+  activeCategory.value = "";
+  query.value = "";
+  selected.value = [];
+  submitError.value = "";
+  void reload();
 }
 function backToAssets() {
   router.push("/assets");
@@ -126,120 +132,9 @@ function backToAssets() {
       </template>
     </PageHeader>
 
-    <div class="step-bar" aria-label="discovery steps">
-      <div v-for="(label, index) in [t('assets.discover.step.category'), t('assets.discover.step.select'), t('assets.discover.step.review')]" :key="label" class="step-item" :class="{ active: step === index, done: step > index }">
-        <span class="step-index mono">{{ step > index ? "✓" : index + 1 }}</span>
-        <span>{{ label }}</span>
-      </div>
-    </div>
-
     <ErrorState v-if="error" :title="t('error.generic')" :message="error" :retry-label="t('common.retry')" @retry="reload" />
 
-    <div v-else-if="step === 0" class="panel">
-      <div class="panel-head">
-        <div>
-          <h2>{{ t("assets.discover.chooseCategory") }}</h2>
-          <p>{{ t("assets.discover.chooseCategoryHint") }}</p>
-        </div>
-        <StatusPill tone="ready" :label="t('assets.discover.catalogCount', { count: catalogTotal })" />
-      </div>
-      <div v-if="loading" class="category-grid" aria-busy="true">
-        <div v-for="index in 4" :key="index" class="category-skeleton"><SkeletonBlock width="80%" height="18px" /><SkeletonBlock width="55%" height="12px" /></div>
-      </div>
-      <div v-else class="category-grid">
-        <button v-for="category in categories" :key="category.id" type="button" class="category-card" @click="chooseCategory(category.id)">
-          <span class="category-icon"><AppIcon name="assets" :size="18" /></span>
-          <strong>{{ categoryLabel(category) }}</strong>
-          <small>{{ t("assets.discover.categoryCount", { count: category.count }) }}</small>
-          <AppIcon name="chevron-right" :size="16" class="category-chevron" />
-        </button>
-        <button type="button" class="category-card category-all" @click="chooseCategory('')">
-          <span class="category-icon"><AppIcon name="search" :size="18" /></span>
-          <strong>{{ t("assets.discover.allCategories") }}</strong>
-          <small>{{ t("assets.discover.catalogCount", { count: catalogTotal }) }}</small>
-          <AppIcon name="chevron-right" :size="16" class="category-chevron" />
-        </button>
-      </div>
-    </div>
-
-    <div v-else-if="step === 1" class="panel">
-      <div class="panel-head">
-        <div>
-          <button type="button" class="back-link" @click="step = 0"><AppIcon name="arrow-right" :size="14" class="back-icon" /> {{ t("assets.discover.step.category") }}</button>
-          <h2>{{ activeCategory ? categoryOf(activeCategory) : t("assets.discover.allCategories") }}</h2>
-          <p>{{ t("assets.discover.selectHint") }}</p>
-        </div>
-        <span class="selected-count mono">{{ t("assets.discover.selected", { count: selectedCount }) }}</span>
-      </div>
-
-      <div class="discover-toolbar">
-        <label class="search-field">
-          <AppIcon name="search" :size="16" />
-          <input v-model="query" type="search" :placeholder="t('assets.discover.search')" />
-        </label>
-        <AppButton variant="secondary" size="sm" :disabled="loading || !suggestions.length" @click="toggleCurrent">
-          {{ t("assets.discover.toggleAll") }}
-        </AppButton>
-      </div>
-
-      <div v-if="loading" class="suggestion-grid" aria-busy="true">
-        <div v-for="index in 6" :key="index" class="suggestion-skeleton"><SkeletonBlock width="65%" height="16px" /><SkeletonBlock width="90%" height="12px" /></div>
-      </div>
-      <div v-else-if="suggestions.length" class="suggestion-grid">
-        <button
-          v-for="suggestion in suggestions"
-          :key="suggestion.id"
-          type="button"
-          class="suggestion-card"
-          :class="{ picked: isSelected(suggestion.id), exists: suggestion.exists }"
-          :disabled="suggestion.exists"
-          @click="toggleSuggestion(suggestion)"
-        >
-          <span class="check-mark"><AppIcon v-if="isSelected(suggestion.id)" name="check" :size="14" /><AppIcon v-else-if="suggestion.exists" name="lock" :size="13" /></span>
-          <strong>{{ suggestion.name }}</strong>
-          <small class="suggestion-platform">{{ suggestion.platform }} · {{ t(`asset.kind.${suggestion.kind}`) }}</small>
-          <span class="suggestion-reason">{{ suggestionReason(suggestion) }}</span>
-          <span v-if="suggestion.exists" class="exists-label">{{ t("assets.discover.exists") }}</span>
-        </button>
-      </div>
-      <div v-else class="empty-panel">
-        <p>{{ t("assets.discover.empty") }}</p>
-        <AppButton variant="secondary" size="sm" @click="query = ''; reload()">{{ t("common.all") }}</AppButton>
-      </div>
-
-      <div class="panel-actions">
-        <span v-if="submitError" class="action-error">{{ submitError }}</span>
-        <AppButton variant="primary" size="sm" :disabled="!selectedCount" @click="step = 2">{{ t("assets.discover.next") }} ({{ selectedCount }})</AppButton>
-      </div>
-    </div>
-
-    <div v-else-if="step === 2" class="panel">
-      <div class="panel-head">
-        <div>
-          <button type="button" class="back-link" @click="step = 1"><AppIcon name="arrow-right" :size="14" class="back-icon" /> {{ t("assets.discover.step.select") }}</button>
-          <h2>{{ t("assets.discover.review") }}</h2>
-          <p>{{ t("assets.discover.reviewHint") }}</p>
-        </div>
-        <span class="selected-count mono">{{ t("assets.discover.selected", { count: selectedCount }) }}</span>
-      </div>
-      <div class="review-list">
-        <div v-for="item in selected" :key="item.id" class="review-row">
-          <span class="review-icon"><AppIcon name="assets" :size="15" /></span>
-          <span class="review-main"><strong>{{ item.name }}</strong><small>{{ item.platform }} · {{ categoryOf(item.category) }}</small></span>
-          <span class="review-kind mono">{{ t(`asset.kind.${item.kind}`) }}</span>
-          <button type="button" class="remove-button" :aria-label="t('common.remove')" @click="removeSelected(item.id)">×</button>
-        </div>
-      </div>
-      <div class="panel-actions">
-        <span v-if="submitError" class="action-error">{{ submitError }}</span>
-        <AppButton variant="secondary" size="sm" @click="step = 1">{{ t("assets.discover.backToSelect") }}</AppButton>
-        <AppButton variant="primary" size="sm" :disabled="submitting || !selectedCount" @click="submit">
-          {{ submitting ? t("assets.discover.creating") : t("assets.discover.create", { count: selectedCount }) }}
-        </AppButton>
-      </div>
-    </div>
-
-    <div v-else class="panel result-panel">
+    <div v-else-if="result" class="panel result-panel">
       <span class="result-icon"><AppIcon name="check" :size="22" /></span>
       <h2>{{ t("assets.discover.created") }}</h2>
       <p>{{ t("assets.discover.createdHint", { created: result?.created ?? 0, skipped: result?.skipped ?? 0 }) }}</p>
@@ -248,41 +143,117 @@ function backToAssets() {
         <div><span class="mono">{{ result?.skipped ?? 0 }}</span><small>{{ t("assets.discover.skippedLabel") }}</small></div>
       </div>
       <div class="panel-actions">
-        <AppButton variant="secondary" size="sm" @click="step = 0">{{ t("assets.discover.addMore") }}</AppButton>
+        <AppButton variant="secondary" size="sm" @click="discoverMore">{{ t("assets.discover.addMore") }}</AppButton>
         <AppButton variant="primary" size="sm" @click="backToAssets">{{ t("assets.discover.viewAssets") }}</AppButton>
       </div>
     </div>
+
+    <template v-else>
+      <div class="category-strip" role="group" :aria-label="t('assets.discover.step.category')">
+        <button
+          v-for="category in categories"
+          :key="category.id"
+          type="button"
+          class="category-chip"
+          :class="{ active: activeCategory === category.id }"
+          @click="chooseCategory(category.id)"
+        >
+          <span>{{ categoryLabel(category) }}</span>
+          <small class="mono">{{ category.count }}</small>
+        </button>
+        <button
+          type="button"
+          class="category-chip"
+          :class="{ active: activeCategory === '' }"
+          @click="chooseCategory('')"
+        >
+          <span>{{ t("assets.discover.allCategories") }}</span>
+          <small class="mono">{{ catalogTotal }}</small>
+        </button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>{{ activeCategory ? categoryOf(activeCategory) : t("assets.discover.allCategories") }}</h2>
+            <p>{{ t("assets.discover.selectHint") }}</p>
+          </div>
+          <StatusPill tone="ready" :label="t('assets.discover.selected', { count: selectedCount })" />
+        </div>
+
+        <div class="discover-toolbar">
+          <label class="search-field">
+            <AppIcon name="search" :size="16" />
+            <input v-model="query" type="search" :placeholder="t('assets.discover.search')" />
+          </label>
+          <AppButton variant="secondary" size="sm" :disabled="loading || !suggestions.length" @click="toggleCurrent">
+            {{ t("assets.discover.toggleAll") }}
+          </AppButton>
+        </div>
+
+        <div v-if="loading" class="suggestion-grid" aria-busy="true">
+          <div v-for="index in 6" :key="index" class="suggestion-skeleton"><SkeletonBlock width="65%" height="16px" /><SkeletonBlock width="90%" height="12px" /></div>
+        </div>
+        <div v-else-if="suggestions.length" class="suggestion-grid">
+          <button
+            v-for="suggestion in suggestions"
+            :key="suggestion.id"
+            type="button"
+            class="suggestion-card"
+            :class="{ picked: isSelected(suggestion.id), exists: suggestion.exists }"
+            :disabled="suggestion.exists"
+            @click="toggleSuggestion(suggestion)"
+          >
+            <span class="check-mark"><AppIcon v-if="isSelected(suggestion.id)" name="check" :size="14" /><AppIcon v-else-if="suggestion.exists" name="lock" :size="13" /></span>
+            <strong>{{ suggestion.name }}</strong>
+            <small class="suggestion-platform">{{ suggestion.platform }} · {{ t(`asset.kind.${suggestion.kind}`) }}</small>
+            <span class="suggestion-reason">{{ suggestionReason(suggestion) }}</span>
+            <span v-if="suggestion.exists" class="exists-label">{{ t("assets.discover.exists") }}</span>
+          </button>
+        </div>
+        <div v-else class="empty-panel">
+          <p>{{ t("assets.discover.empty") }}</p>
+          <AppButton variant="secondary" size="sm" @click="query = ''; reload()">{{ t("common.all") }}</AppButton>
+        </div>
+
+        <div v-if="selectedCount" class="selected-tray">
+          <div class="selected-tray-head">
+            <strong>{{ t("assets.discover.selected", { count: selectedCount }) }}</strong>
+            <button type="button" class="link-button" @click="selected = []">{{ t("common.clear") }}</button>
+          </div>
+          <div class="selected-chips">
+            <button v-for="item in selected" :key="item.id" type="button" class="selected-chip" @click="removeSelected(item.id)">
+              <span>{{ item.name }}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel-actions">
+          <span v-if="submitError" class="action-error">{{ submitError }}</span>
+          <AppButton variant="primary" size="sm" :disabled="submitting || !selectedCount" @click="submit">
+            {{ submitting ? t("assets.discover.creating") : t("assets.discover.create", { count: selectedCount }) }}
+          </AppButton>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
 <style scoped>
 .discover-page { max-width: var(--content-max); margin: 0 auto; }
-.step-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.step-item { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; background: var(--surface); }
-.step-item.active { border-color: var(--accent); color: var(--fg); background: var(--accent-soft); }
-.step-item.done { color: var(--ok); }
-.step-index { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--surface-muted); font-size: 10px; }
-.step-item.active .step-index { background: var(--accent); color: var(--accent-fg); }
+.category-strip { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+.category-chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 11px; }
+.category-chip:hover { border-color: var(--accent); color: var(--ink); }
+.category-chip.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); font-weight: 600; }
+.category-chip small { color: var(--muted); font-size: 9px; }
 .panel { border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-sm); padding: 20px 22px; }
 .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .panel-head h2 { margin: 0 0 5px; font-family: var(--font-display); font-size: 20px; }
 .panel-head p { margin: 0; color: var(--muted); font-size: 12px; }
-.back-link { display: inline-flex; align-items: center; gap: 3px; margin-bottom: 8px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
-.back-link:hover { color: var(--fg); }
-.back-icon { display: inline-block; transform: rotate(180deg); }
-.category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-.category-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 16px 36px 16px 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-muted); text-align: left; cursor: pointer; transition: border-color .16s, transform .16s, background .16s; }
-.category-card:hover { border-color: var(--accent); background: var(--surface); transform: translateY(-1px); }
-.category-card.category-all { border-style: dashed; }
-.category-icon { display: inline-grid; place-items: center; width: 30px; height: 30px; margin-bottom: 4px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); }
-.category-card strong { font-size: 13px; }
-.category-card small { color: var(--muted); font-size: 11px; }
-.category-chevron { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); }
-.category-skeleton { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .discover-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .search-field { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 340px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-muted); color: var(--muted); }
 .search-field input { width: 100%; height: 34px; border: 0; background: transparent; color: var(--fg); outline: none; font-size: 12px; }
-.selected-count { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .suggestion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(245px, 1fr)); gap: 10px; }
 .suggestion-card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 13px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-muted); text-align: left; cursor: pointer; position: relative; }
 .suggestion-card:hover:not(:disabled) { border-color: var(--accent); background: var(--surface); }
@@ -295,19 +266,15 @@ function backToAssets() {
 .suggestion-card.picked .check-mark { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
 .exists-label { color: var(--muted); font-size: 10px; }
 .suggestion-skeleton { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); }
-.panel-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
-.action-error { margin-right: auto; color: var(--danger); font-size: 11px; }
 .empty-panel { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 10px; color: var(--muted); font-size: 12px; }
-.review-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; }
-.review-row { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border-bottom: 1px solid var(--line); background: var(--surface-muted); }
-.review-row:last-child { border-bottom: 0; }
-.review-icon { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); flex: none; }
-.review-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.review-main strong { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.review-main small { color: var(--muted); font-size: 10px; }
-.review-kind { color: var(--muted); font-size: 10px; white-space: nowrap; }
-.remove-button { border: 0; background: transparent; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 3px 5px; }
-.remove-button:hover { color: var(--danger); }
+.selected-tray { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.selected-tray-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.selected-tray-head strong { font-size: 12px; color: var(--ink); }
+.selected-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.selected-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-soft); color: var(--ink-soft); font-size: 10px; }
+.selected-chip:hover { border-color: var(--accent); color: var(--accent-strong); }
+.panel-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.action-error { margin-right: auto; color: var(--danger); font-size: 11px; }
 .result-panel { text-align: center; padding: 36px 22px; }
 .result-icon { display: inline-grid; place-items: center; width: 48px; height: 48px; margin-bottom: 6px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); }
 .result-panel h2 { margin: 0 0 5px; font-family: var(--font-display); font-size: 22px; }
@@ -320,9 +287,6 @@ function backToAssets() {
   .panel { padding: 16px 14px; }
   .discover-toolbar { flex-direction: column; align-items: stretch; }
   .search-field { max-width: none; }
-  .step-bar { gap: 6px; }
-  .step-item { padding: 5px 8px; }
-  .panel-actions { align-items: stretch; }
-  .panel-actions .action-error { width: 100%; margin-right: 0; }
+  .panel-head { flex-direction: column; }
 }
 </style>

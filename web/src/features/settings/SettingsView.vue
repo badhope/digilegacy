@@ -1,23 +1,19 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import AppIcon from "@/shared/icons/AppIcon.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import SectionCard from "@/shared/ui/SectionCard.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
-import { COMMAND_NAMES } from "@/platform/generated/ipc";
 import { platformClient } from "@/platform/client";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
-import { useTheme } from "@/platform/theme";
 import { formatDateTime } from "@/shared/format";
 import { loadAudit, loadConnections, loadSecurity } from "./api";
 import type { ConnectionItem, ConnectionKind, ConnectionStatus, ConnectionUpsertInput } from "@/platform/types";
 
 const route = useRoute();
 const router = useRouter();
-const { t, locale, setLocale } = useI18n();
-const { theme, setTheme } = useTheme();
+const { t, locale } = useI18n();
 const { data: security, loading: securityLoading, error: securityError, reload: reloadSecurity } = useResource(loadSecurity);
 const auditKind = ref("");
 const audit = useResource(() => loadAudit({ limit: 20, ...(auditKind.value ? { kind: auditKind.value } : {}) }));
@@ -194,8 +190,8 @@ async function copyConnectionGuide() {
 - 飞书 / 企业微信：机器人 Webhook 完整 URL
 
 步骤：
-1. 在页面顶部填平台写令牌。
-2. 点“新增连接”，选择对应类型。
+1. 在“设置 → 安全与数据”填平台写令牌（向管理员索取，不要发到群里）。
+2. 回到“连接”页，点“新增连接”，选择对应类型。
 3. 填写名称、地址、凭据；SMTP 还要填用户名、发件人、加密方式。
 4. 保存后点“测试”，确认显示 OK。
 5. 把连接名称和状态截图交给管理员；不要回传凭据。`
@@ -210,8 +206,8 @@ Prepare:
 - Feishu / WeCom: full bot webhook URL
 
 Steps:
-1. Enter the platform write token at the top of the page.
-2. Press Add connection and pick the kind.
+1. In Settings → Security & data, enter the platform write token (ask the owner; do not post it in chat).
+2. Return to Connections and press Add connection.
 3. Fill the label, endpoint and credential; for SMTP also fill username, From and security.
 4. Save, press Test, and confirm it reports OK.
 5. Send the connection label and status screenshot back; never send the credential.`;
@@ -341,11 +337,15 @@ async function testConnection(item: ConnectionItem) {
   }
 }
 
-const sections = ["workspace", "appearance", "security", "data", "connections", "audit", "about"] as const;
+const sections = ["connections", "security"] as const;
 type Section = (typeof sections)[number];
+const sectionLabels: Record<Section, string> = {
+  connections: "settings.tab.connections",
+  security: "settings.tab.securityData",
+};
 const active = computed<Section>(() => {
   const value = route.params.section;
-  return typeof value === "string" && sections.includes(value as Section) ? (value as Section) : "workspace";
+  return typeof value === "string" && sections.includes(value as Section) ? (value as Section) : "connections";
 });
 
 function go(section: Section) {
@@ -355,11 +355,7 @@ function go(section: Section) {
 
 <template>
   <div class="settings-page">
-    <PageHeader eyebrow="SETTINGS / GLOBAL TOOLS" :title="t('settings.title')" :description="t('settings.description')">
-      <template #actions>
-        <StatusPill tone="ready" :label="t('app.mode')" />
-      </template>
-    </PageHeader>
+    <PageHeader eyebrow="SETTINGS / GLOBAL TOOLS" :title="t('settings.title')" :description="t('settings.description')" />
 
     <div class="settings-shell">
       <nav class="settings-tabs" :aria-label="t('settings.title')">
@@ -371,81 +367,12 @@ function go(section: Section) {
           :class="{ active: active === section }"
           @click="go(section)"
         >
-          {{ t(`settings.tab.${section}`) }}
+          {{ t(sectionLabels[section]) }}
         </button>
       </nav>
 
       <div class="settings-content">
-        <SectionCard v-if="active === 'workspace'" :title="t('settings.tab.workspace')" :subtitle="t('settings.description')">
-          <div class="setting-row">
-            <span>{{ t("settings.workspace.name") }}</span>
-            <strong>{{ t("app.workspace") }}</strong>
-          </div>
-          <div class="setting-row">
-            <span>{{ t("settings.workspace.mode") }}</span>
-            <span>{{ t("settings.workspace.mode.value") }}</span>
-          </div>
-          <div class="setting-row">
-            <span>{{ t("app.mode") }}</span>
-            <StatusPill tone="planned" :label="t('common.planned')" />
-          </div>
-        </SectionCard>
-
-        <SectionCard v-else-if="active === 'appearance'" :title="t('settings.tab.appearance')" :subtitle="t('settings.description')">
-          <div class="setting-row">
-            <span>{{ t("settings.appearance.theme") }}</span>
-            <div class="segmented">
-              <button type="button" :class="{ selected: theme === 'light' }" @click="setTheme('light')">
-                <AppIcon name="sun" :size="14" />
-                {{ t("settings.appearance.theme.light") }}
-              </button>
-              <button type="button" :class="{ selected: theme === 'dark' }" @click="setTheme('dark')">
-                <AppIcon name="moon" :size="14" />
-                {{ t("settings.appearance.theme.dark") }}
-              </button>
-            </div>
-          </div>
-          <div class="setting-row">
-            <span>{{ t("settings.appearance.language") }}</span>
-            <div class="segmented">
-              <button type="button" :class="{ selected: locale === 'zh-CN' }" @click="setLocale('zh-CN')">中文</button>
-              <button type="button" :class="{ selected: locale === 'en-US' }" @click="setLocale('en-US')">English</button>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard v-else-if="active === 'security'" :title="t('settings.tab.security')" :subtitle="t('settings.tab.security.note')">
-          <div v-if="securityLoading" class="empty-note">{{ t("common.loading") }}</div>
-          <div v-else-if="securityError" class="empty-note">{{ securityError }}</div>
-          <template v-else-if="security">
-            <div class="setting-row">
-              <span>{{ t("settings.security.locked") }}</span>
-              <StatusPill :tone="security.locked ? 'planned' : 'ready'" :label="security.locked ? t('settings.security.locked.yes') : t('settings.security.locked.no')" />
-            </div>
-            <div class="setting-row">
-              <span>{{ t("settings.security.recovery") }}</span>
-              <strong>{{ security.recoveryConfigured ? t("common.ready") : t("settings.security.notConfigured") }}</strong>
-            </div>
-            <div class="setting-row">
-              <span>{{ t("settings.security.keySource") }}</span>
-              <strong class="mono">{{ security.keySource === "passphrase" ? t("settings.security.key.passphrase") : security.keySource }}</strong>
-            </div>
-            <div class="setting-row">
-              <span>{{ t("settings.security.lastBackup") }}</span>
-              <strong class="mono">{{ security.lastBackupAt || t("settings.security.none") }}</strong>
-            </div>
-            <div class="setting-row">
-              <span>{{ t("settings.security.refresh") }}</span>
-              <button type="button" class="link-button" @click="reloadSecurity">{{ t("common.retry") }}</button>
-            </div>
-          </template>
-        </SectionCard>
-
-        <SectionCard v-else-if="active === 'data'" :title="t('settings.tab.data')" :subtitle="t('settings.tab.data.note')">
-          <div class="empty-note">{{ t("settings.tab.data.empty") }}</div>
-        </SectionCard>
-
-        <SectionCard v-else-if="active === 'connections'" :title="t('settings.tab.connections')" :subtitle="t('settings.tab.connections.note')">
+        <SectionCard v-if="active === 'connections'" :title="t('settings.tab.connections')" :subtitle="t('settings.tab.connections.note')">
           <div class="connection-guide">
             <div class="connection-guide-head">
               <div>
@@ -478,20 +405,6 @@ function go(section: Section) {
             </div>
             <p v-if="guideNotice" class="connection-notice">{{ guideNotice }}</p>
           </div>
-
-          <div class="setting-row token-row">
-            <div>
-              <span>{{ t("settings.connections.token") }}</span>
-              <p class="setting-hint">{{ t("settings.connections.tokenHint") }}</p>
-            </div>
-            <StatusPill :tone="writeToken ? 'ready' : 'planned'" :label="writeToken ? t('settings.connections.tokenSet') : t('settings.connections.tokenUnset')" />
-          </div>
-          <div class="token-form">
-            <input v-model="writeToken" type="password" autocomplete="off" :placeholder="t('settings.connections.tokenPlaceholder')" />
-            <button type="button" class="link-button" @click="saveWriteToken">{{ t("settings.connections.save") }}</button>
-            <button type="button" class="link-button" @click="clearWriteToken">{{ t("settings.connections.clear") }}</button>
-          </div>
-          <div v-if="tokenSaved" class="empty-note">{{ t("settings.connections.saved") }}</div>
 
           <div class="connection-toolbar">
             <button type="button" class="link-button" @click="openAddConnection">{{ connectionCopy.add }}</button>
@@ -596,68 +509,97 @@ function go(section: Section) {
           <div v-if="connectionError" class="connection-error">{{ connectionError }}</div>
         </SectionCard>
 
-        <SectionCard v-else-if="active === 'audit'" :title="t('settings.tab.audit')" :subtitle="t('settings.tab.audit.note')">
-          <div class="audit-toolbar">
-            <label class="select-field">
-              <span>{{ t("settings.audit.kind") }}</span>
-              <select v-model="auditKind" @change="audit.reload()">
-                <option value="">{{ t("common.all") }}</option>
-                <option value="asset.create">asset.create</option>
-                <option value="asset.update">asset.update</option>
-                <option value="policy.provenance.set">policy.provenance.set</option>
-                <option value="deliver.export">deliver.export</option>
-                <option value="trigger.checkin">trigger.checkin</option>
-              </select>
-            </label>
-            <span class="mono audit-total">{{ t("settings.audit.count", { count: audit.data.value?.total ?? 0 }) }}</span>
-          </div>
-          <div v-if="audit.loading.value" class="empty-note">{{ t("common.loading") }}</div>
-          <div v-else-if="audit.error.value" class="empty-note">{{ audit.error.value }}</div>
-          <div v-else-if="!audit.data.value?.items.length" class="empty-note">{{ t("settings.tab.audit.empty") }}</div>
-          <div v-else class="audit-table-wrap">
-            <table class="audit-table">
-              <thead>
-                <tr>
-                  <th>{{ t("settings.audit.time") }}</th>
-                  <th>{{ t("settings.audit.kind") }}</th>
-                  <th>{{ t("settings.audit.subject") }}</th>
-                  <th>{{ t("settings.audit.outcome") }}</th>
-                  <th>hash</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="entry in audit.data.value.items" :key="entry.id">
-                  <td class="mono">{{ entry.at }}</td>
-                  <td class="mono">{{ entry.kind }}</td>
-                  <td>{{ entry.subject }}</td>
-                  <td><StatusPill :tone="entry.outcome === 'ok' ? 'ready' : 'planned'" :label="entry.outcome" /></td>
-                  <td class="mono hash-cell" :title="entry.hash">{{ entry.hash.slice(0, 12) }}…</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </SectionCard>
+        <div v-else class="settings-stack">
+          <SectionCard :title="t('settings.tab.securityData')" :subtitle="t('settings.tab.security.note')">
+            <div v-if="securityLoading" class="empty-note">{{ t("common.loading") }}</div>
+            <div v-else-if="securityError" class="empty-note">{{ securityError }}</div>
+            <template v-else-if="security">
+              <div class="setting-row">
+                <span>{{ t("settings.security.locked") }}</span>
+                <StatusPill :tone="security.locked ? 'planned' : 'ready'" :label="security.locked ? t('settings.security.locked.yes') : t('settings.security.locked.no')" />
+              </div>
+              <div class="setting-row">
+                <span>{{ t("settings.security.recovery") }}</span>
+                <strong>{{ security.recoveryConfigured ? t("common.ready") : t("settings.security.notConfigured") }}</strong>
+              </div>
+              <div class="setting-row">
+                <span>{{ t("settings.security.keySource") }}</span>
+                <strong class="mono">{{ security.keySource === "passphrase" ? t("settings.security.key.passphrase") : security.keySource }}</strong>
+              </div>
+              <div class="setting-row">
+                <span>{{ t("settings.security.refresh") }}</span>
+                <button type="button" class="link-button" @click="reloadSecurity">{{ t("common.retry") }}</button>
+              </div>
+            </template>
 
-        <SectionCard v-else :title="t('settings.tab.about')" :subtitle="t('settings.about.note')">
-          <div class="about-grid">
-            <div class="about-item">
-              <span class="mono">{{ t("settings.about.version") }}</span>
-              <strong>0.0.17</strong>
+            <div class="settings-block">
+              <div class="settings-block-head">
+                <div>
+                  <strong>{{ t("settings.security.access") }}</strong>
+                  <p class="setting-hint">{{ t("settings.connections.tokenHint") }}</p>
+                </div>
+                <StatusPill :tone="writeToken ? 'ready' : 'planned'" :label="writeToken ? t('settings.connections.tokenSet') : t('settings.connections.tokenUnset')" />
+              </div>
+              <div class="token-form">
+                <input v-model="writeToken" type="password" autocomplete="off" :placeholder="t('settings.connections.tokenPlaceholder')" />
+                <button type="button" class="link-button" @click="saveWriteToken">{{ t("settings.connections.save") }}</button>
+                <button type="button" class="link-button" @click="clearWriteToken">{{ t("settings.connections.clear") }}</button>
+              </div>
+              <div v-if="tokenSaved" class="empty-note">{{ t("settings.connections.saved") }}</div>
             </div>
-            <div class="about-item">
-              <span class="mono">{{ t("settings.about.contracts") }}</span>
-              <strong>{{ COMMAND_NAMES.length }}</strong>
+
+            <div class="settings-block">
+              <strong>{{ t("settings.security.data") }}</strong>
+              <div class="setting-row">
+                <span>{{ t("settings.security.lastBackup") }}</span>
+                <strong class="mono">{{ security?.lastBackupAt || t("settings.security.none") }}</strong>
+              </div>
+              <p class="setting-hint">{{ t("settings.security.dataNote") }}</p>
             </div>
-            <div class="about-item">
-              <span class="mono">{{ t("settings.about.modules") }}</span>
-              <strong>54</strong>
+          </SectionCard>
+
+          <SectionCard :title="t('settings.audit.title')" :subtitle="t('settings.tab.audit.note')">
+            <div class="audit-toolbar">
+              <label class="select-field">
+                <span>{{ t("settings.audit.kind") }}</span>
+                <select v-model="auditKind" @change="audit.reload()">
+                  <option value="">{{ t("common.all") }}</option>
+                  <option value="asset.create">asset.create</option>
+                  <option value="asset.update">asset.update</option>
+                  <option value="policy.provenance.set">policy.provenance.set</option>
+                  <option value="deliver.export">deliver.export</option>
+                  <option value="trigger.checkin">trigger.checkin</option>
+                </select>
+              </label>
+              <span class="mono audit-total">{{ t("settings.audit.count", { count: audit.data.value?.total ?? 0 }) }}</span>
             </div>
-          </div>
-          <div class="about-note">
-            <AppIcon name="info" :size="15" />
-            <span>{{ t("settings.about.note") }}</span>
-          </div>
-        </SectionCard>
+            <div v-if="audit.loading.value" class="empty-note">{{ t("common.loading") }}</div>
+            <div v-else-if="audit.error.value" class="empty-note">{{ audit.error.value }}</div>
+            <div v-else-if="!audit.data.value?.items.length" class="empty-note">{{ t("settings.tab.audit.empty") }}</div>
+            <div v-else class="audit-table-wrap">
+              <table class="audit-table">
+                <thead>
+                  <tr>
+                    <th>{{ t("settings.audit.time") }}</th>
+                    <th>{{ t("settings.audit.kind") }}</th>
+                    <th>{{ t("settings.audit.subject") }}</th>
+                    <th>{{ t("settings.audit.outcome") }}</th>
+                    <th>hash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="entry in audit.data.value.items" :key="entry.id">
+                    <td class="mono">{{ entry.at }}</td>
+                    <td class="mono">{{ entry.kind }}</td>
+                    <td>{{ entry.subject }}</td>
+                    <td><StatusPill :tone="entry.outcome === 'ok' ? 'ready' : 'planned'" :label="entry.outcome" /></td>
+                    <td class="mono hash-cell" :title="entry.hash">{{ entry.hash.slice(0, 12) }}…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
+        </div>
       </div>
     </div>
   </div>
@@ -743,34 +685,13 @@ function go(section: Section) {
 .connection-guide-actions { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
 .connection-guide-actions .link-button { min-height: 30px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
 .connection-guide-actions .link-button:hover { border-color: var(--accent); color: var(--accent-strong); }
-.token-row { align-items: flex-start; }
+.settings-stack { display: grid; gap: 16px; }
+.settings-block { display: grid; gap: 10px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.settings-block-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.settings-block strong { color: var(--ink); font-size: 12px; }
 .setting-hint { max-width: 420px; margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .token-form { display: flex; align-items: center; gap: 8px; padding: 0 0 12px; }
 .token-form input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 12px; }
-.segmented {
-  display: flex;
-  gap: 4px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-soft);
-}
-
-.segmented button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.segmented button.selected {
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: var(--shadow-sm);
-}
 
 .empty-note {
   margin: 8px 0 2px;
@@ -779,43 +700,6 @@ function go(section: Section) {
   border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 12px;
-}
-
-.about-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.about-item {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-
-.about-item span {
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.about-item strong {
-  color: var(--ink);
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.about-note {
-  display: flex;
-  gap: 8px;
-  margin-top: 14px;
-  color: var(--muted);
-  font-size: 11px;
 }
 
 .connection-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 12px 0 8px; border-top: 1px solid var(--line); }
@@ -864,10 +748,6 @@ function go(section: Section) {
   .settings-tabs {
     flex-direction: row;
     flex-wrap: wrap;
-  }
-
-  .about-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>
