@@ -15,6 +15,7 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 
 ### Fixed
 
+- Offline mock mode now echoes the requested asset name and status, so archive/restore feedback works without a live API.
 - Write-token guidance now points to **Settings → Security & data** everywhere, matching where `DIGILEGACY_API_TOKEN` is actually entered.
 - The server now mounts the asset write routes declared by the contract: `POST /api/v1/assets` and `PATCH /api/v1/assets/{id}`.
 
