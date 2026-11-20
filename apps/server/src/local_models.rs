@@ -139,13 +139,26 @@ fn active_port(config: &ActiveConfig) -> Option<u16> {
 }
 
 fn terminate_pid(pid: u32) {
-    let command = fs::read_to_string(format!("/proc/{pid}/cmdline")).unwrap_or_default();
-    if command.contains("local_model_server.py") {
+    if sidecar_process(pid) {
         let _ = Command::new("kill")
             .arg("-TERM")
             .arg(pid.to_string())
             .status();
     }
+}
+
+fn sidecar_process(pid: u32) -> bool {
+    fs::read_to_string(format!("/proc/{pid}/cmdline"))
+        .map(|command| command.contains("local_model_server.py"))
+        .unwrap_or(false)
+}
+
+fn runtime_context() -> u32 {
+    std::env::var("DIGILEGACY_LOCAL_MODEL_CTX")
+        .ok()
+        .and_then(|value| value.parse::<u32>().ok())
+        .filter(|value| (2048..=131_072).contains(value))
+        .unwrap_or(8192)
 }
 
 struct RuntimeHandle {
@@ -178,6 +191,7 @@ pub struct Manager {
     root: PathBuf,
     downloads: Mutex<HashMap<String, DownloadState>>,
     runtime: Mutex<Option<RuntimeHandle>>,
+    activation: Mutex<()>,
 }
 
 impl Manager {
@@ -187,6 +201,7 @@ impl Manager {
             root,
             downloads: Mutex::new(HashMap::new()),
             runtime: Mutex::new(None),
+            activation: Mutex::new(()),
         }
     }
 
@@ -197,7 +212,9 @@ impl Manager {
                 .ok()
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("data/models"));
-            Manager::new(root)
+            let manager = Manager::new(root);
+            manager.discard_stale_active();
+            manager
         })
     }
 
@@ -220,6 +237,17 @@ impl Manager {
     fn read_active(&self) -> Option<ActiveConfig> {
         let text = fs::read_to_string(self.active_path()).ok()?;
         serde_json::from_str(&text).ok()
+    }
+
+    fn discard_stale_active(&self) {
+        let Some(active) = self.read_active() else {
+            return;
+        };
+        let process_alive = active.pid.map(sidecar_process).unwrap_or(false);
+        if process_alive || self.probe_active(&active).is_some() {
+            return;
+        }
+        let _ = fs::remove_file(self.active_path());
     }
 
     fn is_verified(&self, spec: &ModelSpec) -> bool {
@@ -472,6 +500,10 @@ impl Manager {
     }
 
     pub fn activate(&self, id: &str) -> Result<serde_json::Value, LocalModelError> {
+        let _activation = self
+            .activation
+            .lock()
+            .map_err(|_| LocalModelError::new("INTERNAL", "本地模型启用锁失败"))?;
         let spec = CATALOG
             .iter()
             .find(|spec| spec.id == id)
@@ -546,7 +578,7 @@ impl Manager {
             .arg("--port")
             .arg(port.to_string())
             .arg("--ctx")
-            .arg("8192")
+            .arg(runtime_context().to_string())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(log_err))
             .spawn()
@@ -639,6 +671,7 @@ impl Manager {
     }
 
     pub fn stop(&self) -> serde_json::Value {
+        let _activation = self.activation.lock();
         self.stop_runtime();
         let _ = fs::remove_file(self.active_path());
         serde_json::json!({"stopped": true})
@@ -716,6 +749,30 @@ mod tests {
             download_url: "",
             model_id: "Test",
         }
+    }
+
+    #[test]
+    fn stale_active_is_discarded() {
+        let root = std::env::temp_dir().join(format!("digilegacy-lm-stale-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let manager = Manager::new(root.clone());
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            manager.active_path(),
+            serde_json::json!({
+                "id": "test-model",
+                "model": "Test",
+                "baseUrl": "http://127.0.0.1:1/v1",
+                "apiKey": "local",
+                "path": "test.gguf",
+                "pid": 999_999,
+            })
+            .to_string(),
+        )
+        .unwrap();
+        manager.discard_stale_active();
+        assert!(manager.read_active().is_none());
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

@@ -1,9 +1,9 @@
 {
-  "entryRawKb": 82,
+  "entryRawKb": 82.2,
   "vendorRawKb": 130,
   "routeRawKb": 24,
-  "totalJsGzipKb": 109.1,
+  "totalJsGzipKb": 110.1,
   "totalCssGzipKb": 21.1,
-  "totalGzipKb": 130.1,
-  "_note": "0.0.19 raised for real vault lock and recovery. 0.0.20 adds a lazy LocalModelsPanel chunk (~2.9 KB gzip) plus reactive token state; SettingsView stays under 24 KB raw."
+  "totalGzipKb": 131.1,
+  "_note": "0.0.19 raised for real vault lock and recovery. 0.0.20 added the lazy LocalModelsPanel chunk; 0.0.21 adds complete zh/en model copy, network error handling and a configurable 8K+ runtime context."
 }

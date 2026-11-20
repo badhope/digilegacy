@@ -44,6 +44,17 @@ function mockEnvelope<T>(name: CommandName, args: Record<string, unknown> = {}):
   };
 }
 
+function networkFailure<T>(message: string): Envelope<T> {
+  return {
+    success: false,
+    code: "NETWORK",
+    message,
+    data: null as T,
+    details: null,
+    traceId: traceId(),
+  };
+}
+
 async function invoke<T>(name: CommandName, args: Record<string, unknown> = {}): Promise<Envelope<T>> {
   if (USE_MOCK) {
     await new Promise((resolve) => setTimeout(resolve, name === COMMANDS.appOverview ? 320 : 180));
@@ -54,13 +65,27 @@ async function invoke<T>(name: CommandName, args: Record<string, unknown> = {}):
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const response = await fetch(`${API_BASE}${INVOKE_PATH}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ name, args }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${INVOKE_PATH}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name, args }),
+    });
+  } catch {
+    return networkFailure<T>("无法连接平台 API，请确认服务已启动。");
+  }
 
-  const envelope = (await response.json()) as Envelope<T>;
+  let envelope: Envelope<T>;
+  try {
+    envelope = (await response.json()) as Envelope<T>;
+  } catch {
+    return networkFailure<T>(
+      response.status >= 500
+        ? `平台 API 暂不可用（HTTP ${response.status}）。`
+        : `平台 API 返回了无法解析的响应（HTTP ${response.status}）。`,
+    );
+  }
   if (!response.ok && envelope.success) {
     return {
       ...envelope,
@@ -133,8 +158,22 @@ async function localModelRequest<T>(path: string, method: "GET" | "POST"): Promi
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const token = readWriteToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const response = await fetch(`${API_BASE}${path}`, { method, headers });
-  const envelope = (await response.json()) as Envelope<T>;
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { method, headers });
+  } catch {
+    return networkFailure<T>("无法连接本地模型服务，请确认平台 API 已启动。");
+  }
+  let envelope: Envelope<T>;
+  try {
+    envelope = (await response.json()) as Envelope<T>;
+  } catch {
+    return networkFailure<T>(
+      response.status >= 500
+        ? `本地模型服务暂不可用（HTTP ${response.status}）。`
+        : `本地模型服务返回了无法解析的响应（HTTP ${response.status}）。`,
+    );
+  }
   if (!response.ok && envelope.success) {
     return {
       ...envelope,

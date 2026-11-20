@@ -500,7 +500,7 @@ const openapi = {
   openapi: "3.1.0",
   info: {
     title: "DigiLegacy Platform API",
-    version: "0.0.20",
+    version: "0.0.21",
     description: "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents.",
   },
   servers: [{ url: "http://127.0.0.1:8787", description: "Local platform server" }],

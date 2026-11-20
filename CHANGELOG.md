@@ -4,6 +4,25 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.21] - November 2026
+
+### Fixed
+
+- Concurrent activation of the same model is serialized by an activation mutex; two simultaneous requests now both return 200, share one PID and leave one sidecar.
+- The local planner timeout is no longer silently capped at 120 seconds. Local models default to 180 seconds and may be raised to 300 through `DIGILEGACY_LLM_TIMEOUT_SECS`.
+- On startup, a stale `active.json` whose PID and port are both dead is removed, so the planner cannot keep pointing at a stopped sidecar. A sidecar that is still listening is retained.
+- The English settings page now translates the recommendation badge, context labels, parameter strings and all three model descriptions instead of mixing Chinese copy into English.
+- When the platform API or local-model route is unreachable, the panel shows a readable unavailable message instead of `Unexpected end of JSON input`.
+
+### Added
+
+- `DIGILEGACY_LOCAL_MODEL_CTX` configures the sidecar context window (2,048–131,072, default 8,192). A 9,028-token prompt succeeds at 16K after failing at the 8K default.
+
+### Testing
+
+- Rust workspace: 187 passed / 0 failed. Web: 79 passed / 0 failed. `./tools/verify.sh` OK.
+- Concurrent activation, damaged `active.json`, ghost PID cleanup, port exhaustion, read-only model directory, file-size quota, path traversal and full zh/en UI were exercised; results are recorded in `docs/operations/measurements/local-models-functional-2026-11-20.md`.
+
 ## [0.0.20] - November 2026
 
 ### Added

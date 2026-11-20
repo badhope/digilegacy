@@ -156,6 +156,7 @@ async fn main() {
         .init();
 
     let application = Arc::new(Application::from_env().expect("platform application"));
+    let _ = local_models::Manager::global();
     info!(
         path = %application.store().path().display(),
         schema = application.store().schema_version().unwrap_or(-1),

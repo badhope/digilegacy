@@ -2,6 +2,25 @@
 
 [English](../../CHANGELOG.md) | 简体中文
 
+## [0.0.21] - 2026-11-21
+
+### 修复
+
+- 同一模型的并发启用由互斥锁串行化；两个并发请求都返回 200，指向同一 PID，只留下一个 sidecar。
+- 本地规划器超时不再被悄悄压到 120 秒；本地模型默认 180 秒，可用 `DIGILEGACY_LLM_TIMEOUT_SECS` 调到 300 秒。
+- 服务启动时若 `active.json` 的 PID 与端口都已失效，会删除这条过期记录，规划器不会再指向已停止的 sidecar；仍在监听的 sidecar 会保留。
+- 英文设置页补齐“推荐”徽标、上下文标签、参数字符串和三款模型描述，不再在中英文之间混排。
+- 平台 API 或本地模型路由不可达时，面板显示“暂不可用”的可读提示，不再直接暴露 `Unexpected end of JSON input`。
+
+### 新增
+
+- `DIGILEGACY_LOCAL_MODEL_CTX` 可配置 sidecar 上下文，范围 2,048–131,072，默认 8,192。9,028-token prompt 在 8K 下失败，调到 16K 后成功。
+
+### 测试
+
+- Rust workspace：**187 passed / 0 failed**；Web：**79 passed / 0 failed**；`./tools/verify.sh` OK。
+- 已实测并发启用、损坏 `active.json`、幽灵 PID 清理、端口耗尽、只读模型目录、文件写配额、路径穿越和完整中英文界面，记录见 `docs/operations/measurements/local-models-functional-2026-11-20.md`。
+
 ## [0.0.20] - 2026-11-20
 
 ### 新增

@@ -37,7 +37,7 @@ const localModelCopy = computed(() =>
         stop: "停止",
         retry: "重试",
         tokenRequired: "先在“安全与数据”填写平台写令牌，才能下载或启用模型。",
-        runtimeHint: "启用会启动本地推理 sidecar，并把规划器切到该模型；无需外部 Ollama。",
+        runtimeHint: "启用会启动本地推理 sidecar，默认 8K 运行时上下文；可用 DIGILEGACY_LOCAL_MODEL_CTX 调整，并把规划器切到该模型；无需外部 Ollama。",
         experimental: "实验运行时",
         quality: "质量档",
         strict: "<2B",
@@ -48,6 +48,22 @@ const localModelCopy = computed(() =>
         failed: "失败",
         partial: "未完成",
         missing: "未下载",
+        recommended: "推荐",
+        context: "上下文",
+        items: {
+          "minicpm5-1b": {
+            params: "1.08B 稠密",
+            description: "1B 级开源 SOTA，128K 上下文，标准 Llama 架构；中文规划、工具选择和日常生成均衡，默认推荐。",
+          },
+          "minicpm5-2b": {
+            params: "2.52B 稠密",
+            description: "2B 级质量档，代码、数学、长文本和工具调用更强；实际参数 2.52B，不属于严格 <2B。",
+          },
+          "spark-x2.5-1.7b": {
+            params: "1.71B 稠密",
+            description: "严格 <2B 里上下文最长的候选，原生 1M、200+ 语言；使用 Spark 专用混合注意力，标准 llama.cpp 兼容性待验证。",
+          },
+        },
       }
     : {
         title: "Local models",
@@ -62,7 +78,7 @@ const localModelCopy = computed(() =>
         stop: "Stop",
         retry: "Retry",
         tokenRequired: "Set the platform write token in Security & data before downloading or enabling a model.",
-        runtimeHint: "Enable starts the local inference sidecar and switches the planner to this model; no external Ollama needed.",
+        runtimeHint: "Enable starts the local inference sidecar (8K runtime context by default; set DIGILEGACY_LOCAL_MODEL_CTX to raise it) and switches the planner to this model; no external Ollama needed.",
         experimental: "Experimental runtime",
         quality: "Quality tier",
         strict: "<2B",
@@ -73,6 +89,22 @@ const localModelCopy = computed(() =>
         failed: "Failed",
         partial: "Incomplete",
         missing: "Not downloaded",
+        recommended: "Recommended",
+        context: "context",
+        items: {
+          "minicpm5-1b": {
+            params: "1.08B dense",
+            description: "1B-class open-source SOTA with 128K context and a standard Llama architecture; balanced Chinese planning, tool selection, and everyday generation. Default recommendation.",
+          },
+          "minicpm5-2b": {
+            params: "2.52B dense",
+            description: "Quality tier above 2B with stronger code, math, long-text, and tool-calling; at 2.52B parameters it is not strictly under 2B.",
+          },
+          "spark-x2.5-1.7b": {
+            params: "1.71B dense",
+            description: "The longest-context strict <2B candidate: native 1M context and 200+ languages; uses Spark's hybrid attention, so standard llama.cpp compatibility is unverified.",
+          },
+        },
       },
 );
 
@@ -86,6 +118,11 @@ function formatBytes(value: number): string {
 function contextLabel(value: number): string {
   if (value >= 1024 * 1024) return `${Math.round(value / (1024 * 1024))}M`;
   return `${Math.round(value / 1024)}K`;
+}
+
+function itemCopy(item: LocalModelItem): { params: string; description: string } {
+  const items = localModelCopy.value.items as Record<string, { params: string; description: string }>;
+  return items[item.id] ?? { params: item.params, description: item.description };
 }
 
 function localModelStatusLabel(item: LocalModelItem): string {
@@ -224,7 +261,7 @@ onUnmounted(() => {
           <div>
             <strong>{{ item.name }}</strong>
             <div class="local-model-badges">
-              <span v-if="item.recommended" class="model-badge recommended">推荐</span>
+              <span v-if="item.recommended" class="model-badge recommended">{{ localModelCopy.recommended }}</span>
               <span class="model-badge" :class="{ 'under-2b': item.strictUnder2b }">{{ item.strictUnder2b ? localModelCopy.strict : localModelCopy.notStrict }}</span>
               <span v-if="item.runtime === 'experimental'" class="model-badge experimental">{{ localModelCopy.experimental }}</span>
               <span v-else-if="!item.strictUnder2b" class="model-badge quality">{{ localModelCopy.quality }}</span>
@@ -232,10 +269,10 @@ onUnmounted(() => {
           </div>
           <StatusPill :tone="localModelTone(item)" :label="localModelStatusLabel(item)" />
         </div>
-        <p class="local-model-description">{{ item.description }}</p>
+        <p class="local-model-description">{{ itemCopy(item).description }}</p>
         <div class="local-model-meta">
-          <span>{{ item.params }}</span>
-          <span>{{ contextLabel(item.context) }} 上下文</span>
+          <span>{{ itemCopy(item).params }}</span>
+          <span>{{ contextLabel(item.context) }} {{ localModelCopy.context }}</span>
           <span>{{ formatBytes(item.sizeBytes) }}</span>
           <span>{{ item.license }}</span>
         </div>

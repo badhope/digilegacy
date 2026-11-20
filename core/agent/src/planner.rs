@@ -94,6 +94,12 @@ fn load_active_local_config() -> Option<Value> {
     serde_json::from_str(&text).ok()
 }
 
+fn effective_timeout(seconds: Option<u64>, local_model: bool) -> u64 {
+    seconds
+        .unwrap_or(if local_model { 180 } else { 30 })
+        .clamp(5, 300)
+}
+
 impl PlannerConfig {
     pub fn from_env() -> Result<Self, PlannerError> {
         let env_base_url = env::var("DIGILEGACY_LLM_BASE_URL").unwrap_or_default();
@@ -139,11 +145,10 @@ impl PlannerConfig {
                     .map(str::to_string)
             })
             .unwrap_or_else(|| "deepseek-chat".to_string());
-        let timeout_default = if active.is_some() { 180 } else { 30 };
-        let timeout = env::var("DIGILEGACY_LLM_TIMEOUT_SECS")
+        let requested_timeout = env::var("DIGILEGACY_LLM_TIMEOUT_SECS")
             .ok()
-            .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(timeout_default);
+            .and_then(|value| value.parse::<u64>().ok());
+        let timeout = effective_timeout(requested_timeout, active.is_some());
         let input_cost_micros_per_million =
             env::var("DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION")
                 .ok()
@@ -160,7 +165,7 @@ impl PlannerConfig {
             base_url: base_url.trim().trim_end_matches('/').to_string(),
             api_key,
             model,
-            timeout: Duration::from_secs(timeout.clamp(5, 120)),
+            timeout: Duration::from_secs(timeout),
             input_cost_micros_per_million,
             output_cost_micros_per_million,
         })
@@ -397,6 +402,15 @@ mod tests {
             parse_plan(r#"{"steps":[{"tool":"agent.runs.start"}]}"#, 20),
             Err(PlannerError::Invalid(_))
         ));
+    }
+
+    #[test]
+    fn local_model_timeout_keeps_three_minutes() {
+        assert_eq!(effective_timeout(None, true), 180);
+        assert_eq!(effective_timeout(Some(180), true), 180);
+        assert_eq!(effective_timeout(Some(500), true), 300);
+        assert_eq!(effective_timeout(Some(1), false), 5);
+        assert_eq!(effective_timeout(None, false), 30);
     }
 
     #[test]
