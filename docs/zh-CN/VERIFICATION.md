@@ -668,18 +668,18 @@ M0 可以判定“工程壳完成”的条件：
 ### M6-J 真实浏览器路由冒烟（2026-11-20）
 
 - 新增 `tools/visual/live_smoke.py`：对真实 API + Vue dev server + Chromium 146 运行 15 个路由/主题/视口组合，覆盖概览、资产、发现、政策、规划、交付、自动化、工具、审批、新建运行、设置三个分区、暗色与 390×844 移动端。
-- 判定：每条路由必须有唯一 `main`、无横向溢出、无 `pageerror`、无 API 5xx、无非 favicon 的 console error；全部 15 条 PASS，总耗时约 27.9 秒。
+- 判定：每条路由必须有唯一 `main`、无横向溢出、无 `pageerror`、无 API 5xx、无非 favicon 的 console error，并在真实浏览器运行 axe WCAG A/AA/2.2 AA（含颜色对比度）。首轮抓到顶栏搜索与语言按钮 2 个 `label-content-name-mismatch`，修复后全部 15 条 PASS、axe 违规 0，总耗时约 34.7 秒。
 - 视觉基线同时复跑：9 张固定视口 WebP 的差异全部 ≤0.4%，其中 overview-dark 0.043%，其余 0.000%。
 - 证据：`docs/operations/measurements/live-browser-2026-11-20.json`；API `0.0.17`、schema v16 / 31 表。
-- 边界：这是自动渲染/网络/溢出检查，不是读屏人工验收；真实读屏与亮暗人工观感仍保留为发布前人工项。
-- 验收：`./tools/verify.sh` exit 0，**175 Rust + 67 Web**；契约 39 / 23 / 56 / 21；schema v16 / 31 表；日志 `/tmp/m6j-verify.log`。
+- 边界：这是自动渲染/网络/溢出/真实 DOM axe 检查，不是读屏人工验收；真实读屏与亮暗人工观感仍保留为发布前人工项。
+- 验收：`./tools/verify.sh` exit 0，**175 Rust + 68 Web**；契约 39 / 23 / 56 / 21；schema v16 / 31 表；日志 `/tmp/m6k-verify.log`。
 
 ### M6-I 发布包与干净机演练（2026-11-20）
 
 - 新增 `tools/package/build.sh`：release 构建 server/cli/mcp，打包 Web dist、content 与运维文档，输出 `packages/digilegacy-0.0.17-linux-x86_64.tar.gz` 与 `.sha256`。
 - 新增 `packaging/install.sh`、`start.sh`、`stop.sh`、`uninstall.sh`：安装时生成 0600 env 与随机写令牌（不打印），首次 health 建 schema/密钥；启动做 HTTP 健康探测；卸载默认保留数据与密钥，`--purge-data` 显式彻底删除。
 - 新增 `tools/package/clean_drill.py`：全新 HOME、前缀、数据目录、最小环境变量与随机回环端口，执行安装→健康/metrics→诊断导出→检查点验证→卸载保留→重装读库→彻底卸载，12 步全通过，总耗时约 2.1 秒。
-- 证据：`docs/operations/measurements/install-2026-11-20.json`；归档 18,072,838 bytes，SHA256 `b506952d…`，诊断 `audit.valid: true`，schema v16 / 31 表；重装后数据库与审计链仍可读。
+- 证据：`docs/operations/measurements/install-2026-11-20.json`；归档 18,073,862 bytes，SHA256 `95019afd…`，诊断 `audit.valid: true`，schema v16 / 31 表；重装后数据库与审计链仍可读。
 - 中英文 `docs/operations/INSTALL.md` 说明安装、nginx 同源代理、升级、导出、检查点、卸载与密钥保留策略。
 - 边界：API 不直接托管 SPA，生产需反向代理；Windows 代码签名与自动更新（G-37/G-38）仍未做，不属于本次 Linux 干净机演练范围。
 
@@ -690,7 +690,7 @@ M0 可以判定“工程壳完成”的条件：
 - 新增可选 `DIGILEGACY_OUTBOUND_ALLOWLIST`（逗号分隔，支持 `*.example.com`）：设置后不在表内的主机在 DNS 解析前拒绝；通配符只匹配子域名。
 - `core/integrations` 的 HTTP 探针与政策同步改用 `.resolve_to_addrs(...)` 钉住已验地址，并加 `.no_proxy()`；TCP 探针与 SMTP 投递改为连接已验地址列表，不再让 `TcpStream` 重新解析主机名。
 - 新增 `resolved_outbound_addresses_are_validated_before_connect` 与保留网段断言；安全单测 52 条，集成 11 条。
-- 验收：`./tools/verify.sh` exit 0，**174 Rust + 67 Web**；契约 39 / 23 / 56 / 21；schema v16 / 31 表；日志 `/tmp/m6h-verify.log`。
+- 验收：`./tools/verify.sh` exit 0，**175 Rust + 68 Web**；契约 39 / 23 / 56 / 21；schema v16 / 31 表；日志 `/tmp/m6k-verify.log`。
 - 边界：未搭建恶意 DNS 服务器做端到端重绑定演示；当前测试锁定“解析结果校验 + 地址钉住 + allowlist”三条代码路径。`.no_proxy()` 意味着只允许经 HTTP 代理出网的部署不能直接使用连接测试，需要在受控出口代理处单独处理。
 
 ### M6-G 账号接入引导（2026-11-20）

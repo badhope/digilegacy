@@ -97,6 +97,19 @@ describe("WCAG AA axe gate", () => {
   });
 });
 
+describe("visible text in accessible names", () => {
+  it("keeps the search shortcut and language switch labelled with their visible text", async () => {
+    const router = testRouter();
+    const wrapper = await mountWithRouter(AppShell, router);
+    wrappers.push(wrapper);
+    const search = wrapper.find(".search-trigger");
+    expect(search.attributes("aria-label")).toContain("搜索或命令");
+    expect(search.attributes("aria-label")).toContain("⌘K");
+    const locale = wrapper.find(".locale-button");
+    expect(locale.attributes("aria-label")).toContain(locale.text());
+  });
+});
+
 describe("mobile navigation", () => {
   it("labels the skip target and keeps the closed rail out of modal semantics", async () => {
     const router = testRouter();

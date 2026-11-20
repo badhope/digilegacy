@@ -177,10 +177,15 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="topbar-tools">
-          <button class="search-trigger" type="button" :aria-label="t('topbar.search')" @click="openPalette()">
+          <button
+            class="search-trigger"
+            type="button"
+            :aria-label="`${t('topbar.search')} ⌘K`"
+            @click="openPalette()"
+          >
             <AppIcon name="search" :size="15" />
             <span>{{ t("topbar.search") }}</span>
-            <kbd class="mono">⌘K</kbd>
+            <kbd class="mono" aria-hidden="true">⌘K</kbd>
           </button>
 
           <button class="tool-button agent-trigger" type="button" :aria-label="t('topbar.agent')" @click="openAgent()">
@@ -195,7 +200,12 @@ onBeforeUnmount(() => {
             <AppIcon :name="theme === 'light' ? 'moon' : 'sun'" :size="17" />
           </button>
 
-          <button class="locale-button mono" type="button" :aria-label="t('topbar.language')" @click="toggleLocale()">
+          <button
+            class="locale-button mono"
+            type="button"
+            :aria-label="`${t('topbar.language')} ${locale === 'zh-CN' ? 'EN' : '中'}`"
+            @click="toggleLocale()"
+          >
             {{ locale === "zh-CN" ? "EN" : "中" }}
           </button>
 

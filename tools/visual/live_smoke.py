@@ -33,6 +33,7 @@ except ImportError as exc:  # pragma: no cover - operator feedback
     raise SystemExit("live smoke needs Playwright: python3 -m pip install playwright") from exc
 
 ROOT = Path(__file__).resolve().parents[2]
+AXE_SOURCE = ROOT / "web" / "node_modules" / "axe-core" / "axe.min.js"
 FROZEN_CLOCK = "2026-11-20T10:00:00+08:00"
 
 
@@ -102,6 +103,9 @@ def main() -> int:
         ("overview-mobile", "/overview", "dark", 390, 844),
     ]
 
+    if not AXE_SOURCE.is_file():
+        raise SystemExit(f"axe-core is not installed: {AXE_SOURCE}")
+    axe_script = AXE_SOURCE.read_text()
     health = api_health(args.api_url)
     work = Path(tempfile.mkdtemp(prefix="digilegacy-live-smoke-"))
     if args.keep_screenshots is not None:
@@ -140,6 +144,21 @@ def main() -> int:
 
                 page.goto(f"{args.web_url.rstrip('/')}{path}", wait_until="domcontentloaded")
                 page.wait_for_timeout(900)
+                page.add_script_tag(content=axe_script)
+                a11y = page.evaluate(
+                    """async () => {
+                        const result = await axe.run(document.body, {
+                            runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] }
+                        });
+                        return result.violations.map((violation) => ({
+                            id: violation.id,
+                            impact: violation.impact,
+                            help: violation.help,
+                            nodes: violation.nodes.length,
+                            targets: violation.nodes.slice(0, 3).map((node) => node.target.join(' '))
+                        }));
+                    }"""
+                )
                 has_main = page.locator("main").count() == 1
                 overflow = page.evaluate("document.documentElement.scrollWidth > window.innerWidth + 1")
                 body_text = page.locator("body").inner_text().strip()
@@ -149,7 +168,15 @@ def main() -> int:
                     shutil.copyfile(screenshot, args.keep_screenshots / screenshot.name)
                 page.close()
 
-                ok = has_main and not overflow and not page_errors and not api_errors and not console_errors and bool(body_text)
+                ok = (
+                    has_main
+                    and not overflow
+                    and not page_errors
+                    and not api_errors
+                    and not console_errors
+                    and not a11y
+                    and bool(body_text)
+                )
                 results.append(
                     {
                         "name": name,
@@ -164,12 +191,14 @@ def main() -> int:
                         "pageErrors": page_errors,
                         "apiErrors": api_errors,
                         "consoleErrors": console_errors,
+                        "a11yViolations": a11y,
                     }
                 )
         finally:
             browser.close()
 
     failures = [result for result in results if result["status"] != "PASS"]
+    a11y_count = sum(len(result["a11yViolations"]) for result in results)
     evidence = {
         "generatedAt": now_utc(),
         "result": "PASS" if not failures else "FAIL",
@@ -189,10 +218,11 @@ def main() -> int:
         "routeCount": len(results),
         "totalDurationMs": int((time.perf_counter() - started) * 1000),
         "failures": len(failures),
+        "a11yViolationCount": a11y_count,
         "routes": results,
         "notes": [
             "This is a real Chromium render against the Vue dev server and a real API, not the mock build.",
-            "It does not replace a human screen-reader review; it catches page exceptions, API 5xx and horizontal overflow.",
+            "It runs axe WCAG A/AA/2.2 AA in a real browser, but does not replace a human screen-reader review; it catches page exceptions, API 5xx, horizontal overflow and DOM-level axe violations.",
             "Screenshots stay in a temporary directory by default and are not release artifacts.",
         ],
     }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20T06:27:41.587640+00:00",
+  "generatedAt": "2026-11-20T06:40:18.062615+00:00",
   "result": "PASS",
   "cleanEnvironment": {
     "freshHome": true,
@@ -13,35 +13,35 @@
       "TZ",
       "TMPDIR"
     ],
-    "loopbackBind": "127.0.0.1:51893"
+    "loopbackBind": "127.0.0.1:55897"
   },
   "archive": {
     "name": "digilegacy-0.0.17-linux-x86_64.tar.gz",
-    "bytes": 18072838,
-    "sha256": "b506952d5ad1309112ddb494f82a3a924a85a24a13472f35957959af1ca10931"
+    "bytes": 18073862,
+    "sha256": "95019afda0d8941e1a98ecb868efc292ed60b9421ae899fb30b9bea166ecdfb5"
   },
   "host": {
     "platform": "Linux-6.6.95.bck.4-rc5-amd64-x86_64-with-glibc2.35",
     "machine": "x86_64"
   },
-  "totalDurationMs": 2084,
+  "totalDurationMs": 2130,
   "steps": [
     {
       "name": "extract",
       "status": "done",
-      "durationMs": 762,
+      "durationMs": 781,
       "detail": "unpacked digilegacy-0.0.17-linux-x86_64.tar.gz"
     },
     {
       "name": "install",
       "status": "done",
-      "durationMs": 212,
+      "durationMs": 236,
       "detail": "fresh prefix and data"
     },
     {
       "name": "start",
       "status": "done",
-      "durationMs": 308,
+      "durationMs": 313,
       "detail": "health probe inside start script"
     },
     {
@@ -53,49 +53,49 @@
     {
       "name": "diagnostics-export",
       "status": "done",
-      "durationMs": 13,
+      "durationMs": 15,
       "detail": "sanitized export with valid audit chain"
     },
     {
       "name": "checkpoint",
       "status": "done",
-      "durationMs": 29,
+      "durationMs": 32,
       "detail": "created and verified"
     },
     {
       "name": "stop",
       "status": "done",
-      "durationMs": 38,
+      "durationMs": 34,
       "detail": "SIGTERM"
     },
     {
       "name": "uninstall-preserve-data",
       "status": "done",
-      "durationMs": 50,
+      "durationMs": 47,
       "detail": "prefix removed; database and keys preserved"
     },
     {
       "name": "reinstall",
       "status": "done",
-      "durationMs": 194,
+      "durationMs": 196,
       "detail": "same data directory and preserved keys"
     },
     {
       "name": "reinstall-health",
       "status": "done",
-      "durationMs": 328,
+      "durationMs": 326,
       "detail": "preserved database reopened and audit chain valid"
     },
     {
       "name": "stop-again",
       "status": "done",
-      "durationMs": 34,
+      "durationMs": 35,
       "detail": "SIGTERM"
     },
     {
       "name": "uninstall-purge",
       "status": "done",
-      "durationMs": 30,
+      "durationMs": 29,
       "detail": "prefix and data removed"
     }
   ],
@@ -111,7 +111,7 @@
       "schemaVersion": 16
     },
     "checkpoint": {
-      "id": "20261120-062740-841318222",
+      "id": "20261120-064017-321000415",
       "verified": true
     },
     "uninstall": {

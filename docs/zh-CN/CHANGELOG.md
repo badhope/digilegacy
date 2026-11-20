@@ -15,7 +15,7 @@
 
 ### Testing
 
-- 新增真实浏览器路由冒烟：真实 API + Vue dev server + Chromium 146 覆盖 15 个路由/主题/视口组合，无页面异常、API 5xx 或横向溢出；9 张视觉基线也复跑通过。
+- 新增真实浏览器路由冒烟：真实 API + Vue dev server + Chromium 146 覆盖 15 个路由/主题/视口组合，并在真实浏览器运行 axe WCAG A/AA/2.2 AA（含对比度），无页面异常、API 5xx 或横向溢出。首轮抓到并修复顶栏 2 个 `label-content-name-mismatch`，最终 axe 违规为 0；9 张视觉基线也复跑通过。
 
 ## [0.0.16] - 2026-11-20
 

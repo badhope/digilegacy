@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20T06:24:39.562359+00:00",
+  "generatedAt": "2026-11-20T06:36:05.326737+00:00",
   "result": "PASS",
   "webUrl": "http://127.0.0.1:5173",
   "apiUrl": "http://127.0.0.1:8787",
@@ -15,8 +15,9 @@
     "headless": true
   },
   "routeCount": 15,
-  "totalDurationMs": 27906,
+  "totalDurationMs": 34661,
   "failures": 0,
+  "a11yViolationCount": 0,
   "routes": [
     {
       "name": "overview-light",
@@ -24,13 +25,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1528,
+      "durationMs": 2031,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "assets-light",
@@ -38,13 +40,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1545,
+      "durationMs": 1848,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "assets-discover-light",
@@ -52,13 +55,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1525,
+      "durationMs": 1876,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "policies-light",
@@ -66,13 +70,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1460,
+      "durationMs": 2216,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "planning-light",
@@ -80,13 +85,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1408,
+      "durationMs": 1899,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "deliverables-light",
@@ -94,13 +100,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1473,
+      "durationMs": 1844,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "automation-light",
@@ -108,13 +115,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1375,
+      "durationMs": 1874,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "tools-light",
@@ -122,13 +130,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1453,
+      "durationMs": 2146,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "approvals-light",
@@ -136,13 +145,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1447,
+      "durationMs": 1883,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "run-new-light",
@@ -150,13 +160,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1568,
+      "durationMs": 1821,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "settings-workspace-light",
@@ -164,13 +175,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1458,
+      "durationMs": 1803,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "settings-connections-light",
@@ -178,13 +190,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1455,
+      "durationMs": 1852,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "settings-about-light",
@@ -192,13 +205,14 @@
       "theme": "light",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1530,
+      "durationMs": 1875,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "overview-dark",
@@ -206,13 +220,14 @@
       "theme": "dark",
       "viewport": "1280x900",
       "status": "PASS",
-      "durationMs": 1440,
+      "durationMs": 1866,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     },
     {
       "name": "overview-mobile",
@@ -220,18 +235,19 @@
       "theme": "dark",
       "viewport": "390x844",
       "status": "PASS",
-      "durationMs": 1360,
+      "durationMs": 1856,
       "hasMain": true,
       "horizontalOverflow": false,
       "nonEmptyBody": true,
       "pageErrors": [],
       "apiErrors": [],
-      "consoleErrors": []
+      "consoleErrors": [],
+      "a11yViolations": []
     }
   ],
   "notes": [
     "This is a real Chromium render against the Vue dev server and a real API, not the mock build.",
-    "It does not replace a human screen-reader review; it catches page exceptions, API 5xx and horizontal overflow.",
+    "It runs axe WCAG A/AA/2.2 AA in a real browser, but does not replace a human screen-reader review; it catches page exceptions, API 5xx, horizontal overflow and DOM-level axe violations.",
     "Screenshots stay in a temporary directory by default and are not release artifacts."
   ]
 }

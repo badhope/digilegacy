@@ -17,7 +17,7 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 
 ### Testing
 
-- A live Chromium smoke renders 15 route/theme/viewport combinations against the real API and Vue dev server, with no page exceptions, API 5xx or horizontal overflow; the nine visual baseline shots also re-passed.
+- A live Chromium smoke renders 15 route/theme/viewport combinations against the real API and Vue dev server, runs axe WCAG A/AA/2.2 AA with colour contrast, and requires no page exceptions, API 5xx or horizontal overflow. It caught and fixed two topbar `label-content-name-mismatch` issues; the final run has zero axe violations. The nine visual baseline shots also re-passed.
 
 ## [0.0.16] - November 2026
 
