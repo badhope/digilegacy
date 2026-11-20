@@ -120,6 +120,20 @@ digilegacy-cli security verify <checkpoint-id> --json
 | 审计链无效 | `diagnostics.export` → `audit.valid=false` | 停止写入、保留数据库、开事故、恢复最后验证过的检查点。 |
 | 健康正常但读失败 | 密钥/配置不匹配、存储锁 | 查日志与诊断包；健康不等于可读。 |
 
+## 演练
+
+以下演练只在临时库执行，禁止对线上库操作：
+
+- **容量**：用 `cargo run -q -p digilegacy-server --example seed_reference`
+  灌入 1,000 资产、250 继承人、10,000 条审计，再以 `--strict` 跑
+  `tools/bench/capacity.py`。最新结果在 `docs/operations/measurements/`。
+- **恢复**：创建检查点、复制 `.db`、启动临时实例、探测 health 与行数、校验
+  审计链。2026-11-20 演练达到健康耗时 158 ms，校验 10,120 条审计。
+- **通知**：使用真实 SMTP 或 Webhook 账号，分别记录“已接受”与“最终送达”。
+  本地 TLS 测试只能证明握手。
+
+记录数据规模、构建版本、主机、结果文件与耗时。缺这些字段就不算证据。
+
 ## 升级与回滚
 
 1. 创建并校验 `before-upgrade` 检查点。

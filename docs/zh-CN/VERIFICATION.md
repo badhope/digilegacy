@@ -652,3 +652,15 @@ M0 可以判定“工程壳完成”的条件：
 - 恢复保持人工离线：停服、校验检查点、复制到新目标、临时端口实例验证、切换、复验；不提供在线 `security restore`，避免覆盖活跃数据库。
 - 边界：无 `/metrics` 端点，SLO 依赖外部探针、CLI 与诊断包；容量演练与恢复演练仍未执行，延迟/RTO 只是暂定目标。
 - 验收：`./tools/verify.sh` exit 0，**170 Rust + 66 Web**；日志 `/tmp/m6f-verify.log`。
+
+### M6-F 指标、容量与恢复演练
+
+- 新增只读 `GET /api/v1/metrics`：`AtomicU64` 记录总请求、并发中、2xx/3xx/4xx/5xx、延迟总和/最大值与 12 个延迟桶；中间件在响应后记录状态与耗时，fallback 404 也计入。
+- 指标只含结构计数，不记录路径、资产名、继承人、连接标签或凭据；单测 `metrics_endpoint_exposes_counters_without_secrets` 断言输出不含 `token`/`secret`/`asset`，`unknown_route_is_counted_by_middleware` 断言 404 进入计数。
+- 补上 `diagnostics export`：应用层调用 `Store::diagnostics_json`，输出 `audit.valid`、schema、表数与各表行数，并写 `diagnostics.export` 审计；CLI 加 `--allow-write` 门禁。
+- 新增 `apps/server/examples/seed_reference.rs` 与 `tools/bench/capacity.py`：临时库补齐 1,000 资产、250 继承人、10,000 条审计；脚本混合 health/overview/assets/plan/audit/security/metrics 读，并通过正常 invoke 创建 120 个临时资产。
+- `0.0.15` 实测：读 1,200 次、并发 8，p50 6.38 ms、p95 **9.54 ms**、p99 **11.09 ms**，0 错误；写 120 次、并发 4，p50 1.98 ms、p95 **3.70 ms**、p99 8.87 ms，0 错误。
+- 恢复演练：复制 3.5 MB 检查点到新路径，启动临时 release 实例，**158 ms** 达到健康；读出 1,120 资产、10,120 条审计，`diagnostics export` 返回 `audit.valid: true`。
+- 证据：`docs/operations/measurements/capacity-2026-11-20.json` 与 `restore-2026-11-20.json`；SLO/Runbook 中英文已改为真实存在的测量信号。
+- 边界：容量数据来自单台本地合成主机，不代表生产硬件；通知服务商时延仍没有真实账号，未测“已接受→最终送达”。
+- 验收：`./tools/verify.sh` exit 0，**173 Rust + 66 Web**；契约 **39 命令 / 23 工具 / 56 schema / 21 错误码**；schema v16 / 31 表；日志 `/tmp/m6f2-verify.log`。

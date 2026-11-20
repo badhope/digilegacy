@@ -1,0 +1,60 @@
+{
+  "generatedAt": "2026-11-20T05:14:23.525767+00:00",
+  "baseUrl": "http://127.0.0.1:8799",
+  "concurrency": 8,
+  "dataset": {
+    "assets": 1000,
+    "audit": 10000
+  },
+  "reads": {
+    "count": 1200,
+    "ok": 1200,
+    "errors": 0,
+    "p50Ms": 6.38,
+    "p95Ms": 9.54,
+    "p99Ms": 11.09,
+    "maxMs": 16.83
+  },
+  "writes": {
+    "count": 120,
+    "ok": 120,
+    "errors": 0,
+    "p50Ms": 1.98,
+    "p95Ms": 3.7,
+    "p99Ms": 8.87,
+    "maxMs": 9.29
+  },
+  "budgets": {
+    "reads": {
+      "p95Ms": 250,
+      "p99Ms": 800
+    },
+    "writes": {
+      "p95Ms": 500
+    }
+  },
+  "passed": true,
+  "serverMetrics": {
+    "latencyMs": {
+      "max": 7,
+      "p50": 5,
+      "p95": 5,
+      "p99": 5,
+      "sum": 1180
+    },
+    "requests": {
+      "inflight": 1,
+      "status2xx": 1332,
+      "status3xx": 0,
+      "status4xx": 0,
+      "status5xx": 0,
+      "total": 1332
+    },
+    "store": {
+      "schemaVersion": 16,
+      "tables": 31
+    },
+    "uptimeSeconds": 3,
+    "version": "0.0.15"
+  }
+}

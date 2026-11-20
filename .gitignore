@@ -97,3 +97,4 @@ docs/screenshots/audit/
 
 # Visual regression failure diffs (baseline stays tracked)
 tools/visual/artifacts/
+__pycache__/

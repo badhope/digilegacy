@@ -794,6 +794,19 @@ impl Application {
             .unwrap_or(Path::new("."))
     }
 
+    /// Produce the sanitized diagnostics document used by the audit SLO.
+    /// Structural metadata only; no row values or credentials are included.
+    pub fn diagnostics_export(&self) -> Result<Value, PlatformError> {
+        let text = self
+            .store
+            .diagnostics_json()
+            .map_err(|error| PlatformError::new("INTERNAL", format!("诊断导出失败: {error}")))?;
+        let data: Value = serde_json::from_str(&text)
+            .map_err(|error| PlatformError::new("INTERNAL", format!("诊断解析失败: {error}")))?;
+        self.audit("diagnostics.export", "snapshot")?;
+        Ok(data)
+    }
+
     pub fn security_status(&self) -> Result<Value, PlatformError> {
         let locked = matches!(
             digilegacy_security::session::state(),
@@ -1440,6 +1453,18 @@ mod tests {
         let body = worker.join().unwrap();
         assert!(body.contains("heir@example.com"));
         assert!(body.contains("Content-Type: text/plain; charset=UTF-8"));
+    }
+
+    #[test]
+    fn diagnostics_export_reports_valid_chain_without_row_values() {
+        let app = app();
+        let data = app.diagnostics_export().unwrap();
+        assert_eq!(data["audit"]["valid"], true);
+        assert_eq!(data["store"]["schema_version"], 16);
+        assert_eq!(data["store"]["table_count"], 31);
+        assert!(data["rows"].get("audit_log").is_some());
+        let text = data.to_string();
+        assert!(!text.contains("secret_value"));
     }
 
     #[test]

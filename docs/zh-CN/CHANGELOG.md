@@ -2,6 +2,19 @@
 
 [English](../../CHANGELOG.md) | 简体中文
 
+## [0.0.15] - 2026-11-20
+
+### Added
+
+- 新增只读 `GET /api/v1/metrics` JSON 快照：请求总数、状态码分类、并发中请求、延迟 p50/p95/p99/max 与延迟桶。不记录路径、姓名、标签或凭据；未知路由也计入。
+- `digilegacy-cli diagnostics export --allow-write --json` 现在输出脱敏结构快照，包含 `audit.valid` 与各表行数。该契约命令此前只在清单里，没有接上实现。
+- 新增可重复的 SLO 参考数据集（`seed_reference`）与严格容量脚本（`tools/bench/capacity.py`），在临时库上测真实 HTTP 读写。
+- `docs/operations/measurements/` 记录容量与恢复演练证据：读 p95 9.54 ms / p99 11.09 ms，写 p95 3.70 ms，恢复到健康 158 ms，10,120 条审计有效。
+
+### Changed
+
+- SLO 与运行手册改用 `/api/v1/metrics`、`diagnostics export` 与 `security status` 测量，不再引用不存在的 metrics 端点。
+
 ## [0.0.14] - 2026-11-20
 
 ### Added

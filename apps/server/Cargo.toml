@@ -19,3 +19,7 @@ digilegacy-store = { path = "../../core/store" }
 digilegacy-security = { path = "../../core/security" }
 digilegacy-domains = { path = "../../core/domains" }
 digilegacy-application = { path = "../../core/application" }
+
+[dev-dependencies]
+rusqlite.workspace = true
+tower = { version = "0.5", features = ["util"] }

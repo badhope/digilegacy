@@ -45,11 +45,15 @@ write token or outbound integrations work.
 # Process and API
 curl -fsS http://127.0.0.1:8787/api/v1/health
 
+# HTTP counters and latency buckets since process start
+curl -fsS -H "Authorization: Bearer $DIGILEGACY_API_TOKEN" \
+  http://127.0.0.1:8787/api/v1/metrics
+
 # Backup freshness and recovery state
 digilegacy-cli security status --json
 
-# Schema, integrity and audit chain
-digilegacy-cli invoke diagnostics.export --json
+# Schema, integrity and audit chain (writes one audit row)
+digilegacy-cli diagnostics export --allow-write --json
 ```
 
 Acceptance:
@@ -117,7 +121,9 @@ product.
      /opt/digilegacy/bin/digilegacy-server
    curl -fsS http://127.0.0.1:8788/api/v1/health
    ```
-7. Run a read smoke: open the overview, read one asset, confirm the audit count.
+7. Run a read smoke: open the overview, read one asset, confirm the audit count,
+   then run `digilegacy-cli diagnostics export --allow-write --json` against the
+   restored copy and require `audit.valid: true`.
 8. Stop the temporary API. Move the old live database, `-wal` and `-shm` files
    to an incident directory. Move the restored database into the live path.
 9. Start the real service and repeat health and read smoke.
@@ -139,6 +145,23 @@ processes against the same database file.
 | Approval queue grows | Worker process, `jobs.get`, `approvals.list` | Restart the server after a checkpoint; do not approve in bulk to clear a backlog. |
 | Audit chain invalid | `diagnostics.export` → `audit.valid=false` | Stop writes, preserve the database, open an incident, restore the last verified checkpoint. |
 | Health is green but reads fail | Key/config mismatch, store lock | Check logs and `diagnostics.export`; health alone is not a read proof. |
+
+## Drills
+
+Run these on a throwaway database, never on the live one:
+
+- **Capacity:** seed 1,000 assets, 250 heirs and 10,000 audit rows with
+  `cargo run -q -p digilegacy-server --example seed_reference`, then run
+  `tools/bench/capacity.py` with `--strict`. The latest result is in
+  `docs/operations/measurements/`.
+- **Restore:** create a checkpoint, copy its `.db`, start a temporary instance,
+  probe health and counts, and verify the audit chain. The 2026-11-20 drill
+  reached healthy in 158 ms and verified 10,120 audit rows.
+- **Notifications:** use a real SMTP or webhook account and record acceptance
+  and final delivery separately. Local TLS tests prove the handshake only.
+
+Record the dataset size, build version, host, result file and elapsed time. A
+drill without those fields is not evidence.
 
 ## Upgrade and rollback
 

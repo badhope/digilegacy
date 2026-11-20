@@ -9,8 +9,9 @@ mod generated;
 
 use axum::{
     body::Body,
-    extract::{Json, Path, Query, State},
+    extract::{Json, Path, Query, Request, State},
     http::{header, HeaderMap, StatusCode},
+    middleware::{self, Next},
     response::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
@@ -25,14 +26,119 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::convert::Infallible;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tracing::info;
 
 #[derive(Clone)]
 pub struct AppState {
     pub app: Arc<Application>,
     pub write_token: Option<String>,
+    pub metrics: Arc<Metrics>,
+}
+
+const LATENCY_BOUNDS_MS: [u64; 12] = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000];
+
+/// Process-local HTTP counters. Deliberately structural only: no paths, asset
+/// names, connection labels or credentials are stored here.
+#[derive(Debug)]
+pub struct Metrics {
+    started_at: Instant,
+    requests_total: AtomicU64,
+    inflight: AtomicU64,
+    status_2xx: AtomicU64,
+    status_3xx: AtomicU64,
+    status_4xx: AtomicU64,
+    status_5xx: AtomicU64,
+    latency_sum_ms: AtomicU64,
+    latency_max_ms: AtomicU64,
+    latency_buckets: [AtomicU64; 12],
+    latency_overflow: AtomicU64,
+}
+
+impl Metrics {
+    pub fn new() -> Self {
+        Self {
+            started_at: Instant::now(),
+            requests_total: AtomicU64::new(0),
+            inflight: AtomicU64::new(0),
+            status_2xx: AtomicU64::new(0),
+            status_3xx: AtomicU64::new(0),
+            status_4xx: AtomicU64::new(0),
+            status_5xx: AtomicU64::new(0),
+            latency_sum_ms: AtomicU64::new(0),
+            latency_max_ms: AtomicU64::new(0),
+            latency_buckets: std::array::from_fn(|_| AtomicU64::new(0)),
+            latency_overflow: AtomicU64::new(0),
+        }
+    }
+
+    fn record(&self, status: u16, elapsed: Duration) {
+        self.requests_total.fetch_add(1, Ordering::Relaxed);
+        match status {
+            200..=299 => self.status_2xx.fetch_add(1, Ordering::Relaxed),
+            300..=399 => self.status_3xx.fetch_add(1, Ordering::Relaxed),
+            400..=499 => self.status_4xx.fetch_add(1, Ordering::Relaxed),
+            _ => self.status_5xx.fetch_add(1, Ordering::Relaxed),
+        };
+        let ms = elapsed.as_millis() as u64;
+        self.latency_sum_ms.fetch_add(ms, Ordering::Relaxed);
+        self.latency_max_ms.fetch_max(ms, Ordering::Relaxed);
+        if let Some(index) = LATENCY_BOUNDS_MS.iter().position(|bound| ms <= *bound) {
+            self.latency_buckets[index].fetch_add(1, Ordering::Relaxed);
+        } else {
+            self.latency_overflow.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
+    fn percentile(&self, percent: u64) -> u64 {
+        let total = self.requests_total.load(Ordering::Relaxed);
+        if total == 0 {
+            return 0;
+        }
+        let target = total.saturating_mul(percent).div_ceil(100);
+        let mut seen = 0;
+        for (index, bucket) in self.latency_buckets.iter().enumerate() {
+            seen += bucket.load(Ordering::Relaxed);
+            if seen >= target {
+                return LATENCY_BOUNDS_MS[index];
+            }
+        }
+        30000
+    }
+
+    fn snapshot(&self, app: &Application) -> Value {
+        json!({
+            "version": env!("CARGO_PKG_VERSION"),
+            "uptimeSeconds": self.started_at.elapsed().as_secs(),
+            "requests": {
+                "total": self.requests_total.load(Ordering::Relaxed),
+                "inflight": self.inflight.load(Ordering::Relaxed),
+                "status2xx": self.status_2xx.load(Ordering::Relaxed),
+                "status3xx": self.status_3xx.load(Ordering::Relaxed),
+                "status4xx": self.status_4xx.load(Ordering::Relaxed),
+                "status5xx": self.status_5xx.load(Ordering::Relaxed),
+            },
+            "latencyMs": {
+                "p50": self.percentile(50),
+                "p95": self.percentile(95),
+                "p99": self.percentile(99),
+                "max": self.latency_max_ms.load(Ordering::Relaxed),
+                "sum": self.latency_sum_ms.load(Ordering::Relaxed),
+            },
+            "store": {
+                "schemaVersion": app.store().schema_version().unwrap_or(-1),
+                "tables": app.store().table_count().unwrap_or(-1),
+            }
+        })
+    }
+}
+
+impl Default for Metrics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -69,6 +175,7 @@ async fn main() {
     let app = router(AppState {
         app: application,
         write_token,
+        metrics: Arc::new(Metrics::new()),
     });
     let addr: SocketAddr = std::env::var("DIGILEGACY_BIND")
         .unwrap_or_else(|_| "127.0.0.1:8787".to_string())
@@ -82,8 +189,10 @@ async fn main() {
 }
 
 pub fn router(state: AppState) -> Router {
+    let metrics = state.metrics.clone();
     Router::new()
         .route("/api/v1/health", get(health))
+        .route("/api/v1/metrics", get(metrics_snapshot))
         .route("/api/v1/commands", get(commands))
         .route("/api/v1/overview", get(overview))
         .route("/api/v1/audit", get(audit_list))
@@ -134,12 +243,30 @@ pub fn router(state: AppState) -> Router {
             post(agent_approval_decide),
         )
         .route("/api/v1/invoke", post(invoke))
-        .with_state(state)
         .fallback(not_found)
+        .layer(middleware::from_fn_with_state(metrics, track_metrics))
+        .with_state(state)
+}
+
+async fn track_metrics(
+    State(metrics): State<Arc<Metrics>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    metrics.inflight.fetch_add(1, Ordering::Relaxed);
+    let started = Instant::now();
+    let response = next.run(request).await;
+    metrics.record(response.status().as_u16(), started.elapsed());
+    metrics.inflight.fetch_sub(1, Ordering::Relaxed);
+    response
 }
 
 async fn health(State(state): State<AppState>) -> Json<Envelope<Value>> {
     Json(Envelope::ok(state.app.health()))
+}
+
+async fn metrics_snapshot(State(state): State<AppState>) -> Json<Envelope<Value>> {
+    Json(Envelope::ok(state.metrics.snapshot(&state.app)))
 }
 
 async fn commands() -> Json<Envelope<Value>> {
@@ -651,6 +778,7 @@ async fn not_found() -> impl IntoResponse {
 mod tests {
     use super::*;
     use digilegacy_contracts as contracts;
+    use tower::ServiceExt;
 
     fn test_app() -> AppState {
         test_app_with_token(None)
@@ -665,7 +793,42 @@ mod tests {
         AppState {
             app: Arc::new(app),
             write_token: token.map(str::to_string),
+            metrics: Arc::new(Metrics::new()),
         }
+    }
+
+    #[tokio::test]
+    async fn unknown_route_is_counted_by_middleware() {
+        let state = test_app();
+        let response = router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/does-not-exist")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        let Json(envelope) = metrics_snapshot(State(state)).await;
+        assert_eq!(envelope.data.unwrap()["requests"]["total"], 1);
+    }
+
+    #[tokio::test]
+    async fn metrics_endpoint_exposes_counters_without_secrets() {
+        let state = test_app();
+        state.metrics.record(200, Duration::from_millis(12));
+        let Json(envelope) = metrics_snapshot(State(state)).await;
+        assert!(envelope.success);
+        let data = envelope.data.as_ref().unwrap();
+        assert_eq!(data["requests"]["total"], 1);
+        assert_eq!(data["requests"]["status2xx"], 1);
+        assert_eq!(data["latencyMs"]["p95"], 25);
+        assert_eq!(data["store"]["schemaVersion"], 16);
+        let text = data.to_string().to_lowercase();
+        assert!(!text.contains("token"));
+        assert!(!text.contains("secret"));
+        assert!(!text.contains("asset"));
     }
 
     fn write_headers(token: &str) -> HeaderMap {

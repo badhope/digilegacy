@@ -33,14 +33,16 @@ node tools/bench/web-budget.mjs
 | Rust format and lint | Is the backend mechanically clean? |
 | Rust tests | Do domain rules, storage upgrades and entry points still behave? |
 | Fuzz smoke | Do seeded malformed inputs panic a parser or leak markup? |
-| Backup and restore | Can an authenticated checkpoint be created, listed and verified, and is the restore path documented as offline? |
+| Backup and restore | Can an authenticated checkpoint be created, listed and verified, and does an offline restore reach health with a valid audit chain? |
+| HTTP metrics | Does a read-only endpoint expose request counts, status classes and latency buckets without personal data? |
 | Web typecheck | Do generated types and components agree? |
 | Web tests | Do cache, routing and page states still work? |
 | Web accessibility | Do every route and modal layer pass the axe WCAG A/AA rules, and do light/dark text tokens hold at least 4.5:1? |
 | Visual regression (manual) | Do nine fixed-viewport snapshots still match the committed baseline, including dark and mobile overview? |
 | Production build | Does the app compile without hidden runtime-only imports? |
 | Bundle budget | Did a change quietly make the main experience heavier? |
-| Schema diagnostics | Does a fresh database open at the expected version? |
+| Schema diagnostics | Does a fresh database open at the expected version, and can the sanitized diagnostic export read the audit chain? |
+| Capacity and restore drills (manual) | Does the reference dataset meet the latency targets, and does a checkpoint restore reach health within RTO? |
 
 ## Test layers
 
@@ -51,7 +53,10 @@ node tools/bench/web-budget.mjs
 - **SMTP TLS tests** start local STARTTLS and implicit TLS servers with a test certificate, then verify the full mail dialog and UTF-8 body.
 - **Fuzz smoke tests** use fixed seeds and 45,000 inputs across five public boundaries: URL validation, recovery seals, paper shares, KDF parameters and HTML escaping. They are deterministic regression tests, not coverage-guided fuzzing.
 - **Checkpoint CLI test** creates a checkpoint in a temporary encrypted store, lists it, verifies its manifest, and confirms `security status` sees the audit record.
-- **Server tests** cover transport behavior and error mapping.
+- **Server tests** cover transport behavior, error mapping, the metrics snapshot, middleware counting of both handled routes and fallback 404s, and the absence of secrets or asset names in the output.
+- **Diagnostics test** exports the structural snapshot and requires `audit.valid`, schema v16, 31 tables and no row values.
+- **Capacity drill** seeds 1,000 assets, 250 heirs and 10,000 audit rows, then runs 1,200 reads and 120 writes over real HTTP. The 2026-11-20 result was read p95 9.54 ms / p99 11.09 ms and write p95 3.70 ms with zero errors.
+- **Restore drill** copies a verified 3.5 MB checkpoint to a new path, starts a temporary instance, probes health, reads counts and verifies 10,120 audit rows. The 2026-11-20 result was healthy in 158 ms.
 - **Web tests** cover cache behavior, routing, page states, modal focus containment, the mobile navigation drawer, and axe WCAG A/AA scans of the app shell, the three dialogs and all fifteen feature routes.
 - **Route accessibility tests** mount each view against the real router, settle its data, then run axe on the rendered body. A failing route reports the violation ID and help text, so a new page cannot regress silently.
 - **Contrast tests** parse the light and dark design tokens and require at least 4.5:1 for 15 foreground/background pairs in each theme. This supplements axe, which cannot compute colour contrast reliably in jsdom.
@@ -71,6 +76,8 @@ node tools/bench/web-budget.mjs
 9. Open the tools page and move through the search field and permission filter with the keyboard; both should announce a name, and the filter should expose its current value.
 10. Build the mock console, start the preview server and run `python3 tools/visual/regress.py`; all nine shots should stay within the 0.4% pixel budget.
 11. Create a checkpoint with `security checkpoint --label smoke`, list it, run `security verify <id>` and confirm `security status` reports the new `lastBackupAt`.
+12. Read `/api/v1/metrics`; confirm counters increase after a few requests and contain no path, asset name or token.
+13. Run `diagnostics export --allow-write --json`; confirm `audit.valid: true` and schema v16 / 31 tables.
 
 ## Release checklist
 

@@ -84,6 +84,11 @@ enum Commands {
         #[command(subcommand)]
         command: JobsCommand,
     },
+    /// Sanitized structural diagnostics and audit-chain state.
+    Diagnostics {
+        #[command(subcommand)]
+        command: DiagnosticsCommand,
+    },
     /// Audit hash-chain records.
     Audit {
         #[command(subcommand)]
@@ -493,6 +498,17 @@ enum ApprovalsCommand {
         /// Queue the resume as a durable background job instead of waiting.
         #[arg(long)]
         background: bool,
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum DiagnosticsCommand {
+    /// Export a sanitized diagnostics document.
+    Export {
+        #[arg(long)]
+        allow_write: bool,
         #[arg(long)]
         json: bool,
     },
@@ -950,6 +966,20 @@ fn main() -> ExitCode {
                 as_json,
                 false,
             ),
+        },
+        Commands::Diagnostics { command } => match command {
+            DiagnosticsCommand::Export {
+                allow_write,
+                json: as_json,
+            } => {
+                if !allow_write {
+                    return fail(PlatformError::new(
+                        "FORBIDDEN",
+                        "诊断导出会写入审计记录；请加 --allow-write",
+                    ));
+                }
+                local(app.diagnostics_export(), as_json)
+            }
         },
         Commands::Security { command } => match command {
             SecurityCommand::Status { json: as_json } => {

@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-11-20T05:15:10+00:00",
+  "environment": "Linux x86-64 local host, release build 0.0.15",
+  "checkpoint": {
+    "id": "20261120-051504-521673267",
+    "label": "restore-drill",
+    "sizeBytes": 3555328,
+    "schemaVersion": 16,
+    "verified": true
+  },
+  "method": "stop server, copy checkpoint database to a new target, start a temporary instance, probe health, read counts, verify audit chain",
+  "restoreToHealthyMs": 158,
+  "rtoBudgetMs": 7200000,
+  "checks": {
+    "health": "ok",
+    "assets": 1120,
+    "auditRows": 10120,
+    "auditValid": true,
+    "auditChecked": 10120,
+    "schemaVersion": 16,
+    "tables": 31
+  },
+  "passed": true,
+  "notes": "The checkpoint was taken after the capacity write phase, so the restored database contains all 1,120 assets and 10,120 audit rows. The checkpoint itself does not include the backup.create audit row appended after the copy; security.status therefore starts with an empty lastBackupAt until the first backup on the restored instance."
+}

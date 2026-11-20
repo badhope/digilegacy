@@ -4,6 +4,19 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.15] - November 2026
+
+### Added
+
+- A read-only `GET /api/v1/metrics` JSON snapshot: request totals, status classes, in-flight requests, latency p50/p95/p99/max and latency buckets. It records no paths, names, labels or credentials, and unknown routes are counted too.
+- `digilegacy-cli diagnostics export --allow-write --json` now produces the sanitized structural snapshot, including `audit.valid` and per-table row counts. The contract command was listed but not wired before.
+- A reproducible SLO reference dataset (`seed_reference`) and a strict capacity harness (`tools/bench/capacity.py`) that measures real HTTP reads and writes on a throwaway database.
+- Capacity and restore drill evidence under `docs/operations/measurements/`: reads p95 9.54 ms / p99 11.09 ms, writes p95 3.70 ms, restore to healthy 158 ms with 10,120 valid audit rows.
+
+### Changed
+
+- SLO and runbook measurement now uses `/api/v1/metrics`, `diagnostics export` and `security status` instead of referring to a metrics endpoint that did not exist.
+
 ## [0.0.14] - November 2026
 
 ### Added

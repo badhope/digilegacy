@@ -4,10 +4,10 @@ These objectives describe a single-node, self-hosted DigiLegacy deployment. They
 exclude failures outside the operator's boundary: host loss, network partitions,
 DNS, upstream mail or webhook providers, and the user's browser.
 
-The numbers are **provisional**. The release gate is implemented, but the
-capacity and failure drills that would validate the latency targets are still
-tracked as M6 work. Until those drills run, treat p95 values as design targets,
-not measured promises.
+The numbers are **provisional**. The first capacity and restore drills ran on
+2026-11-20 on a local reference host (see "Measured baselines"). They validate
+the procedure and the current build, not every operator's hardware. Re-run the
+capacity drill on the actual host before quoting a p95 as a promise.
 
 ## Objectives
 
@@ -45,29 +45,79 @@ database is not evidence for this objective.
 
 ## Measurement
 
-There is no `/metrics` endpoint in the current build. Use these signals until
-one lands:
+`GET /api/v1/metrics` is a read-only, process-local JSON snapshot. It exposes
+request totals, status classes, in-flight requests, latency p50/p95/p99/max and
+latency buckets. It deliberately stores no paths, asset names, heir names,
+connection labels or credentials. The counters reset when the process restarts,
+so alerting must combine the snapshot with an external health probe.
 
 ```bash
 # Availability probe
 curl -fsS http://127.0.0.1:8787/api/v1/health
 
-# Structure, schema and audit-chain state
-cargo run -q -p digilegacy-cli -- invoke diagnostics.export --json
+# HTTP counters and latency buckets since process start
+curl -fsS -H "Authorization: Bearer $DIGILEGACY_API_TOKEN" \
+  http://127.0.0.1:8787/api/v1/metrics
+
+# Audit-chain state and row counts (writes one audit entry)
+cargo run -q -p digilegacy-cli -- diagnostics export --allow-write --json
 
 # Backup freshness and recovery/key state
 cargo run -q -p digilegacy-cli -- security status --json
 ```
 
+The metrics p95 is bucket-estimated (upper bound of the matching bucket), so
+treat it as an alerting signal, not a percentile calculation. The drill harness
+below records exact client-side percentiles.
+
 A probe should alert on:
 
 - three consecutive health failures, or more than 5 failures in 15 minutes
-- `audit.valid = false`
+- `requests.status5xx / requests.total > 0.01` over a 5-minute increase
+- `latencyMs.p95` above target for 30 minutes
+- `audit.valid = false` from the diagnostics export
 - `lastBackupAt` older than 24 hours
-- p95 latency above target for 30 minutes
-- 5xx rate above 1% for 5 minutes
+- metrics `uptimeSeconds` resetting unexpectedly (process restarted)
 
 Do not alert on a single failed request. Retry once before opening an incident.
+
+## Capacity drill
+
+The reference dataset is reproducible on a throwaway database:
+
+```bash
+export DIGILEGACY_DB=/tmp/digilegacy-capacity/live.db
+cargo run -q -p digilegacy-server --example seed_reference
+# The seeder tops up to 1,000 assets, 250 heirs and 10,000 audit rows.
+
+DIGILEGACY_BIND=127.0.0.1:8799 DIGILEGACY_API_TOKEN=capacity-token \
+  ./target/release/digilegacy-server &
+python3 tools/bench/capacity.py \
+  --base-url http://127.0.0.1:8799 --token capacity-token \
+  --reads 1200 --writes 120 --concurrency 8 \
+  --out docs/operations/measurements/capacity-2026-11-20.json --strict
+```
+
+The script mixes health, overview, assets, plan, audit, security and metrics
+reads, then creates scratch assets through the normal invoke endpoint. It
+records the dataset size, client-side p50/p95/p99, error counts and the server's
+own counters. `--strict` fails when a target or an error budget is missed.
+
+## Measured baselines
+
+2026-11-20, release build `0.0.15`, Linux x86-64 local host, loopback HTTP,
+1,000 assets / 250 heirs / 10,000 audit rows before the write phase:
+
+| Signal | Result | Target |
+|---|---|---|
+| Reads, 1,200 requests, concurrency 8 | p50 6.38 ms, p95 **9.54 ms**, p99 **11.09 ms**, 0 errors | p95 ≤ 250 ms, p99 ≤ 800 ms |
+| Writes, 120 asset creates, concurrency 4 | p50 1.98 ms, p95 **3.70 ms**, p99 9.38 ms, 0 errors | p95 ≤ 500 ms |
+| Restore to healthy | **158 ms** after copying a 3.5 MB checkpoint; health, 1,120 assets and 10,120 audit rows readable | RTO ≤ 2 h |
+| Audit chain after restore | `valid: true`, `checked: 10,120` | 100% valid |
+
+Raw evidence: `docs/operations/measurements/capacity-2026-11-20.json` and
+`restore-2026-11-20.json`. These are local synthetic numbers. They do not cover
+provider delivery latency, disk failure, or a host under real user load.
 
 ## Error budget policy
 
@@ -84,10 +134,10 @@ Count it against the budget.
 
 | Gap | Impact | Next action |
 |---|---|---|
-| No Prometheus/metrics endpoint | Objectives need external probes and log parsing | Add a read-only metrics surface with no personal data |
-| Capacity drill not run | Latency targets are unverified | Seed the reference dataset, run read/write/approval load |
-| No automated restore drill | RTO is a target, not evidence | Run the restore procedure quarterly and record duration |
-| No provider-level delivery SLO | SMTP/webhook latency depends on the provider | Measure acceptance and final delivery separately |
+| Metrics are JSON, not Prometheus text | Prometheus needs a small adapter | Add a text exporter or scrape the JSON snapshot |
+| Capacity drill is one synthetic host | A different disk/CPU can miss the target | Re-run `tools/bench/capacity.py` on the production host before launch |
+| Restore drill is manual | RTO is measured for a 3.5 MB database, not a large one | Repeat quarterly with the production database size |
+| No provider-level delivery SLO | SMTP/webhook latency depends on the provider | Measure acceptance and final delivery separately with a real account |
 
 Owner: the operator on call. Review the objectives after every incident and at
 least once per quarter.
