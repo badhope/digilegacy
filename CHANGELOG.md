@@ -4,6 +4,14 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.14] - November 2026
+
+### Added
+
+- A local `security checkpoint`, `security checkpoints` and `security verify` CLI surface. Checkpoints use a WAL checkpoint, an authenticated manifest and a `backup.create` audit record; `security status` now reports the real last backup time.
+- An operations section with provisional SLOs, a monthly availability budget, and a runbook for startup, daily checks, backup, offline restore, upgrades and common failures.
+- The runbook documents the deliberate absence of an online `security restore` command: restoring a live database stays a manual, offline operation.
+
 ## [0.0.13] - November 2026
 
 ### Added

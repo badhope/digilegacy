@@ -7,6 +7,7 @@
 - [产品定位](POSITIONING.md)：说明 DigiLegacy 是什么、服务谁、明确不做什么。
 - [架构说明](ARCHITECTURE.md)：命令层、领域边界、数据模型、Agent 审批与部署形态。
 - [验证与门禁](VERIFICATION.md)：发布门禁与上线前的人工 smoke 路径。
+- [运维](operations/README.md)：SLO、检查点、恢复与事故处理。
 - [工程治理](GOVERNANCE.md)：进入开发、完成定义与评审规则。
 - [参与贡献](CONTRIBUTING.md)：如何改代码而不破坏生成客户端。
 - [安全策略](SECURITY.md)：如何报告安全问题。

@@ -33,6 +33,7 @@ node tools/bench/web-budget.mjs
 | Rust format and lint | Is the backend mechanically clean? |
 | Rust tests | Do domain rules, storage upgrades and entry points still behave? |
 | Fuzz smoke | Do seeded malformed inputs panic a parser or leak markup? |
+| Backup and restore | Can an authenticated checkpoint be created, listed and verified, and is the restore path documented as offline? |
 | Web typecheck | Do generated types and components agree? |
 | Web tests | Do cache, routing and page states still work? |
 | Web accessibility | Do every route and modal layer pass the axe WCAG A/AA rules, and do light/dark text tokens hold at least 4.5:1? |
@@ -49,6 +50,7 @@ node tools/bench/web-budget.mjs
 - **Network guard tests** cover metadata/private/link-local URL rejection, loopback allowance and signed policy-feed transport against a local HTTP server.
 - **SMTP TLS tests** start local STARTTLS and implicit TLS servers with a test certificate, then verify the full mail dialog and UTF-8 body.
 - **Fuzz smoke tests** use fixed seeds and 45,000 inputs across five public boundaries: URL validation, recovery seals, paper shares, KDF parameters and HTML escaping. They are deterministic regression tests, not coverage-guided fuzzing.
+- **Checkpoint CLI test** creates a checkpoint in a temporary encrypted store, lists it, verifies its manifest, and confirms `security status` sees the audit record.
 - **Server tests** cover transport behavior and error mapping.
 - **Web tests** cover cache behavior, routing, page states, modal focus containment, the mobile navigation drawer, and axe WCAG A/AA scans of the app shell, the three dialogs and all fifteen feature routes.
 - **Route accessibility tests** mount each view against the real router, settle its data, then run axe on the rendered body. A failing route reports the violation ID and help text, so a new page cannot regress silently.
@@ -68,6 +70,7 @@ node tools/bench/web-budget.mjs
 8. On a narrow viewport, open the navigation drawer with the keyboard: focus should enter the drawer, `Escape` should close it and return focus to the menu button.
 9. Open the tools page and move through the search field and permission filter with the keyboard; both should announce a name, and the filter should expose its current value.
 10. Build the mock console, start the preview server and run `python3 tools/visual/regress.py`; all nine shots should stay within the 0.4% pixel budget.
+11. Create a checkpoint with `security checkpoint --label smoke`, list it, run `security verify <id>` and confirm `security status` reports the new `lastBackupAt`.
 
 ## Release checklist
 
@@ -77,5 +80,6 @@ node tools/bench/web-budget.mjs
 - [ ] No secret, token or local path is committed.
 - [ ] The generated artifacts are current.
 - [ ] A backup and restore path has been tested when storage changed.
+- [ ] A verified checkpoint exists before any migration or destructive repair; restore follows the offline runbook.
 
 The detailed Chinese verification record keeps the historical evidence for each delivery. The English page describes the gates and the expected behavior, not a running tally.

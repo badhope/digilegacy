@@ -2,6 +2,14 @@
 
 [English](../../CHANGELOG.md) | 简体中文
 
+## [0.0.14] - 2026-11-20
+
+### Added
+
+- 本地 CLI 新增 `security checkpoint`、`security checkpoints`、`security verify`：先做 WAL checkpoint，生成认证清单并写入 `backup.create` 审计；`security status` 现在能报告真实最近备份时间。
+- 新增运维文档：暂定 SLO、月度可用性预算，以及启动、日常检查、备份、离线恢复、升级与常见故障的运行手册。
+- 运行手册明确不提供在线 `security restore` 命令：覆盖在线数据库必须人工、离线执行。
+
 ## [0.0.13] - 2026-11-20
 
 ### Added

@@ -641,3 +641,14 @@ M0 可以判定“工程壳完成”的条件：
 - `rand` 在 security 已是运行依赖；render 仅新增 dev-dependency，生产依赖图不变。
 - 边界：这是固定种子的确定性回归，不是覆盖率引导 fuzz，也不替代 libFuzzer；目标选的是解析边界，不是全部命令面。
 - 验收：`./tools/verify.sh` exit 0，**169 Rust + 66 Web**；日志 `/tmp/m6d-verify.log`。
+
+### M6-E 运维收口
+
+- 新增本地 CLI `security checkpoint` / `security checkpoints` / `security verify`：`create_checkpoint` 先做 WAL checkpoint，生成带 SHA-256 与 HMAC 的清单；成功创建写 `backup.create` 审计，`security status` 的 `lastBackupAt` 同步更新。
+- 新增 `checkpoint_commands_create_list_and_verify`：临时加密库创建检查点、列表、校验、`lastBackupAt` 全链路断言；缺失 ID 返回参数错误。
+- 新增 `docs/operations/SLO.md` 与 `docs/operations/RUNBOOK.md`，中文镜像在 `docs/zh-CN/operations/`：
+  - SLO：99.5% 月度可用性（预算 3h36m）、读 p95 250ms / 写 p95 500ms（暂定）、审计链 100%、RPO 24h / RTO 2h。
+  - 运行手册：环境变量、启动、日常检查、备份、离线恢复、升级回滚、常见故障表。
+- 恢复保持人工离线：停服、校验检查点、复制到新目标、临时端口实例验证、切换、复验；不提供在线 `security restore`，避免覆盖活跃数据库。
+- 边界：无 `/metrics` 端点，SLO 依赖外部探针、CLI 与诊断包；容量演练与恢复演练仍未执行，延迟/RTO 只是暂定目标。
+- 验收：`./tools/verify.sh` exit 0，**170 Rust + 66 Web**；日志 `/tmp/m6f-verify.log`。

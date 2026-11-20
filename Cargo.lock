@@ -516,7 +516,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-agent"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "digilegacy-contracts",
  "reqwest",
@@ -526,7 +526,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-application"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "chrono",
  "digilegacy-agent",
@@ -548,7 +548,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-cli"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "clap",
  "digilegacy-application",
@@ -559,11 +559,11 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-contracts"
-version = "0.0.13"
+version = "0.0.14"
 
 [[package]]
 name = "digilegacy-domains"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "chrono",
  "digilegacy-store",
@@ -575,7 +575,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-foundation"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "digilegacy-contracts",
  "serde",
@@ -584,7 +584,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-integrations"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "base64 0.23.1",
  "chrono",
@@ -600,7 +600,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-mcp"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "digilegacy-application",
  "digilegacy-store",
@@ -609,14 +609,14 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-render"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "rand 0.9.5",
 ]
 
 [[package]]
 name = "digilegacy-security"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "aes-gcm",
  "argon2",
@@ -637,7 +637,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-server"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "axum",
  "chrono",
@@ -657,7 +657,7 @@ dependencies = [
 
 [[package]]
 name = "digilegacy-store"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "chrono",
  "digilegacy-security",

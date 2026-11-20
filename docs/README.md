@@ -7,6 +7,7 @@ English | [简体中文](zh-CN/README.md)
 - [Product positioning](POSITIONING.md) explains what DigiLegacy is, who it serves and what it deliberately does not do.
 - [Architecture](ARCHITECTURE.md) describes the command layer, domain boundaries, data model, Agent approvals and deployment shape.
 - [Verification](VERIFICATION.md) covers the release gates and the manual path to smoke before shipping.
+- [Operations](operations/README.md) covers SLOs, checkpoints, restore and incident response.
 - [Governance](GOVERNANCE.md) defines readiness, completion and review rules.
 - [Contributing](../CONTRIBUTING.md) explains how to make a change without breaking generated clients.
 - [Security](../SECURITY.md) explains how to report a vulnerability.
