@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
         </button>
 
         <div class="rail-meta mono">
-          <span>v0.0.12</span>
+          <span>v0.0.13</span>
           <span>M6 / LIVE</span>
         </div>
       </div>

@@ -32,6 +32,7 @@ node tools/bench/web-budget.mjs
 | Architecture check | Did an entry point grow business logic, or a removed path return? |
 | Rust format and lint | Is the backend mechanically clean? |
 | Rust tests | Do domain rules, storage upgrades and entry points still behave? |
+| Fuzz smoke | Do seeded malformed inputs panic a parser or leak markup? |
 | Web typecheck | Do generated types and components agree? |
 | Web tests | Do cache, routing and page states still work? |
 | Web accessibility | Do every route and modal layer pass the axe WCAG A/AA rules, and do light/dark text tokens hold at least 4.5:1? |
@@ -47,6 +48,7 @@ node tools/bench/web-budget.mjs
 - **Application tests** exercise use cases without HTTP.
 - **Network guard tests** cover metadata/private/link-local URL rejection, loopback allowance and signed policy-feed transport against a local HTTP server.
 - **SMTP TLS tests** start local STARTTLS and implicit TLS servers with a test certificate, then verify the full mail dialog and UTF-8 body.
+- **Fuzz smoke tests** use fixed seeds and 45,000 inputs across five public boundaries: URL validation, recovery seals, paper shares, KDF parameters and HTML escaping. They are deterministic regression tests, not coverage-guided fuzzing.
 - **Server tests** cover transport behavior and error mapping.
 - **Web tests** cover cache behavior, routing, page states, modal focus containment, the mobile navigation drawer, and axe WCAG A/AA scans of the app shell, the three dialogs and all fifteen feature routes.
 - **Route accessibility tests** mount each view against the real router, settle its data, then run axe on the rendered body. A failing route reports the violation ID and help text, so a new page cannot regress silently.

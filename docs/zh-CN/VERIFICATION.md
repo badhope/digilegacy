@@ -632,3 +632,12 @@ M0 可以判定“工程壳完成”的条件：
 - 预算：入口 **79.24 / 80 KB**、vendor 99.50 / 130 KB、JS 总 gzip **101.13 / 101.15 KB**、CSS **20.92 / 21 KB**、总 gzip **122.04 / 122.1 KB**；移动端页头使 JS 总与总 gzip 各放宽 0.05 / 0.1 KB，其余未放宽。
 - 视觉检查不进入 `tools/verify.sh`：浏览器版本与字体抗锯齿会带来环境噪声，保留为发布前人工门禁；生产构建不增加 Playwright/Pillow 依赖。
 - 复验：`python3 tools/visual/regress.py`；日志 `/tmp/m6c-visual.log`。
+
+### M6-D 确定性模糊测试
+
+- 新增 `core/security/tests/fuzz_smoke.rs` 4 个目标：`validate_external_url`、`normalize_recovery_code` + `validate_recovery_seal_structure`、`decode_share`、`parse_kdf_params`；新增 `core/render/tests/fuzz_smoke.rs` 1 个目标：`escape_html` / `render_page` / `render_document`。
+- 固定种子：security 基种子 `0xD161_E6A1`，render 基种子 `0xD161_E65E`；5 个测试共 45,000 组输入，约 1 秒完成。
+- 断言边界：URL 接受值必须是 http/https 且无控制字符；恢复码归一幂等且不残留空白/连字符；份额解码成功后编码可再解码；Argon2 `m_cost ≥ 8192`、`t_cost ≥ 1`、`p_cost ≥ 1`；转义输出不含原始 `<`、`>`、双引号或单引号。
+- `rand` 在 security 已是运行依赖；render 仅新增 dev-dependency，生产依赖图不变。
+- 边界：这是固定种子的确定性回归，不是覆盖率引导 fuzz，也不替代 libFuzzer；目标选的是解析边界，不是全部命令面。
+- 验收：`./tools/verify.sh` exit 0，**169 Rust + 66 Web**；日志 `/tmp/m6d-verify.log`。

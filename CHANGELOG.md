@@ -4,6 +4,13 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.13] - November 2026
+
+### Added
+
+- Five seeded fuzz smoke targets run on every Rust test pass: external URL validation, recovery-code normalization and seal parsing, paper-share decoding, KDF parameter parsing, and HTML escaping.
+- The targets run 45,000 deterministic inputs with fixed seeds, so a parser panic is reproducible instead of depending on a fresh random corpus. `rand` was already a runtime dependency of the security crate and becomes dev-only for the render crate; the production dependency graph does not grow.
+
 ## [0.0.12] - November 2026
 
 ### Added

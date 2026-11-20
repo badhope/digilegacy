@@ -2,6 +2,13 @@
 
 [English](../../CHANGELOG.md) | 简体中文
 
+## [0.0.13] - 2026-11-20
+
+### Added
+
+- 新增 5 个确定性模糊测试目标，随 `cargo test` 每次执行：外部 URL 校验、恢复码归一与封印解析、纸质份额解码、KDF 参数解析、HTML 转义。
+- 固定种子共 45,000 组输入，失败可复现；安全 crate 原本已依赖 `rand`，render crate 仅新增 dev-dependency，生产依赖图不增加。
+
 ## [0.0.12] - 2026-11-20
 
 ### Added
