@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20T08:13:05.792797+00:00",
+  "generatedAt": "2026-11-20T08:31:27.263070+00:00",
   "result": "PASS",
   "cleanEnvironment": {
     "freshHome": true,
@@ -13,35 +13,35 @@
       "TZ",
       "TMPDIR"
     ],
-    "loopbackBind": "127.0.0.1:50261"
+    "loopbackBind": "127.0.0.1:41105"
   },
   "archive": {
     "name": "digilegacy-0.0.17-linux-x86_64.tar.gz",
-    "bytes": 18091098,
-    "sha256": "3e9ef208b20122f7eefdc8c1595a5d09dc28e1d858853d9f753940cb5d1e7f6b"
+    "bytes": 18094813,
+    "sha256": "cd37a19461056e4bbef209bef3b57e1070f2c8b7383a2ce8e638f307b19166e3"
   },
   "host": {
     "platform": "Linux-6.6.95.bck.4-rc5-amd64-x86_64-with-glibc2.35",
     "machine": "x86_64"
   },
-  "totalDurationMs": 1314,
+  "totalDurationMs": 1357,
   "steps": [
     {
       "name": "extract",
       "status": "done",
-      "durationMs": 695,
+      "durationMs": 707,
       "detail": "unpacked digilegacy-0.0.17-linux-x86_64.tar.gz"
     },
     {
       "name": "install",
       "status": "done",
-      "durationMs": 102,
+      "durationMs": 109,
       "detail": "fresh prefix and data"
     },
     {
       "name": "start",
       "status": "done",
-      "durationMs": 278,
+      "durationMs": 302,
       "detail": "health probe inside start script"
     },
     {
@@ -59,47 +59,63 @@
     {
       "name": "checkpoint",
       "status": "done",
-      "durationMs": 13,
+      "durationMs": 14,
       "detail": "created and verified"
     },
     {
       "name": "stop",
       "status": "done",
-      "durationMs": 16,
+      "durationMs": 17,
       "detail": "SIGTERM"
     },
     {
       "name": "uninstall-preserve-data",
       "status": "done",
-      "durationMs": 23,
+      "durationMs": 25,
       "detail": "prefix removed; database and keys preserved"
     },
     {
       "name": "reinstall",
       "status": "done",
-      "durationMs": 69,
+      "durationMs": 68,
       "detail": "same data directory and preserved keys"
     },
     {
       "name": "reinstall-health",
       "status": "done",
-      "durationMs": 28,
+      "durationMs": 27,
       "detail": "preserved database reopened and audit chain valid"
     },
     {
       "name": "stop-again",
       "status": "done",
-      "durationMs": 16,
+      "durationMs": 14,
       "detail": "SIGTERM"
     },
     {
       "name": "uninstall-purge",
       "status": "done",
-      "durationMs": 17,
+      "durationMs": 16,
       "detail": "prefix and data removed"
     }
   ],
   "checks": {
+    "permissions": {
+      "expected": {
+        "web/index.html": "0o644",
+        "share/nginx/digilegacy.conf.example": "0o644",
+        "docs/operations/INSTALL.md": "0o644",
+        "tools/policies/source_audit.py": "0o755",
+        "etc/digilegacy.env": "0o600"
+      },
+      "actual": {
+        "web/index.html": "0o644",
+        "share/nginx/digilegacy.conf.example": "0o644",
+        "docs/operations/INSTALL.md": "0o644",
+        "tools/policies/source_audit.py": "0o755",
+        "etc/digilegacy.env": "0o600"
+      }
+    },
     "health": {
       "code": "OK",
       "schemaVersion": 16,
@@ -111,7 +127,7 @@
       "schemaVersion": 16
     },
     "checkpoint": {
-      "id": "20261120-081305-590490840",
+      "id": "20261120-083127-061218713",
       "verified": true
     },
     "uninstall": {
