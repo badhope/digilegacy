@@ -38,7 +38,6 @@ const localModelCopy = computed(() =>
         retry: "重试",
         tokenRequired: "先在“安全与数据”填写平台写令牌，才能下载或启用模型。",
         runtimeHint: "启用会启动本地推理 sidecar，默认 8K 运行时上下文；可用 DIGILEGACY_LOCAL_MODEL_CTX 调整，并把规划器切到该模型；无需外部 Ollama。",
-        experimental: "实验运行时",
         quality: "质量档",
         strict: "<2B",
         notStrict: "实际 >2B",
@@ -59,10 +58,6 @@ const localModelCopy = computed(() =>
             params: "2.52B 稠密",
             description: "2B 级质量档，代码、数学、长文本和工具调用更强；实际参数 2.52B，不属于严格 <2B。",
           },
-          "spark-x2.5-1.7b": {
-            params: "1.71B 稠密",
-            description: "严格 <2B 里上下文最长的候选，原生 1M、200+ 语言；使用 Spark 专用混合注意力，标准 llama.cpp 兼容性待验证。",
-          },
         },
       }
     : {
@@ -79,7 +74,6 @@ const localModelCopy = computed(() =>
         retry: "Retry",
         tokenRequired: "Set the platform write token in Security & data before downloading or enabling a model.",
         runtimeHint: "Enable starts the local inference sidecar (8K runtime context by default; set DIGILEGACY_LOCAL_MODEL_CTX to raise it) and switches the planner to this model; no external Ollama needed.",
-        experimental: "Experimental runtime",
         quality: "Quality tier",
         strict: "<2B",
         notStrict: "Actually >2B",
@@ -99,10 +93,6 @@ const localModelCopy = computed(() =>
           "minicpm5-2b": {
             params: "2.52B dense",
             description: "Quality tier above 2B with stronger code, math, long-text, and tool-calling; at 2.52B parameters it is not strictly under 2B.",
-          },
-          "spark-x2.5-1.7b": {
-            params: "1.71B dense",
-            description: "The longest-context strict <2B candidate: native 1M context and 200+ languages; uses Spark's hybrid attention, so standard llama.cpp compatibility is unverified.",
           },
         },
       },
@@ -263,8 +253,7 @@ onUnmounted(() => {
             <div class="local-model-badges">
               <span v-if="item.recommended" class="model-badge recommended">{{ localModelCopy.recommended }}</span>
               <span class="model-badge" :class="{ 'under-2b': item.strictUnder2b }">{{ item.strictUnder2b ? localModelCopy.strict : localModelCopy.notStrict }}</span>
-              <span v-if="item.runtime === 'experimental'" class="model-badge experimental">{{ localModelCopy.experimental }}</span>
-              <span v-else-if="!item.strictUnder2b" class="model-badge quality">{{ localModelCopy.quality }}</span>
+              <span v-if="!item.strictUnder2b" class="model-badge quality">{{ localModelCopy.quality }}</span>
             </div>
           </div>
           <StatusPill :tone="localModelTone(item)" :label="localModelStatusLabel(item)" />
@@ -327,7 +316,6 @@ onUnmounted(() => {
 .model-badge { padding: 2px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 9px; line-height: 1.4; }
 .model-badge.recommended { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: var(--accent-soft); color: var(--accent-strong); }
 .model-badge.under-2b { border-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); }
-.model-badge.experimental { border-color: color-mix(in srgb, var(--danger) 35%, transparent); color: var(--danger); }
 .model-badge.quality { border-color: color-mix(in srgb, var(--amber) 45%, transparent); color: var(--amber); }
 .local-model-description { margin: 0; color: var(--ink-soft); font-size: 11px; line-height: 1.6; }
 .local-model-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 10px; }

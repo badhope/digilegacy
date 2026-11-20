@@ -1,6 +1,6 @@
 # 本地模型
 
-DigiLegacy 0.0.21 在“设置 → 连接”内加入本地模型目录、下载和启用。目标不是做一个模型市场，而是让默认模型下载后马上能被规划器使用，避免用户再去装 Ollama 或手工改环境变量。
+DigiLegacy 0.0.22 在“设置 → 连接”内加入本地模型目录、下载和启用。目标不是做一个模型市场，而是让默认模型下载后马上能被规划器使用，避免用户再去装 Ollama 或手工改环境变量。
 
 ## 默认模型
 
@@ -8,7 +8,8 @@ DigiLegacy 0.0.21 在“设置 → 连接”内加入本地模型目录、下载
 | --- | --- | --- | --- | --- | --- | --- |
 | **MiniCPM5-1B** | 1.08B 稠密 | 131,072 | 688,065,920 B | Apache-2.0 | 标准 llama.cpp | 默认推荐；1B 级开源 SOTA，标准 `LlamaForCausalLM`，接入成本最低 |
 | MiniCPM5-2B | 2.52B 稠密 | 131,072 | 1,561,318,368 B | Apache-2.0 | 标准 llama.cpp | 质量档；实际参数超过 2B，不满足“严格 <2B” |
-| Spark-X2.5-1.7B | 1.71B 稠密 | 1,048,576 | 1,107,457,856 B | Apache-2.0 | 实验 | 严格 <2B 里上下文最长；本机 `llama-cpp-python 0.3.37` 已能加载并完成规划，但仍按实验运行时标注 |
+
+Spark-X2.5-1.7B 已在 0.0.22 从目录和 Web 面板移除：它虽然能加载并返回合法计划，但在 2 核 / 3.9 GiB 目标环境上无法利用 1M 原生上下文，速度也慢于 1B，保留只会增加实验运行时和 1.1 GB 磁盘。
 
 MiniCPM5-1B 的下载源为 ModelScope：
 
@@ -70,7 +71,6 @@ python3 -m pip install llama-cpp-python fastapi uvicorn jinja2
 - `digilegacy-cli runs plan --task '列出当前所有账户资产。'` 使用当前程序链路成功返回 `assets.list`，`tokensIn=3596`、`tokensOut=19`，耗时约 51.9 秒。
 - 写任务同样返回合法 JSON，JSON 语法约束修复了未约束时少一个右括号的问题。
 - 2B Q4_K_M 通过服务端下载管理器完成 1,561,318,368 B 下载并通过 SHA256 校验；真实规划耗时 116 秒。
-- Spark-X2.5-1.7B Q4_K_M 通过 Web 面板真实下载 1,107,457,856 B 并校验通过；sidecar 启动 3 秒，真实规划 83 秒。
 - 启用前会重新计算 SHA256，避免只信任 `.gguf.sha256` 标记；完整测试矩阵见 `docs/operations/measurements/local-models-functional-2026-11-20.md`。
 - 8K 默认上下文下，向 1B 发送 5,028 prompt tokens 成功（79 秒）；发送 9,028 tokens 时 sidecar 返回 `Requested tokens (9028) exceed context window of 8192`。
 - 以 `DIGILEGACY_LOCAL_MODEL_CTX=16384` 重启并启用后，同一份 9,028-token prompt 成功返回，耗时 210.8 秒，证明运行时上下文可调。

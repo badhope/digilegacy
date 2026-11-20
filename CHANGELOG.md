@@ -4,6 +4,18 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.22] - November 2026
+
+### Removed
+
+- Removed **Spark-X2.5-1.7B** from the local-model catalog and settings panel. It loaded and returned valid plans, but its only distinct capability was a native 1M context that the 8K/16K runtime on the 2-core target cannot use; it was slower than MiniCPM5-1B and less clearly positioned than MiniCPM5-2B.
+- The local copy at `data/models/spark-x2.5-1.7b` was deleted, freeing about 1.1 GB. The model was never part of the source commit or release archive.
+
+### Testing
+
+- Catalog assertion added: only `minicpm5-1b` and `minicpm5-2b` remain, and no Spark id can be downloaded or activated.
+- Rust workspace: 189 passed / 0 failed. Web: 79 passed / 0 failed.
+
 ## [0.0.21] - November 2026
 
 ### Fixed

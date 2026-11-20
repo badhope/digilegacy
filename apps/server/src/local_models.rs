@@ -1,9 +1,8 @@
 //! Local GGUF model catalog, resumable download and runtime activation.
 //!
 //! The catalog is intentionally small and curated: the default is
-//! MiniCPM5-1B (1.08B, 128K context, standard Llama architecture), with two
-//! optional entries that are clearly labelled when they are not strict <2B or
-//! need a specialised runtime.
+//! MiniCPM5-1B (1.08B, 128K context, standard Llama architecture), plus one
+//! quality option that is clearly labelled as actually >2B.
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -70,22 +69,6 @@ pub const CATALOG: &[ModelSpec] = &[
         file_name: "MiniCPM5-2B-Q4_K_M.gguf",
         download_url: "https://modelscope.cn/models/OpenBMB/MiniCPM5-2B-GGUF/resolve/master/MiniCPM5-2B-Q4_K_M.gguf",
         model_id: "MiniCPM5-2B-Q4_K_M",
-    },
-    ModelSpec {
-        id: "spark-x2.5-1.7b",
-        name: "Spark-X2.5-1.7B",
-        params: "1.71B 稠密",
-        context: 1_048_576,
-        size_bytes: 1_107_457_856,
-        sha256: "902bde2522394954ac17821b3e5fd0df02defbc6944f122253f2580acf0503f4",
-        license: "Apache-2.0",
-        description: "严格 <2B 里上下文最长的候选，原生 1M、200+ 语言；使用 Spark 专用混合注意力，标准 llama.cpp 兼容性待验证。",
-        recommended: false,
-        strict_under_2b: true,
-        runtime: "experimental",
-        file_name: "Spark-X2.5-1.7B-Q4_K_M.gguf",
-        download_url: "https://modelscope.cn/models/XHToken/Spark-X2.5-1.7B-GGUF/resolve/master/Spark-X2.5-1.7B-Q4_K_M.gguf",
-        model_id: "Spark-X2.5-1.7B-Q4_K_M",
     },
 ];
 
@@ -243,6 +226,13 @@ impl Manager {
         let Some(active) = self.read_active() else {
             return;
         };
+        if !CATALOG.iter().any(|spec| spec.id == active.id) {
+            if let Some(pid) = active.pid {
+                terminate_pid(pid);
+            }
+            let _ = fs::remove_file(self.active_path());
+            return;
+        }
         let process_alive = active.pid.map(sidecar_process).unwrap_or(false);
         if process_alive || self.probe_active(&active).is_some() {
             return;
@@ -752,6 +742,13 @@ mod tests {
     }
 
     #[test]
+    fn catalog_keeps_only_minicpm_models() {
+        assert_eq!(CATALOG.len(), 2);
+        assert!(CATALOG.iter().all(|spec| spec.id.starts_with("minicpm5-")));
+        assert!(!CATALOG.iter().any(|spec| spec.id.contains("spark")));
+    }
+
+    #[test]
     fn stale_active_is_discarded() {
         let root = std::env::temp_dir().join(format!("digilegacy-lm-stale-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
@@ -760,11 +757,36 @@ mod tests {
         fs::write(
             manager.active_path(),
             serde_json::json!({
-                "id": "test-model",
-                "model": "Test",
+                "id": "minicpm5-1b",
+                "model": "MiniCPM5-1B-Q4_K_M",
                 "baseUrl": "http://127.0.0.1:1/v1",
                 "apiKey": "local",
                 "path": "test.gguf",
+                "pid": 999_999,
+            })
+            .to_string(),
+        )
+        .unwrap();
+        manager.discard_stale_active();
+        assert!(manager.read_active().is_none());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn removed_catalog_active_is_discarded() {
+        let root =
+            std::env::temp_dir().join(format!("digilegacy-lm-removed-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let manager = Manager::new(root.clone());
+        fs::create_dir_all(&root).unwrap();
+        fs::write(
+            manager.active_path(),
+            serde_json::json!({
+                "id": "spark-x2.5-1.7b",
+                "model": "Spark-X2.5-1.7B-Q4_K_M",
+                "baseUrl": "http://127.0.0.1:1/v1",
+                "apiKey": "local",
+                "path": "spark.gguf",
                 "pid": 999_999,
             })
             .to_string(),
