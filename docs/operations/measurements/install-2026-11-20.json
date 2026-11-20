@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-20T08:12:08.706854+00:00",
+  "generatedAt": "2026-11-20T08:13:05.792797+00:00",
   "result": "PASS",
   "cleanEnvironment": {
     "freshHome": true,
@@ -13,29 +13,29 @@
       "TZ",
       "TMPDIR"
     ],
-    "loopbackBind": "127.0.0.1:37585"
+    "loopbackBind": "127.0.0.1:50261"
   },
   "archive": {
     "name": "digilegacy-0.0.17-linux-x86_64.tar.gz",
-    "bytes": 18091259,
-    "sha256": "cfd687a977880e1d51264c4befc5d206d368e8f41242c9a9732498a8a5937dff"
+    "bytes": 18091098,
+    "sha256": "3e9ef208b20122f7eefdc8c1595a5d09dc28e1d858853d9f753940cb5d1e7f6b"
   },
   "host": {
     "platform": "Linux-6.6.95.bck.4-rc5-amd64-x86_64-with-glibc2.35",
     "machine": "x86_64"
   },
-  "totalDurationMs": 1285,
+  "totalDurationMs": 1314,
   "steps": [
     {
       "name": "extract",
       "status": "done",
-      "durationMs": 684,
+      "durationMs": 695,
       "detail": "unpacked digilegacy-0.0.17-linux-x86_64.tar.gz"
     },
     {
       "name": "install",
       "status": "done",
-      "durationMs": 96,
+      "durationMs": 102,
       "detail": "fresh prefix and data"
     },
     {
@@ -53,7 +53,7 @@
     {
       "name": "diagnostics-export",
       "status": "done",
-      "durationMs": 7,
+      "durationMs": 6,
       "detail": "sanitized export with valid audit chain"
     },
     {
@@ -65,7 +65,7 @@
     {
       "name": "stop",
       "status": "done",
-      "durationMs": 15,
+      "durationMs": 16,
       "detail": "SIGTERM"
     },
     {
@@ -77,25 +77,25 @@
     {
       "name": "reinstall",
       "status": "done",
-      "durationMs": 66,
+      "durationMs": 69,
       "detail": "same data directory and preserved keys"
     },
     {
       "name": "reinstall-health",
       "status": "done",
-      "durationMs": 23,
+      "durationMs": 28,
       "detail": "preserved database reopened and audit chain valid"
     },
     {
       "name": "stop-again",
       "status": "done",
-      "durationMs": 13,
+      "durationMs": 16,
       "detail": "SIGTERM"
     },
     {
       "name": "uninstall-purge",
       "status": "done",
-      "durationMs": 16,
+      "durationMs": 17,
       "detail": "prefix and data removed"
     }
   ],
@@ -111,7 +111,7 @@
       "schemaVersion": 16
     },
     "checkpoint": {
-      "id": "20261120-081208-518539759",
+      "id": "20261120-081305-590490840",
       "verified": true
     },
     "uninstall": {

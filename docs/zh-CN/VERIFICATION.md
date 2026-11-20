@@ -679,7 +679,7 @@ M0 可以判定“工程壳完成”的条件：
 - 新增 `tools/package/build.sh`：release 构建 server/cli/mcp，打包 Web dist、content 与运维文档，输出 `packages/digilegacy-0.0.17-linux-x86_64.tar.gz` 与 `.sha256`。
 - 新增 `packaging/install.sh`、`start.sh`、`stop.sh`、`uninstall.sh`：安装时生成 0600 env 与随机写令牌（不打印），首次 health 建 schema/密钥；启动做 HTTP 健康探测；卸载默认保留数据与密钥，`--purge-data` 显式彻底删除。
 - 新增 `tools/package/clean_drill.py`：全新 HOME、前缀、数据目录、最小环境变量与随机回环端口，执行安装→健康/metrics→诊断导出→检查点验证→卸载保留→重装读库→彻底卸载，12 步全通过，总耗时约 1.3 秒。
-- 证据：`docs/operations/measurements/install-2026-11-20.json`；归档 18,091,259 bytes，SHA256 `cfd687a9…`，诊断 `audit.valid: true`，schema v16 / 31 表；重装后数据库与审计链仍可读。
+- 证据：`docs/operations/measurements/install-2026-11-20.json`；归档 18,091,098 bytes，SHA256 `3e9ef208…`，诊断 `audit.valid: true`，schema v16 / 31 表；重装后数据库与审计链仍可读。
 - 中英文 `docs/operations/INSTALL.md` 说明安装、nginx 同源代理、升级、导出、检查点、卸载与密钥保留策略。
 - 边界：API 不直接托管 SPA，生产需反向代理；Windows 代码签名与自动更新（G-37/G-38）仍未做，不属于本次 Linux 干净机演练范围。
 
