@@ -691,7 +691,8 @@ M0 可以判定“工程壳完成”的条件：
 - `core/integrations` 的 HTTP 探针与政策同步改用 `.resolve_to_addrs(...)` 钉住已验地址，并加 `.no_proxy()`；TCP 探针与 SMTP 投递改为连接已验地址列表，不再让 `TcpStream` 重新解析主机名。
 - 新增 `resolved_outbound_addresses_are_validated_before_connect` 与保留网段断言；安全单测 52 条，集成 11 条。
 - 验收：`./tools/verify.sh` exit 0，**175 Rust + 68 Web**；契约 39 / 23 / 56 / 21；schema v16 / 31 表；日志 `/tmp/m6k-verify.log`。
-- 边界：未搭建恶意 DNS 服务器做端到端重绑定演示；当前测试锁定“解析结果校验 + 地址钉住 + allowlist”三条代码路径。`.no_proxy()` 意味着只允许经 HTTP 代理出网的部署不能直接使用连接测试，需要在受控出口代理处单独处理。
+- 新增端到端重绑定演练：`tools/security/dns_rebind_drill.py` 在 `unshare -Urnm` 隔离网络中起假 DNS 与 `8.8.8.8` TCP 服务；探针只解析一次，DNS 答案切到 `10.0.0.1` 后仍连到第一次校验的 `8.8.8.8`，A 查询恰好 1 次；切换后新解析被拒绝。证据 `docs/operations/measurements/dns-rebind-2026-11-20.json`，重复 3 次 PASS（约 0.31–0.38 秒）。
+- 边界：`.no_proxy()` 意味着只允许经 HTTP 代理出网的部署不能直接使用连接测试，需要在受控出口代理处单独处理。
 
 ### M6-G 账号接入引导（2026-11-20）
 

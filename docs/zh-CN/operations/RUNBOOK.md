@@ -24,6 +24,19 @@
 
 生产环境应设置 `DIGILEGACY_OUTBOUND_ALLOWLIST`，只列出实际使用的邮件、Webhook、飞书与企业微信主机。通配符只匹配子域名（`*.example.com` 不匹配 `example.com` 本身）。
 
+### DNS 重绑定演练
+
+解析器有单元测试，端到端行为可在隔离的 user/network/mount 命名空间中复现：
+
+```bash
+cargo build -p digilegacy-security --example dns_rebind_probe
+unshare -Urnm python3 tools/security/dns_rebind_drill.py
+```
+
+演练在 `127.0.0.1:53` 起假 DNS，在 `8.8.8.8` 起 TCP 服务。探针只解析一次
+`rebind.test`，随后 DNS 答案切到 `10.0.0.1`，探针仍必须用第一次校验过的
+`8.8.8.8` 建连，且 A 查询恰好 1 次；另起进程在切换后解析必须被拒绝。该演练只用于源码检出目录下的测试机，依赖 Linux 用户命名空间，不能对生产解析器运行。
+
 启动 API：
 
 ```bash

@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-11-20T08:21:51.046740+00:00",
+  "result": "PASS",
+  "host": "rebind.test",
+  "steps": [
+    {
+      "name": "setup",
+      "status": "done",
+      "detail": "isolated resolver points at 127.0.0.1; 8.8.8.8 bound on loopback"
+    },
+    {
+      "name": "pinned-connect",
+      "status": "done",
+      "detail": "resolved once to 8.8.8.8:59191; DNS changed to 10.0.0.1; probe still connected to pinned address; A queries=1; 383.4ms"
+    },
+    {
+      "name": "rebound-reject",
+      "status": "done",
+      "detail": "blocked=true error=\u89e3\u6790\u5230\u4e0d\u53ef\u4fe1\u5730\u5740\uff0c\u5df2\u62d2\u7edd: 10.0.0.1"
+    }
+  ],
+  "network": {
+    "publicAnswer": "8.8.8.8",
+    "privateAnswer": "10.0.0.1"
+  },
+  "probe": "/home/user/Doubao/chats/38454763952646402/digilegacy/target/debug/examples/dns_rebind_probe",
+  "tcpPort": 59191,
+  "dnsQueries": {
+    "a": 2,
+    "aaaa": 2
+  },
+  "durationMs": 386.8
+}

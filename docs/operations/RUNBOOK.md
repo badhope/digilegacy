@@ -36,6 +36,23 @@ Set `DIGILEGACY_OUTBOUND_ALLOWLIST` in production to the exact mail, webhook,
 Feishu and WeCom hosts in use. Wildcards match subdomains only
 (`*.example.com` does not match `example.com` itself).
 
+### DNS-rebinding drill
+
+The resolver is covered by unit tests, but the end-to-end behaviour can be
+reproduced in an isolated user/network/mount namespace:
+
+```bash
+cargo build -p digilegacy-security --example dns_rebind_probe
+unshare -Urnm python3 tools/security/dns_rebind_drill.py
+```
+
+The drill starts a fake DNS server on `127.0.0.1:53` and a TCP service on
+`8.8.8.8`. The probe resolves `rebind.test` once, the DNS answer is changed to
+`10.0.0.1`, and the probe must still connect to the originally validated
+`8.8.8.8` with exactly one A query. A second process resolving after the change
+must be rejected. It is a test-only drill from a source checkout; it needs Linux user
+namespaces and must not run against a production resolver.
+
 Start the API:
 
 ```bash

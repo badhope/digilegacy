@@ -43,6 +43,7 @@ node tools/bench/web-budget.mjs
 | Bundle budget | Did a change quietly make the main experience heavier? |
 | Schema diagnostics | Does a fresh database open at the expected version, and can the sanitized diagnostic export read the audit chain? |
 | Capacity and restore drills (manual) | Does the reference dataset meet the latency targets, and does a checkpoint restore reach health within RTO? |
+| DNS rebinding drill (manual) | Does a hostname resolved once still connect to the validated public address after the DNS answer changes to a private address, with no second query? |
 
 ## Test layers
 
@@ -102,6 +103,7 @@ review worklist, not a verification result.
 11. Create a checkpoint with `security checkpoint --label smoke`, list it, run `security verify <id>` and confirm `security status` reports the new `lastBackupAt`.
 12. Read `/api/v1/metrics`; confirm counters increase after a few requests and contain no path, asset name or token.
 13. Run `diagnostics export --allow-write --json`; confirm `audit.valid: true` and schema v16 / 31 tables.
+14. Run `unshare -Urnm python3 tools/security/dns_rebind_drill.py`; confirm PASS, one A query, a pinned connection and a rejected rebound resolution.
 
 ## Release checklist
 
