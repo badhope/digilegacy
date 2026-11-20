@@ -13,9 +13,16 @@
 | `DIGILEGACY_CONFIG_KEY_FILE` | 可选 | 连接配置的独立密钥。缺省时从数据库密钥派生域密钥。 |
 | `DIGILEGACY_BIND` | 是 | API 绑定地址，默认 `127.0.0.1:8787`；远程访问应经反向代理。 |
 | `DIGILEGACY_API_TOKEN` | 写入需要 | 写路由的 Bearer token。未配置时写路由保持关闭。 |
-| `DIGILEGACY_ALLOW_PRIVATE_NETWORK` | 仅 LAN 集成 | `1`、`true` 或 `yes` 放行私网字面地址；云元数据始终拒绝。 |
+| `DIGILEGACY_ALLOW_PRIVATE_NETWORK` | 仅 LAN 集成 | `1`、`true` 或 `yes` 放行 DNS 解析后的私网地址；云元数据始终拒绝。 |
+| `DIGILEGACY_OUTBOUND_ALLOWLIST` | 可选 | 逗号分隔的主机 allowlist，例如 `smtp.example.com,*.feishu.cn`；设置后其他出站主机在 DNS 解析前即拒绝。 |
 | `DIGILEGACY_POLICY_URL` / `TOKEN` | 可选 | 远端政策 feed 回退；优先使用已保存的 `policy` 连接。 |
 | `DIGILEGACY_SMTP_*`、`DIGILEGACY_WEBHOOK_*` | 可选 | 通知回退；优先使用已保存连接。 |
+
+### 出站网络
+
+连接测试、政策同步与 SMTP 投递都只解析一次目标、校验全部返回地址，再连接这批已验地址，消除“校验后连接时重新解析”的 DNS rebinding 窗口。私网地址需要 `DIGILEGACY_ALLOW_PRIVATE_NETWORK`；云元数据地址始终拒绝。出站客户端有意忽略 `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`，因为代理会重新解析目标。若部署必须走出口代理，应在受控代理处终止连接并单独放行代理，不要把这些客户端指向代理。
+
+生产环境应设置 `DIGILEGACY_OUTBOUND_ALLOWLIST`，只列出实际使用的邮件、Webhook、飞书与企业微信主机。通配符只匹配子域名（`*.example.com` 不匹配 `example.com` 本身）。
 
 启动 API：
 

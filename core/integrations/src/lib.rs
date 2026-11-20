@@ -5,7 +5,8 @@
 
 #![forbid(unsafe_code)]
 
-use std::net::{TcpStream, ToSocketAddrs};
+use digilegacy_security::{resolve_external_url, resolve_tcp_endpoint, resolve_tcp_host};
+use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
 use rustls::pki_types::CertificateDer;
@@ -94,10 +95,15 @@ fn result(ok: bool, status: &str, started: Instant, message: String) -> ProbeRes
     }
 }
 
-fn client(timeout: Duration) -> Result<reqwest::blocking::Client, String> {
+fn client(
+    timeout: Duration,
+    resolved: &digilegacy_security::ResolvedExternalUrl,
+) -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
         .timeout(timeout)
         .redirect(reqwest::redirect::Policy::none())
+        .no_proxy()
+        .resolve_to_addrs(&resolved.host, &resolved.addrs)
         .user_agent("DigiLegacy/0.9 connection-probe")
         .build()
         .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))
@@ -138,13 +144,17 @@ fn http_probe_inner(
     timeout: Duration,
 ) -> ProbeResult {
     let started = Instant::now();
-    let client = match client(timeout) {
+    let resolved = match resolve_external_url(url) {
+        Ok(resolved) => resolved,
+        Err(message) => return result(false, "error", started, message),
+    };
+    let client = match client(timeout, &resolved) {
         Ok(client) => client,
         Err(message) => return result(false, "error", started, message),
     };
     let request = match method {
-        "POST" => client.post(url),
-        _ => client.get(url),
+        "POST" => client.post(&resolved.url),
+        _ => client.get(&resolved.url),
     };
     let request = if let Some(token) = token.filter(|value| !value.is_empty()) {
         request.bearer_auth(token)
@@ -190,13 +200,10 @@ fn tcp_endpoint(value: &str) -> &str {
 fn tcp_probe(endpoint: &str, timeout: Duration) -> ProbeResult {
     let started = Instant::now();
     let address = tcp_endpoint(endpoint);
-    let addrs = match address.to_socket_addrs() {
-        Ok(addrs) => addrs.collect::<Vec<_>>(),
-        Err(error) => return result(false, "error", started, format!("地址解析失败: {error}")),
+    let addrs = match resolve_tcp_endpoint(address) {
+        Ok(addrs) => addrs,
+        Err(error) => return result(false, "error", started, error),
     };
-    if addrs.is_empty() {
-        return result(false, "error", started, "地址为空".to_string());
-    }
     let mut last_error = "连接失败".to_string();
     for addr in addrs {
         match TcpStream::connect_timeout(&addr, timeout) {
@@ -591,13 +598,19 @@ fn send_smtp_inner(
     body: &str,
     extra_roots: &[CertificateDer<'static>],
 ) -> Result<(), String> {
-    let address = if target.host.contains(':') {
-        format!("[{}]:{}", target.host, target.port)
-    } else {
-        format!("{}:{}", target.host, target.port)
-    };
-    let mut tcp = std::net::TcpStream::connect(&address)
-        .map_err(|error| format!("连接 SMTP {address} 失败: {error}"))?;
+    let addrs = resolve_tcp_host(&target.host, target.port)?;
+    let mut last_error = String::from("连接失败");
+    let mut connected = None;
+    for addr in addrs {
+        match std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_secs(10)) {
+            Ok(stream) => {
+                connected = Some(stream);
+                break;
+            }
+            Err(error) => last_error = error.to_string(),
+        }
+    }
+    let mut tcp = connected.ok_or_else(|| format!("连接 SMTP 失败: {last_error}"))?;
     tcp.set_read_timeout(Some(std::time::Duration::from_secs(10)))
         .map_err(|error| format!("设置 SMTP 读超时失败: {error}"))?;
     tcp.set_write_timeout(Some(std::time::Duration::from_secs(10)))
@@ -927,9 +940,12 @@ fn fetch_policy_sync_inner(
     if !since.trim().is_empty() {
         url.query_pairs_mut().append_pair("since", since.trim());
     }
+    let resolved = resolve_external_url(url.as_str())?;
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(20))
         .redirect(reqwest::redirect::Policy::none())
+        .no_proxy()
+        .resolve_to_addrs(&resolved.host, &resolved.addrs)
         .user_agent("DigiLegacy/0.9 policy-sync")
         .build()
         .map_err(|error| format!("创建政策同步客户端失败: {error}"))?;

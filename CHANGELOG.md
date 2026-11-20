@@ -4,6 +4,16 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.17] - November 2026
+
+### Security
+
+- Outbound HTTP(S), policy-feed and SMTP/IMAP probes now resolve the host once, validate every returned address, and pin the HTTP/TCP connection to that validated set. A hostname cannot pass the check as public and then connect to a private address on a second DNS answer.
+- Cloud metadata addresses are rejected even when `DIGILEGACY_ALLOW_PRIVATE_NETWORK` is on; carrier-grade NAT, benchmarking, reserved and documentation ranges are rejected too.
+- `DIGILEGACY_OUTBOUND_ALLOWLIST` adds an optional comma-separated host allowlist (`example.com`, `*.example.com`). When set, any host outside it is refused before DNS resolution.
+- A versioned Linux release archive with `install.sh`, `start.sh`, `stop.sh` and `uninstall.sh`. The installer preserves the environment file on upgrade, never prints the write token, and keeps database keys when data is preserved. A clean-host drill installs, exports diagnostics, verifies a checkpoint, uninstalls and reinstalls against the preserved database.
+- Outbound clients bypass environment HTTP proxies. A proxy would resolve the target again outside the pinned address set, so proxy routing is deliberately not used for these connection probes.
+
 ## [0.0.16] - November 2026
 
 ### Added

@@ -24,8 +24,9 @@ pub use shares::{generate_shares, recover_from_shares, KitMeta, ShareKit};
 pub use vault::{
     clear_key, decrypt_field_any, decrypt_if_needed, decrypt_or_placeholder, derive_domain_key,
     encrypt_field, encrypt_field_v2, encrypt_if_needed, generate_data_key, get_key, is_encrypted,
-    is_placeholder, is_unlocked, make_verifier, set_key, unwrap_data_key, validate_external_url,
-    verify_key, wrap_data_key, ENC_PREFIX, ENC_PREFIX_V2, PLACEHOLDER_LOCKED,
+    is_placeholder, is_unlocked, make_verifier, resolve_external_url, resolve_tcp_endpoint,
+    resolve_tcp_host, set_key, unwrap_data_key, validate_external_url, verify_key, wrap_data_key,
+    ResolvedExternalUrl, ENC_PREFIX, ENC_PREFIX_V2, PLACEHOLDER_LOCKED,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -10,6 +10,16 @@ The same page contains a short "Account setup guide" panel with one-click
 buttons for SMTP, Webhook, Feishu and WeCom. It can also copy the note below so
 it can be sent to the person filling it in.
 
+## Network prerequisites
+
+The platform resolves the endpoint once and connects only to the validated
+addresses. In production, `DIGILEGACY_OUTBOUND_ALLOWLIST` must include the
+provider host (for example `smtp.example.com` or `open.feishu.cn`) or the
+connection test is refused before DNS resolution. Private-network endpoints
+additionally require `DIGILEGACY_ALLOW_PRIVATE_NETWORK`. The outbound clients
+do not use environment HTTP proxies, so a proxy-only egress path will not work
+for these tests.
+
 ## What to send
 
 Send only:

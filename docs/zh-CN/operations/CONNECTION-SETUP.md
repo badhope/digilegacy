@@ -6,6 +6,10 @@
 
 同一页面顶部有“账号接入引导”，可直接选 SMTP、Webhook、飞书、企业微信，也可以复制填写说明发给对方。
 
+## 网络前提
+
+平台只解析一次地址，并且只连接校验通过的地址。生产部署的 `DIGILEGACY_OUTBOUND_ALLOWLIST` 必须包含服务商主机（例如 `smtp.example.com` 或 `open.feishu.cn`），否则连接测试会在 DNS 解析前被拒绝。私网端点还需要 `DIGILEGACY_ALLOW_PRIVATE_NETWORK`。出站客户端不使用环境 HTTP 代理，因此“只能经代理出网”的部署方式不适用于这些测试。
+
 ## 只需要发什么
 
 1. 控制台地址；

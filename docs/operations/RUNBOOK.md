@@ -16,9 +16,25 @@ in a repository, shell history or the unit file.
 | `DIGILEGACY_CONFIG_KEY_FILE` | Optional | Separate key for encrypted connection config. If absent, a domain key is derived from the database key. |
 | `DIGILEGACY_BIND` | Yes | API bind address, default `127.0.0.1:8787`. Use a reverse proxy for remote access. |
 | `DIGILEGACY_API_TOKEN` | For writes | Bearer token required by write routes. Without it, write routes stay closed. |
-| `DIGILEGACY_ALLOW_PRIVATE_NETWORK` | Only for LAN integrations | `1`, `true` or `yes` allows literal private-network outbound URLs. Cloud metadata remains blocked. |
+| `DIGILEGACY_ALLOW_PRIVATE_NETWORK` | Only for LAN integrations | `1`, `true` or `yes` allows private-network outbound URLs after DNS resolution. Cloud metadata remains blocked. |
+| `DIGILEGACY_OUTBOUND_ALLOWLIST` | Optional | Comma-separated host allowlist, e.g. `smtp.example.com,*.feishu.cn`. When set, all other outbound hosts are refused before DNS resolution. |
 | `DIGILEGACY_POLICY_URL` / `TOKEN` | Optional | Fallback remote policy feed. Prefer a saved `policy` connection. |
 | `DIGILEGACY_SMTP_*`, `DIGILEGACY_WEBHOOK_*` | Optional | Fallback notification endpoints. Prefer saved connections. |
+
+### Outbound network
+
+Connection tests, policy sync and SMTP delivery resolve the destination once,
+check every returned address, then connect to that pinned set. This closes the
+DNS-rebinding window between validation and connect. Private addresses require
+`DIGILEGACY_ALLOW_PRIVATE_NETWORK`; cloud metadata addresses are always refused.
+The outbound clients ignore `HTTP_PROXY` / `HTTPS_PROXY` and `NO_PROXY` on
+purpose, because a proxy would resolve the target again. If the deployment
+requires an egress proxy, terminate the connection at a controlled proxy and
+allowlist the proxy separately; do not point these clients at one.
+
+Set `DIGILEGACY_OUTBOUND_ALLOWLIST` in production to the exact mail, webhook,
+Feishu and WeCom hosts in use. Wildcards match subdomains only
+(`*.example.com` does not match `example.com` itself).
 
 Start the API:
 

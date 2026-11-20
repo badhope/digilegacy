@@ -4,6 +4,7 @@ Guides for running a self-hosted DigiLegacy instance.
 
 - [SLO](SLO.md) defines the service objectives, error budget, measurement commands and measured baselines.
 - [Measurements](measurements/) holds the reproducible capacity and restore drill evidence.
+- [Install, upgrade and uninstall](INSTALL.md) covers the release archive and clean-host drill.
 - [Runbook](RUNBOOK.md) covers startup, daily checks, checkpoints, restore, upgrades and common failures.
 - [Connection setup handoff](CONNECTION-SETUP.md) is the page to send when the mailbox or webhook account belongs to someone else.
 

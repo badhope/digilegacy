@@ -51,6 +51,8 @@ node tools/bench/web-budget.mjs
 - **Application tests** exercise use cases without HTTP.
 - **Network guard tests** cover metadata/private/link-local URL rejection, loopback allowance and signed policy-feed transport against a local HTTP server.
 - **SMTP TLS tests** start local STARTTLS and implicit TLS servers with a test certificate, then verify the full mail dialog and UTF-8 body.
+- **Release package drill** builds a versioned tar archive, unpacks it under a fresh HOME, prefix and data directory, installs, starts, checks health and metrics, runs `diagnostics export`, creates and verifies a checkpoint, uninstalls while preserving data, reinstalls against the preserved database and finally purges. Evidence: `docs/operations/measurements/install-2026-11-20.json`.
+- **Outbound resolution tests** resolve a loopback URL, assert every returned address passes the block rules, and reject metadata, CGNAT, benchmarking, reserved and documentation ranges. The HTTP, policy-sync and SMTP paths then connect to the resolved address list instead of resolving the hostname again.
 - **Fuzz smoke tests** use fixed seeds and 45,000 inputs across five public boundaries: URL validation, recovery seals, paper shares, KDF parameters and HTML escaping. They are deterministic regression tests, not coverage-guided fuzzing.
 - **Checkpoint CLI test** creates a checkpoint in a temporary encrypted store, lists it, verifies its manifest, and confirms `security status` sees the audit record.
 - **Connections route test** mounts `Settings/Settings/connections` with the handoff guide and connection form, then runs the same axe gate used by every other route.
@@ -88,6 +90,7 @@ node tools/bench/web-budget.mjs
 - [ ] No secret, token or local path is committed.
 - [ ] The generated artifacts are current.
 - [ ] A backup and restore path has been tested when storage changed.
+- [ ] The clean-host drill passes: `python3 tools/package/clean_drill.py`; the evidence JSON records archive SHA256, install, export, checkpoint, uninstall and reinstall.
 - [ ] A verified checkpoint exists before any migration or destructive repair; restore follows the offline runbook.
 
 The detailed Chinese verification record keeps the historical evidence for each delivery. The English page describes the gates and the expected behavior, not a running tally.

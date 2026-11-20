@@ -665,6 +665,25 @@ M0 可以判定“工程壳完成”的条件：
 - 边界：容量数据来自单台本地合成主机，不代表生产硬件；通知服务商时延仍没有真实账号，未测“已接受→最终送达”。
 - 验收：`./tools/verify.sh` exit 0，**173 Rust + 66 Web**；契约 **39 命令 / 23 工具 / 56 schema / 21 错误码**；schema v16 / 31 表；日志 `/tmp/m6f2-verify.log`。
 
+### M6-I 发布包与干净机演练（2026-11-20）
+
+- 新增 `tools/package/build.sh`：release 构建 server/cli/mcp，打包 Web dist、content 与运维文档，输出 `packages/digilegacy-0.0.17-linux-x86_64.tar.gz` 与 `.sha256`。
+- 新增 `packaging/install.sh`、`start.sh`、`stop.sh`、`uninstall.sh`：安装时生成 0600 env 与随机写令牌（不打印），首次 health 建 schema/密钥；启动做 HTTP 健康探测；卸载默认保留数据与密钥，`--purge-data` 显式彻底删除。
+- 新增 `tools/package/clean_drill.py`：全新 HOME、前缀、数据目录、最小环境变量与随机回环端口，执行安装→健康/metrics→诊断导出→检查点验证→卸载保留→重装读库→彻底卸载，12 步全通过，总耗时约 2.1 秒。
+- 证据：`docs/operations/measurements/install-2026-11-20.json`；归档 18,071,464 bytes，SHA256 `55ddda06…`，诊断 `audit.valid: true`，schema v16 / 31 表；重装后数据库与审计链仍可读。
+- 中英文 `docs/operations/INSTALL.md` 说明安装、nginx 同源代理、升级、导出、检查点、卸载与密钥保留策略。
+- 边界：API 不直接托管 SPA，生产需反向代理；Windows 代码签名与自动更新（G-37/G-38）仍未做，不属于本次 Linux 干净机演练范围。
+
+### M6-H DNS rebinding 与出站 allowlist（2026-11-20）
+
+- `core/security` 新增 `ResolvedExternalUrl`、`resolve_external_url`、`resolve_tcp_endpoint` 与 `resolve_tcp_host`：域名只解析一次，返回的全部地址逐個校验后再交给连接层。
+- 校验规则：云元数据地址（含 IPv4 映射）始终拒绝；私网地址仅 `DIGILEGACY_ALLOW_PRIVATE_NETWORK` 放行；运营商级 NAT、基准测试、保留与文档网段拒绝；loopback 保持原有本地集成行为。
+- 新增可选 `DIGILEGACY_OUTBOUND_ALLOWLIST`（逗号分隔，支持 `*.example.com`）：设置后不在表内的主机在 DNS 解析前拒绝；通配符只匹配子域名。
+- `core/integrations` 的 HTTP 探针与政策同步改用 `.resolve_to_addrs(...)` 钉住已验地址，并加 `.no_proxy()`；TCP 探针与 SMTP 投递改为连接已验地址列表，不再让 `TcpStream` 重新解析主机名。
+- 新增 `resolved_outbound_addresses_are_validated_before_connect` 与保留网段断言；安全单测 52 条，集成 11 条。
+- 验收：`./tools/verify.sh` exit 0，**174 Rust + 67 Web**；契约 39 / 23 / 56 / 21；schema v16 / 31 表；日志 `/tmp/m6h-verify.log`。
+- 边界：未搭建恶意 DNS 服务器做端到端重绑定演示；当前测试锁定“解析结果校验 + 地址钉住 + allowlist”三条代码路径。`.no_proxy()` 意味着只允许经 HTTP 代理出网的部署不能直接使用连接测试，需要在受控出口代理处单独处理。
+
 ### M6-G 账号接入引导（2026-11-20）
 
 - 设置 → 连接 新增“账号接入引导”：说明谁填、填什么、测试 OK 后再交回；SMTP、Webhook、飞书、企业微信四个按钮直接预填并打开已有加密连接表单。

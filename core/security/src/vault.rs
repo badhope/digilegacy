@@ -14,7 +14,7 @@
 //! 此后不再需要全库重加密。
 
 use once_cell::sync::Lazy;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::sync::Mutex;
 use zeroize::{Zeroize, Zeroizing};
 
@@ -228,11 +228,179 @@ pub fn verify_key(verifier: &str, key: &[u8; 32]) -> bool {
         .unwrap_or(false)
 }
 
+/// Parsed URL plus the exact socket addresses that passed validation.
+#[derive(Debug, Clone)]
+pub struct ResolvedExternalUrl {
+    pub url: String,
+    pub host: String,
+    pub port: u16,
+    pub addrs: Vec<SocketAddr>,
+}
+
+/// Parse, resolve and pin an external HTTP(S) URL to validated socket addresses.
+///
+/// Validation alone is not enough: a hostname can resolve to a public address at
+/// check time and a private one at connect time (DNS rebinding). Callers must
+/// build their HTTP client with `ResolvedExternalUrl::host/addrs` so the
+/// connection goes to the addresses that were checked.
+pub fn resolve_external_url(url: &str) -> Result<ResolvedExternalUrl, String> {
+    let normalized = validate_external_url(url)?;
+    let lower = normalized.to_ascii_lowercase();
+    let default_port = if lower.starts_with("https://") {
+        443
+    } else {
+        80
+    };
+    let rest = &normalized[normalized
+        .find("://")
+        .map(|i| i + 3)
+        .unwrap_or(normalized.len())..];
+    let authority_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let authority = &rest[..authority_end];
+    let (host, port) = host_and_port(authority, default_port)?;
+    let addrs = resolve_tcp_host(&host, port)?;
+    Ok(ResolvedExternalUrl {
+        url: normalized,
+        host,
+        port,
+        addrs,
+    })
+}
+
+/// Resolve a `host:port` endpoint (SMTP/IMAP/TCP) and validate every address
+/// before the caller connects.
+pub fn resolve_tcp_endpoint(endpoint: &str) -> Result<Vec<SocketAddr>, String> {
+    let (host, port) = split_socket_address(endpoint)?;
+    resolve_tcp_host(&host, port)
+}
+
+pub fn resolve_tcp_host(host: &str, port: u16) -> Result<Vec<SocketAddr>, String> {
+    let host = host.trim();
+    if host.is_empty() {
+        return Err("连接地址缺少主机".to_string());
+    }
+    if host.chars().any(char::is_control) || host.chars().any(char::is_whitespace) {
+        return Err("连接地址包含非法字符".to_string());
+    }
+    if !host_allowed(host) {
+        return Err("连接地址不在 DIGILEGACY_OUTBOUND_ALLOWLIST 中".to_string());
+    }
+    let addrs = (host, port)
+        .to_socket_addrs()
+        .map_err(|error| format!("域名解析失败: {error}"))?
+        .collect::<Vec<_>>();
+    if addrs.is_empty() {
+        return Err("域名没有可用地址".to_string());
+    }
+    for addr in &addrs {
+        if is_metadata_ip(addr.ip()) || is_blocked_outbound_ip(addr.ip(), allow_private_network()) {
+            return Err(format!("解析到不可信地址，已拒绝: {}", addr.ip()));
+        }
+    }
+    Ok(addrs)
+}
+
+fn host_and_port(authority: &str, default_port: u16) -> Result<(String, u16), String> {
+    if authority.is_empty() {
+        return Err("链接缺少主机名".to_string());
+    }
+    if let Some(rest) = authority.strip_prefix('[') {
+        let end = rest
+            .find(']')
+            .ok_or_else(|| "IPv6 主机缺少右括号".to_string())?;
+        let host = rest[..end].to_ascii_lowercase();
+        let port = match &rest[end + 1..] {
+            "" => default_port,
+            value => value
+                .strip_prefix(':')
+                .ok_or_else(|| "链接端口格式无效".to_string())?
+                .parse::<u16>()
+                .map_err(|_| "链接端口无效".to_string())?,
+        };
+        return Ok((host, port));
+    }
+    if let Some((host, raw_port)) = authority.rsplit_once(':') {
+        if raw_port.chars().all(|c| c.is_ascii_digit()) && !raw_port.is_empty() {
+            let port = raw_port
+                .parse::<u16>()
+                .map_err(|_| "链接端口无效".to_string())?;
+            return Ok((host.to_ascii_lowercase(), port));
+        }
+        return Err("链接端口格式无效".to_string());
+    }
+    Ok((authority.to_ascii_lowercase(), default_port))
+}
+
+fn split_socket_address(endpoint: &str) -> Result<(String, u16), String> {
+    let endpoint = endpoint.trim().trim_end_matches('/');
+    if let Some(rest) = endpoint.strip_prefix('[') {
+        let end = rest
+            .find(']')
+            .ok_or_else(|| "IPv6 地址缺少右括号".to_string())?;
+        let host = rest[..end].to_string();
+        let port = rest[end + 1..]
+            .strip_prefix(':')
+            .ok_or_else(|| "连接地址缺少端口".to_string())?
+            .parse::<u16>()
+            .map_err(|_| "连接端口无效".to_string())?;
+        return Ok((host, port));
+    }
+    let (host, port) = endpoint
+        .rsplit_once(':')
+        .ok_or_else(|| "连接地址必须是 host:port".to_string())?;
+    let port = port
+        .parse::<u16>()
+        .map_err(|_| "连接端口无效".to_string())?;
+    if host.is_empty() {
+        return Err("连接地址缺少主机".to_string());
+    }
+    Ok((host.to_string(), port))
+}
+
+fn host_allowed(host: &str) -> bool {
+    let raw = std::env::var("DIGILEGACY_OUTBOUND_ALLOWLIST").unwrap_or_default();
+    let patterns = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.trim_end_matches('.').to_ascii_lowercase())
+        .collect::<Vec<_>>();
+    if patterns.is_empty() {
+        return true;
+    }
+    let host = host.trim_end_matches('.').to_ascii_lowercase();
+    patterns.iter().any(|pattern| {
+        pattern == &host
+            || pattern
+                .strip_prefix("*.")
+                .is_some_and(|suffix| host.ends_with(&format!(".{suffix}")))
+    })
+}
+
+fn is_metadata_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(ip) => {
+            let octets = ip.octets();
+            octets == [169, 254, 169, 254] || octets == [100, 100, 100, 200] || ip.is_unspecified()
+        }
+        IpAddr::V6(ip) => {
+            if let Some(v4) = ip.to_ipv4_mapped() {
+                return is_metadata_ip(IpAddr::V4(v4));
+            }
+            ip.is_unspecified() || ip.segments() == [0xfd00, 0xec2, 0, 0, 0, 0, 0, 0x254]
+        }
+    }
+}
+
 /// 校验外部链接：仅允许 http/https、必须有主机名、不得带 userinfo。
 ///
 /// 为什么拒绝 userinfo：`https://trusted.example.com@evil.example.com/` 在浏览器里
 /// 真实主机是 evil.example.com，但肉眼会读成 trusted。政策补丁里的
 /// `official_policy_url` 是用户可导入的外部数据，必须挡住这种钓鱼构造。
+///
+/// This only checks the literal URL. Use [`resolve_external_url`] before
+/// connecting so a later DNS answer cannot redirect the request to a private
+/// address.
 pub fn validate_external_url(url: &str) -> Result<String, String> {
     let u = url.trim();
     if u.is_empty() {
@@ -313,11 +481,22 @@ fn is_metadata_host(host: &str) -> bool {
 }
 
 fn is_blocked_outbound_ip(ip: IpAddr, allow_private: bool) -> bool {
+    if is_metadata_ip(ip) {
+        return true;
+    }
     match ip {
         IpAddr::V4(ip) => {
+            let octets = ip.octets();
+            let cgnat = octets[0] == 100 && (64..=127).contains(&octets[1]);
+            let reserved = octets[0] == 240
+                || (octets[0] == 192 && octets[1] == 0 && octets[2] == 0)
+                || (octets[0] == 198 && (octets[1] == 18 || octets[1] == 19));
             ip.is_unspecified()
                 || ip.is_link_local()
                 || ip.is_multicast()
+                || ip.is_broadcast()
+                || cgnat
+                || reserved
                 || (ip.is_private() && !allow_private)
         }
         IpAddr::V6(ip) => {
@@ -325,8 +504,10 @@ fn is_blocked_outbound_ip(ip: IpAddr, allow_private: bool) -> bool {
                 return is_blocked_outbound_ip(IpAddr::V4(ipv4), allow_private);
             }
             let first = ip.segments()[0];
+            let documentation = ip.segments()[0] == 0x2001 && ip.segments()[1] == 0xdb8;
             ip.is_unspecified()
                 || ip.is_multicast()
+                || documentation
                 || (first & 0xfe00 == 0xfc00 && !allow_private)
                 || (first & 0xffc0 == 0xfe80 && !allow_private)
         }
@@ -467,6 +648,35 @@ mod tests {
         assert!(!is_blocked_outbound_ip(loopback, false));
         assert!(is_blocked_outbound_ip(metadata, false));
         assert!(is_blocked_outbound_ip(metadata, true));
+        for reserved in ["100.64.0.1", "192.0.0.1", "198.18.0.1", "240.0.0.1"] {
+            assert!(is_blocked_outbound_ip(reserved.parse().unwrap(), false));
+        }
+    }
+
+    #[test]
+    fn resolved_outbound_addresses_are_validated_before_connect() {
+        let resolved = resolve_external_url("http://127.0.0.1:8080/health").unwrap();
+        assert_eq!(resolved.host, "127.0.0.1");
+        assert_eq!(resolved.port, 8080);
+        assert!(!resolved.addrs.is_empty());
+        assert!(resolved
+            .addrs
+            .iter()
+            .all(|addr| !is_blocked_outbound_ip(addr.ip(), false)));
+
+        for bad in [
+            "http://169.254.169.254/latest/meta-data",
+            "http://100.100.100.200/latest/meta-data",
+            "http://198.18.0.1/admin",
+            "http://240.0.0.1/admin",
+        ] {
+            assert!(resolve_external_url(bad).is_err(), "必须拒绝: {bad}");
+        }
+
+        assert!(resolve_tcp_host("127.0.0.1", 9).is_ok());
+        assert!(resolve_tcp_host("169.254.169.254", 80).is_err());
+        assert!(resolve_tcp_endpoint("[::1]:9").is_ok());
+        assert!(resolve_tcp_endpoint("127.0.0.1").is_err());
     }
 
     #[test]
