@@ -596,3 +596,16 @@ M0 可以判定“工程壳完成”的条件：
 - 预算：入口 **78.32 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **100.78 / 101 KB**、CSS gzip **20.81 / 21 KB**、总 gzip **121.59 / 122 KB**；Policies 路由 15.88 / 24 KB。
 - 边界：这是弹层键盘焦点回归，不等同于完整 axe/WCAG AA 审计；对比度、读屏文案与减少动效仍需 M6 的完整 a11y 检查。
 - 复验命令：`./tools/verify.sh`；日志 `/tmp/m5g-verify.log`。
+
+### M6-A 壳层可访问性与自动化门禁
+
+- 新增本地化 `a11y.skipToMain` 与 `a11y.primaryNav`，跳转主内容链接不再复用“概览”文案；主导航标签在中英文下均有明确名称。
+- 移动导航改为模态抽屉：菜单按钮带 `aria-expanded`，打开时焦点进入抽屉关闭按钮，背景 `frame` 设 `inert`，`Escape` 关闭并把焦点还给菜单按钮；关闭状态下通过 `visibility: hidden` 将抽屉移出 Tab 顺序和可访问性树，避免 1100px 以下隐藏导航仍可聚焦。
+- 命令面板 `ESC` 按钮补 `aria-label`，复制命令状态加 `aria-live`，读屏可以听到“已复制”。
+- 设计令牌调整：亮色 `--muted` 改为 `#5d6357`、`--clay` 改为 `#8f4e2f`、`--amber` 改为 `#825a1b`；暗色 `--clay` 改为 `#d79674`。新增 `web/src/design/contrast.test.ts`，解析 `tokens.css` 并对亮/暗各 15 组前景/背景执行 WCAG AA 4.5:1 断言。
+- 新增 `web/src/app/a11y.test.ts`：用 `axe-core` 按 WCAG 2.0/2.1/2.2 A/AA 标签扫描壳层、Agent 抽屉、命令面板、锁定层；另测移动导航打开/关闭的 `aria-expanded`、`role="dialog"`、背景 `inert` 和焦点恢复。
+- `axe-core` 与 `@types/node` 仅作为 Web devDependencies；生产构建不包含 axe。
+- `./tools/verify.sh` exit 0：**164 Rust + 51 Web**；契约 **39 命令 / 23 工具 / 56 schema / 21 错误码**；schema v16 / 31 表；workspace members=12。
+- 预算：入口 **79.16 / 80 KB**、vendor 99.50 / 130 KB、JS 总 gzip **101.07 / 101.1 KB**、CSS gzip **20.85 / 21 KB**、总 gzip **121.93 / 122 KB**；为容纳壳层移动导航语义，仅将 JS 总 gzip 预算从 101 调到 101.1 KB。
+- 边界：axe 覆盖壳层与三个弹层，不等于全路由审计；对比度用令牌测试补齐，但仍需真实浏览器亮/暗与读屏人工验收；视觉回归基线未在本片交付。
+- 复验命令：`./tools/verify.sh`；日志 `/tmp/m6a-verify.log`。

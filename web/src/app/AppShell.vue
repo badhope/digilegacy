@@ -7,6 +7,7 @@ import type { IconName } from "@/shared/icons/paths";
 import AgentDrawer from "./AgentDrawer.vue";
 import CommandPalette from "./CommandPalette.vue";
 import LockScreen from "./LockScreen.vue";
+import { useDialogFocus } from "./dialogFocus";
 import { useI18n } from "@/platform/i18n";
 import { useTheme } from "@/platform/theme";
 import { lockConsole, openAgent, openPalette } from "@/platform/ui";
@@ -16,6 +17,8 @@ const router = useRouter();
 const { t, locale, toggleLocale } = useI18n();
 const { theme, toggleTheme } = useTheme();
 const mobileOpen = ref(false);
+const rail = ref<HTMLElement | null>(null);
+useDialogFocus(computed(() => mobileOpen.value), rail, "first");
 
 const navItems: Array<{ path: string; labelKey: string; icon: IconName }> = [
   { path: "/overview", labelKey: "nav.overview", icon: "overview" },
@@ -56,7 +59,13 @@ function onKeydown(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
     openPalette();
+    return;
   }
+  if (event.key === "Escape") mobileOpen.value = false;
+}
+
+function closeOnDesktop() {
+  if (window.innerWidth > 1100) mobileOpen.value = false;
 }
 
 watch(
@@ -66,21 +75,37 @@ watch(
   },
 );
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
-onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
+onMounted(() => {
+  window.addEventListener("resize", closeOnDesktop);
+  window.addEventListener("keydown", onKeydown);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("resize", closeOnDesktop);
+  window.removeEventListener("keydown", onKeydown);
+});
 </script>
 
 <template>
   <div class="shell">
-    <a class="skip-link" href="#main">{{ t("nav.overview") }}</a>
+    <a class="skip-link" href="#main">{{ t("a11y.skipToMain") }}</a>
 
-    <aside class="rail" :class="{ open: mobileOpen }" aria-label="Primary">
+    <aside
+      ref="rail"
+      class="rail"
+      :class="{ open: mobileOpen }"
+      :role="mobileOpen ? 'dialog' : undefined"
+      :aria-modal="mobileOpen ? 'true' : undefined"
+      :aria-label="t('a11y.primaryNav')"
+    >
       <div class="brand">
         <span class="brand-mark">DL</span>
         <span class="brand-copy">
           <strong>{{ t("app.name") }}</strong>
           <small>{{ t("app.tagline") }}</small>
         </span>
+        <button class="rail-close" type="button" :aria-label="t('common.close')" @click="mobileOpen = false">
+          <AppIcon name="close" :size="18" />
+        </button>
       </div>
 
       <div class="rail-section">
@@ -125,17 +150,23 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 
         <div class="rail-meta mono">
           <span>v0.9.0</span>
-          <span>M5 / LIVE</span>
+          <span>M6 / LIVE</span>
         </div>
       </div>
     </aside>
 
-    <div v-if="mobileOpen" class="rail-scrim" @click="mobileOpen = false" />
+    <div v-if="mobileOpen" class="rail-scrim" aria-hidden="true" @click="mobileOpen = false" />
 
-    <div class="frame">
+    <div class="frame" :inert="mobileOpen || undefined">
       <header class="topbar">
         <div class="topbar-left">
-          <button class="tool-button menu-button" type="button" :aria-label="t('topbar.menu')" @click="mobileOpen = true">
+          <button
+            class="tool-button menu-button"
+            type="button"
+            :aria-label="t('topbar.menu')"
+            :aria-expanded="mobileOpen"
+            @click="mobileOpen = true"
+          >
             <AppIcon name="menu" :size="18" />
           </button>
           <div class="breadcrumb">
@@ -270,6 +301,17 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
   font-size: 8px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.rail-close {
+  display: none;
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  border: 1px solid rgba(233, 238, 227, 0.18);
+  border-radius: 50%;
+  color: rgba(233, 238, 227, 0.72);
+  place-items: center;
 }
 
 .rail-section {
@@ -598,12 +640,14 @@ kbd {
     left: 0;
     top: 0;
     z-index: 45;
+    visibility: hidden;
     transform: translateX(-102%);
     transition: transform var(--normal) var(--ease);
     box-shadow: var(--shadow-float);
   }
 
   .rail.open {
+    visibility: visible;
     transform: translateX(0);
   }
 
@@ -617,6 +661,10 @@ kbd {
 
   .menu-button {
     display: inline-flex;
+  }
+
+  .rail-close {
+    display: inline-grid;
   }
 }
 

@@ -87,7 +87,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               :placeholder="t('command.placeholder')"
               :aria-label="t('command.title')"
             />
-            <button class="esc-key mono" type="button" @click="close">ESC</button>
+            <button class="esc-key mono" type="button" :aria-label="t('common.close')" @click="close">ESC</button>
           </header>
 
           <div class="palette-body">
@@ -112,7 +112,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
                 <span class="row-icon"><AppIcon name="command" :size="15" /></span>
                 <span class="row-copy mono">{{ command }}</span>
                 <span class="mono row-meta">{{ COMMAND_PERMISSION[command] }}</span>
-                <span class="copy-state mono">{{ copied === command ? t("command.copied") : t("command.copy") }}</span>
+                <span class="copy-state mono" :aria-live="copied === command ? 'polite' : 'off'">{{ copied === command ? t("command.copied") : t("command.copy") }}</span>
               </button>
             </section>
 

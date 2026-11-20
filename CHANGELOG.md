@@ -30,6 +30,9 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 - SMTP delivery is covered against local STARTTLS and implicit TLS servers, including certificate verification and the post-TLS `EHLO`.
 - SMTP response/body lines are decoded as UTF-8 bytes instead of per-byte Latin-1 characters, so non-ASCII message bodies survive the wire.
 - Modal layers keep `Tab` / `Shift+Tab` inside the active dialog and restore focus to the opener when closed; the lock screen focuses its unlock action.
+- The console has a localized skip-to-main link, a labeled primary navigation, and a mobile drawer that behaves as a modal: focus moves to its close action, `Escape` closes it, the background becomes inert, and focus returns to the menu button.
+- Secondary and semantic text tokens were adjusted so light and dark themes meet WCAG AA contrast for normal text; a token test now checks 15 foreground/background pairs per theme.
+- An axe-core gate covers the app shell and the Agent drawer, command palette and lock screen under WCAG A/AA, and the mobile drawer has its own keyboard regression test.
 
 ### Security
 
@@ -44,3 +47,4 @@ The project previously shipped the security kernel, encrypted storage, recovery 
 ## Unreleased
 
 - DNS-resolved private address checks and a configurable outbound allowlist for deployments that need more than literal-IP blocking.
+- Full-route axe coverage and a committed visual-regression baseline; the current a11y gate covers the app shell and modal layers, not every feature page.
