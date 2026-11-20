@@ -11,3 +11,7 @@ export function loadAudit(args: Record<string, unknown> = {}) {
 export function loadConnections() {
   return platformClient.listConnections();
 }
+
+export function loadLocalModels() {
+  return platformClient.listLocalModels();
+}

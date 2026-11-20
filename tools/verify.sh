@@ -15,7 +15,8 @@ echo "== ops tools =="
 python3 -m py_compile \
   tools/policies/source_audit.py \
   tools/package/clean_drill.py \
-  tools/bench/capacity.py
+  tools/bench/capacity.py \
+  tools/local_model_server.py
 
 echo "== rust =="
 cargo fmt --all -- --check

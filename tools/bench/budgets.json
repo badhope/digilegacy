@@ -2,8 +2,8 @@
   "entryRawKb": 82,
   "vendorRawKb": 130,
   "routeRawKb": 24,
-  "totalJsGzipKb": 105.2,
+  "totalJsGzipKb": 109.1,
   "totalCssGzipKb": 21.1,
-  "totalGzipKb": 125.5,
-  "_note": "Raised 0.4-1.5 KB on 2026-11-20 for the real vault lock (security unlock/lock/recover routes and password form); 0.0.19 recovery adds a small lazy chunk."
+  "totalGzipKb": 130.1,
+  "_note": "0.0.19 raised for real vault lock and recovery. 0.0.20 adds a lazy LocalModelsPanel chunk (~2.9 KB gzip) plus reactive token state; SettingsView stays under 24 KB raw."
 }

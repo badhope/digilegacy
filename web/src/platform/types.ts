@@ -462,3 +462,40 @@ export interface ApprovalPage {
   items: Approval[];
   pending: number;
 }
+
+export interface LocalModelItem {
+  id: string;
+  name: string;
+  params: string;
+  context: number;
+  sizeBytes: number;
+  sha256: string;
+  license: string;
+  description: string;
+  recommended: boolean;
+  strictUnder2b: boolean;
+  runtime: "llama.cpp" | "experimental" | string;
+  fileName: string;
+  downloadUrl: string;
+  modelId: string;
+  downloadedBytes: number;
+  verified: boolean;
+  status: "missing" | "partial" | "downloading" | "ready" | "failed";
+  progress: number;
+  error: string | null;
+  active: boolean;
+}
+
+export interface LocalModelRuntime {
+  running: boolean;
+  id?: string;
+  port?: number;
+  baseUrl?: string;
+}
+
+export interface LocalModelsPayload {
+  items: LocalModelItem[];
+  root: string;
+  active: { id: string; model: string; baseUrl: string; apiKey: string; path: string } | null;
+  runtime: LocalModelRuntime;
+}

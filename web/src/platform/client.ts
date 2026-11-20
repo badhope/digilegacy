@@ -1,7 +1,7 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
 import { cachedQuery, clearQueryCache, invalidateQuery, queryCacheKey } from "./queryCache";
-import type { HeirDraft, UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, ConnectionKind,
+import type { HeirDraft, UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, LocalModelsPayload, ConnectionKind,
   ConnectionItem,
   ConnectionUpsertInput,
   ConnectionDeleteResult, ConnectionPage, ConnectionTestResult, DiscoveryResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, NotificationPage, NotificationSendResult, Overview, Plan, PoliciesPage, Policy, PolicyCandidate, PolicyCandidatePage, PolicySyncResult, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
@@ -89,6 +89,63 @@ async function write<T>(
   return envelope;
 }
 
+const MOCK_LOCAL_MODELS: LocalModelsPayload = {
+  items: [
+    {
+      id: "minicpm5-1b",
+      name: "MiniCPM5-1B",
+      params: "1.08B 稠密",
+      context: 131072,
+      sizeBytes: 688065920,
+      sha256: "81b64d05a23b17b34c475f42b3e72fbde62d4b92cc34541f7a8031d0752deafa",
+      license: "Apache-2.0",
+      description: "1B 级开源 SOTA，128K 上下文，标准 Llama 架构；默认推荐。",
+      recommended: true,
+      strictUnder2b: true,
+      runtime: "llama.cpp",
+      fileName: "MiniCPM5-1B-Q4_K_M.gguf",
+      downloadUrl: "https://modelscope.cn/models/OpenBMB/MiniCPM5-1B-GGUF",
+      modelId: "MiniCPM5-1B-Q4_K_M",
+      downloadedBytes: 688065920,
+      verified: true,
+      status: "ready",
+      progress: 1,
+      error: null,
+      active: false,
+    },
+  ],
+  root: "data/models",
+  active: null,
+  runtime: { running: false },
+};
+
+async function localModelRequest<T>(path: string, method: "GET" | "POST"): Promise<Envelope<T>> {
+  if (USE_MOCK) {
+    return {
+      success: true,
+      code: "OK",
+      message: "mock",
+      data: MOCK_LOCAL_MODELS as T,
+      details: null,
+      traceId: traceId(),
+    };
+  }
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = readWriteToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(`${API_BASE}${path}`, { method, headers });
+  const envelope = (await response.json()) as Envelope<T>;
+  if (!response.ok && envelope.success) {
+    return {
+      ...envelope,
+      success: false,
+      code: `HTTP_${response.status}`,
+      message: `Platform API 返回 HTTP ${response.status}`,
+    };
+  }
+  return envelope;
+}
+
 export const platformClient = {
   commands: COMMANDS,
   useMock: USE_MOCK,
@@ -96,6 +153,9 @@ export const platformClient = {
   setWriteToken: (token: string) => {
     persistWriteToken(token);
     clearQueryCache();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("digilegacy:write-token"));
+    }
   },
 
   getOverview: () => read<Overview>(COMMANDS.appOverview, {}, "overview"),
@@ -160,6 +220,10 @@ export const platformClient = {
     write<RunDetail>(COMMANDS.agentRunsStart, { task, steps, maxSteps, maxWriteSteps, ...(planId ? { planId } : {}) }, ["agent.runs", "agent.usage", "overview", "agent.approvals"]),
   cancelRun: (id: string) => write<RunDetail>(COMMANDS.agentRunsCancel, { id }, ["agent.runs", "overview", "agent.approvals"]),
   retryRun: (id: string) => write<RunDetail>(COMMANDS.agentRunsRetry, { id }, ["agent.runs", "overview", "agent.approvals"]),
+  listLocalModels: () => localModelRequest<LocalModelsPayload>("/api/v1/local-models", "GET"),
+  downloadLocalModel: (id: string) => localModelRequest<Record<string, unknown>>(`/api/v1/local-models/${encodeURIComponent(id)}/download`, "POST"),
+  activateLocalModel: (id: string) => localModelRequest<LocalModelsPayload>(`/api/v1/local-models/${encodeURIComponent(id)}/activate`, "POST"),
+  stopLocalModel: () => localModelRequest<Record<string, unknown>>("/api/v1/local-models/stop", "POST"),
   getSecurity: () => read<SecurityStatus>(COMMANDS.securityStatus, {}, "security"),
   listAudit: (args: Record<string, unknown> = {}) => read<AuditPage>(COMMANDS.auditList, args, "audit"),
   listApprovals: (args: Record<string, unknown> = {}) => read<ApprovalPage>(COMMANDS.agentApprovalsList, args, "agent.approvals"),

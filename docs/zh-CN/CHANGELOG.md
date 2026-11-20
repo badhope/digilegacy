@@ -2,6 +2,31 @@
 
 [English](../../CHANGELOG.md) | 简体中文
 
+## [0.0.20] - 2026-11-20
+
+### 新增
+
+- “设置 → 连接”加入本地模型目录。默认 **MiniCPM5-1B**：1.08B 参数、131,072 上下文、Apache-2.0、标准 Llama 架构，Q4_K_M 文件 688 MB。
+- 每个模型都有真实下载按钮、进度轮询、`.part` 临时文件、流式 SHA256 校验和校验标记。服务端用 `curl` 从 ModelScope 下载，因为部分 TLS 指纹会被 CDN 拒绝。
+- “启用”会启动 `tools/local_model_server.py` 这个最小 OpenAI 兼容 sidecar，并写入 `data/models/active.json`。未设置 LLM 环境变量时，规划器读取该文件，因此 Web、CLI、HTTP 都会自动使用已启用模型，不需要 Ollama，也不需要手工改环境变量。
+- MiniCPM5-2B 作为质量档列出，并明确标注“实际 >2B”。Spark-X2.5-1.7B 作为严格 <2B 的长上下文实验项列出；本机 `llama-cpp-python 0.3.37` 已能加载并返回合法计划，但长上下文未压测，仍保留“实验运行时”标注。
+
+### 修复
+
+- 本地模型规划请求加入 JSON 语法约束，避免 1B 模型少写计划末尾的右括号。
+- 服务重启后能通过 `active.json` 识别仍在运行的 sidecar；重复启用同一模型是幂等的，切换到另一个模型会按 PID 终止旧 sidecar。
+- 启用失败不再一律返回 502：未知模型返回 `NOT_FOUND`，未完成文件返回 `CONFLICT`，SHA256 不匹配返回 `CORRUPT_DATA`。
+- 校验增加文件大小检查，并在加载前重新计算 SHA256；伪造标记不能再让损坏文件显示为可用。
+- sidecar 启动即退出时在下一次轮询就报错，不再空等 45 秒。
+- Web 面板在下载结束后清除“下载中”提示；保存写令牌后按钮即时解锁。
+
+### 测试
+
+- 功能矩阵共 33 项，覆盖目录、鉴权、下载成功/重复/失败、SHA256 损坏、启用、切换、停止、重启恢复、PID 安全与规划器接入，全部通过；详见 `docs/operations/measurements/local-models-functional-2026-11-20.md`。
+- 规划实测：MiniCPM5-1B 55 秒，MiniCPM5-2B 116 秒，Spark-X2.5-1.7B 83 秒；三者均返回合法 `assets.list` 计划。
+- Rust workspace：**185 passed / 0 failed**；Web：**79 passed / 0 failed**。
+- 真实 Chromium live smoke：14/14 路由通过，axe 0，页面异常 0，包含新的本地模型设置区。
+
 ## [0.0.19] - 2026-11-20
 
 ### 新增

@@ -43,6 +43,7 @@ cp -R "$ROOT/web/dist/." "$STAGE/web/"
 cp -R "$ROOT/content/." "$STAGE/content/"
 cp -R "$ROOT/packaging/nginx/." "$STAGE/share/nginx/"
 install -m 0755 "$ROOT/tools/policies/source_audit.py" "$STAGE/tools/policies/source_audit.py"
+install -m 0755 "$ROOT/tools/local_model_server.py" "$STAGE/tools/local_model_server.py"
 find "$STAGE/tools" -type d -name __pycache__ -prune -exec rm -rf {} +
 cp -R "$ROOT/docs/operations" "$STAGE/docs/operations"
 # The install drill evidence describes the archive produced from this tree;

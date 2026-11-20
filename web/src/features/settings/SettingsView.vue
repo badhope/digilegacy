@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, defineAsyncComponent, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import SectionCard from "@/shared/ui/SectionCard.vue";
@@ -24,6 +24,7 @@ const {
   reload: reloadConnections,
   refresh: refreshConnections,
 } = useResource(loadConnections);
+const LocalModelsPanel = defineAsyncComponent(() => import("./LocalModelsPanel.vue"));
 const CONNECTION_KIND_LABELS: Record<ConnectionKind, { zh: string; en: string }> = {
   llm: { zh: "LLM", en: "LLM" },
   policy: { zh: "政策", en: "Policy" },
@@ -373,6 +374,8 @@ function go(section: Section) {
 
       <div class="settings-content">
         <SectionCard v-if="active === 'connections'" :title="t('settings.tab.connections')" :subtitle="t('settings.tab.connections.note')">
+          <LocalModelsPanel />
+
           <div class="connection-guide">
             <div class="connection-guide-head">
               <div>

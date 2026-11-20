@@ -5,6 +5,7 @@
 //! caller must review or start the run. Writes still create approvals.
 
 use std::env;
+use std::fs;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -84,21 +85,65 @@ pub struct PlannerConfig {
     pub output_cost_micros_per_million: i64,
 }
 
+fn load_active_local_config() -> Option<Value> {
+    let path = env::var("DIGILEGACY_LOCAL_MODEL_CONFIG")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "data/models/active.json".to_string());
+    let text = fs::read_to_string(path).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
 impl PlannerConfig {
     pub fn from_env() -> Result<Self, PlannerError> {
-        let base_url = env::var("DIGILEGACY_LLM_BASE_URL").unwrap_or_default();
-        let api_key = env::var("DIGILEGACY_LLM_API_KEY").unwrap_or_default();
+        let env_base_url = env::var("DIGILEGACY_LLM_BASE_URL").unwrap_or_default();
+        let env_api_key = env::var("DIGILEGACY_LLM_API_KEY").unwrap_or_default();
+        let active = if env_base_url.trim().is_empty() || env_api_key.trim().is_empty() {
+            load_active_local_config()
+        } else {
+            None
+        };
+        let base_url = if env_base_url.trim().is_empty() {
+            active
+                .as_ref()
+                .and_then(|value| value.get("baseUrl"))
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string()
+        } else {
+            env_base_url
+        };
+        let api_key = if env_api_key.trim().is_empty() {
+            active
+                .as_ref()
+                .and_then(|value| value.get("apiKey"))
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string()
+        } else {
+            env_api_key
+        };
         if base_url.trim().is_empty() || api_key.trim().is_empty() {
             return Err(PlannerError::NotConfigured(
-                "未配置规划器：设置 DIGILEGACY_LLM_BASE_URL 与 DIGILEGACY_LLM_API_KEY".to_string(),
+                "未配置规划器：设置 DIGILEGACY_LLM_BASE_URL 与 DIGILEGACY_LLM_API_KEY，或先启用本地模型".to_string(),
             ));
         }
-        let model =
-            env::var("DIGILEGACY_LLM_MODEL").unwrap_or_else(|_| "deepseek-chat".to_string());
+        let model = env::var("DIGILEGACY_LLM_MODEL")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                active
+                    .as_ref()
+                    .and_then(|value| value.get("model"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| "deepseek-chat".to_string());
+        let timeout_default = if active.is_some() { 180 } else { 30 };
         let timeout = env::var("DIGILEGACY_LLM_TIMEOUT_SECS")
             .ok()
             .and_then(|value| value.parse::<u64>().ok())
-            .unwrap_or(30);
+            .unwrap_or(timeout_default);
         let input_cost_micros_per_million =
             env::var("DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION")
                 .ok()

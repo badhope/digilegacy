@@ -6,6 +6,7 @@
 //! backend.
 
 mod generated;
+mod local_models;
 
 use axum::{
     body::Body,
@@ -213,6 +214,16 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/connections/test", post(connections_test))
         .route("/api/v1/connections/{id}", delete(connections_delete))
+        .route("/api/v1/local-models", get(local_models_list))
+        .route(
+            "/api/v1/local-models/{id}/download",
+            post(local_model_download),
+        )
+        .route(
+            "/api/v1/local-models/{id}/activate",
+            post(local_model_activate),
+        )
+        .route("/api/v1/local-models/stop", post(local_model_stop))
         .route("/api/v1/notifications", get(notifications_list))
         .route("/api/v1/notifications/send", post(notifications_send))
         .route("/api/v1/policies", get(policies_list))
@@ -398,6 +409,65 @@ async fn trigger_configure(
 
 async fn trigger_evaluate(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
     dispatch(&state, "trigger.evaluate", json!({}), Some(&headers))
+}
+
+async fn local_models_list() -> Json<Envelope<Value>> {
+    Json(Envelope::ok(local_models::Manager::global().status()))
+}
+
+async fn local_model_download(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    if !authorized_write(&state, Some(&headers)) {
+        return error_response(PlatformError::new(
+            "AUTH_REQUIRED",
+            "下载本地模型需要 Authorization: Bearer <DIGILEGACY_API_TOKEN>",
+        ));
+    }
+    match local_models::Manager::global().start_download(&id) {
+        Ok(data) => (StatusCode::OK, Json(Envelope::ok(data))),
+        Err(error) => error_response(PlatformError::new(error.code, error.message)),
+    }
+}
+
+async fn local_model_activate(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Response {
+    if !authorized_write(&state, Some(&headers)) {
+        return error_response(PlatformError::new(
+            "AUTH_REQUIRED",
+            "启用本地模型需要 Authorization: Bearer <DIGILEGACY_API_TOKEN>",
+        ))
+        .into_response();
+    }
+    match tokio::task::spawn_blocking(move || local_models::Manager::global().activate(&id)).await {
+        Ok(Ok(data)) => (StatusCode::OK, Json(Envelope::ok(data))).into_response(),
+        Ok(Err(error)) => {
+            error_response(PlatformError::new(error.code, error.message)).into_response()
+        }
+        Err(error) => {
+            error_response(PlatformError::new("INTERNAL", error.to_string())).into_response()
+        }
+    }
+}
+
+async fn local_model_stop(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized_write(&state, Some(&headers)) {
+        return error_response(PlatformError::new(
+            "AUTH_REQUIRED",
+            "停止本地模型需要 Authorization: Bearer <DIGILEGACY_API_TOKEN>",
+        ))
+        .into_response();
+    }
+    (
+        StatusCode::OK,
+        Json(Envelope::ok(local_models::Manager::global().stop())),
+    )
+        .into_response()
 }
 
 async fn notifications_list(

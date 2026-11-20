@@ -4,6 +4,33 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.20] - November 2026
+
+### Added
+
+- Settings → Connections now includes a curated local-model catalog. **MiniCPM5-1B** is the default: 1.08B parameters, 131,072-token context, Apache-2.0, standard Llama architecture and a 688 MB Q4_K_M file.
+- Each model has a real download action with progress, `.part` staging, streamed SHA256 verification and a persisted verification marker. The server downloads from ModelScope with `curl` because the CDN rejects some TLS fingerprints.
+- "Enable" starts `tools/local_model_server.py`, a minimal OpenAI-compatible sidecar, then writes `data/models/active.json`. The planner reads that file when LLM environment variables are absent, so Web, CLI and HTTP planning all use the enabled local model without Ollama or manual env edits.
+- MiniCPM5-2B is listed as a quality option with an explicit **actually >2B** label. Spark-X2.5-1.7B is listed as an experimental strict-<2B long-context option. On this build it loaded through `llama-cpp-python 0.3.37` and returned a valid plan, but it remains labelled experimental because long-context behaviour is not stress-tested.
+
+### Fixed
+
+- Local-model planning requests carry a JSON grammar constraint, so a 1B model cannot silently truncate the closing braces of a plan.
+- A restarted server recognises an already-running sidecar through `active.json`; enabling the same model is idempotent, and enabling another model terminates the previous sidecar by PID.
+- Activation now returns semantic errors (`NOT_FOUND` for unknown models, `CONFLICT` for unfinished files, `CORRUPT_DATA` for SHA256 failures) instead of mapping every failure to 502.
+- Verification now checks file size and recomputes SHA256 before loading a model, so a forged marker cannot make a corrupted file look usable.
+- A sidecar that exits immediately is reported within one poll instead of waiting the full 45-second readiness timeout.
+- The Web panel clears the stale "downloading" notice when a download finishes and reacts immediately when the write token is saved.
+
+### Testing
+
+- `digilegacy-cli runs plan` against the real local sidecar returned a valid `assets.list` plan (`tokensIn=3596`, `tokensOut=19`) and a valid `assets.create` plan through the current program, with no mock provider.
+- The server download manager fetched and SHA256-verified the 1.56 GB MiniCPM5-2B Q4_K_M file; MiniCPM5-1B was independently downloaded and verified at 688,065,920 B.
+- Functional matrix: 33 checks across catalog, auth, download success/duplicate/failure, SHA256 corruption, activation, switching, stop, restart recovery, PID safety and planner integration; all passed. See `docs/operations/measurements/local-models-functional-2026-11-20.md`.
+- Planner timings on the 2-core test host: MiniCPM5-1B 55 s, MiniCPM5-2B 116 s, Spark-X2.5-1.7B 83 s.
+- Rust workspace: 185 passed / 0 failed. Web: 79 passed / 0 failed.
+- Real Chromium live smoke: 14/14 routes passed, zero axe violations, zero page exceptions, including the new local-model settings block.
+
 ## [0.0.19] - November 2026
 
 ### Added
