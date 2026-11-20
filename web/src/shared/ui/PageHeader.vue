@@ -51,4 +51,21 @@ defineProps<{
   flex-wrap: wrap;
   gap: 10px;
 }
+
+@media (max-width: 700px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .page-copy h1 {
+    font-size: clamp(28px, 8vw, 36px);
+    line-height: 1.12;
+  }
+
+  .page-actions {
+    width: 100%;
+  }
+}
 </style>

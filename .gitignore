@@ -94,3 +94,6 @@ docs/screenshots/audit/
 
 # Local platform store and generated deliverables
 /data/
+
+# Visual regression failure diffs (baseline stays tracked)
+tools/visual/artifacts/

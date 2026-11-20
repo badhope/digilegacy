@@ -4,6 +4,18 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.12] - November 2026
+
+### Added
+
+- A lightweight visual regression baseline: nine fixed-viewport WebP snapshots covering desktop light, desktop dark and a 390 px mobile overview. The whole set is about 292 KB and runs as a manual release check.
+- The visual script freezes the clock and locale before load, writes per-shot diffs only on failure, and allows a 0.4% pixel budget so lossy WebP re-encoding does not produce noise.
+
+### Fixed
+
+- Narrow screens no longer squeeze page titles into two or three characters per line. Headers stack their actions below the copy and use a smaller display size below 700 px.
+- The Web gzip budgets move from 101.1 / 122 to 101.15 / 122.1 KB for that mobile header fix; entry, vendor and CSS budgets are unchanged.
+
 ## [0.0.11] - November 2026
 
 ### Accessibility
@@ -55,4 +67,4 @@ The project previously shipped the security kernel, encrypted storage, recovery 
 ## Unreleased
 
 - DNS-resolved private address checks and a configurable outbound allowlist for deployments that need more than literal-IP blocking.
-- A committed visual-regression baseline; the a11y gate now covers every feature route, but browser-level light/dark and screen-reader checks are still manual.
+- Browser-level light/dark and screen-reader checks are still manual; the visual baseline is a fixed-environment reference, not a substitute for them.

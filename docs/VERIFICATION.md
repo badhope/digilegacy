@@ -35,6 +35,7 @@ node tools/bench/web-budget.mjs
 | Web typecheck | Do generated types and components agree? |
 | Web tests | Do cache, routing and page states still work? |
 | Web accessibility | Do every route and modal layer pass the axe WCAG A/AA rules, and do light/dark text tokens hold at least 4.5:1? |
+| Visual regression (manual) | Do nine fixed-viewport snapshots still match the committed baseline, including dark and mobile overview? |
 | Production build | Does the app compile without hidden runtime-only imports? |
 | Bundle budget | Did a change quietly make the main experience heavier? |
 | Schema diagnostics | Does a fresh database open at the expected version? |
@@ -51,6 +52,7 @@ node tools/bench/web-budget.mjs
 - **Route accessibility tests** mount each view against the real router, settle its data, then run axe on the rendered body. A failing route reports the violation ID and help text, so a new page cannot regress silently.
 - **Contrast tests** parse the light and dark design tokens and require at least 4.5:1 for 15 foreground/background pairs in each theme. This supplements axe, which cannot compute colour contrast reliably in jsdom.
 - **Manual smoke** checks the path a person actually clicks.
+- **Visual regression** captures nine fixed-viewport WebP shots against a mock build with a frozen clock, locale and theme. It runs outside `tools/verify.sh`; see [tools/visual/README.md](../tools/visual/README.md).
 
 ## Manual smoke before release
 
@@ -63,6 +65,7 @@ node tools/bench/web-budget.mjs
 7. Open the mobile layout and the dark theme; check for overflow and unreadable text.
 8. On a narrow viewport, open the navigation drawer with the keyboard: focus should enter the drawer, `Escape` should close it and return focus to the menu button.
 9. Open the tools page and move through the search field and permission filter with the keyboard; both should announce a name, and the filter should expose its current value.
+10. Build the mock console, start the preview server and run `python3 tools/visual/regress.py`; all nine shots should stay within the 0.4% pixel budget.
 
 ## Release checklist
 
