@@ -46,6 +46,26 @@ DigiLegacy 是 API-first 的数字遗产平台，不是只在本地运行的桌�
 - 生成客户端与契约一起评审，避免某个入口漏掉权限变更。
 - 依赖和发布检查进入 CI；已知严重问题阻断发布。
 
+## 保险库引导与锁定
+
+首次设置只走本地 CLI，避免把“设置主密码”暴露成远程接口：
+
+```bash
+printf '%s\n' "$DIGILEGACY_MASTER_PASSWORD" | digilegacy security init
+```
+
+口令从标准输入读取，至少 8 个字符。命令会创建 DEK/KEK、恢复封条并写入 `security_config`；恢复码只输出这一次，应离线保存。初始化同时把已有连接凭据与政策候选密文迁移到保险库派生的域密钥，迁移失败会整体回滚。
+
+服务进程重启后保险库默认锁定。锁定时应用层只允许 `security.status`、`security.unlock`、`security.lock`，其余命令返回 `423 VAULT_LOCKED`；Web 锁屏只有在本地 API 校验口令成功后才挂载主壳。
+
+CLI 每条命令都是独立进程，单独的 `security unlock` 不会把密钥带给下一条命令。已配置保险库时，交互终端会为当前命令提示输入主密码；脚本可设置 `DIGILEGACY_VAULT_PASSWORD`，命令结束后密钥随进程退出。
+
+边界：
+
+- Web 暂无恢复码解锁入口，恢复码目前只能作为离线恢复材料保存。
+- 解锁接口随 API 默认绑定回环地址；若把 API 暴露到局域网或公网，必须在反向代理增加限流与访问控制。
+- `security_config` 存在后，字段加密使用会话 DEK 派生的域密钥；SQLCipher 的文件密钥仍然保留，用于整库加密。两者职责不同，不能互相替代。
+
 ## 迁移说明
 
 安全关键行为只放在 `core/security` 和 `core/store`。不要恢复已删除的桌面应用，也不要把旧代码接进新入口。

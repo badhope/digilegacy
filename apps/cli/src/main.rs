@@ -12,7 +12,9 @@ use digilegacy_application::Application;
 use digilegacy_contracts as contracts;
 use digilegacy_foundation::{Envelope, PlatformError};
 use serde_json::{json, Value};
+use std::io::{BufRead, IsTerminal};
 use std::process::ExitCode;
+use zeroize::Zeroizing;
 
 #[derive(Debug, Parser)]
 #[command(name = "digilegacy-cli", version, about = "DigiLegacy platform CLI")]
@@ -561,6 +563,21 @@ enum SecurityCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Set the first master password. Reads it from stdin.
+    Init {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Unlock this process with the master password. Reads it from stdin.
+    Unlock {
+        #[arg(long)]
+        json: bool,
+    },
+    /// Clear the in-memory data key for this process.
+    Lock {
+        #[arg(long)]
+        json: bool,
+    },
     /// Create an authenticated checkpoint beside the live database.
     Checkpoint {
         #[arg(long, default_value = "manual")]
@@ -597,6 +614,12 @@ fn main() -> ExitCode {
             return ExitCode::from(5);
         }
     };
+    if !security_passthrough(&command) {
+        if let Err(error) = unlock_cli_vault(&app) {
+            eprintln!("{}: {}", error.code, error.message);
+            return ExitCode::from(5);
+        }
+    }
 
     match command {
         Commands::Registry { json: as_json } => {
@@ -1045,6 +1068,23 @@ fn main() -> ExitCode {
             SecurityCommand::Status { json: as_json } => {
                 run(&app, "security.status", json!({}), as_json, false)
             }
+            SecurityCommand::Init { json: as_json } => match read_password() {
+                Ok(password) => local(app.security_init(&password), as_json),
+                Err(error) => fail(error),
+            },
+            SecurityCommand::Unlock { json: as_json } => match read_password() {
+                Ok(password) => run(
+                    &app,
+                    "security.unlock",
+                    json!({ "password": password.as_str() }),
+                    as_json,
+                    false,
+                ),
+                Err(error) => fail(error),
+            },
+            SecurityCommand::Lock { json: as_json } => {
+                run(&app, "security.lock", json!({}), as_json, false)
+            }
             SecurityCommand::Checkpoint {
                 label,
                 json: as_json,
@@ -1150,6 +1190,58 @@ fn main() -> ExitCode {
             run(&app, &name, args, as_json, allow_write)
         }
     }
+}
+
+fn security_passthrough(command: &Commands) -> bool {
+    matches!(
+        command,
+        Commands::Security {
+            command: SecurityCommand::Init { .. }
+                | SecurityCommand::Unlock { .. }
+                | SecurityCommand::Status { .. }
+                | SecurityCommand::Lock { .. }
+        }
+    )
+}
+
+/// A configured vault follows the process, so a standalone `security unlock`
+/// cannot help the next CLI invocation. Read the master password for this
+/// process from `DIGILEGACY_VAULT_PASSWORD`, or prompt when stdin is a terminal.
+fn unlock_cli_vault(app: &Application) -> Result<(), PlatformError> {
+    let status = app.security_status()?;
+    let configured = status["configured"].as_bool().unwrap_or(false);
+    let locked = status["locked"].as_bool().unwrap_or(false);
+    if !configured || !locked {
+        return Ok(());
+    }
+    let password = match std::env::var("DIGILEGACY_VAULT_PASSWORD") {
+        Ok(value) if !value.is_empty() => Zeroizing::new(value),
+        _ if std::io::stdin().is_terminal() => {
+            eprintln!("保险库已锁定，请输入主密码：");
+            read_password()?
+        }
+        _ => {
+            return Err(PlatformError::new(
+                "VAULT_LOCKED",
+                "保险库已锁定；请在终端输入主密码，或设置 DIGILEGACY_VAULT_PASSWORD",
+            ));
+        }
+    };
+    app.security_unlock(json!({ "password": password.as_str() }))?;
+    Ok(())
+}
+
+fn read_password() -> Result<Zeroizing<String>, PlatformError> {
+    let mut line = String::new();
+    std::io::stdin()
+        .lock()
+        .read_line(&mut line)
+        .map_err(|e| PlatformError::new("IO", format!("读取主密码失败：{e}")))?;
+    let password = line.trim_end_matches(['\r', '\n']).to_string();
+    if password.is_empty() {
+        return Err(PlatformError::new("INVALID_ARGS", "主密码不能为空"));
+    }
+    Ok(Zeroizing::new(password))
 }
 
 fn local(result: Result<Value, PlatformError>, as_json: bool) -> ExitCode {

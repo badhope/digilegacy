@@ -49,6 +49,7 @@ export function useDialogFocus(
   open: Ref<boolean>,
   panel: Ref<HTMLElement | null>,
   initial: "panel" | "first" = "panel",
+  restoreFocus: Ref<boolean> | boolean = true,
 ): void {
   let previous: HTMLElement | null = null;
 
@@ -71,7 +72,8 @@ export function useDialogFocus(
         }
       } else {
         await nextTick();
-        if (previous?.isConnected) previous.focus();
+        const shouldRestore = typeof restoreFocus === "boolean" ? restoreFocus : restoreFocus.value;
+        if (shouldRestore && previous?.isConnected) previous.focus();
         previous = null;
       }
     },

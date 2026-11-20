@@ -231,7 +231,7 @@ impl Application {
             .unwrap_or("default")
             .to_string();
         let config = normalized_config(&kind, input)?;
-        let key = self.config_key().ok_or_else(|| {
+        let key = self.config_key()?.ok_or_else(|| {
             PlatformError::new(
                 "CONFIG_KEY_MISSING",
                 "连接配置密钥未配置；请设置 DIGILEGACY_CONFIG_KEY_FILE 或 DIGILEGACY_DB_KEY_FILE",
@@ -239,7 +239,7 @@ impl Application {
         })?;
         let plain = serde_json::to_string(&config.stored)
             .map_err(|error| PlatformError::new("INTERNAL", error.to_string()))?;
-        let config_enc = encrypt_field_v2(&plain, key).map_err(|error| {
+        let config_enc = encrypt_field_v2(&plain, &key).map_err(|error| {
             PlatformError::new("INTERNAL", format!("加密连接配置失败: {error}"))
         })?;
         let saved = connections::upsert(
@@ -367,9 +367,9 @@ impl Application {
         }
         let encrypted = connections::config_enc(self.store(), &row.id).map_err(map_domain)?;
         let key = self
-            .config_key()
+            .config_key()?
             .ok_or_else(|| PlatformError::new("CONFIG_KEY_MISSING", "连接配置密钥未配置"))?;
-        let plain = decrypt_field_any(&encrypted, key).map_err(|error| {
+        let plain = decrypt_field_any(&encrypted, &key).map_err(|error| {
             PlatformError::new("CORRUPT_DATA", format!("解密连接配置失败: {error}"))
         })?;
         let config = serde_json::from_str(&plain).map_err(|error| {

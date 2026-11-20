@@ -10,3 +10,4 @@ serde_json.workspace = true
 digilegacy-contracts = { path = "../../core/contracts" }
 digilegacy-foundation = { path = "../../core/foundation" }
 digilegacy-application = { path = "../../core/application" }
+zeroize.workspace = true

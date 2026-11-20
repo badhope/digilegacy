@@ -108,8 +108,8 @@ impl Application {
     ) -> Result<String, PlatformError> {
         let plain = serde_json::to_string(policy)
             .map_err(|error| PlatformError::new("INTERNAL", format!("序列化候选失败: {error}")))?;
-        match self.config_key() {
-            Some(key) => encrypt_field_v2(&plain, key).map_err(|error| {
+        match self.config_key()? {
+            Some(key) => encrypt_field_v2(&plain, &key).map_err(|error| {
                 PlatformError::new("INTERNAL", format!("加密政策候选失败: {error}"))
             }),
             None => Ok(format!("plain:{plain}")),
@@ -120,13 +120,13 @@ impl Application {
         let plain = if let Some(plain) = payload.strip_prefix("plain:") {
             plain.to_string()
         } else if payload.starts_with("enc:") {
-            let key = self.config_key().ok_or_else(|| {
+            let key = self.config_key()?.ok_or_else(|| {
                 PlatformError::new(
                     "CONFIG_KEY_MISSING",
                     "政策候选已加密；请设置 DIGILEGACY_CONFIG_KEY_FILE 或 DIGILEGACY_DB_KEY_FILE",
                 )
             })?;
-            decrypt_field_any(payload, key).map_err(|error| {
+            decrypt_field_any(payload, &key).map_err(|error| {
                 PlatformError::new("CORRUPT_DATA", format!("解密政策候选失败: {error}"))
             })?
         } else {

@@ -422,6 +422,7 @@ export interface JobDetail {
 }
 
 export interface SecurityStatus {
+  configured: boolean;
   locked: boolean;
   recoveryConfigured: boolean;
   keySource: "os" | "passphrase" | "unknown";

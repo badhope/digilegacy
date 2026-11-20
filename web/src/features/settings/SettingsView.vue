@@ -515,9 +515,14 @@ function go(section: Section) {
             <div v-else-if="securityError" class="empty-note">{{ securityError }}</div>
             <template v-else-if="security">
               <div class="setting-row">
+                <span>{{ t("settings.security.configured") }}</span>
+                <StatusPill :tone="security.configured ? 'ready' : 'planned'" :label="security.configured ? t('settings.security.configured.yes') : t('settings.security.configured.no')" />
+              </div>
+              <div class="setting-row">
                 <span>{{ t("settings.security.locked") }}</span>
                 <StatusPill :tone="security.locked ? 'planned' : 'ready'" :label="security.locked ? t('settings.security.locked.yes') : t('settings.security.locked.no')" />
               </div>
+              <p v-if="!security.configured" class="setting-hint">{{ t("settings.security.setupHint") }}</p>
               <div class="setting-row">
                 <span>{{ t("settings.security.recovery") }}</span>
                 <strong>{{ security.recoveryConfigured ? t("common.ready") : t("settings.security.notConfigured") }}</strong>

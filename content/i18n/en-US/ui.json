@@ -130,7 +130,7 @@
   "notfound.note": "The new platform only knows new paths. Start again from overview.",
   "notfound.action": "Back to overview",
   "lock.title": "Console locked",
-  "lock.note": "Lock state comes from the server vault; unlock flow lands with auth.",
+  "lock.note": "Enter the master password set on this machine. The passphrase is checked by the local API only; the data key never reaches the browser.",
   "lock.action": "Unlock",
   "error.network": "Network unreachable",
   "error.unsupported": "This capability is not connected yet",
@@ -175,7 +175,7 @@
   "automation.metric.waiting": "Waiting approval",
   "automation.metric.failed": "Failed",
   "automation.tools.count": "Read tools",
-  "settings.tab.security.note": "Lock state and recovery config come from the server Store; key material never leaves it.",
+  "settings.tab.security.note": "Lock state, vault setup and recovery config come from the server Store; key material never leaves it.",
   "settings.tab.connections.note": "Connections can come from environment variables or be encrypted and saved in the platform; credentials are write-only and never echoed.",
   "settings.tab.audit.note": "Platform audit hash chain, newest first; each record links to the previous hash.",
   "command.nav": "Navigation",
@@ -442,5 +442,14 @@
   "planning.form.nameRequired": "Please enter a name.",
   "planning.form.maxHeirs": "Up to 20 heirs.",
   "planning.form.saving": "Saving…",
-  "planning.form.cancel": "Cancel"
+  "planning.form.cancel": "Cancel",
+  "lock.password": "Master password",
+  "lock.passwordPlaceholder": "At least 8 characters",
+  "lock.passwordRequired": "Enter the master password",
+  "lock.invalid": "Incorrect master password",
+  "lock.unlocking": "Unlocking…",
+  "settings.security.configured": "Vault",
+  "settings.security.configured.yes": "Initialised",
+  "settings.security.configured.no": "Not initialised",
+  "settings.security.setupHint": "First-time setup stays local: run digilegacy security init and pipe the master password on stdin."
 }

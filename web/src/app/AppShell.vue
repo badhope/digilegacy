@@ -1,16 +1,26 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Component } from "vue";
 import { RouterView, useRoute, useRouter } from "vue-router";
 import { prefetchRoute } from "./router";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import type { IconName } from "@/shared/icons/paths";
 import AgentDrawer from "./AgentDrawer.vue";
-import CommandPalette from "./CommandPalette.vue";
-import LockScreen from "./LockScreen.vue";
 import { useDialogFocus } from "./dialogFocus";
 import { useI18n } from "@/platform/i18n";
 import { useTheme } from "@/platform/theme";
-import { lockConsole, openAgent, openPalette } from "@/platform/ui";
+import { fetchSecurityStatus, lockVault } from "@/platform/security";
+import { markLocked, openAgent, openPalette, ui } from "@/platform/ui";
+
+const CommandPalette = shallowRef<Component>();
+const LockScreen = shallowRef<Component>();
+
+async function loadCommandPalette() {
+  if (!CommandPalette.value) CommandPalette.value = (await import("./CommandPalette.vue")).default;
+}
+
+async function loadLockScreen() {
+  if (!LockScreen.value) LockScreen.value = (await import("./LockScreen.vue")).default;
+}
 
 const appVersion = __APP_VERSION__;
 
@@ -57,6 +67,37 @@ function go(path: string) {
   router.push(path);
 }
 
+async function hydrateSecurity() {
+  const status = await fetchSecurityStatus();
+  if (status) {
+    ui.securityConfigured = status.configured;
+    ui.locked = status.configured && status.locked;
+  }
+  ui.securityReady = true;
+}
+
+async function handleLock() {
+  if (!ui.securityConfigured || !(await lockVault())) {
+    go("/settings/security");
+    return;
+  }
+  markLocked();
+}
+
+watch(
+  () => ui.paletteOpen,
+  (open) => {
+    if (open) void loadCommandPalette();
+  },
+);
+watch(
+  () => ui.locked,
+  (locked) => {
+    if (locked) void loadLockScreen();
+  },
+  { immediate: true },
+);
+
 function onKeydown(event: KeyboardEvent) {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -80,6 +121,7 @@ watch(
 onMounted(() => {
   window.addEventListener("resize", closeOnDesktop);
   window.addEventListener("keydown", onKeydown);
+  void hydrateSecurity();
 });
 onBeforeUnmount(() => {
   window.removeEventListener("resize", closeOnDesktop);
@@ -89,9 +131,10 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="shell">
-    <a class="skip-link" href="#main">{{ t("a11y.skipToMain") }}</a>
+    <a v-if="ui.securityReady && !ui.locked" class="skip-link" href="#main">{{ t("a11y.skipToMain") }}</a>
 
     <aside
+      v-if="ui.securityReady && !ui.locked"
       ref="rail"
       class="rail"
       :class="{ open: mobileOpen }"
@@ -139,9 +182,9 @@ onBeforeUnmount(() => {
       </div>
     </aside>
 
-    <div v-if="mobileOpen" class="rail-scrim" aria-hidden="true" @click="mobileOpen = false" />
+    <div v-if="ui.securityReady && !ui.locked && mobileOpen" class="rail-scrim" aria-hidden="true" @click="mobileOpen = false" />
 
-    <div class="frame" :inert="mobileOpen || undefined">
+    <div v-if="ui.securityReady && !ui.locked" class="frame" :inert="mobileOpen || undefined">
       <header class="topbar">
         <div class="topbar-left">
           <button
@@ -193,7 +236,7 @@ onBeforeUnmount(() => {
             {{ locale === "zh-CN" ? "EN" : "中" }}
           </button>
 
-          <button class="tool-button" type="button" :aria-label="t('topbar.lock')" @click="lockConsole()">
+          <button class="tool-button" type="button" :aria-label="t('topbar.lock')" @click="handleLock()">
             <AppIcon name="lock" :size="16" />
           </button>
 
@@ -203,14 +246,14 @@ onBeforeUnmount(() => {
         </div>
       </header>
 
-      <main id="main" class="content">
+      <main id="main" class="content" tabindex="-1">
         <RouterView />
       </main>
     </div>
 
     <AgentDrawer />
-    <CommandPalette />
-    <LockScreen />
+    <component :is="CommandPalette" v-if="ui.paletteOpen && CommandPalette" />
+    <component :is="LockScreen" v-if="LockScreen" />
   </div>
 </template>
 
@@ -231,7 +274,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
-  transform: translateY(-120%);
+  transform: translateY(calc(-100% - 20px));
 }
 
 .skip-link:focus {

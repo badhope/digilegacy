@@ -30,6 +30,8 @@ pub const COMMAND_LINES: &[&str] = &[
     "approvals list",
     "approvals decide",
     "security status",
+    "security unlock",
+    "security lock",
     "connections list",
     "connections save",
     "connections delete",

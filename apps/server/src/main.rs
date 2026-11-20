@@ -233,6 +233,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/jobs/{id}/cancel", post(job_cancel))
         .route("/api/v1/events", get(events))
         .route("/api/v1/security", get(security_get))
+        .route("/api/v1/security/unlock", post(security_unlock))
+        .route("/api/v1/security/lock", post(security_lock))
         .route("/api/v1/agent/runs", get(agent_runs).post(agent_runs_start))
         .route("/api/v1/agent/usage", get(agent_usage))
         .route("/api/v1/agent/runs/{id}", get(agent_run_detail))
@@ -635,6 +637,17 @@ async fn security_get(State(state): State<AppState>) -> impl IntoResponse {
     dispatch(&state, "security.status", json!({}), None)
 }
 
+async fn security_unlock(
+    State(state): State<AppState>,
+    Json(input): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "security.unlock", input, None)
+}
+
+async fn security_lock(State(state): State<AppState>) -> impl IntoResponse {
+    dispatch(&state, "security.lock", json!({}), None)
+}
+
 async fn agent_run_detail(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -971,6 +984,47 @@ mod tests {
             .unwrap();
         let updated: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(updated["data"]["status"], "archived");
+    }
+
+    #[test]
+    fn configured_vault_blocks_reads_until_password_unlocks() {
+        let state = test_app();
+        let init = state.app.security_init("correct horse battery").unwrap();
+        assert_eq!(init["configured"], true);
+        assert!(!init["recoveryCode"].as_str().unwrap_or_default().is_empty());
+        // A fresh server process starts locked even after the CLI bootstraps it.
+        digilegacy_security::session::lock();
+
+        let (status, envelope) = dispatch(&state, "assets.list", json!({}), None);
+        assert_eq!(status, StatusCode::LOCKED);
+        assert_eq!(envelope.code, "VAULT_LOCKED");
+
+        let (status, envelope) = dispatch(
+            &state,
+            "security.unlock",
+            json!({ "password": "wrong password" }),
+            None,
+        );
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(envelope.code, "INVALID_ARGS");
+
+        let (status, envelope) = dispatch(
+            &state,
+            "security.unlock",
+            json!({ "password": "correct horse battery" }),
+            None,
+        );
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(envelope.data.as_ref().unwrap()["locked"], false);
+
+        let (status, _) = dispatch(&state, "assets.list", json!({}), None);
+        assert_eq!(status, StatusCode::OK);
+
+        let (status, envelope) = dispatch(&state, "security.lock", json!({}), None);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(envelope.data.as_ref().unwrap()["locked"], true);
+        let (status, _) = dispatch(&state, "assets.list", json!({}), None);
+        assert_eq!(status, StatusCode::LOCKED);
     }
 
     #[test]

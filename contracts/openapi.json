@@ -1776,7 +1776,7 @@
         ],
         "x-command": "security.status",
         "x-permission": "read",
-        "x-requires-unlock": true,
+        "x-requires-unlock": false,
         "x-audit": false,
         "responses": {
           "200": {
@@ -1815,6 +1815,134 @@
                     }
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/security/unlock": {
+      "post": {
+        "operationId": "security.unlock",
+        "summary": "用主密码解锁当前服务进程的保险库会话",
+        "tags": [
+          "security"
+        ],
+        "x-command": "security.unlock",
+        "x-permission": "draft",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/security.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/security.password.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/security/lock": {
+      "post": {
+        "operationId": "security.lock",
+        "summary": "清除当前进程内存中的保险库数据密钥",
+        "tags": [
+          "security"
+        ],
+        "x-command": "security.lock",
+        "x-permission": "draft",
+        "x-requires-unlock": false,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/security.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/empty.input"
               }
             }
           }
@@ -4837,12 +4965,16 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "configured",
           "locked",
           "recoveryConfigured",
           "keySource",
           "lastBackupAt"
         ],
         "properties": {
+          "configured": {
+            "type": "boolean"
+          },
           "locked": {
             "type": "boolean"
           },
@@ -4859,6 +4991,22 @@
           },
           "lastBackupAt": {
             "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "security.password.input": {
+        "title": "SecurityPasswordInput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "password"
+        ],
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

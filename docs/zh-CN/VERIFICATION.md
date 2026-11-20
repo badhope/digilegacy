@@ -714,3 +714,15 @@ M0 可以判定“工程壳完成”的条件：
 - 证据：`docs/operations/measurements/policy-sources-2026-11-20.json`；清单：`docs/operations/policy-source-worklist.csv`；流程：`docs/operations/POLICY-SOURCES.md`。
 - 边界：脚本依赖 Python `requests`；政策来源仍是用户侧人工内容决策，代码不伪造核对人、日期或法律结论。G-16 状态为 PARTIAL。
 - 验收：`./tools/verify.sh` exit 0，**175 Rust + 68 Web**；`ops tools` 段新增 `py_compile`，覆盖政策预审、干净机演练与容量脚本；日志 `/tmp/m6m-verify.log`。
+
+### M6-Q 真实保险库锁屏（2026-11-20）
+
+- 新增 CLI-only `security init`：标准输入读取主密码，创建 DEK/KEK/恢复封条并写入 `security_config`；不暴露到 HTTP、IPC、MCP 或 Agent。新增 `security.unlock` / `security.lock` 契约，HTTP 为 `POST /api/v1/security/unlock` / `lock`。
+- 已配置且锁定时，应用层只放行三个 security 命令，其余返回 `423 VAULT_LOCKED`；`security.status` 增加 `configured`，`keySource` 未初始化时为 `unknown`。
+- 引导事务内把 `connections.config_enc` 与 `policy_candidates.payload_enc` 从旧密钥迁移到保险库派生域密钥；迁移失败整体回滚。新增 `security_init_rekeys_existing_connection_secrets` 与 HTTP 门禁测试。
+- Web 启动读取状态并在锁定态隐藏主壳；锁屏输入真实主密码，错误口令留在原地，成功后进主区域；顶栏锁定调用服务端。未配置时设置页给出 CLI 引导。
+- 真实 API 隔离库演练：锁定 `423` → 错误口令 `400 INVALID_ARGS` → 正确解锁 `200` → 概览 `200` → 再锁定后资产 `423`。真实 Chromium 桌面与 390px：axe 0、无页面异常、无横向溢出；错误口令与再次锁定均通过。
+- CLI 独立进程：无 `DIGILEGACY_VAULT_PASSWORD` 时 `assets list` 返回 `VAULT_LOCKED`；带变量时返回“锁定前资产”。`security status` 不受锁影响。
+- 验收：`./tools/verify.sh` exit 0，**182 Rust + 77 Web**；契约 **43 命令 / 23 工具 / 59 schema / 21 错误码**；schema v16 / 31 表；入口 79.72/82 KB，JS gzip 104.45/104.6 KB，CSS gzip 20.15/21.1 KB，总 gzip 124.60/124.8 KB；日志 `/tmp/digilegacy-verify-lock7.log`。
+- 真实浏览器 14/14 路由 PASS（`/tmp/digilegacy-live-smoke-final.json`），9/9 视觉基线 PASS；锁屏截图 `/tmp/digilegacy-lock-ui/`。
+- 边界：Web 暂无恢复码解锁；解锁 API 默认只随服务绑定回环地址，对外暴露需在反向代理限流；SQLCipher 文件密钥仍保留，保险库 DEK 负责字段密钥与会话。

@@ -603,10 +603,11 @@ const MOCK_DATA: Record<string, unknown> = {
     "decidedAt": "2026-11-19T10:00:00+08:00"
   },
   "security.status": {
+    "configured": false,
     "locked": false,
-    "recoveryConfigured": true,
-    "keySource": "os",
-    "lastBackupAt": "2026-11-19T02:00:00+08:00"
+    "recoveryConfigured": false,
+    "keySource": "unknown",
+    "lastBackupAt": ""
   },
   "connections.list": {
     "items": [],

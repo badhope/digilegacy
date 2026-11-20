@@ -86,12 +86,15 @@ review worklist, not a verification result.
 - Boundary: the script does not edit policy data or provenance. A reachable
   home page does not prove the page contains the cited rule.
 - The verify gate now byte-compiles the policy audit, clean-host drill and
-  capacity scripts; the last full run is 175 Rust + 68 Web tests.
+  capacity scripts; the last full run is **182 Rust + 77 Web** tests, with
+  **43 commands / 23 tools / 59 schemas / 21 errors** and schema v16 / 31 tables.
 
 ## Manual smoke before release
 
 1. Start the API and the Web console with a fresh data directory.
-2. Create an asset, edit it, and confirm the detail page and delivered report show the same value.
+2. Run `printf '%s\n' "<master-password>" | digilegacy security init`, save the recovery code, restart the API, and confirm `/api/v1/overview` returns `423 VAULT_LOCKED` until the Web lock screen accepts the password.
+3. Run `DIGILEGACY_VAULT_PASSWORD="<master-password>" digilegacy assets list` against the same database and confirm the CLI returns the asset list; without the variable it must exit with `VAULT_LOCKED`.
+4. Create an asset, edit it, and confirm the detail page and delivered report show the same value.
 3. Configure an heir and complete a check-in.
 4. Ask the Agent to draft a plan; confirm a write step waits for approval.
 5. Approve one write and reject another with a reason; confirm both outcomes are audited.

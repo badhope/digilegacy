@@ -130,7 +130,7 @@
   "notfound.note": "新平台只有新路径，不做重定向。回到概览重新开始。",
   "notfound.action": "回到概览",
   "lock.title": "控制台已锁定",
-  "lock.note": "锁定状态来自服务端保险库；解锁流程在后续认证里程碑。",
+  "lock.note": "输入本机初始化时设置的主密码。口令只发送到本地 API 校验，数据密钥不会写入浏览器。",
   "lock.action": "解锁",
   "error.network": "网络不可达",
   "error.unsupported": "该能力尚未接入",
@@ -175,7 +175,7 @@
   "automation.metric.waiting": "等待审批",
   "automation.metric.failed": "失败",
   "automation.tools.count": "只读工具",
-  "settings.tab.security.note": "锁定状态与恢复配置直接来自服务端 Store；密钥值永不外传。",
+  "settings.tab.security.note": "锁定状态、保险库初始化与恢复配置直接来自服务端 Store；密钥值永不外传。",
   "settings.tab.connections.note": "连接可来自环境变量，也可在平台内加密保存；凭据只写不读，列表不回显任何密钥。",
   "settings.tab.audit.note": "平台审计哈希链，按时间倒序；每条记录可追溯到上一条 hash。",
   "command.nav": "页面导航",
@@ -442,5 +442,14 @@
   "planning.form.nameRequired": "请填写姓名。",
   "planning.form.maxHeirs": "最多 20 位继承人。",
   "planning.form.saving": "保存中…",
-  "planning.form.cancel": "取消"
+  "planning.form.cancel": "取消",
+  "lock.password": "主密码",
+  "lock.passwordPlaceholder": "输入至少 8 位的主密码",
+  "lock.passwordRequired": "请输入主密码",
+  "lock.invalid": "主密码不正确",
+  "lock.unlocking": "正在解锁…",
+  "settings.security.configured": "保险库",
+  "settings.security.configured.yes": "已初始化",
+  "settings.security.configured.no": "未初始化",
+  "settings.security.setupHint": "首次设置只走本地 CLI：digilegacy security init，从标准输入读取主密码。"
 }

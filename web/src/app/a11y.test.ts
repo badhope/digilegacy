@@ -51,6 +51,8 @@ beforeEach(() => {
   ui.agentOpen = false;
   ui.paletteOpen = false;
   ui.locked = false;
+  ui.securityReady = true;
+  ui.securityConfigured = false;
   document.body.innerHTML = "";
 });
 

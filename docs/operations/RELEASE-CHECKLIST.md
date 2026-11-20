@@ -8,6 +8,11 @@ The archive checksum is in `packages/digilegacy-0.0.17-linux-x86_64.tar.gz.sha25
 and inside the archive as `SHA256SUMS`. Do not copy a checksum from a chat
 message; verify the file next to the archive.
 
+> This checklist records the **0.0.17 archive**, not current `main`. After the
+> 2026-11-20 vault-lock work, current source has 43 commands / 59 schemas and
+> 182 Rust + 77 Web tests; the archive predates those changes and must be
+> rebuilt before it can claim them.
+
 ## Automated evidence
 
 | Gate | Result | Evidence |

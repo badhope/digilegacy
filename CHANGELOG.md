@@ -19,6 +19,19 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 - Write-token guidance now points to **Settings → Security & data** everywhere, matching where `DIGILEGACY_API_TOKEN` is actually entered.
 - The server now mounts the asset write routes declared by the contract: `POST /api/v1/assets` and `PATCH /api/v1/assets/{id}`.
 
+### Security
+
+- The console lock is now a real vault session, not a local boolean. `security.init` bootstraps `security_config` from the local CLI, `security.unlock` verifies the master password and installs the process DEK, and `security.lock` clears it. The Web lock screen only opens after the local API accepts the password.
+- While a configured vault is locked, the application refuses every command except `security.status`, `security.unlock` and `security.lock`; locked reads return `423 VAULT_LOCKED`. The Web shell is not mounted behind the lock screen, so stale data is not left on screen.
+- Vault bootstrap re-encrypts existing connection secrets and encrypted policy candidates from the old file/config key to a vault-derived domain key. Once `security_config` exists, field encryption derives from the unlocked session DEK, not the database key file.
+- Web startup reads `security.status`, hides the console when locked, and focuses the main region after unlock without scrolling past the topbar. The skip link is fully hidden when unfocused, and the password field regains focus after a wrong attempt.
+- CLI invocations are separate processes, so a standalone `security unlock` cannot carry the key forward. A locked CLI prompts for the password on a terminal, or accepts `DIGILEGACY_VAULT_PASSWORD` for scripts; the key dies with the process.
+
+### Testing
+
+- `tools/verify.sh` exit 0: **182 Rust + 77 Web** tests; contracts **43 commands / 23 tools / 59 schemas / 21 errors**; schema v16 / 31 tables. Web entry 79.72/82 KB, JS gzip 104.45/104.6 KB, CSS gzip 20.15/21.1 KB, total 124.60/124.8 KB.
+- Real API drill on an isolated vault database: locked status, `423 VAULT_LOCKED`, wrong password `400 INVALID_ARGS`, correct unlock `200`, overview `200`, lock again, assets `423`. A real Chromium run covered wrong password, successful unlock, re-lock, 390 px layout, axe 0 violations and no page errors; 14/14 live routes and 9/9 visual baselines passed.
+
 ## [0.0.17] - November 2026
 
 ### Security

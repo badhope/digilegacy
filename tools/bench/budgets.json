@@ -2,7 +2,8 @@
   "entryRawKb": 82,
   "vendorRawKb": 130,
   "routeRawKb": 24,
-  "totalJsGzipKb": 103.1,
+  "totalJsGzipKb": 104.6,
   "totalCssGzipKb": 21.1,
-  "totalGzipKb": 124.2
+  "totalGzipKb": 124.8,
+  "_note": "Raised 0.4-1.5 KB on 2026-11-20 for the real vault lock (security unlock/lock routes and password form)."
 }

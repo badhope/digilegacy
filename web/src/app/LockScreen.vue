@@ -1,14 +1,43 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, ref } from "vue";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
-import { ui, unlockConsole } from "@/platform/ui";
+import { unlockVault } from "@/platform/securityUnlock";
+import { ui } from "@/platform/ui";
 import { useI18n } from "@/platform/i18n";
 import { useDialogFocus } from "./dialogFocus";
 
 const { t } = useI18n();
 const panel = ref<HTMLElement | null>(null);
-useDialogFocus(computed(() => ui.locked), panel, "first");
+const input = ref<HTMLInputElement | null>(null);
+const password = ref("");
+const busy = ref(false);
+const error = ref("");
+const restoreFocus = ref(true);
+useDialogFocus(computed(() => ui.locked), panel, "first", restoreFocus);
+
+async function unlock() {
+  if (!password.value) {
+    error.value = t("lock.passwordRequired");
+    return;
+  }
+  busy.value = true;
+  error.value = "";
+  const envelope = await unlockVault(password.value);
+  busy.value = false;
+  if (!envelope.success) {
+    error.value = envelope.code === "INVALID_ARGS" ? t("lock.invalid") : envelope.message || envelope.code;
+    password.value = "";
+    await nextTick();
+    input.value?.focus();
+    return;
+  }
+  password.value = "";
+  restoreFocus.value = false;
+  ui.locked = false;
+  await nextTick();
+  document.getElementById("main")?.focus({ preventScroll: true });
+}
 </script>
 
 <template>
@@ -19,10 +48,24 @@ useDialogFocus(computed(() => ui.locked), panel, "first");
         <span class="eyebrow">DIGILEGACY / LOCKED</span>
         <h1>{{ t("lock.title") }}</h1>
         <p>{{ t("lock.note") }}</p>
-        <AppButton variant="primary" @click="unlockConsole()">
-          {{ t("lock.action") }}
-          <AppIcon name="arrow-right" :size="14" />
-        </AppButton>
+        <form class="lock-form" @submit.prevent="unlock">
+          <label class="lock-field">
+            <span>{{ t("lock.password") }}</span>
+            <input
+              ref="input"
+              v-model="password"
+              type="password"
+              autocomplete="current-password"
+              :disabled="busy"
+              :placeholder="t('lock.passwordPlaceholder')"
+            />
+          </label>
+          <AppButton variant="primary" type="submit" :disabled="busy">
+            {{ busy ? t("lock.unlocking") : t("lock.action") }}
+            <AppIcon name="arrow-right" :size="14" />
+          </AppButton>
+        </form>
+        <p v-if="error" class="lock-error" role="status" aria-live="polite">{{ error }}</p>
       </div>
     </div>
   </Teleport>
@@ -76,5 +119,45 @@ useDialogFocus(computed(() => ui.locked), panel, "first");
   color: var(--muted);
   font-size: 12px;
   line-height: 1.7;
+}
+
+.lock-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.lock-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted-strong);
+}
+
+.lock-field input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--ink);
+  font: inherit;
+}
+
+.lock-field input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent-soft);
+}
+
+.lock-error {
+  margin: 14px 0 0 !important;
+  color: var(--danger, #b3261e) !important;
+}
+
+.lock-form :deep(.app-button) {
+  align-self: flex-start;
 }
 </style>

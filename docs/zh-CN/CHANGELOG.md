@@ -16,6 +16,18 @@
 - 写令牌缺失提示统一指向 **设置 → 安全与数据**，与实际填写 `DIGILEGACY_API_TOKEN` 的位置一致。
 - 服务端补挂契约声明的资产写路由：`POST /api/v1/assets` 与 `PATCH /api/v1/assets/{id}`。
 
+### 安全
+
+- 控制台锁定改为真实保险库会话，不再是本地布尔遮罩。`security.init` 由本地 CLI 引导 `security_config`，`security.unlock` 校验主密码并装载进程 DEK，`security.lock` 清除它；Web 锁屏只有在本地 API 接受口令后才放行。
+- 已配置保险库且锁定时，应用层除 `security.status`、`security.unlock`、`security.lock` 外拒绝所有命令，读取返回 `423 VAULT_LOCKED`；Web 主壳不挂载，锁屏背后不会残留旧数据。
+- 引导时把已有连接密钥与政策候选密文从旧文件/配置密钥迁移到保险库派生的域密钥。`security_config` 存在后，字段加密只从已解锁会话 DEK 派生，不再使用数据库密钥文件。
+- Web 启动读取 `security.status`，锁定态隐藏控制台；解锁后把焦点移到主区域且不滚过顶栏；未聚焦的跳转链接完全隐藏。
+
+### 测试
+
+- `tools/verify.sh` exit 0：**182 Rust + 77 Web**；契约 **43 命令 / 23 工具 / 59 schema / 21 错误码**；schema v16 / 31 表。入口 79.72/82 KB，JS gzip 104.45/104.6 KB，CSS gzip 20.15/21.1 KB，总 gzip 124.60/124.8 KB。
+- 隔离保险库库真实 API 演练：锁定状态、`423 VAULT_LOCKED`、错误口令 `400 INVALID_ARGS`、正确解锁 `200`、概览 `200`、再次锁定后资产 `423`。真实 Chromium 覆盖错误口令、成功解锁、再次锁定、390px 布局，axe 0 违规且无页面异常；14/14 真实路由与 9/9 视觉基线通过。
+
 ## [0.0.17] - 2026-11-20
 
 ### Security

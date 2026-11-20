@@ -700,7 +700,7 @@
       "domain": "security",
       "summary": "读取锁定状态、密钥与恢复配置摘要",
       "permission": "read",
-      "requiresUnlock": true,
+      "requiresUnlock": false,
       "idempotent": true,
       "input": "schemas/empty.input.json",
       "output": "schemas/security.output.json",
@@ -715,6 +715,53 @@
       "audit": false,
       "errors": [
         "VAULT_LOCKED",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "security.unlock",
+      "domain": "security",
+      "summary": "用主密码解锁当前服务进程的保险库会话",
+      "permission": "draft",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/security.password.input.json",
+      "output": "schemas/security.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "security unlock",
+        "http": "POST /api/v1/security/unlock",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "CONFLICT",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "security.lock",
+      "domain": "security",
+      "summary": "清除当前进程内存中的保险库数据密钥",
+      "permission": "draft",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/security.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "security lock",
+        "http": "POST /api/v1/security/lock",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": true,
+      "errors": [
+        "CONFLICT",
         "INTERNAL"
       ]
     },

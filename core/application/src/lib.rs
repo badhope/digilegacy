@@ -121,8 +121,17 @@ impl Application {
         }
     }
 
-    pub fn config_key(&self) -> Option<&[u8; 32]> {
-        self.config_key.as_deref()
+    /// Field-encryption key. Once a vault exists the key is derived from the
+    /// unlocked session DEK, never from the database key file.
+    pub fn config_key(&self) -> Result<Option<Zeroizing<[u8; 32]>>, PlatformError> {
+        if self.vault_configured()? {
+            let dek = digilegacy_security::vault::get_key()
+                .ok_or_else(|| PlatformError::new("VAULT_LOCKED", "保险库未解锁"))?;
+            return derive_domain_key(&dek, CONNECTION_CONFIG_DOMAIN)
+                .map(Some)
+                .map_err(|error| PlatformError::new("INTERNAL", error));
+        }
+        Ok(self.config_key.clone())
     }
 
     /// Open the local database from `DIGILEGACY_DB` / `DIGILEGACY_DB_KEY_FILE`.
@@ -181,6 +190,23 @@ impl Application {
     }
 
     pub fn dispatch(&self, name: &str, args: Value) -> Result<Value, PlatformError> {
+        // A configured vault is a real console lock: only the three security
+        // lifecycle commands stay reachable until the process session is unlocked.
+        if self.vault_configured()?
+            && matches!(
+                digilegacy_security::session::state(),
+                digilegacy_security::VaultState::Locked
+            )
+            && !matches!(
+                name,
+                "security.status" | "security.unlock" | "security.lock"
+            )
+        {
+            return Err(PlatformError::new(
+                "VAULT_LOCKED",
+                "保险库已锁定；请先执行 security.unlock",
+            ));
+        }
         match name {
             "app.overview" => self.overview(),
             "audit.list" => self.audit_list(args),
@@ -211,6 +237,8 @@ impl Application {
             "notifications.send" => self.notifications_send(args),
             "deliver.export" => self.deliver_export(args),
             "security.status" => self.security_status(),
+            "security.unlock" => self.security_unlock(args),
+            "security.lock" => self.security_lock(),
             "agent.runs.list" => self.runs_list(args),
             "agent.usage.summary" => self.usage_summary(args),
             "agent.runs.get" => self.runs_get(args),
@@ -823,14 +851,120 @@ impl Application {
         Ok(data)
     }
 
+    fn vault_config(
+        &self,
+    ) -> Result<Option<digilegacy_security::session::VaultConfig>, PlatformError> {
+        self.store
+            .read(|conn| {
+                let exists: i64 = conn.query_row(
+                    "SELECT count(*) FROM security_config WHERE id=1",
+                    [],
+                    |r| r.get(0),
+                )?;
+                if exists == 0 {
+                    return Ok(None);
+                }
+                let (kdf_salt, verifier, wrapped_dek): (String, String, String) = conn.query_row(
+                    "SELECT kdf_salt, verifier, coalesce(wrapped_dek,'') FROM security_config WHERE id=1",
+                    [],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )?;
+                Ok(Some(digilegacy_security::session::VaultConfig {
+                    kdf_salt,
+                    verifier,
+                    wrapped_dek,
+                }))
+            })
+            .map_err(|e| PlatformError::new("INTERNAL", e.to_string()))
+    }
+
+    fn vault_configured(&self) -> Result<bool, PlatformError> {
+        Ok(self.vault_config()?.is_some())
+    }
+
+    /// Bootstrap the vault from the local CLI. This is deliberately absent from
+    /// the HTTP/Agent surfaces: only the machine owner can set the first password.
+    pub fn security_init(&self, password: &str) -> Result<Value, PlatformError> {
+        if password.chars().count() < 8 {
+            return Err(PlatformError::new(
+                "INVALID_ARGS",
+                "主密码至少需要 8 个字符",
+            ));
+        }
+        if self.vault_configured()? {
+            return Err(PlatformError::new("CONFLICT", "保险库已初始化"));
+        }
+        let vault = digilegacy_security::session::create_vault(password)
+            .map_err(|e| PlatformError::new("INTERNAL", e))?;
+        digilegacy_security::session::unlock(password, &vault.config)
+            .map_err(|e| PlatformError::new("INTERNAL", e))?;
+        let old_key = self.config_key()?;
+        let dek = digilegacy_security::vault::get_key()
+            .ok_or_else(|| PlatformError::new("INTERNAL", "保险库未解锁"))?;
+        let new_key = derive_domain_key(&dek, CONNECTION_CONFIG_DOMAIN)
+            .map_err(|e| PlatformError::new("INTERNAL", e))?;
+        let migrated = self.store.write(|conn| {
+            let tx = conn.transaction()?;
+            migrate_encrypted_rows(&tx, old_key.as_deref(), &new_key)?;
+            tx.execute(
+                "INSERT INTO security_config (id, kdf_salt, verifier, recovery_seal, created_at, wrapped_dek)
+                 VALUES (1,?1,?2,?3,?4,?5)",
+                rusqlite::params![
+                    vault.config.kdf_salt,
+                    vault.config.verifier,
+                    vault.recovery_seal,
+                    chrono::Utc::now().to_rfc3339(),
+                    vault.config.wrapped_dek,
+                ],
+            )?;
+            tx.commit()?;
+            Ok(())
+        });
+        if let Err(error) = migrated {
+            digilegacy_security::session::lock();
+            return Err(PlatformError::new("INTERNAL", error.to_string()));
+        }
+        self.audit("security.init", "vault")?;
+        Ok(json!({
+            "configured": true,
+            "recoveryCode": vault.recovery_code,
+            "recoveryConfigured": true,
+            "keySource": "passphrase",
+            "lastBackupAt": "",
+        }))
+    }
+
+    pub fn security_unlock(&self, args: Value) -> Result<Value, PlatformError> {
+        let password = args
+            .get("password")
+            .and_then(Value::as_str)
+            .ok_or_else(|| PlatformError::new("INVALID_ARGS", "缺少主密码"))?;
+        let config = self.vault_config()?.ok_or_else(|| {
+            PlatformError::new(
+                "CONFLICT",
+                "保险库尚未初始化；请先在本地 CLI 执行 security init",
+            )
+        })?;
+        digilegacy_security::session::unlock(password, &config)
+            .map_err(|e| PlatformError::new("INVALID_ARGS", e))?;
+        self.audit("security.unlock", "vault")?;
+        self.security_status()
+    }
+
+    pub fn security_lock(&self) -> Result<Value, PlatformError> {
+        digilegacy_security::session::lock();
+        self.audit("security.lock", "vault")?;
+        self.security_status()
+    }
+
     pub fn security_status(&self) -> Result<Value, PlatformError> {
-        let locked = matches!(
-            digilegacy_security::session::state(),
-            digilegacy_security::VaultState::Locked
-        );
         let details = self
             .store
             .read(|conn| {
+                let configured: i64 =
+                    conn.query_row("SELECT count(*) FROM security_config WHERE id=1", [], |r| {
+                        r.get(0)
+                    })?;
                 let recovery: i64 = conn
                     .query_row(
                         "SELECT CASE WHEN length(coalesce(recovery_seal,'')) > 0 THEN 1 ELSE 0 END
@@ -846,14 +980,21 @@ impl Application {
                         |r| r.get(0),
                     )
                     .unwrap_or_default();
-                Ok((recovery, last_backup))
+                Ok((configured, recovery, last_backup))
             })
             .map_err(|e| PlatformError::new("INTERNAL", e.to_string()))?;
+        let configured = details.0 > 0;
+        let locked = configured
+            && matches!(
+                digilegacy_security::session::state(),
+                digilegacy_security::VaultState::Locked
+            );
         Ok(json!({
+            "configured": configured,
             "locked": locked,
-            "recoveryConfigured": details.0 != 0,
-            "keySource": "passphrase",
-            "lastBackupAt": details.1,
+            "recoveryConfigured": details.1 != 0,
+            "keySource": if configured { "passphrase" } else { "unknown" },
+            "lastBackupAt": details.2,
         }))
     }
 
@@ -863,6 +1004,62 @@ impl Application {
             .map(|_| ())
             .map_err(|e| PlatformError::new("INTERNAL", format!("审计写入失败: {e}")))
     }
+}
+
+fn migrate_encrypted_rows(
+    tx: &rusqlite::Transaction<'_>,
+    old_key: Option<&[u8; 32]>,
+    new_key: &[u8; 32],
+) -> Result<(), digilegacy_store::StoreError> {
+    let encrypted_connections: Vec<(i64, String)> = {
+        let mut stmt = tx
+            .prepare("SELECT id, config_enc FROM connections WHERE config_enc LIKE 'enc:%'")
+            .map_err(|e| digilegacy_store::StoreError::State(e.to_string()))?;
+        let rows = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(|e| digilegacy_store::StoreError::State(e.to_string()))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| digilegacy_store::StoreError::State(e.to_string()))?
+    };
+    for (id, payload) in encrypted_connections {
+        let old = old_key.ok_or_else(|| {
+            digilegacy_store::StoreError::State("连接配置已加密但旧密钥不可用".to_string())
+        })?;
+        let plain = digilegacy_security::decrypt_field_any(&payload, old)
+            .map_err(digilegacy_store::StoreError::State)?;
+        let encrypted = digilegacy_security::encrypt_field_v2(&plain, new_key)
+            .map_err(digilegacy_store::StoreError::State)?;
+        tx.execute(
+            "UPDATE connections SET config_enc=?1 WHERE id=?2",
+            rusqlite::params![encrypted, id],
+        )
+        .map_err(|e| digilegacy_store::StoreError::State(e.to_string()))?;
+    }
+    let encrypted_candidates: Vec<(i64, String)> = {
+        let mut stmt = tx
+            .prepare("SELECT id, payload_enc FROM policy_candidates WHERE payload_enc LIKE 'enc:%'")
+            .map_err(|e| digilegacy_store::StoreError::State(e.to_string()))?;
+        let rows = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(|e| digilegacy_store::StoreError::State(e.to_string()))?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| digilegacy_store::StoreError::State(e.to_string()))?
+    };
+    for (id, payload) in encrypted_candidates {
+        let old = old_key.ok_or_else(|| {
+            digilegacy_store::StoreError::State("政策候选已加密但旧密钥不可用".to_string())
+        })?;
+        let plain = digilegacy_security::decrypt_field_any(&payload, old)
+            .map_err(digilegacy_store::StoreError::State)?;
+        let encrypted = digilegacy_security::encrypt_field_v2(&plain, new_key)
+            .map_err(digilegacy_store::StoreError::State)?;
+        tx.execute(
+            "UPDATE policy_candidates SET payload_enc=?1 WHERE id=?2",
+            rusqlite::params![encrypted, id],
+        )
+        .map_err(|e| digilegacy_store::StoreError::State(e.to_string()))?;
+    }
+    Ok(())
 }
 
 fn parse<T: serde::de::DeserializeOwned>(args: Value) -> Result<T, PlatformError> {
@@ -887,6 +1084,34 @@ mod tests {
 
     fn app() -> Application {
         Application::new(Arc::new(Store::open_in_memory(None).unwrap()))
+    }
+
+    #[test]
+    fn security_init_rekeys_existing_connection_secrets() {
+        let app =
+            Application::with_config_key(Arc::new(Store::open_in_memory(None).unwrap()), [3u8; 32]);
+        let saved = app
+            .connections_upsert(json!({
+                "kind": "webhook",
+                "label": "family",
+                "endpoint": "http://127.0.0.1:8791/hook",
+                "token": "top-secret-token",
+                "enabled": true
+            }))
+            .unwrap();
+        let id = saved["id"].as_str().unwrap().to_string();
+        let init = app.security_init("correct horse battery").unwrap();
+        assert_eq!(init["configured"], true);
+        assert!(!init["recoveryCode"].as_str().unwrap_or_default().is_empty());
+
+        let encrypted = digilegacy_domains::connections::config_enc(app.store(), &id).unwrap();
+        let new_key = app.config_key().unwrap().unwrap();
+        let plain = digilegacy_security::decrypt_field_any(&encrypted, &new_key).unwrap();
+        assert!(plain.contains("top-secret-token"));
+        assert!(digilegacy_security::decrypt_field_any(&encrypted, &[3u8; 32]).is_err());
+
+        app.dispatch("security.lock", json!({})).unwrap();
+        assert!(app.dispatch("assets.list", json!({})).is_err());
     }
 
     #[test]

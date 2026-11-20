@@ -3,7 +3,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import type { IconName } from "@/shared/icons/paths";
-import { closePalette, lockConsole, ui } from "@/platform/ui";
+import { lockVault } from "@/platform/security";
+import { closePalette, markLocked, ui } from "@/platform/ui";
 import { useI18n } from "@/platform/i18n";
 import { useTheme } from "@/platform/theme";
 import { useDialogFocus } from "./dialogFocus";
@@ -52,9 +53,13 @@ const actions = computed<Array<{ id: string; label: string; icon: IconName; run:
     id: "lock",
     label: t("command.action.lock"),
     icon: "lock",
-    run: () => {
+    run: async () => {
       close();
-      lockConsole();
+      if (ui.securityConfigured && (await lockVault())) {
+        markLocked();
+        return;
+      }
+      go("/settings/security");
     },
   },
   {
