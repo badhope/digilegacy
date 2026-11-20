@@ -1,4 +1,4 @@
-# 本地模型功能测试记录（0.0.20–0.0.23）
+# 本地模型功能测试记录（0.0.20–0.0.24）
 
 测试日期：2026-11-20 至 2026-11-21  
 环境：Linux，2 核 CPU，3.9 GiB 内存，`llama-cpp-python 0.3.37`  
@@ -118,3 +118,25 @@ Spark-X2.5-1.7B 能加载、能返回合法计划，但唯一差异化能力是�
 | 2B 启用 | PASS | HTTP 200，41.316 s；PID 20212，`http://127.0.0.1:11435/v1`，默认 8K 上下文 |
 | 2B 真实规划 | PASS | HTTP 200，104.369 s；`MiniCPM5-2B-Q4_K_M`，返回 `overview.get`，3598 in / 12 out |
 | 完整门禁 | PASS | Rust 189 passed / 0 failed；Web 79 passed / 0 failed；`./tools/verify.sh` exit 0；web-budget OK |
+
+## 0.0.24 全量真实复测
+
+本轮用真实 API、真实 ModelScope 下载、真实 sidecar 和真实 Chromium，不使用 mock。
+
+| 场景 | 结果 | 证据 |
+| --- | --- | --- |
+| 损坏 `active.json` | PASS | 写入 `{corrupt` 后重启，文件被删除；API runtime `false`；新增单测通过 |
+| 并发下载请求 | PASS | 两个 `POST /download` 均 200、均返回 `downloading`，只有一个最终文件 |
+| 2B 真实下载 | PASS | 1.5 GB ModelScope 下载，curl 约 55 s；SHA256 落盘校验后 `ready`、`progress=1.0`、`verified=true` |
+| 下载后校验停顿 | 记录 | 文件字节到齐后 SHA256 约需 50 s，期间状态仍为 `downloading`、进度约 99.78%；完成后跳 `ready/1.0` |
+| 并发启用 | PASS | 两个 `POST /activate` 均 200，33.85 s，同一 PID 33598、同一端口 11435 |
+| 重复启用 | PASS | 已启用时再次 activate 返回 200，0.012 s，PID 不变 |
+| 停止幂等 | PASS | 连续两次 stop 均 200 `stopped=true`，无残留 sidecar |
+| 服务重启恢复 | PASS | 重启 API 后 runtime `true`，沿用 PID 33598，未重启模型 |
+| 无 token / 未知模型 / 未下载启用 | PASS | 401 `AUTH_REQUIRED`；404 `NOT_FOUND`；409 `CONFLICT` |
+| Web UI 停止/启用 | PASS | 真实按钮触发，状态从 Enabled→Not enabled→Enabled，sidecar 随之退出/启动 |
+| 2B 真实规划 | PASS | HTTP 200，103.81 s；3598 in / 12 out；`overview.get` |
+| 2B 纯聊天 | PASS | HTTP 200，0.826 s；23 in / 5 out；返回“本地模型测试成功。” |
+| 真实浏览器全路由 | PASS | 16/16；设置根路径桌面与 390px 移动端均无溢出；axe 0 |
+| 完整门禁 | PASS | Rust 190 passed / 0 failed；Web 79 passed / 0 failed；`verify.sh` exit 0 |
+| 0.0.24 包解包启动 | PASS | 0.0.24；1B/2B 均 `missing`；无模型文件、无 `active.json`；无旧字段 |

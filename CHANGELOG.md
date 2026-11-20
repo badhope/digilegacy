@@ -4,6 +4,18 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
+## [0.0.24] - November 2026
+
+### Fixed
+
+- A corrupt `data/models/active.json` is now deleted during startup instead of being silently ignored. Runtime state already reported "not running", but the invalid file could linger and confuse operators.
+- A verified model now reports download progress `1.0` instead of leaving the last polling value slightly below 100%.
+
+### Testing
+
+- Added a unit test for corrupt `active.json` cleanup.
+- Live browser smoke now includes the settings root on desktop and 390px mobile, so the local-model panel itself is covered by the route, overflow and axe checks (16 routes).
+
 ## [0.0.23] - November 2026
 
 ### Changed

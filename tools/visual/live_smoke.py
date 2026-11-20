@@ -98,6 +98,8 @@ def main() -> int:
         ("run-new-light", "/automation/runs/new", "light", 1280, 900),
         ("settings-connections-light", "/settings/connections", "light", 1280, 900),
         ("settings-security-light", "/settings/security", "light", 1280, 900),
+        ("settings-root-light", "/settings", "light", 1280, 900),
+        ("settings-root-mobile", "/settings", "light", 390, 844),
         ("overview-dark", "/overview", "dark", 1280, 900),
         ("overview-mobile", "/overview", "dark", 390, 844),
     ]

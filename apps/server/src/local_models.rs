@@ -217,8 +217,17 @@ impl Manager {
     }
 
     fn discard_stale_active(&self) {
-        let Some(active) = self.read_active() else {
-            return;
+        let path = self.active_path();
+        let text = match fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(_) => return,
+        };
+        let active: ActiveConfig = match serde_json::from_str(&text) {
+            Ok(active) => active,
+            Err(_) => {
+                let _ = fs::remove_file(&path);
+                return;
+            }
         };
         if !CATALOG.iter().any(|spec| spec.id == active.id) {
             if let Some(pid) = active.pid {
@@ -292,7 +301,9 @@ impl Manager {
                 } else {
                     "missing".to_string()
                 };
-                let progress = if in_flight.total > 0 {
+                let progress = if status == "ready" {
+                    1.0
+                } else if in_flight.total > 0 {
                     (in_flight.downloaded as f64 / in_flight.total as f64).min(1.0)
                 } else if spec.size_bytes > 0 {
                     (downloaded_bytes as f64 / spec.size_bytes as f64).min(1.0)
@@ -783,6 +794,20 @@ mod tests {
         )
         .unwrap();
         manager.discard_stale_active();
+        assert!(manager.read_active().is_none());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn corrupt_active_is_discarded() {
+        let root =
+            std::env::temp_dir().join(format!("digilegacy-lm-corrupt-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let manager = Manager::new(root.clone());
+        fs::create_dir_all(&root).unwrap();
+        fs::write(manager.active_path(), "{corrupt").unwrap();
+        manager.discard_stale_active();
+        assert!(!manager.active_path().exists());
         assert!(manager.read_active().is_none());
         let _ = fs::remove_dir_all(root);
     }
