@@ -85,7 +85,7 @@ for required in \
   }
 done
 
-install -d -m 0755 "$PREFIX" "$PREFIX/bin" "$PREFIX/web" "$PREFIX/content" "$PREFIX/docs" "$PREFIX/tools" "$PREFIX/etc" "$PREFIX/run" "$PREFIX/log"
+install -d -m 0755 "$PREFIX" "$PREFIX/bin" "$PREFIX/web" "$PREFIX/content" "$PREFIX/docs" "$PREFIX/share" "$PREFIX/tools" "$PREFIX/etc" "$PREFIX/run" "$PREFIX/log"
 install -d -m 0700 "$DATA_DIR" "$DATA_DIR/keys"
 
 install -m 0755 "$ROOT/bin/digilegacy-server" "$PREFIX/bin/digilegacy-server"
@@ -100,6 +100,13 @@ cp -R "$ROOT/docs/." "$PREFIX/docs/"
 if [[ -d "$ROOT/tools" ]]; then
   cp -R "$ROOT/tools/." "$PREFIX/tools/"
 fi
+if [[ -d "$ROOT/share/nginx" ]]; then
+  cp -R "$ROOT/share/nginx/." "$PREFIX/share/nginx/"
+fi
+
+# The installer runs with umask 077 so env/keys are private, but static Web
+# assets, docs and the nginx sample must be readable by the proxy worker.
+chmod -R a+rX "$PREFIX/web" "$PREFIX/content" "$PREFIX/docs" "$PREFIX/share" "$PREFIX/tools"
 install -m 0644 "$ROOT/README.md" "$PREFIX/README.md"
 install -m 0644 "$ROOT/VERSION" "$PREFIX/VERSION"
 if [[ -f "$ROOT/SECURITY.md" ]]; then

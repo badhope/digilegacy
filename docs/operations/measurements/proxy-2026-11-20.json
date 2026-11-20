@@ -1,0 +1,55 @@
+{
+  "generatedAt": "2026-11-20T08:25:03.853712+00:00",
+  "result": "PASS",
+  "nginxVersion": "1.18.0",
+  "sample": "packaging/nginx/digilegacy.conf.example",
+  "sampleSha256": "986746d1583aabb19a70ede0eec8f2fc96fa73a67d07dff512fcafd37ad1d851",
+  "install": {
+    "version": "0.0.17",
+    "webRoot": "/tmp/proxy-prefix/web",
+    "api": "127.0.0.1:18787",
+    "permissions": {
+      "web/index.html": "0644",
+      "share/nginx/digilegacy.conf.example": "0644",
+      "docs/operations/INSTALL.md": "0644",
+      "tools/policies/source_audit.py": "0755",
+      "etc/digilegacy.env": "0600"
+    }
+  },
+  "checks": [
+    {
+      "name": "install-permissions",
+      "status": "done",
+      "detail": "static Web, docs, nginx sample 0644; policy tool 0755; env 0600"
+    },
+    {
+      "name": "nginx-config",
+      "status": "done",
+      "detail": "nginx -t syntax ok"
+    },
+    {
+      "name": "root",
+      "status": "done",
+      "detail": "GET / -> 200 text/html, Cache-Control no-store, nosniff, DENY, no-referrer"
+    },
+    {
+      "name": "spa-fallback",
+      "status": "done",
+      "detail": "GET /settings -> 200 text/html (index.html fallback)"
+    },
+    {
+      "name": "api-same-origin",
+      "status": "done",
+      "detail": "GET /api/v1/health -> 200 JSON, schemaVersion 16, tables 31"
+    },
+    {
+      "name": "asset-cache",
+      "status": "done",
+      "detail": "GET /assets/<hashed>.js -> 200 application/javascript, immutable one-year cache"
+    }
+  ],
+  "notes": [
+    "Read-only health route; no write token used.",
+    "TLS termination is deployment-specific and not part of this sample test."
+  ]
+}

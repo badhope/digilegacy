@@ -35,6 +35,11 @@ LAN integrations or an explicit outbound host list.
 
 The API does not serve the SPA. Put a reverse proxy in front:
 
+A ready-to-edit same-origin server block ships at
+`<prefix>/share/nginx/digilegacy.conf.example` (source:
+`packaging/nginx/digilegacy.conf.example`). Set `root` to the installed `web/`
+directory and keep `/api/` on the same origin. The abbreviated example is:
+
 ```nginx
 server {
   listen 443 ssl;
@@ -56,7 +61,10 @@ server {
 ```
 
 The console calls same-origin `/api`, so do not set `VITE_API_BASE` to a
-different origin unless CORS is added deliberately.
+different origin unless CORS is added deliberately. The sample was checked with
+nginx 1.18.0: `/`, `/settings`, `/api/v1/health` and a hashed asset all returned
+200, and the security/cache headers matched the sample. Evidence:
+`docs/operations/measurements/proxy-2026-11-20.json`.
 
 ## Export and checkpoint
 

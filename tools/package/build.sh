@@ -23,7 +23,7 @@ OUT="$ROOT/packages"
 ARCHIVE="$OUT/digilegacy-$VERSION-linux-$ARCH.tar.gz"
 
 rm -rf "$STAGE"
-install -d -m 0755 "$STAGE/bin" "$STAGE/web" "$STAGE/content" "$STAGE/docs" "$STAGE/tools/policies"
+install -d -m 0755 "$STAGE/bin" "$STAGE/web" "$STAGE/content" "$STAGE/docs" "$STAGE/share/nginx" "$STAGE/tools/policies"
 install -d -m 0755 "$OUT"
 
 echo "building release binaries for $VERSION ($ARCH)"
@@ -41,6 +41,7 @@ install -m 0755 "$ROOT/target/release/digilegacy-cli" "$STAGE/bin/digilegacy-cli
 install -m 0755 "$ROOT/target/release/digilegacy-mcp" "$STAGE/bin/digilegacy-mcp"
 cp -R "$ROOT/web/dist/." "$STAGE/web/"
 cp -R "$ROOT/content/." "$STAGE/content/"
+cp -R "$ROOT/packaging/nginx/." "$STAGE/share/nginx/"
 install -m 0755 "$ROOT/tools/policies/source_audit.py" "$STAGE/tools/policies/source_audit.py"
 find "$STAGE/tools" -type d -name __pycache__ -prune -exec rm -rf {} +
 cp -R "$ROOT/docs/operations" "$STAGE/docs/operations"

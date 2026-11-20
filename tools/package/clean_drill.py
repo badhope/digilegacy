@@ -19,6 +19,7 @@ import os
 import platform
 import shutil
 import socket
+import stat
 import subprocess
 import tarfile
 import tempfile
@@ -156,6 +157,23 @@ def main() -> int:
         )
         if "DIGILEGACY_API_TOKEN" in install_output:
             raise RuntimeError("installer exposed the write token in its output")
+        expected_modes = {
+            "web/index.html": 0o644,
+            "share/nginx/digilegacy.conf.example": 0o644,
+            "docs/operations/INSTALL.md": 0o644,
+            "tools/policies/source_audit.py": 0o755,
+            "etc/digilegacy.env": 0o600,
+        }
+        actual_modes = {
+            relative: stat.S_IMODE((prefix / relative).stat().st_mode)
+            for relative in expected_modes
+        }
+        checks["permissions"] = {
+            "expected": {key: oct(value) for key, value in expected_modes.items()},
+            "actual": {key: oct(value) for key, value in actual_modes.items()},
+        }
+        if actual_modes != expected_modes:
+            raise RuntimeError(f"unexpected installed modes: {checks['permissions']}")
         steps.append({"name": "install", "status": "done", "durationMs": install_ms, "detail": "fresh prefix and data"})
 
         start_output, start_ms = run([str(prefix / "bin" / "digilegacy-start")], env=env)

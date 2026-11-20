@@ -17,6 +17,8 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 
 ### Operations
 
+- A same-origin nginx server block is included at `share/nginx/digilegacy.conf.example`. It covers SPA fallback, `/api` proxying, immutable asset caching, `no-store` for `index.html` and security headers; it was verified with nginx 1.18.0.
+- The installer now makes static Web assets, docs, the nginx sample and operations tools readable after its private `umask 077`; without this, a non-root nginx worker could not read the SPA. The clean-host drill asserts exact modes.
 - Added a policy-source precheck (`tools/policies/source_audit.py`) and a 152-row human worklist. It reports URL presence, HTTPS, root vs deep link, duplicate groups and reachability; it never edits policy data or provenance. The 2026-11-20 run found 150 root URLs, 2 deep links, 17 duplicate groups and 152/152 entries still needing human review.
 
 ### Testing

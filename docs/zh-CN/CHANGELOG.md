@@ -15,6 +15,8 @@
 
 ### Operations
 
+- 发布包新增同源 nginx server 块 `share/nginx/digilegacy.conf.example`：SPA 回退、`/api` 代理、哈希资源 immutable 缓存、`index.html` no-store 与安全头；已在 nginx 1.18.0 实测。
+- 安装脚本在 `umask 077` 下显式把静态 Web、文档、nginx 样例与运维工具设为可读；否则非 root nginx worker 读不到 SPA。干净机演练新增精确权限断言。
 - 新增政策来源预审 `tools/policies/source_audit.py` 与 152 行人工清单：报告 URL 是否存在、HTTPS、首页/深链、重复组与可达性，不改政策数据或 provenance。2026-11-20 首轮结果：150 条首页、2 条深链、17 组重复，152/152 仍需人工复核。
 
 ### Testing

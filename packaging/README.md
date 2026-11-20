@@ -11,7 +11,8 @@ the built Web console, policy content and operations docs.
 
 The Web console is a static SPA. Serve `web/` from a reverse proxy and proxy
 `/api/` to the API bind address; do not open `web/index.html` from disk, because
-the console uses same-origin `/api` calls.
+the console uses same-origin `/api` calls. A same-origin nginx server block is
+included at `share/nginx/digilegacy.conf.example`.
 
 ## Install
 

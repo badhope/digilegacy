@@ -27,6 +27,8 @@ cd /tmp/digilegacy-0.0.17
 
 API 不直接托管 SPA，需要反向代理：
 
+可直接修改的同源 server 块随包提供：`<prefix>/share/nginx/digilegacy.conf.example`（源码位置 `packaging/nginx/digilegacy.conf.example`）。把 `root` 指向安装后的 `web/` 目录，并保持 `/api/` 同源。简化示例如下：
+
 ```nginx
 server {
   listen 443 ssl;
@@ -47,7 +49,7 @@ server {
 }
 ```
 
-控制台按同源 `/api` 调用；除非明确补了 CORS，不要把 `VITE_API_BASE` 指向另一个源。
+控制台按同源 `/api` 调用；除非明确补了 CORS，不要把 `VITE_API_BASE` 指向另一个源。示例已在 nginx 1.18.0 实测：`/`、`/settings`、`/api/v1/health` 与哈希资源均返回 200，安全/缓存头与样例一致；证据 `docs/operations/measurements/proxy-2026-11-20.json`。
 
 ## 导出与检查点
 
