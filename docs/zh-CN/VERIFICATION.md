@@ -723,6 +723,13 @@ M0 可以判定“工程壳完成”的条件：
 - Web 启动读取状态并在锁定态隐藏主壳；锁屏输入真实主密码，错误口令留在原地，成功后进主区域；顶栏锁定调用服务端。未配置时设置页给出 CLI 引导。
 - 真实 API 隔离库演练：锁定 `423` → 错误口令 `400 INVALID_ARGS` → 正确解锁 `200` → 概览 `200` → 再锁定后资产 `423`。真实 Chromium 桌面与 390px：axe 0、无页面异常、无横向溢出；错误口令与再次锁定均通过。
 - CLI 独立进程：无 `DIGILEGACY_VAULT_PASSWORD` 时 `assets list` 返回 `VAULT_LOCKED`；带变量时返回“锁定前资产”。`security status` 不受锁影响。
-- 验收：`./tools/verify.sh` exit 0，**182 Rust + 77 Web**；契约 **43 命令 / 23 工具 / 59 schema / 21 错误码**；schema v16 / 31 表；入口 79.72/82 KB，JS gzip 104.45/104.6 KB，CSS gzip 20.15/21.1 KB，总 gzip 124.60/124.8 KB；日志 `/tmp/digilegacy-verify-lock7.log`。
+- 验收：`./tools/verify.sh` exit 0，**182 Rust + 77 Web**；契约 **43 命令 / 23 工具 / 59 schema / 21 错误码**；schema v16 / 31 表；入口 79.72/82 KB，JS gzip 104.46/104.6 KB，CSS gzip 20.15/21.1 KB，总 gzip 124.61/124.8 KB；日志 `/tmp/digilegacy-verify-0.0.18.log`。
 - 真实浏览器 14/14 路由 PASS（`/tmp/digilegacy-live-smoke-final.json`），9/9 视觉基线 PASS；锁屏截图 `/tmp/digilegacy-lock-ui/`。
 - 边界：Web 暂无恢复码解锁；解锁 API 默认只随服务绑定回环地址，对外暴露需在反向代理限流；SQLCipher 文件密钥仍保留，保险库 DEK 负责字段密钥与会话。
+
+### 0.0.18 发布归档
+
+- `tools/package/build.sh` 生成 `packages/digilegacy-0.0.18-linux-x86_64.tar.gz`（18,274,248 bytes，SHA256 `0b947a3dd13f5618f0e324bf9e4182029052f3e21f6efc7b9ba941bd6f252ee6`）。
+- 干净机演练 12/12 PASS：解包、health v16/31、诊断审计有效、检查点验证、卸载保留数据与密钥、重装读库。证据 `install-0.0.18-2026-11-20.json`。
+- 0.0.18 真实 Chromium：14/14 路由、axe 0、无页面异常、无横向溢出。证据 `live-browser-0.0.18-2026-11-20.json`。
+- 保险库锁演练：锁定概览 423、错误口令 400、正确解锁 200、概览 200、再锁定资产 423；CLI 无 `DIGILEGACY_VAULT_PASSWORD` 被拒。证据 `security-lock-0.0.18-2026-11-20.json`。

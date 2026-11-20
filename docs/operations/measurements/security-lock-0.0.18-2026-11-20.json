@@ -1,0 +1,46 @@
+{
+  "generatedAt": "2026-11-20T12:00:00+00:00",
+  "version": "0.0.18",
+  "result": "PASS",
+  "database": "/tmp/digilegacy-lock.db",
+  "api": {
+    "lockedOverview": {
+      "status": 423,
+      "code": "VAULT_LOCKED"
+    },
+    "wrongPassword": {
+      "status": 400,
+      "code": "INVALID_ARGS"
+    },
+    "correctUnlock": {
+      "status": 200,
+      "locked": false
+    },
+    "overviewAfterUnlock": {
+      "status": 200
+    },
+    "assetsAfterRelock": {
+      "status": 423,
+      "code": "VAULT_LOCKED"
+    }
+  },
+  "cli": {
+    "locked": "VAULT_LOCKED: 保险库已锁定；请在终端输入主密码，或设置 DIGILEGACY_VAULT_PASSWORD",
+    "withPasswordEnvItems": 1
+  },
+  "browser": {
+    "engine": "chromium",
+    "axeViolations": 0,
+    "wrongPasswordMessage": "主密码不正确",
+    "focusAfterUnlock": "main",
+    "relockReturnedToLockScreen": true,
+    "pageErrors": 0,
+    "mobileOverflow": false,
+    "screenshots": [
+      "/tmp/digilegacy-lock-ui/locked.png",
+      "/tmp/digilegacy-lock-ui/unlocked.png",
+      "/tmp/digilegacy-lock-ui/locked-mobile.png",
+      "/tmp/digilegacy-lock-ui/unlocked-mobile.png"
+    ]
+  }
+}

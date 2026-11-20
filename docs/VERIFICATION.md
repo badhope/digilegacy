@@ -120,3 +120,10 @@ review worklist, not a verification result.
 - [ ] A verified checkpoint exists before any migration or destructive repair; restore follows the offline runbook.
 
 The detailed Chinese verification record keeps the historical evidence for each delivery. The English page describes the gates and the expected behavior, not a running tally.
+
+## 0.0.18 release archive
+
+- `tools/package/build.sh` produced `packages/digilegacy-0.0.18-linux-x86_64.tar.gz` (18,274,248 bytes, SHA256 `0b947a3dd13f5618f0e324bf9e4182029052f3e21f6efc7b9ba941bd6f252ee6`).
+- Clean-host drill: 12/12 PASS, archive unpacked, health v16/31, diagnostics valid, checkpoint verified, uninstall preserved data and keys, reinstall read the preserved database. Evidence: `docs/operations/measurements/install-0.0.18-2026-11-20.json`.
+- Live Chromium 0.0.18: 14/14 routes, 0 axe violations, no page errors, no horizontal overflow. Evidence: `docs/operations/measurements/live-browser-0.0.18-2026-11-20.json`.
+- Vault lock drill: locked overview 423, wrong password 400, correct unlock 200, overview 200, relock assets 423; CLI blocked without `DIGILEGACY_VAULT_PASSWORD`. Evidence: `docs/operations/measurements/security-lock-0.0.18-2026-11-20.json`.

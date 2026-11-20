@@ -4,7 +4,7 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
-## [Unreleased]
+## [0.0.18] - November 2026
 
 ### Added
 
@@ -29,7 +29,7 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 
 ### Testing
 
-- `tools/verify.sh` exit 0: **182 Rust + 77 Web** tests; contracts **43 commands / 23 tools / 59 schemas / 21 errors**; schema v16 / 31 tables. Web entry 79.72/82 KB, JS gzip 104.45/104.6 KB, CSS gzip 20.15/21.1 KB, total 124.60/124.8 KB.
+- `tools/verify.sh` exit 0: **182 Rust + 77 Web** tests; contracts **43 commands / 23 tools / 59 schemas / 21 errors**; schema v16 / 31 tables. Web entry 79.72/82 KB, JS gzip 104.46/104.6 KB, CSS gzip 20.15/21.1 KB, total 124.61/124.8 KB.
 - Real API drill on an isolated vault database: locked status, `423 VAULT_LOCKED`, wrong password `400 INVALID_ARGS`, correct unlock `200`, overview `200`, lock again, assets `423`. A real Chromium run covered wrong password, successful unlock, re-lock, 390 px layout, axe 0 violations and no page errors; 14/14 live routes and 9/9 visual baselines passed.
 
 ## [0.0.17] - November 2026

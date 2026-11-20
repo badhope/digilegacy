@@ -1,35 +1,44 @@
 # Release Checklist
 
-Release: **0.0.17** (Linux x86_64, 2026-11-20)
+Release: **0.0.18** (Linux x86_64, 2026-11-20)
 
 Status: **engineering evidence complete; human sign-off not yet given.**
 
-The archive checksum is in `packages/digilegacy-0.0.17-linux-x86_64.tar.gz.sha256`
+The archive checksum is in `packages/digilegacy-0.0.18-linux-x86_64.tar.gz.sha256`
 and inside the archive as `SHA256SUMS`. Do not copy a checksum from a chat
 message; verify the file next to the archive.
-
-> This checklist records the **0.0.17 archive**, not current `main`. After the
-> 2026-11-20 vault-lock work, current source has 43 commands / 59 schemas and
-> 182 Rust + 77 Web tests; the archive predates those changes and must be
-> rebuilt before it can claim them.
 
 ## Automated evidence
 
 | Gate | Result | Evidence |
 | --- | --- | --- |
-| Contract / architecture / format / clippy | pass | `./tools/verify.sh` |
-| Rust + Web tests | **175 Rust + 68 Web** | `./tools/verify.sh` exit 0 |
-| Contracts | **39 commands / 23 tools / 56 schemas / 21 errors** | `./tools/generate.mjs --check` |
+| Contract / architecture / format / clippy | pass | `./tools/verify.sh` exit 0 |
+| Rust + Web tests | **182 Rust + 77 Web** | `./tools/verify.sh` |
+| Contracts | **43 commands / 23 tools / 59 schemas / 21 errors** | `./tools/generate.mjs --check` |
 | Schema | **v16 / 31 tables** | health + diagnostics |
-| Bundle budget | JS 103.00/103.1 KB, CSS 21.05/21.1 KB, total 124.05/124.2 KB gzip | `web-budget` |
-| Live Chromium + axe | 15/15 routes pass, 0 axe violations | `measurements/live-browser-2026-11-20.json` |
-| Visual baselines | 9/9 within 0.4% | `tools/visual/regress.py` |
+| Bundle budget | entry 79.72/82 KB; JS 104.46/104.6 KB; CSS 20.15/21.1 KB; total 124.61/124.8 KB gzip | `web-budget` |
+| Live Chromium + axe | 14/14 routes pass, 0 axe violations | `measurements/live-browser-0.0.18-2026-11-20.json` |
+| Visual baselines | 9/9 within 0.4%; max overview-mobile 0.173% | `tools/visual/regress.py` |
+| Vault lock API + CLI | 423 → 400 → 200 → 200 → 423; CLI blocked without password env | `measurements/security-lock-0.0.18-2026-11-20.json` |
+| Clean-host install | 12 steps PASS; reinstall reads preserved DB | `measurements/install-0.0.18-2026-11-20.json` |
+
+Archive: `packages/digilegacy-0.0.18-linux-x86_64.tar.gz`, 18,274,248 bytes,
+SHA256 `0b947a3dd13f5618f0e324bf9e4182029052f3e21f6efc7b9ba941bd6f252ee6`.
+
+## Operational baselines carried from 0.0.17
+
+These drills were measured on the 0.0.17 code line and were not rerun for this
+patch. The vault-lock changes do not touch the outbound proxy, capacity,
+restore, DNS-pinning or policy-source paths; treat them as baseline evidence,
+not fresh 0.0.18 measurements.
+
+| Gate | Baseline | Evidence |
+| --- | --- | --- |
 | Capacity | reads p95 9.54 ms, writes p95 3.70 ms | `measurements/capacity-2026-11-20.json` |
 | Restore | healthy in 158 ms, 10,120 valid audit rows | `measurements/restore-2026-11-20.json` |
-| Clean-host install | 12 steps PASS, reinstall reads preserved DB | `measurements/install-2026-11-20.json` |
 | DNS rebinding | 3/3 PASS, one A query, rebound answer rejected | `measurements/dns-rebind-2026-11-20.json` |
 | nginx same-origin | `/`, SPA fallback, `/api`, asset 200; headers correct | `measurements/proxy-2026-11-20.json` |
-| Policy source precheck | 152/152 need human review; 150 roots, 2 deep links | `measurements/policy-sources-2026-11-20.json`, `policy-source-worklist.csv` |
+| Policy source precheck | 152/152 need human review; 150 roots, 2 deep links | `measurements/policy-sources-2026-11-20.json` |
 
 ## Human gates still open
 

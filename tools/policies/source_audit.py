@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_INPUT = ROOT / "content" / "policies" / "platforms.json"
 DEFAULT_JSON = ROOT / "docs" / "operations" / "measurements" / "policy-sources-2026-11-20.json"
 DEFAULT_CSV = ROOT / "docs" / "operations" / "policy-source-worklist.csv"
-USER_AGENT = "DigiLegacyPolicyAudit/0.0.17"
+USER_AGENT = "DigiLegacyPolicyAudit/0.0.18"
 
 
 def now_utc() -> str:
