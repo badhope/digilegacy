@@ -46,7 +46,7 @@ node tools/bench/web-budget.mjs
 - **Network guard tests** cover metadata/private/link-local URL rejection, loopback allowance and signed policy-feed transport against a local HTTP server.
 - **SMTP TLS tests** start local STARTTLS and implicit TLS servers with a test certificate, then verify the full mail dialog and UTF-8 body.
 - **Server tests** cover transport behavior and error mapping.
-- **Web tests** cover cache behavior, routing and important page states.
+- **Web tests** cover cache behavior, routing, page states and modal focus containment.
 - **Manual smoke** checks the path a person actually clicks.
 
 ## Manual smoke before release

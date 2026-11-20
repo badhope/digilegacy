@@ -1,16 +1,20 @@
 <script setup lang="ts">
+import { computed, ref } from "vue";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { ui, unlockConsole } from "@/platform/ui";
 import { useI18n } from "@/platform/i18n";
+import { useDialogFocus } from "./dialogFocus";
 
 const { t } = useI18n();
+const panel = ref<HTMLElement | null>(null);
+useDialogFocus(computed(() => ui.locked), panel, "first");
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="ui.locked" class="lock-layer" role="dialog" aria-modal="true" :aria-label="t('lock.title')">
+    <div v-if="ui.locked" ref="panel" class="lock-layer" role="dialog" aria-modal="true" :aria-label="t('lock.title')" tabindex="-1">
       <div class="lock-panel">
         <div class="lock-mark"><AppIcon name="lock" :size="26" /></div>
         <span class="eyebrow">DIGILEGACY / LOCKED</span>

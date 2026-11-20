@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
@@ -9,6 +9,7 @@ import { useResource } from "@/platform/useResource";
 import { loadRuns } from "@/features/automation/api";
 import { closeAgent, ui } from "@/platform/ui";
 import { useI18n } from "@/platform/i18n";
+import { useDialogFocus } from "./dialogFocus";
 
 const router = useRouter();
 const { t } = useI18n();
@@ -16,20 +17,11 @@ const panel = ref<HTMLElement | null>(null);
 const readTools = computed(() => TOOL_CATALOG.filter((tool) => tool.mcp));
 const { data: runs } = useResource(loadRuns);
 const waitingRuns = computed(() => runs.value?.items.filter((run) => run.status === "waiting_approval") ?? []);
+useDialogFocus(computed(() => ui.agentOpen), panel);
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === "Escape" && ui.agentOpen) closeAgent();
 }
-
-watch(
-  () => ui.agentOpen,
-  async (open) => {
-    if (open) {
-      await nextTick();
-      panel.value?.focus();
-    }
-  },
-);
 
 onMounted(() => window.addEventListener("keydown", onKeydown));
 onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));

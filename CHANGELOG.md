@@ -29,6 +29,7 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 - Dynamic labels no longer leak raw translation keys.
 - SMTP delivery is covered against local STARTTLS and implicit TLS servers, including certificate verification and the post-TLS `EHLO`.
 - SMTP response/body lines are decoded as UTF-8 bytes instead of per-byte Latin-1 characters, so non-ASCII message bodies survive the wire.
+- Modal layers keep `Tab` / `Shift+Tab` inside the active dialog and restore focus to the opener when closed; the lock screen focuses its unlock action.
 
 ### Security
 

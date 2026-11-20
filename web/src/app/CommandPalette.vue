@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import type { IconName } from "@/shared/icons/paths";
 import { COMMAND_NAMES, COMMAND_PERMISSION } from "@/platform/generated/ipc";
 import { closePalette, ui } from "@/platform/ui";
 import { useI18n } from "@/platform/i18n";
+import { useDialogFocus } from "./dialogFocus";
 
 const router = useRouter();
 const { t } = useI18n();
-const input = ref<HTMLInputElement | null>(null);
+const panel = ref<HTMLElement | null>(null);
 const query = ref("");
 const copied = ref<string | null>(null);
 
@@ -57,14 +58,14 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === "Escape" && ui.paletteOpen) close();
 }
 
+useDialogFocus(computed(() => ui.paletteOpen), panel, "first");
+
 watch(
   () => ui.paletteOpen,
-  async (open) => {
+  (open) => {
     if (open) {
       query.value = "";
       copied.value = null;
-      await nextTick();
-      input.value?.focus();
     }
   },
 );
@@ -77,11 +78,10 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
   <Teleport to="body">
     <Transition name="palette">
       <div v-if="ui.paletteOpen" class="palette-layer" role="presentation" @click.self="close">
-        <div class="palette" role="dialog" aria-modal="true" :aria-label="t('command.title')">
+        <div ref="panel" class="palette" role="dialog" aria-modal="true" :aria-label="t('command.title')">
           <header class="palette-head">
             <AppIcon name="search" :size="18" />
             <input
-              ref="input"
               v-model="query"
               type="search"
               :placeholder="t('command.placeholder')"

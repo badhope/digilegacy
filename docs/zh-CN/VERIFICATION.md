@@ -586,3 +586,13 @@ M0 可以判定“工程壳完成”的条件：
 - 预算：入口 **77.27 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **100.34 / 101 KB**、CSS gzip **20.81 / 21 KB**、总 gzip **121.15 / 122 KB**；Policies 路由 15.88 / 24 KB。
 - 已知边界：测试证书只用于本地测试，不是生产凭据；真实邮件服务商的 STARTTLS/隐式 TLS 互操作仍建议在发布前用实际账号做一次人工验收。
 - 复验命令：`./tools/verify.sh`；日志 `/tmp/m5f-verify.log`。
+
+### M5-G 弹层焦点恢复与 Tab 焦点陷阱
+
+- 新增 `web/src/app/dialogFocus.ts`：统一收集可聚焦控件、处理 `Tab` / `Shift+Tab` 循环、打开时记录触发元素并在关闭后恢复焦点。
+- 接入 Agent 抽屉、命令面板、锁定层：Agent 抽屉初始焦点在面板，命令面板初始焦点在搜索框，锁定层初始焦点在解锁按钮；`Escape` 仍由各弹层自行处理，避免把不可关闭的锁定层误关。
+- 单测覆盖 5 个场景：可聚焦控件过滤 `tabindex=-1`、末项 Tab 回绕、首项 Shift+Tab 回绕、焦点在弹层外时拉回、面板容器自身 Shift+Tab 回绕。
+- `./tools/verify.sh` exit 0：**164 Rust + 15 Web**；契约 **39 命令 / 23 工具 / 56 schema / 21 错误码**；schema v16 / 31 表。
+- 预算：入口 **78.32 / 80 KB**、vendor 99.50 / 130 KB、JS gzip **100.78 / 101 KB**、CSS gzip **20.81 / 21 KB**、总 gzip **121.59 / 122 KB**；Policies 路由 15.88 / 24 KB。
+- 边界：这是弹层键盘焦点回归，不等同于完整 axe/WCAG AA 审计；对比度、读屏文案与减少动效仍需 M6 的完整 a11y 检查。
+- 复验命令：`./tools/verify.sh`；日志 `/tmp/m5g-verify.log`。
