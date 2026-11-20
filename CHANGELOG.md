@@ -4,7 +4,7 @@ English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).
 
-## [0.9.0] - November 2026
+## [0.0.10] - November 2026
 
 ### Added
 
@@ -17,6 +17,7 @@ Notable user-facing changes. The detailed per-milestone engineering log is kept 
 
 ### Changed
 
+- Version labels now follow the `0.0.x` patch scheme; older milestone tags remain historical in the detailed Chinese log.
 - The desktop shell is no longer part of the product; Web, CLI, MCP and HTTP are the supported entry points.
 - The Web app uses route-level loading and shared query caching instead of one large entry bundle.
 - Connection credentials use a separate config key and `enc:v2` storage; read models never return secrets.
