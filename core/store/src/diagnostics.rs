@@ -79,7 +79,10 @@ mod tests {
         let json = store.diagnostics_json().unwrap();
         assert!(json.contains(&format!("\"schema_version\": {}", crate::SCHEMA_VERSION)));
         assert!(json.contains("\"valid\": true"));
-        assert!(json.contains("\"table_count\": 31"));
+        assert!(json.contains(&format!(
+            "\"table_count\": {}",
+            crate::schema::EXPECTED_TABLES
+        )));
         assert!(!json.contains("secret_value"), "诊断包不得包含数据值");
         assert!(!json.contains("secret_key"), "诊断包不得包含数据键");
     }

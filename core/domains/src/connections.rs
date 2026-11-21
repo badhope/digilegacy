@@ -116,7 +116,7 @@ pub fn record_check(
     get(store, id)
 }
 
-pub const KINDS: [&str; 8] = [
+pub const KINDS: [&str; 9] = [
     "llm",
     "policy",
     "smtp",
@@ -125,6 +125,7 @@ pub const KINDS: [&str; 8] = [
     "webhook",
     "feishu",
     "wecom",
+    "mcp",
 ];
 
 pub fn is_kind(kind: &str) -> bool {

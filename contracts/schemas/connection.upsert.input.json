@@ -2,20 +2,69 @@
   "title": "ConnectionUpsert",
   "type": "object",
   "additionalProperties": false,
-  "required": ["kind", "endpoint"],
+  "required": [
+    "kind",
+    "endpoint"
+  ],
   "properties": {
-    "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
     "kind": {
       "type": "string",
-      "enum": ["llm", "policy", "smtp", "imap", "heartbeat", "webhook", "feishu", "wecom"]
+      "enum": [
+        "llm",
+        "policy",
+        "smtp",
+        "imap",
+        "heartbeat",
+        "webhook",
+        "feishu",
+        "wecom",
+        "mcp"
+      ]
     },
-    "label": { "type": "string", "minLength": 1, "maxLength": 80 },
-    "endpoint": { "type": "string", "minLength": 1, "maxLength": 2048 },
-    "token": { "type": "string", "maxLength": 4096 },
-    "username": { "type": "string", "maxLength": 512 },
-    "from": { "type": "string", "maxLength": 512 },
-    "security": { "type": "string", "enum": ["tls", "starttls", "none"] },
-    "enabled": { "type": "boolean", "default": true }
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "endpoint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "token": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "username": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "from": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "security": {
+      "type": "string",
+      "enum": [
+        "tls",
+        "starttls",
+        "none"
+      ]
+    },
+    "enabled": {
+      "type": "boolean",
+      "default": true
+    }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"
 }

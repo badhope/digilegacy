@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.0.30] - November 2026
+
+### Added
+
+- Settings now has a third **Agent Harness** tab. It reads `agent.harness.status` and shows planner source/model/endpoint host/timeout, run and approval counts, token/cost totals, tool-catalog composition (total, MCP-exposed, write, draft), MCP servers and skill counts. Every number is backed by the store or the generated tool registry; no placeholder toggles.
+- **MCP client configuration**: `mcp` is a first-class connection kind. Saved endpoint and bearer credential are encrypted and never echoed. **Test** performs a JSON-RPC `initialize` + `tools/list` handshake and reports the discovered tool count.
+- **Skill registry**: new `agent_skills` table and `skills.list` / `skills.upsert` / `skills.delete` commands. Enabled skills are appended to the planner system prompt (bounded to 12,000 characters); skill scripts are never executed.
+
+### Changed
+
+- Schema v17 adds `agent_skills` (32 tables). Contracts now expose 48 commands / 23 tools / 65 schemas / 21 error codes.
+- The planner call accepts a bounded skills block; the old `plan_with_config` signature remains as a wrapper.
+
+### Testing
+
+- Added skill registry/status consistency test and a planner regression that asserts the enabled skill text reaches the request system prompt.
+- Added the Harness route to the WCAG AA axe gate.
+
+## [0.0.29] - November 2026
+
+### Added
+
+- LLM connections now have a **Model** field in Settings → Connections. The model name is stored with the encrypted endpoint and credential, and the connection list shows it next to the source badge.
+- The planner now prefers an enabled, complete saved LLM connection (endpoint + credential + model) over environment variables. Environment and `data/models/active.json` remain the fallback when no saved connection is usable.
+
+### Testing
+
+- Added a connection regression that saves an Agnes connection and asserts the model is exposed without the credential.
+- Added an end-to-end planner regression with a mock OpenAI-compatible endpoint that asserts the saved model name is sent in the request body.
+
 ## [0.0.28] - November 2026
 
 ### Changed

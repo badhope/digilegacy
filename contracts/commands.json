@@ -1087,6 +1087,103 @@
         "RATE_LIMITED",
         "INTERNAL"
       ]
+    },
+    {
+      "name": "agent.harness.status",
+      "domain": "agent",
+      "summary": "读取 Agent harness 的真实运行态：规划器来源、运行/审批/用量、工具与 MCP/Skill 计数",
+      "permission": "read",
+      "requiresUnlock": false,
+      "idempotent": true,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/harness.status.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "invoke agent.harness.status",
+        "http": "GET /api/v1/agent/harness",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "skills.list",
+      "domain": "agent",
+      "summary": "读取 Skill 注册表（名称、描述、指令、启停）",
+      "permission": "read",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/empty.input.json",
+      "output": "schemas/skills.list.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "invoke skills.list",
+        "http": "GET /api/v1/agent/skills",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "none",
+      "audit": false,
+      "errors": [
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "skills.upsert",
+      "domain": "agent",
+      "summary": "新增或更新一条 Skill；启用后其指令注入规划器提示词",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/skill.upsert.input.json",
+      "output": "schemas/skill.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "invoke skills.upsert",
+        "http": "POST /api/v1/agent/skills",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "CONFLICT",
+        "NOT_FOUND",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
+    },
+    {
+      "name": "skills.delete",
+      "domain": "agent",
+      "summary": "删除一条 Skill，返回被删名称",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": true,
+      "input": "schemas/id.input.json",
+      "output": "schemas/skill.delete.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "invoke skills.delete",
+        "http": "DELETE /api/v1/agent/skills/{id}",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "STORE_NOT_READY",
+        "INTERNAL"
+      ]
     }
   ]
 }

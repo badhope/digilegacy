@@ -16,7 +16,8 @@
         "heartbeat",
         "webhook",
         "feishu",
-        "wecom"
+        "wecom",
+        "mcp"
       ]
     },
     "label": {

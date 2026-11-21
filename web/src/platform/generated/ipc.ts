@@ -48,6 +48,10 @@ export const COMMANDS = {
   notificationsList: "notifications.list",
   notificationsSend: "notifications.send",
   securityRecover: "security.recover",
+  agentHarnessStatus: "agent.harness.status",
+  skillsList: "skills.list",
+  skillsUpsert: "skills.upsert",
+  skillsDelete: "skills.delete",
 } as const;
 
 export type CommandName = (typeof COMMANDS)[keyof typeof COMMANDS];
@@ -97,6 +101,10 @@ export const COMMAND_PERMISSION: Record<CommandName, Permission> = {
   "notifications.list": "read",
   "notifications.send": "write",
   "security.recover": "draft",
+  "agent.harness.status": "read",
+  "skills.list": "read",
+  "skills.upsert": "write",
+  "skills.delete": "write",
 };
 
 export const COMMAND_HTTP: Record<CommandName, string> = {
@@ -144,6 +152,10 @@ export const COMMAND_HTTP: Record<CommandName, string> = {
   "notifications.list": "GET /api/v1/notifications",
   "notifications.send": "POST /api/v1/notifications/send",
   "security.recover": "POST /api/v1/security/recover",
+  "agent.harness.status": "GET /api/v1/agent/harness",
+  "skills.list": "GET /api/v1/agent/skills",
+  "skills.upsert": "POST /api/v1/agent/skills",
+  "skills.delete": "DELETE /api/v1/agent/skills/{id}",
 };
 
 export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
@@ -191,6 +203,10 @@ export const COMMAND_REQUIRES_UNLOCK: Record<CommandName, boolean> = {
   "notifications.list": false,
   "notifications.send": false,
   "security.recover": false,
+  "agent.harness.status": false,
+  "skills.list": true,
+  "skills.upsert": true,
+  "skills.delete": true,
 };
 
 export const COMMAND_AUDIT: Record<CommandName, boolean> = {
@@ -238,6 +254,10 @@ export const COMMAND_AUDIT: Record<CommandName, boolean> = {
   "notifications.list": false,
   "notifications.send": true,
   "security.recover": true,
+  "agent.harness.status": false,
+  "skills.list": false,
+  "skills.upsert": true,
+  "skills.delete": true,
 };
 
 export const COMMAND_TOOL: Record<CommandName, string | null> = {
@@ -285,6 +305,10 @@ export const COMMAND_TOOL: Record<CommandName, string | null> = {
   "notifications.list": "notifications.list",
   "notifications.send": null,
   "security.recover": null,
+  "agent.harness.status": null,
+  "skills.list": null,
+  "skills.upsert": null,
+  "skills.delete": null,
 };
 
 export const COMMAND_NAMES = Object.values(COMMANDS);

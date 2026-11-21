@@ -1,5 +1,5 @@
--- DigiLegacy schema v16.
--- 31 tables. The v8 lineage is preserved; new tables are additive so an old
+-- DigiLegacy schema v17.
+-- 32 tables. The v8 lineage is preserved; new tables are additive so an old
 -- database can be migrated without recreating it.
 
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -402,3 +402,13 @@ CREATE INDEX IF NOT EXISTS idx_ai_chat_created ON ai_chat_log(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
 CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON jobs(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_connections_kind ON connections(kind, enabled);
+
+CREATE TABLE IF NOT EXISTS agent_skills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
+    instructions TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);

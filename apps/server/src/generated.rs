@@ -363,6 +363,38 @@ pub const COMMANDS: &[CommandSpec] = &[
         requires_unlock: false,
         audit: true,
     },
+    CommandSpec {
+        name: "agent.harness.status",
+        domain: "agent",
+        permission: "read",
+        http: "GET /api/v1/agent/harness",
+        requires_unlock: false,
+        audit: false,
+    },
+    CommandSpec {
+        name: "skills.list",
+        domain: "agent",
+        permission: "read",
+        http: "GET /api/v1/agent/skills",
+        requires_unlock: true,
+        audit: false,
+    },
+    CommandSpec {
+        name: "skills.upsert",
+        domain: "agent",
+        permission: "write",
+        http: "POST /api/v1/agent/skills",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
+        name: "skills.delete",
+        domain: "agent",
+        permission: "write",
+        http: "DELETE /api/v1/agent/skills/{id}",
+        requires_unlock: true,
+        audit: true,
+    },
 ];
 
 pub fn find(name: &str) -> Option<&'static CommandSpec> {

@@ -52,7 +52,7 @@ exec /opt/digilegacy/bin/digilegacy-server
 curl -fsS http://127.0.0.1:8787/api/v1/health
 ```
 
-期望包含 `success: true`、`schemaVersion: 16`、`tables: 31`。健康响应只证明进程能打开存储，不证明写 token 或外部集成可用。
+期望包含 `success: true`、`schemaVersion: 17`、`tables: 32`。健康响应只证明进程能打开存储，不证明写 token 或外部集成可用。
 
 ## 日常检查
 

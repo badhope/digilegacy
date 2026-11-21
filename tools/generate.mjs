@@ -222,7 +222,7 @@ const rustToolRows = tools.tools
   .map((tool) => {
     const command = commandList.find((item) => item.name === tool.human_equivalent);
     const schema = fs.readFileSync(path.join(ROOT, "contracts", tool.input_schema), "utf8").trim();
-    return `    ToolSpec { name: ${rstr(tool.name)}, command: ${rstr(tool.human_equivalent)}, permission: ${rstr(command?.permission ?? tool.permission)}, title: ${rstr(tool.title)}, description: ${rstr(tool.description)}, input_schema: ${rstr(schema)} },`;
+    return `    ToolSpec { name: ${rstr(tool.name)}, command: ${rstr(tool.human_equivalent)}, permission: ${rstr(command?.permission ?? tool.permission)}, title: ${rstr(tool.title)}, description: ${rstr(tool.description)}, mcp: ${tool.mcp}, input_schema: ${rstr(schema)} },`;
   })
   .join("\n");
 
@@ -258,6 +258,7 @@ pub struct ToolSpec {
     pub permission: &'static str,
     pub title: &'static str,
     pub description: &'static str,
+    pub mcp: bool,
     pub input_schema: &'static str,
 }
 

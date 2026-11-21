@@ -1,12 +1,12 @@
-//! Schema v16: policy sync state, additive migrations and ledger.
+//! Schema v17: agent skills, additive migrations and ledger.
 
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use sha2::{Digest, Sha256};
 
-pub const SCHEMA_VERSION: i64 = 16;
+pub const SCHEMA_VERSION: i64 = 17;
 pub const SCHEMA_SQL: &str = include_str!("schema.sql");
-pub const EXPECTED_TABLES: i64 = 31;
+pub const EXPECTED_TABLES: i64 = 32;
 
 fn checksum() -> String {
     let digest = Sha256::digest(SCHEMA_SQL.as_bytes());
@@ -101,7 +101,7 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
          VALUES (?1, ?2, ?3, ?4)",
         params![
             SCHEMA_VERSION,
-            "v16_policy_sync_state",
+            "v17_agent_skills",
             checksum(),
             Utc::now().to_rfc3339()
         ],
@@ -127,7 +127,7 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
-    fn schema_is_v16_and_has_31_tables() {
+    fn schema_is_v17_and_has_32_tables() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let version: i64 = conn
@@ -142,21 +142,21 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(count, EXPECTED_TABLES, "schema v16 必须正好 31 张表");
+        assert_eq!(count, EXPECTED_TABLES, "schema v17 必须正好 32 张表");
     }
 
     #[test]
-    fn migration_ledger_records_v16() {
+    fn migration_ledger_records_v17() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let name: String = conn
             .query_row(
-                "SELECT name FROM schema_migrations WHERE version = 16",
+                "SELECT name FROM schema_migrations WHERE version = 17",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(name, "v16_policy_sync_state");
+        assert_eq!(name, "v17_agent_skills");
     }
 
     #[test]

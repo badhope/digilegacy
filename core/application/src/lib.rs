@@ -13,9 +13,11 @@ use serde_json::{json, Value};
 
 pub mod connections_health;
 pub mod deliver;
+pub mod harness;
 pub mod jobs;
 pub mod policy_sync;
 pub mod runtime;
+pub mod skills_admin;
 use digilegacy_foundation::PlatformError;
 use digilegacy_security::derive_domain_key;
 use digilegacy_security::keyring::FileKeyring;
@@ -314,6 +316,10 @@ impl Application {
             "agent.runs.retry" => runtime::retry(self, args),
             "agent.approvals.list" => self.approvals_list(args),
             "agent.approvals.decide" => self.approvals_decide(args),
+            "agent.harness.status" => harness::status(self).map(|data| json!(data)),
+            "skills.list" => self.skills_list(args),
+            "skills.upsert" => self.skills_upsert(args),
+            "skills.delete" => self.skills_delete(args),
             "jobs.get" => self.jobs_get(args),
             "jobs.cancel" => self.jobs_cancel(args),
             other => Err(PlatformError::unsupported(other)),
@@ -1216,6 +1222,34 @@ mod tests {
     }
 
     #[test]
+    fn skills_registry_and_harness_status_are_consistent() {
+        let app = app();
+        let saved = app
+            .dispatch(
+                "skills.upsert",
+                json!({
+                    "name": "Research",
+                    "description": "Cite sources",
+                    "instructions": "Prefer primary sources."
+                }),
+            )
+            .unwrap();
+        assert_eq!(saved["name"], "Research");
+        assert_eq!(saved["enabled"], true);
+        let list = app.dispatch("skills.list", json!({})).unwrap();
+        assert_eq!(list["total"], 1);
+        let status = app.dispatch("agent.harness.status", json!({})).unwrap();
+        assert_eq!(status["skills"]["total"], 1);
+        assert_eq!(status["skills"]["enabled"], 1);
+        assert_eq!(status["tools"]["total"], 23);
+        let deleted = app
+            .dispatch("skills.delete", json!({ "id": saved["id"] }))
+            .unwrap();
+        assert_eq!(deleted["name"], "Research");
+        assert_eq!(app.dispatch("skills.list", json!({})).unwrap()["total"], 0);
+    }
+
+    #[test]
     fn unlock_guard_blocks_after_five_failures() {
         let mut guard = UnlockGuard::default();
         for _ in 0..4 {
@@ -1289,7 +1323,7 @@ mod tests {
 
         let meta = app.security_checkpoint("before-upgrade").unwrap();
         let id = meta["id"].as_str().unwrap().to_string();
-        assert_eq!(meta["schema_version"], 16);
+        assert_eq!(meta["schema_version"], 17);
         assert_eq!(
             app.security_checkpoints()
                 .unwrap()
@@ -1855,8 +1889,8 @@ mod tests {
         let app = app();
         let data = app.dispatch("diagnostics.export", json!({})).unwrap();
         assert_eq!(data["audit"]["valid"], true);
-        assert_eq!(data["store"]["schema_version"], 16);
-        assert_eq!(data["store"]["table_count"], 31);
+        assert_eq!(data["store"]["schema_version"], 17);
+        assert_eq!(data["store"]["table_count"], 32);
         assert!(data["rows"].get("audit_log").is_some());
         let text = data.to_string();
         assert!(!text.contains("secret_value"));

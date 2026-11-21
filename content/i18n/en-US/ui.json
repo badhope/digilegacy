@@ -463,5 +463,6 @@
   "lock.rateLimited": "Too many attempts. Try again shortly.",
   "planning.heirs.email": "Email",
   "planning.heirs.phone": "Phone",
-  "planning.heirs.emailMissing": "No email; final notice cannot be delivered"
+  "planning.heirs.emailMissing": "No email; final notice cannot be delivered",
+  "settings.tab.harness": "Agent Harness"
 }

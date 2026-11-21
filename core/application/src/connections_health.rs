@@ -29,6 +29,8 @@ pub(crate) struct StoredConfig {
     #[serde(default)]
     pub(crate) token: Option<String>,
     #[serde(default)]
+    pub(crate) model: Option<String>,
+    #[serde(default)]
     pub(crate) username: Option<String>,
     #[serde(default)]
     pub(crate) from: Option<String>,
@@ -45,6 +47,8 @@ struct SaveInput {
     #[serde(default)]
     label: Option<String>,
     endpoint: String,
+    #[serde(default)]
+    model: Option<String>,
     #[serde(default)]
     token: Option<String>,
     #[serde(default)]
@@ -76,7 +80,7 @@ fn normalized_config(kind: &str, input: SaveInput) -> Result<NormalizedConfig, P
     }
     let is_http = matches!(
         kind,
-        "llm" | "policy" | "heartbeat" | "webhook" | "feishu" | "wecom"
+        "llm" | "policy" | "heartbeat" | "webhook" | "feishu" | "wecom" | "mcp"
     );
     let endpoint = if is_http {
         validate_external_url(&endpoint).map_err(PlatformError::invalid_args)?
@@ -86,6 +90,24 @@ fn normalized_config(kind: &str, input: SaveInput) -> Result<NormalizedConfig, P
         }
         endpoint
     };
+    let model = if kind == "llm" {
+        input
+            .model
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    } else {
+        None
+    };
+    if let Some(value) = model.as_deref() {
+        if value.len() > 120
+            || value.chars().any(char::is_control)
+            || value.chars().any(char::is_whitespace)
+        {
+            return Err(PlatformError::invalid_args(
+                "模型名不能包含空白或控制字符，且不能超过 120 字符",
+            ));
+        }
+    }
     let token = input
         .token
         .map(|value| value.trim().to_string())
@@ -128,6 +150,7 @@ fn normalized_config(kind: &str, input: SaveInput) -> Result<NormalizedConfig, P
         stored: StoredConfig {
             endpoint,
             token,
+            model,
             username,
             from,
             security,
@@ -210,9 +233,28 @@ impl Application {
     }
 
     pub fn connections_list(&self, _args: Value) -> Result<Value, PlatformError> {
-        connections::list(self.store())
-            .map(|page| json!(page))
-            .map_err(map_domain)
+        let page = connections::list(self.store()).map_err(map_domain)?;
+        let items = page
+            .items
+            .iter()
+            .map(|item| self.connection_view(item))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(json!({ "items": items, "total": page.total }))
+    }
+
+    /// Public connection metadata plus the non-secret model name for LLM rows.
+    /// Endpoint and credential stay inside the encrypted config.
+    fn connection_view(&self, row: &connections::Connection) -> Result<Value, PlatformError> {
+        let mut value = serde_json::to_value(row)
+            .map_err(|error| PlatformError::new("INTERNAL", error.to_string()))?;
+        if row.kind == "llm" {
+            if let Some(config) = self.load_connection_config(row)? {
+                if let Some(model) = config.model.filter(|value| !value.trim().is_empty()) {
+                    value["model"] = json!(model);
+                }
+            }
+        }
+        Ok(value)
     }
 
     /// Save an encrypted connection config. Secrets are accepted only from the
@@ -255,7 +297,7 @@ impl Application {
             "connection.upsert",
             &format!("id={};kind={kind};label={label}", saved.id),
         )?;
-        Ok(json!(saved))
+        self.connection_view(&saved)
     }
 
     pub fn connections_delete(&self, args: Value) -> Result<Value, PlatformError> {
@@ -360,6 +402,7 @@ impl Application {
             return Ok(Some(StoredConfig {
                 endpoint: env_endpoint(&row.kind).unwrap_or_default(),
                 token: env_token(&row.kind),
+                model: env_value("DIGILEGACY_LLM_MODEL"),
                 username: env_value("DIGILEGACY_SMTP_USERNAME"),
                 from: env_value("DIGILEGACY_SMTP_FROM"),
                 security: env_value("DIGILEGACY_SMTP_SECURITY"),
@@ -376,6 +419,50 @@ impl Application {
             PlatformError::new("CORRUPT_DATA", format!("连接配置损坏: {error}"))
         })?;
         Ok(Some(config))
+    }
+
+    /// Resolve the planner target. Saved LLM rows win over environment rows;
+    /// only complete endpoint + credential + model entries are considered.
+    pub(crate) fn planner_config(
+        &self,
+    ) -> Result<digilegacy_agent::planner::PlannerConfig, PlatformError> {
+        let page = connections::list(self.store()).map_err(map_domain)?;
+        for source in ["stored", "env"] {
+            for item in page
+                .items
+                .iter()
+                .filter(|item| item.kind == "llm" && item.enabled && item.source == source)
+            {
+                let config = self.load_connection_config(item)?.unwrap_or_default();
+                let endpoint = config.endpoint.trim().to_string();
+                let token = config
+                    .token
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(str::to_string);
+                let model = config
+                    .model
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(str::to_string);
+                let Some(token) = token else {
+                    continue;
+                };
+                let Some(model) = model else {
+                    continue;
+                };
+                if endpoint.is_empty() {
+                    continue;
+                }
+                return Ok(digilegacy_agent::planner::PlannerConfig::from_connection(
+                    endpoint, token, model,
+                ));
+            }
+        }
+        digilegacy_agent::planner::PlannerConfig::from_env()
+            .map_err(|error| PlatformError::new(error.code(), error.message()))
     }
 
     pub fn connections_test(&self, args: Value) -> Result<Value, PlatformError> {
@@ -596,6 +683,32 @@ mod tests {
         assert!(!target.tls);
         assert!(!target.starttls);
         assert_eq!(target.from, "digilegacy@example.com");
+    }
+
+    #[test]
+    fn stored_llm_config_exposes_model_and_drives_planner() {
+        let app = make_app(true);
+        let saved = app
+            .connections_upsert(json!({
+                "kind": "llm",
+                "label": "Agnes 3.0 Flash",
+                "endpoint": "https://apihub.agnes-ai.com/v1",
+                "token": "provider-secret",
+                "model": "agnes-3.0-flash",
+                "enabled": true
+            }))
+            .unwrap();
+        assert_eq!(saved["model"], "agnes-3.0-flash");
+        let list = app.connections_list(json!({})).unwrap();
+        assert_eq!(list["items"][0]["model"], "agnes-3.0-flash");
+        assert!(!serde_json::to_string(&list)
+            .unwrap()
+            .contains("provider-secret"));
+
+        let planner = app.planner_config().unwrap();
+        assert_eq!(planner.base_url, "https://apihub.agnes-ai.com/v1");
+        assert_eq!(planner.model, "agnes-3.0-flash");
+        assert_eq!(planner.api_key, "provider-secret");
     }
 
     #[test]

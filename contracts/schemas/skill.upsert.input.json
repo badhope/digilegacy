@@ -1,0 +1,14 @@
+{
+  "title": "SkillUpsert",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "instructions"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "description": { "type": "string", "maxLength": 500, "default": "" },
+    "instructions": { "type": "string", "minLength": 1, "maxLength": 20000 },
+    "enabled": { "type": "boolean", "default": true }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

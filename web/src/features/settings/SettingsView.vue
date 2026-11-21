@@ -25,6 +25,7 @@ const {
   refresh: refreshConnections,
 } = useResource(loadConnections);
 const LocalModelsPanel = defineAsyncComponent(() => import("./LocalModelsPanel.vue"));
+const HarnessPanel = defineAsyncComponent(() => import("./HarnessPanel.vue"));
 const CONNECTION_KIND_LABELS: Record<ConnectionKind, { zh: string; en: string }> = {
   llm: { zh: "LLM", en: "LLM" },
   policy: { zh: "政策", en: "Policy" },
@@ -34,6 +35,7 @@ const CONNECTION_KIND_LABELS: Record<ConnectionKind, { zh: string; en: string }>
   webhook: { zh: "Webhook", en: "Webhook" },
   feishu: { zh: "飞书", en: "Feishu" },
   wecom: { zh: "企业微信", en: "WeCom" },
+  mcp: { zh: "MCP 服务器", en: "MCP server" },
 };
 const CONNECTION_STATUS_LABELS: Record<ConnectionStatus, { zh: string; en: string }> = {
   unconfigured: { zh: "未配置", en: "Unconfigured" },
@@ -58,6 +60,8 @@ const connectionCopy = computed(() =>
         kind: "类型",
         endpoint: "连接地址",
         endpointHint: "HTTP 类型填完整 URL；SMTP/IMAP 填 host:port。",
+        model: "模型",
+        modelHint: "OpenAI 兼容模型名，例如 agnes-3.0-flash；保存后规划器优先使用这条连接。",
         token: "凭据",
         tokenHint: "可选；编辑时必须重新填写地址和凭据，旧值不会回显。",
         username: "用户名",
@@ -65,7 +69,7 @@ const connectionCopy = computed(() =>
         security: "加密方式",
         enabled: "启用",
         envReadonly: "环境变量连接只读",
-        editHint: "编辑已保存连接需要重新填写地址与凭据。",
+        editHint: "编辑已保存连接需要重新填写地址与凭据；模型可保留。",
         configKeyMissing: "服务端未配置连接配置密钥；请设置 DIGILEGACY_CONFIG_KEY_FILE 或 DIGILEGACY_DB_KEY_FILE。",
         deleteConfirm: "确定删除这条连接配置？",
         formTitleAdd: "新增连接",
@@ -85,6 +89,8 @@ const connectionCopy = computed(() =>
         kind: "Kind",
         endpoint: "Endpoint",
         endpointHint: "HTTP kinds use a full URL; SMTP/IMAP use host:port.",
+        model: "Model",
+        modelHint: "OpenAI-compatible model name, e.g. agnes-3.0-flash. The planner prefers this saved connection.",
         token: "Credential",
         tokenHint: "Optional; editing requires re-entering endpoint and credential. Old values are never echoed.",
         username: "Username",
@@ -92,7 +98,7 @@ const connectionCopy = computed(() =>
         security: "Security",
         enabled: "Enabled",
         envReadonly: "Environment connection is read-only",
-        editHint: "Editing a saved connection requires re-entering its endpoint and credential.",
+        editHint: "Editing a saved connection requires re-entering its endpoint and credential; the model is kept.",
         configKeyMissing: "Server connection key is not configured; set DIGILEGACY_CONFIG_KEY_FILE or DIGILEGACY_DB_KEY_FILE.",
         deleteConfirm: "Delete this connection config?",
         formTitleAdd: "Add connection",
@@ -108,7 +114,9 @@ function connectionStatusLabel(status: ConnectionStatus): string {
   return locale.value === "zh-CN" ? label.zh : label.en;
 }
 function connectionSourceLabel(item: ConnectionItem): string {
-  return item.source === "env" ? `${item.label} · ENV` : `${item.label} · STORED`;
+  const source = item.source === "env" ? "ENV" : "STORED";
+  if (item.kind === "llm" && item.model) return `${item.label} · ${item.model} · ${source}`;
+  return `${item.label} · ${source}`;
 }
 function connectionRowStatus(item: ConnectionItem): string {
   return item.enabled ? connectionStatusLabel(item.lastStatus) : CONNECTION_STATUS_LABELS.disabled[locale.value === "zh-CN" ? "zh" : "en"];
@@ -126,6 +134,7 @@ const connectionForm = ref<{
   kind: ConnectionKind;
   label: string;
   endpoint: string;
+  model: string;
   token: string;
   username: string;
   from: string;
@@ -135,6 +144,7 @@ const connectionForm = ref<{
   kind: "webhook",
   label: "",
   endpoint: "",
+  model: "",
   token: "",
   username: "",
   from: "",
@@ -142,12 +152,14 @@ const connectionForm = ref<{
   enabled: true,
 });
 const isMailKind = computed(() => connectionForm.value.kind === "smtp" || connectionForm.value.kind === "imap");
+const isLlmKind = computed(() => connectionForm.value.kind === "llm");
 
 function resetConnectionForm() {
   connectionForm.value = {
     kind: "webhook",
     label: "",
     endpoint: "",
+    model: "",
     token: "",
     username: "",
     from: "",
@@ -187,6 +199,7 @@ async function copyConnectionGuide() {
 
 需要准备：
 - SMTP：服务器地址 host:port、用户名、密码或授权码、发件人地址、加密方式（465 用 TLS，587 用 STARTTLS）
+- LLM：OpenAI 兼容地址、模型名（如 agnes-3.0-flash）、API Key
 - Webhook：完整 URL、访问令牌（如服务商要求）
 - 飞书 / 企业微信：机器人 Webhook 完整 URL
 
@@ -203,6 +216,7 @@ For the filler: use your own account. Do not post passwords or tokens in chat; t
 
 Prepare:
 - SMTP: host:port, username, password or app password, From address, security (465 uses TLS, 587 uses STARTTLS)
+- LLM: OpenAI-compatible endpoint, model name (e.g. agnes-3.0-flash), API key
 - Webhook: full URL and access token if the provider requires one
 - Feishu / WeCom: full bot webhook URL
 
@@ -227,6 +241,7 @@ function openEditConnection(item: ConnectionItem) {
   editingConnectionId.value = item.id;
   connectionForm.value.kind = item.kind;
   connectionForm.value.label = item.label;
+  connectionForm.value.model = item.model ?? "";
   connectionForm.value.enabled = item.enabled;
   connectionFormOpen.value = true;
 }
@@ -249,6 +264,9 @@ async function saveConnection() {
       enabled: connectionForm.value.enabled,
     };
     if (editingConnectionId.value) payload.id = editingConnectionId.value;
+    if (connectionForm.value.kind === "llm") {
+      payload.model = connectionForm.value.model.trim() || undefined;
+    }
     if (connectionForm.value.kind === "smtp" || connectionForm.value.kind === "imap") {
       payload.username = connectionForm.value.username.trim() || undefined;
       payload.from = connectionForm.value.from.trim() || undefined;
@@ -338,11 +356,12 @@ async function testConnection(item: ConnectionItem) {
   }
 }
 
-const sections = ["connections", "security"] as const;
+const sections = ["connections", "security", "harness"] as const;
 type Section = (typeof sections)[number];
 const sectionLabels: Record<Section, string> = {
   connections: "settings.tab.connections",
   security: "settings.tab.securityData",
+  harness: "settings.tab.harness",
 };
 const active = computed<Section>(() => {
   const value = route.params.section;
@@ -438,6 +457,17 @@ function go(section: Section) {
                 <input v-model="connectionForm.endpoint" required autocomplete="off" :placeholder="connectionCopy.endpointHint" />
                 <small>{{ connectionCopy.endpointHint }}</small>
               </label>
+              <label v-if="isLlmKind" class="connection-form-wide">
+                <span>{{ connectionCopy.model }}</span>
+                <input
+                  v-model="connectionForm.model"
+                  :required="isLlmKind"
+                  maxlength="120"
+                  autocomplete="off"
+                  placeholder="agnes-3.0-flash"
+                />
+                <small>{{ connectionCopy.modelHint }}</small>
+              </label>
               <label>
                 <span>{{ connectionCopy.token }}</span>
                 <input v-model="connectionForm.token" type="password" autocomplete="new-password" />
@@ -511,6 +541,8 @@ function go(section: Section) {
           <div v-if="connectionNotice" class="connection-notice">{{ connectionNotice }}</div>
           <div v-if="connectionError" class="connection-error">{{ connectionError }}</div>
         </SectionCard>
+
+        <HarnessPanel v-else-if="active === 'harness'" />
 
         <div v-else class="settings-stack">
           <SectionCard :title="t('settings.tab.securityData')" :subtitle="t('settings.tab.security.note')">

@@ -688,6 +688,61 @@
     "connections.list": {
       "items": [],
       "total": 0
+    },
+    "agent.harness.status": {
+      "planner": {
+        "configured": true,
+        "source": "stored",
+        "model": "agnes-3.0-flash",
+        "endpointHost": "apihub.agnes-ai.com",
+        "timeoutSecs": 30
+      },
+      "runs": {
+        "total": 3,
+        "running": 0,
+        "waitingApproval": 1,
+        "failed": 0
+      },
+      "approvals": {
+        "pending": 1
+      },
+      "usage": {
+        "tokensIn": 8000,
+        "tokensOut": 120,
+        "costMicros": 0,
+        "priced": false
+      },
+      "tools": {
+        "total": 23,
+        "mcp": 13,
+        "write": 8,
+        "draft": 2
+      },
+      "mcp": {
+        "servers": 0,
+        "enabled": 0
+      },
+      "skills": {
+        "total": 0,
+        "enabled": 0
+      }
+    },
+    "skills.list": {
+      "items": [],
+      "total": 0
+    },
+    "skills.upsert": {
+      "id": "1",
+      "name": "研究助手",
+      "description": "查找来源并引用",
+      "instructions": "优先引用可验证来源。",
+      "enabled": true,
+      "createdAt": "2026-11-21T18:40:00+08:00",
+      "updatedAt": "2026-11-21T18:40:00+08:00"
+    },
+    "skills.delete": {
+      "id": "1",
+      "name": "研究助手"
     }
   }
 }

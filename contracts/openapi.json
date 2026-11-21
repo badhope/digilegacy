@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.0.28",
+    "version": "0.0.30",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -2761,6 +2761,241 @@
           }
         }
       }
+    },
+    "/api/v1/agent/harness": {
+      "get": {
+        "operationId": "agent.harness.status",
+        "summary": "读取 Agent harness 的真实运行态：规划器来源、运行/审批/用量、工具与 MCP/Skill 计数",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "agent.harness.status",
+        "x-permission": "read",
+        "x-requires-unlock": false,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/harness.status.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/skills": {
+      "get": {
+        "operationId": "skills.list",
+        "summary": "读取 Skill 注册表（名称、描述、指令、启停）",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "skills.list",
+        "x-permission": "read",
+        "x-requires-unlock": true,
+        "x-audit": false,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/skills.list.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "skills.upsert",
+        "summary": "新增或更新一条 Skill；启用后其指令注入规划器提示词",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "skills.upsert",
+        "x-permission": "write",
+        "x-requires-unlock": true,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/skill.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/schemas/skill.upsert.input"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/skills/{id}": {
+      "delete": {
+        "operationId": "skills.delete",
+        "summary": "删除一条 Skill，返回被删名称",
+        "tags": [
+          "agent"
+        ],
+        "x-command": "skills.delete",
+        "x-permission": "write",
+        "x-requires-unlock": true,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/skill.delete.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3431,11 +3666,17 @@
               "heartbeat",
               "webhook",
               "feishu",
-              "wecom"
+              "wecom",
+              "mcp"
             ]
           },
           "label": {
             "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
           },
           "enabled": {
             "type": "boolean"
@@ -3487,7 +3728,8 @@
               "heartbeat",
               "webhook",
               "feishu",
-              "wecom"
+              "wecom",
+              "mcp"
             ]
           },
           "label": {
@@ -3564,7 +3806,8 @@
               "heartbeat",
               "webhook",
               "feishu",
-              "wecom"
+              "wecom",
+              "mcp"
             ]
           },
           "label": {
@@ -3576,6 +3819,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 2048
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
           },
           "token": {
             "type": "string",
@@ -3643,10 +3891,14 @@
                     "heartbeat",
                     "webhook",
                     "feishu",
-                    "wecom"
+                    "wecom",
+                    "mcp"
                   ]
                 },
                 "label": {
+                  "type": "string"
+                },
+                "model": {
                   "type": "string"
                 },
                 "enabled": {
@@ -3723,6 +3975,174 @@
             "type": "boolean",
             "default": true,
             "description": "true 同步生成；false 入队并返回 jobId"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "harness.status.output": {
+        "title": "AgentHarnessStatus",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "planner",
+          "runs",
+          "approvals",
+          "usage",
+          "tools",
+          "mcp",
+          "skills"
+        ],
+        "properties": {
+          "planner": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "configured",
+              "source",
+              "model",
+              "endpointHost",
+              "timeoutSecs"
+            ],
+            "properties": {
+              "configured": {
+                "type": "boolean"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "stored",
+                  "env",
+                  "local",
+                  "none"
+                ]
+              },
+              "model": {
+                "type": "string"
+              },
+              "endpointHost": {
+                "type": "string"
+              },
+              "timeoutSecs": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "runs": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "total",
+              "running",
+              "waitingApproval",
+              "failed"
+            ],
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "running": {
+                "type": "integer"
+              },
+              "waitingApproval": {
+                "type": "integer"
+              },
+              "failed": {
+                "type": "integer"
+              }
+            }
+          },
+          "approvals": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pending"
+            ],
+            "properties": {
+              "pending": {
+                "type": "integer"
+              }
+            }
+          },
+          "usage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tokensIn",
+              "tokensOut",
+              "costMicros",
+              "priced"
+            ],
+            "properties": {
+              "tokensIn": {
+                "type": "integer"
+              },
+              "tokensOut": {
+                "type": "integer"
+              },
+              "costMicros": {
+                "type": "integer"
+              },
+              "priced": {
+                "type": "boolean"
+              }
+            }
+          },
+          "tools": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "total",
+              "mcp",
+              "write",
+              "draft"
+            ],
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "mcp": {
+                "type": "integer"
+              },
+              "write": {
+                "type": "integer"
+              },
+              "draft": {
+                "type": "integer"
+              }
+            }
+          },
+          "mcp": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "servers",
+              "enabled"
+            ],
+            "properties": {
+              "servers": {
+                "type": "integer"
+              },
+              "enabled": {
+                "type": "integer"
+              }
+            }
+          },
+          "skills": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "total",
+              "enabled"
+            ],
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "enabled": {
+                "type": "integer"
+              }
+            }
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -5105,6 +5525,152 @@
             "type": "string",
             "minLength": 8,
             "maxLength": 128
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "skill.delete.output": {
+        "title": "SkillDeleted",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "skill.output": {
+        "title": "AgentSkill",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "description",
+          "instructions",
+          "enabled",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "skill.upsert.input": {
+        "title": "SkillUpsert",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "instructions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "default": ""
+          },
+          "instructions": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "skills.list.output": {
+        "title": "AgentSkillPage",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "description",
+                "instructions",
+                "enabled",
+                "createdAt",
+                "updatedAt"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "instructions": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

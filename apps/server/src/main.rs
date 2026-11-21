@@ -256,6 +256,12 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/agent/runs/{id}/retry", post(agent_run_retry))
         .route("/api/v1/agent/plan", post(agent_plan))
         .route("/api/v1/agent/approvals", get(agent_approvals))
+        .route("/api/v1/agent/harness", get(agent_harness))
+        .route(
+            "/api/v1/agent/skills",
+            get(agent_skills).post(agent_skill_upsert),
+        )
+        .route("/api/v1/agent/skills/{id}", delete(agent_skill_delete))
         .route(
             "/api/v1/agent/approvals/{id}/decide",
             post(agent_approval_decide),
@@ -470,6 +476,33 @@ async fn local_model_stop(State(state): State<AppState>, headers: HeaderMap) -> 
         Json(Envelope::ok(local_models::Manager::global().stop())),
     )
         .into_response()
+}
+
+async fn agent_harness(State(state): State<AppState>) -> impl IntoResponse {
+    dispatch(&state, "agent.harness.status", json!({}), None)
+}
+
+async fn agent_skills(
+    State(state): State<AppState>,
+    Query(query): Query<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "skills.list", query, None)
+}
+
+async fn agent_skill_upsert(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(args): Json<Value>,
+) -> impl IntoResponse {
+    dispatch(&state, "skills.upsert", args, Some(&headers))
+}
+
+async fn agent_skill_delete(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    dispatch(&state, "skills.delete", json!({ "id": id }), Some(&headers))
 }
 
 async fn notifications_list(
@@ -971,7 +1004,7 @@ mod tests {
         assert_eq!(data["requests"]["total"], 1);
         assert_eq!(data["requests"]["status2xx"], 1);
         assert_eq!(data["latencyMs"]["p95"], 25);
-        assert_eq!(data["store"]["schemaVersion"], 16);
+        assert_eq!(data["store"]["schemaVersion"], 17);
         let text = data.to_string().to_lowercase();
         assert!(!text.contains("token"));
         assert!(!text.contains("secret"));
@@ -1141,7 +1174,7 @@ mod tests {
             .unwrap();
         let body: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(body["data"]["audit"]["valid"], true);
-        assert_eq!(body["data"]["store"]["schema_version"], 16);
+        assert_eq!(body["data"]["store"]["schema_version"], 17);
     }
 
     #[tokio::test]

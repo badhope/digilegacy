@@ -1,0 +1,27 @@
+{
+  "title": "AgentSkillPage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items", "total"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "description", "instructions", "enabled", "createdAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "instructions": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "createdAt": { "type": "string" },
+          "updatedAt": { "type": "string" }
+        }
+      }
+    },
+    "total": { "type": "integer" }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

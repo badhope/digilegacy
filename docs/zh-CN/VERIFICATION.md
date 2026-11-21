@@ -751,3 +751,13 @@ M0 可以判定“工程壳完成”的条件：
 - 干净机演练 12/12 PASS：解包、health v16/31、诊断审计有效、检查点验证、卸载保留数据与密钥、重装读库。证据 `install-0.0.18-2026-11-20.json`。
 - 0.0.18 真实 Chromium：14/14 路由、axe 0、无页面异常、无横向溢出。证据 `live-browser-0.0.18-2026-11-20.json`。
 - 保险库锁演练：锁定概览 423、错误口令 400、正确解锁 200、概览 200、再锁定资产 423；CLI 无 `DIGILEGACY_VAULT_PASSWORD` 被拒。证据 `security-lock-0.0.18-2026-11-20.json`。
+
+### 0.0.30 Agent Harness 设置（2026-11-21）
+
+- 新增 `设置 → Agent Harness` 第三个 Tab，读取 `GET /api/v1/agent/harness`。总览字段全部来自 Store 或生成工具注册表：规划器来源/模型/端点主机/超时、运行/审批计数、token/成本、工具目录 23 项（MCP 20、写 3、草稿 2）、MCP 服务器、Skill 总数。
+- `mcp` 成为正式连接类型：加密保存地址与 Bearer 凭据，`POST /api/v1/connections/test` 执行 JSON-RPC `initialize` + `tools/list`。真实本地 MCP 服务测试返回 `MCP 已连接 · 2 个工具`；端到端 HTTP 证据见 `/tmp/dg-harness-api.log`。
+- 新增 `agent_skills` 表（schema v17 / 32 表）与 `skills.list` / `skills.upsert` / `skills.delete`。启用 Skill 追加到规划器 system prompt，上限 12,000 字符；Skill 脚本不执行。真实浏览器新增“来源核对”后，总览 SKILLS 从 1 变 2，列表出现两条启用技能。
+- 用本地 OpenAI 兼容 mock 端点保存 `Harness Demo` LLM 连接（`agnes-3.0-flash`），真实调用 `POST /api/v1/agent/plan` 返回 2 步，请求 system prompt 末尾包含“来源核对”“研究助手”两段 Skill；断言见 `core/application/src/runtime.rs` 的 `plan_uses_saved_llm_connection_model`。
+- 验收：`./tools/verify.sh` exit 0；契约 **48 命令 / 23 工具 / 65 schema / 21 错误码**；schema v17 / 32 表；入口 82.70/83 KB，JS gzip 114.83/116 KB，CSS gzip 21.45/22 KB，总 gzip 136.28/138 KB。
+- 真实 Chromium：`/settings/harness` axe 0，页面无异常；截图 `screenshots-0.0.30/harness-overview.png`、`harness-mcp-test.png`、`harness-skills-mcp.png`。
+- 发布包：`packages/digilegacy-0.0.30-linux-x86_64.tar.gz`，18,602,833 bytes，SHA256 `90b4fa204ecc7374850afbcff8ab6a27c1bff1b05400fa307cd3eecd5150a192`。干净机演练 12/12 PASS，证据 `docs/operations/measurements/install-0.0.30-2026-11-21.json`。

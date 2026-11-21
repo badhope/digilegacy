@@ -17,6 +17,7 @@ pub mod plan;
 pub mod policy;
 pub mod policy_sync;
 pub mod runs;
+pub mod skills;
 pub mod usage;
 
 pub use assets::DomainError;

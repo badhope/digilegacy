@@ -4,7 +4,7 @@ import { cachedQuery, clearQueryCache, invalidateQuery, queryCacheKey } from "./
 import type { HeirDraft, UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, LocalModelsPayload, ConnectionKind,
   ConnectionItem,
   ConnectionUpsertInput,
-  ConnectionDeleteResult, ConnectionPage, ConnectionTestResult, DiscoveryResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, NotificationPage, NotificationSendResult, Overview, Plan, PoliciesPage, Policy, PolicyCandidate, PolicyCandidatePage, PolicySyncResult, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
+  ConnectionDeleteResult, ConnectionPage, ConnectionTestResult, DiscoveryResult, HarnessStatus, AgentSkillPage, AgentSkill, SkillUpsertInput, SkillDeleteResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, NotificationPage, NotificationSendResult, Overview, Plan, PoliciesPage, Policy, PolicyCandidate, PolicyCandidatePage, PolicySyncResult, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -229,6 +229,12 @@ export const platformClient = {
     write<ConnectionItem>(COMMANDS.connectionsUpsert, { ...args } as Record<string, unknown>, ["connections", "overview"]),
   deleteConnection: (id: string) =>
     write<ConnectionDeleteResult>(COMMANDS.connectionsDelete, { id }, ["connections", "overview"]),
+  harnessStatus: () => read<HarnessStatus>(COMMANDS.agentHarnessStatus, {}, "harness"),
+  listSkills: () => read<AgentSkillPage>(COMMANDS.skillsList, {}, "skills"),
+  saveSkill: (args: SkillUpsertInput) =>
+    write<AgentSkill>(COMMANDS.skillsUpsert, { ...args } as Record<string, unknown>, ["skills", "harness"]),
+  deleteSkill: (id: string) =>
+    write<SkillDeleteResult>(COMMANDS.skillsDelete, { id }, ["skills", "harness"]),
   listNotifications: (args: Record<string, unknown> = {}) => read<NotificationPage>(COMMANDS.notificationsList, args, "notifications"),
   sendNotifications: (args: Record<string, unknown> = {}) => write<NotificationSendResult>(COMMANDS.notificationsSend, args, ["notifications"]),
   checkin: () => write<CheckinResult>(COMMANDS.triggerCheckin, {}, ["plan", "trigger.events", "overview", "audit"]),

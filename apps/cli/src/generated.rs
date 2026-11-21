@@ -45,6 +45,10 @@ pub const COMMAND_LINES: &[&str] = &[
     "notifications list",
     "notifications send",
     "security recover",
+    "invoke agent.harness.status",
+    "invoke skills.list",
+    "invoke skills.upsert",
+    "invoke skills.delete",
 ];
 
 pub fn print_help() {

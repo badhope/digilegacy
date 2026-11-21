@@ -14,7 +14,7 @@
 | 契约 / 架构 / 格式 / clippy | 通过 | `./tools/verify.sh` exit 0 |
 | Rust + Web 测试 | **184 Rust + 79 Web** | `./tools/verify.sh` |
 | 契约 | **44 命令 / 23 工具 / 60 schema / 21 错误码** | `./tools/generate.mjs --check` |
-| Schema | **v16 / 31 表** | health + diagnostics |
+| Schema | **v17 / 32 表** | health + diagnostics |
 | 体积预算 | 入口 80.75/82 KB；JS 104.95/105.2 KB；CSS 20.22/21.1 KB；总 125.17/125.5 KB gzip | `web-budget` |
 | 真实 Chromium + axe | 14/14 路由通过，axe 0 违规 | `measurements/live-browser-0.0.19-2026-11-20.json` |
 | 视觉基线 | 9/9 在 0.4% 内；最大 overview-mobile 0.173% | `tools/visual/regress.py` |

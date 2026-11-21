@@ -97,6 +97,7 @@ const cases: Array<[string, Component, string]> = [
   ["run detail", RunDetailView, "/automation/runs/run_01"],
   ["settings security", SettingsView, "/settings/security"],
   ["settings connections", SettingsView, "/settings/connections"],
+  ["settings harness", SettingsView, "/settings/harness"],
   ["not found", NotFoundView, "/missing"],
 ];
 

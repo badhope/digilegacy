@@ -190,7 +190,7 @@ def main() -> int:
         }
         if health.get("code") != "OK" or not checks["health"]["version"]:
             raise RuntimeError(f"health returned {health.get('code')}")
-        if checks["health"]["schemaVersion"] != 16 or checks["health"]["tables"] != 31:
+        if checks["health"]["schemaVersion"] != 17 or checks["health"]["tables"] != 32:
             raise RuntimeError(f"unexpected store shape: {checks['health']}")
         steps.append({"name": "health", "status": "done", "durationMs": 0, "detail": "HTTP /api/v1/health and /api/v1/metrics"})
 

@@ -163,7 +163,7 @@ export interface NotificationSendResult {
   errors: string[];
 }
 
-export type ConnectionKind = "llm" | "policy" | "smtp" | "imap" | "heartbeat" | "webhook" | "feishu" | "wecom";
+export type ConnectionKind = "llm" | "policy" | "smtp" | "imap" | "heartbeat" | "webhook" | "feishu" | "wecom" | "mcp";
 export type ConnectionStatus = "unconfigured" | "ok" | "degraded" | "error" | "disabled";
 export type ConnectionSource = "env" | "stored";
 
@@ -171,6 +171,7 @@ export interface ConnectionItem {
   id: string;
   kind: ConnectionKind;
   label: string;
+  model?: string;
   enabled: boolean;
   lastCheckAt: string;
   lastStatus: ConnectionStatus;
@@ -198,6 +199,7 @@ export interface ConnectionUpsertInput {
   kind: ConnectionKind;
   label?: string;
   endpoint: string;
+  model?: string;
   token?: string;
   username?: string;
   from?: string;
@@ -500,4 +502,50 @@ export interface LocalModelsPayload {
   root: string;
   active: { id: string; model: string; baseUrl: string; apiKey: string; path: string } | null;
   runtime: LocalModelRuntime;
+}
+
+export type PlannerSource = "stored" | "env" | "local" | "none";
+
+export interface HarnessStatus {
+  planner: {
+    configured: boolean;
+    source: PlannerSource;
+    model: string;
+    endpointHost: string;
+    timeoutSecs: number;
+  };
+  runs: { total: number; running: number; waitingApproval: number; failed: number };
+  approvals: { pending: number };
+  usage: { tokensIn: number; tokensOut: number; costMicros: number; priced: boolean };
+  tools: { total: number; mcp: number; write: number; draft: number };
+  mcp: { servers: number; enabled: number };
+  skills: { total: number; enabled: number };
+}
+
+export interface AgentSkill {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AgentSkillPage {
+  items: AgentSkill[];
+  total: number;
+}
+
+export interface SkillUpsertInput {
+  id?: string;
+  name: string;
+  description?: string;
+  instructions: string;
+  enabled?: boolean;
+}
+
+export interface SkillDeleteResult {
+  id: string;
+  name: string;
 }

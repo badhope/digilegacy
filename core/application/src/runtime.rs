@@ -12,7 +12,7 @@ use digilegacy_contracts::find_command;
 use digilegacy_domains::{approvals, runs};
 use digilegacy_foundation::PlatformError;
 
-use crate::Application;
+use crate::{map_domain, Application};
 
 const MAX_STEPS: usize = 20;
 
@@ -435,14 +435,24 @@ pub fn plan(app: &Application, args: Value) -> Result<Value, PlatformError> {
         .map_err(|e| PlatformError::invalid_args(format!("规划参数无效: {e}")))?;
     let max_steps = input.max_steps.unwrap_or(MAX_STEPS).clamp(1, MAX_STEPS);
     let task = input.task.trim().to_string();
+    let planner_config = app.planner_config()?;
+    let skill_prompt =
+        digilegacy_domains::skills::enabled_prompt(app.store(), 12_000).map_err(map_domain)?;
     // The Application is synchronous and is called from async HTTP handlers.
     // Run the blocking planner on a dedicated thread so reqwest does not drop
     // its runtime inside the server's tokio worker.
     let plan_task = task.clone();
-    let plan = std::thread::spawn(move || digilegacy_agent::planner::plan(&plan_task, max_steps))
-        .join()
-        .map_err(|_| PlatformError::new("INTERNAL", "规划线程异常退出"))?
-        .map_err(|error| PlatformError::new(error.code(), error.message()))?;
+    let plan = std::thread::spawn(move || {
+        digilegacy_agent::planner::plan_with_config_and_skills(
+            &planner_config,
+            &plan_task,
+            max_steps,
+            &skill_prompt,
+        )
+    })
+    .join()
+    .map_err(|_| PlatformError::new("INTERNAL", "规划线程异常退出"))?
+    .map_err(|error| PlatformError::new(error.code(), error.message()))?;
     let plan_id = format!("plan_{}", Utc::now().timestamp_nanos_opt().unwrap_or(0));
     let steps_json = serde_json::to_string(&plan.steps)
         .map_err(|error| internal(format!("计划序列化失败: {error}")))?;
@@ -625,6 +635,95 @@ mod tests {
 
     fn app() -> Application {
         Application::new(Arc::new(Store::open_in_memory(None).unwrap()))
+    }
+
+    #[test]
+    fn plan_uses_saved_llm_connection_model() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = Vec::new();
+            let mut chunk = [0u8; 4096];
+            loop {
+                let read = stream.read(&mut chunk).unwrap();
+                if read == 0 {
+                    break;
+                }
+                request.extend_from_slice(&chunk[..read]);
+                let split = request
+                    .windows(4)
+                    .position(|window| window == b"\r\n\r\n")
+                    .map(|index| index + 4);
+                if let Some(header_end) = split {
+                    let headers = String::from_utf8_lossy(&request[..header_end]).to_string();
+                    let content_length = headers
+                        .lines()
+                        .find_map(|line| {
+                            line.to_ascii_lowercase()
+                                .strip_prefix("content-length:")
+                                .and_then(|value| value.trim().parse::<usize>().ok())
+                        })
+                        .unwrap_or(0);
+                    if request.len() >= header_end + content_length {
+                        break;
+                    }
+                }
+            }
+            let split = request
+                .windows(4)
+                .position(|window| window == b"\r\n\r\n")
+                .map(|index| index + 4)
+                .unwrap();
+            let body: Value = serde_json::from_slice(&request[split..]).unwrap();
+            assert_eq!(body["model"], "agnes-3.0-flash");
+            assert!(body["messages"][0]["content"]
+                .as_str()
+                .unwrap()
+                .contains("Prefer primary sources."));
+            let content = json!({
+                "steps": [{ "tool": "overview.get", "args": {} }]
+            })
+            .to_string();
+            let response_body = json!({
+                "choices": [{ "message": { "content": content } }],
+                "usage": { "prompt_tokens": 10, "completion_tokens": 5 }
+            })
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                response_body.len(),
+                response_body
+            );
+            stream.write_all(response.as_bytes()).unwrap();
+        });
+
+        let app =
+            Application::with_config_key(Arc::new(Store::open_in_memory(None).unwrap()), [9u8; 32]);
+        app.connections_upsert(json!({
+            "kind": "llm",
+            "label": "Agnes",
+            "endpoint": format!("http://{address}/v1"),
+            "token": "provider-secret",
+            "model": "agnes-3.0-flash"
+        }))
+        .unwrap();
+        app.dispatch(
+            "skills.upsert",
+            json!({
+                "name": "Research",
+                "instructions": "Prefer primary sources."
+            }),
+        )
+        .unwrap();
+
+        let plan = plan(&app, json!({ "task": "只读汇总", "maxSteps": 3 })).unwrap();
+        assert_eq!(plan["model"], "agnes-3.0-flash");
+        assert_eq!(plan["usage"]["tokensIn"], 10);
+        server.join().unwrap();
     }
 
     #[test]

@@ -25,6 +25,7 @@ pub enum ConnectionKind {
     Webhook,
     Feishu,
     Wecom,
+    Mcp,
 }
 
 impl ConnectionKind {
@@ -38,6 +39,7 @@ impl ConnectionKind {
             "webhook" => Some(Self::Webhook),
             "feishu" => Some(Self::Feishu),
             "wecom" => Some(Self::Wecom),
+            "mcp" => Some(Self::Mcp),
             _ => None,
         }
     }
@@ -52,6 +54,7 @@ impl ConnectionKind {
             Self::Webhook => "webhook",
             Self::Feishu => "feishu",
             Self::Wecom => "wecom",
+            Self::Mcp => "mcp",
         }
     }
 }
@@ -134,6 +137,146 @@ fn http_probe(
             "HTTP 探针线程失败".to_string(),
         ),
     }
+}
+
+fn mcp_payload(text: &str) -> Option<serde_json::Value> {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(text) {
+        return Some(value);
+    }
+    let mut data = String::new();
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("data:") {
+            if !data.is_empty() {
+                data.push('\n');
+            }
+            data.push_str(rest.trim_start());
+        }
+    }
+    serde_json::from_str(&data).ok()
+}
+
+fn mcp_probe(endpoint: &str, token: Option<&str>, timeout: Duration) -> ProbeResult {
+    let endpoint = endpoint.to_string();
+    let token = token.map(str::to_string);
+    let worker = std::thread::spawn(move || mcp_probe_inner(&endpoint, token.as_deref(), timeout));
+    match worker.join() {
+        Ok(result) => result,
+        Err(_) => result(
+            false,
+            "error",
+            Instant::now(),
+            "MCP 探针线程失败".to_string(),
+        ),
+    }
+}
+
+fn mcp_probe_inner(endpoint: &str, token: Option<&str>, timeout: Duration) -> ProbeResult {
+    let started = Instant::now();
+    let resolved = match resolve_external_url(endpoint) {
+        Ok(resolved) => resolved,
+        Err(message) => return result(false, "error", started, message),
+    };
+    let client = match client(timeout, &resolved) {
+        Ok(client) => client,
+        Err(message) => return result(false, "error", started, message),
+    };
+
+    let init = serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": { "name": "DigiLegacy", "version": env!("CARGO_PKG_VERSION") }
+        }
+    });
+    let mut request = client
+        .post(&resolved.url)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json")
+        .json(&init);
+    if let Some(token) = token.filter(|value| !value.is_empty()) {
+        request = request.bearer_auth(token);
+    }
+    let response = match request.send() {
+        Ok(response) => response,
+        Err(error) => return result(false, "error", started, format!("MCP 初始化失败: {error}")),
+    };
+    let code = response.status();
+    let session = response
+        .headers()
+        .get("mcp-session-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+    let body = response.text().unwrap_or_default();
+    if !code.is_success() {
+        let status = if code.is_client_error() {
+            "degraded"
+        } else {
+            "error"
+        };
+        return result(
+            false,
+            status,
+            started,
+            format!("MCP 初始化 HTTP {}", code.as_u16()),
+        );
+    }
+    let Some(payload) = mcp_payload(&body) else {
+        return result(
+            false,
+            "degraded",
+            started,
+            "MCP 初始化响应不是 JSON-RPC".to_string(),
+        );
+    };
+    if payload.get("error").is_some() {
+        return result(
+            false,
+            "error",
+            started,
+            "MCP 初始化返回 JSON-RPC 错误".to_string(),
+        );
+    }
+
+    let mut notify = client
+        .post(&resolved.url)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json")
+        .json(&serde_json::json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+    if let Some(token) = token.filter(|value| !value.is_empty()) {
+        notify = notify.bearer_auth(token);
+    }
+    if let Some(session) = session.as_deref() {
+        notify = notify.header("mcp-session-id", session);
+    }
+    let _ = notify.send();
+
+    let mut list = client
+        .post(&resolved.url)
+        .header("Accept", "application/json, text/event-stream")
+        .header("Content-Type", "application/json")
+        .json(
+            &serde_json::json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {} }),
+        );
+    if let Some(token) = token.filter(|value| !value.is_empty()) {
+        list = list.bearer_auth(token);
+    }
+    if let Some(session) = session.as_deref() {
+        list = list.header("mcp-session-id", session);
+    }
+    let tools = match list.send() {
+        Ok(response) if response.status().is_success() => response
+            .text()
+            .ok()
+            .and_then(|body| mcp_payload(&body))
+            .and_then(|payload| payload.pointer("/result/tools").cloned())
+            .and_then(|tools| tools.as_array().map(|items| items.len()))
+            .unwrap_or(0),
+        _ => 0,
+    };
+    result(true, "ok", started, format!("MCP 已连接 · {tools} 个工具"))
 }
 
 fn http_probe_inner(
@@ -268,6 +411,7 @@ pub fn probe(kind: &str, endpoint: &str, token: Option<&str>) -> ProbeResult {
             })),
             timeout,
         ),
+        ConnectionKind::Mcp => mcp_probe(endpoint, token, Duration::from_secs(8)),
     }
 }
 

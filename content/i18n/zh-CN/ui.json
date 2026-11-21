@@ -463,5 +463,6 @@
   "lock.rateLimited": "尝试次数过多，请稍后再试",
   "planning.heirs.email": "邮箱",
   "planning.heirs.phone": "电话",
-  "planning.heirs.emailMissing": "未填邮箱，无法接收最终通知"
+  "planning.heirs.emailMissing": "未填邮箱，无法接收最终通知",
+  "settings.tab.harness": "Agent Harness"
 }

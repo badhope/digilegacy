@@ -101,6 +101,36 @@ fn effective_timeout(seconds: Option<u64>, local_model: bool) -> u64 {
 }
 
 impl PlannerConfig {
+    /// Build a config from a saved LLM connection. The endpoint and credential
+    /// come from the encrypted connection row; timeout and pricing still follow
+    /// the same environment overrides as the env-managed planner.
+    pub fn from_connection(base_url: String, api_key: String, model: String) -> Self {
+        let requested_timeout = env::var("DIGILEGACY_LLM_TIMEOUT_SECS")
+            .ok()
+            .and_then(|value| value.parse::<u64>().ok());
+        let timeout = effective_timeout(requested_timeout, false);
+        let input_cost_micros_per_million =
+            env::var("DIGILEGACY_LLM_INPUT_COST_MICROS_PER_MILLION")
+                .ok()
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(0)
+                .max(0);
+        let output_cost_micros_per_million =
+            env::var("DIGILEGACY_LLM_OUTPUT_COST_MICROS_PER_MILLION")
+                .ok()
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(0)
+                .max(0);
+        Self {
+            base_url: base_url.trim().trim_end_matches('/').to_string(),
+            api_key,
+            model,
+            timeout: Duration::from_secs(timeout),
+            input_cost_micros_per_million,
+            output_cost_micros_per_million,
+        }
+    }
+
     pub fn from_env() -> Result<Self, PlannerError> {
         let env_base_url = env::var("DIGILEGACY_LLM_BASE_URL").unwrap_or_default();
         let env_api_key = env::var("DIGILEGACY_LLM_API_KEY").unwrap_or_default();
@@ -219,14 +249,20 @@ fn tool_catalog() -> String {
         .join("\n\n")
 }
 
-fn system_prompt(max_steps: usize) -> String {
+fn system_prompt(max_steps: usize, skills: &str) -> String {
+    let skills = if skills.trim().is_empty() {
+        String::new()
+    } else {
+        format!("\n\n启用的 Skills（必须遵守；不得把 Skill 当作工具名）：\n{skills}")
+    };
     format!(
         "你是 DigiLegacy 数字遗产平台的计划器。把用户任务拆成可执行的工具步骤。\n\
          只能使用下方注册工具；不得编造工具名，不得调用 agent.runs.start 或 agent.approvals.decide。\n\
          最多 {max_steps} 步；只输出 JSON 对象：{{\"steps\":[{{\"tool\":\"工具名\",\"args\":{{...}}}}]}}。\n\
          args 必须符合对应 input schema。只读工具可直接读取；permission=write 的工具会由平台转人工审批，不要试图绕过。\n\n\
-         注册工具：\n{}",
-        tool_catalog()
+         注册工具：\n{}{}",
+        tool_catalog(),
+        skills
     )
 }
 
@@ -287,6 +323,16 @@ pub fn plan_with_config(
     task: &str,
     max_steps: usize,
 ) -> Result<Plan, PlannerError> {
+    plan_with_config_and_skills(config, task, max_steps, "")
+}
+
+/// Same planner call with a bounded block of enabled skill instructions.
+pub fn plan_with_config_and_skills(
+    config: &PlannerConfig,
+    task: &str,
+    max_steps: usize,
+    skills: &str,
+) -> Result<Plan, PlannerError> {
     if task.trim().is_empty() {
         return Err(PlannerError::Invalid("任务不能为空".to_string()));
     }
@@ -300,7 +346,7 @@ pub fn plan_with_config(
         "model": config.model,
         "temperature": 0,
         "messages": [
-            { "role": "system", "content": system_prompt(max_steps) },
+            { "role": "system", "content": system_prompt(max_steps, skills) },
             { "role": "user", "content": task.trim() }
         ]
     });

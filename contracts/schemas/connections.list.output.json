@@ -37,10 +37,14 @@
               "heartbeat",
               "webhook",
               "feishu",
-              "wecom"
+              "wecom",
+              "mcp"
             ]
           },
           "label": {
+            "type": "string"
+          },
+          "model": {
             "type": "string"
           },
           "enabled": {
