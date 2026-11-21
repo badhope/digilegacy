@@ -7,6 +7,11 @@
 - `GET /api/v1/exports/{job_id}` now refuses to serve a generated file while the vault is locked and returns `423 VAULT_LOCKED`. The route previously bypassed the command dispatch and read the file directly, so a locked instance still exposed exported reports to anyone who knew the job id.
 - Legal and toolkit deliverables no longer render empty when assets have no matching policy. The legal export lists the unmatched assets and explains why no template was generated; the toolkit renders one card per asset with a clear "policy not recorded" note instead of silently skipping it.
 
+### Documentation
+
+- Tightened the English and Chinese READMEs around the product's core value, removed promotional copy, and kept the language switch and working documentation links. The Chinese documentation index now points to the existing operations and ADR pages.
+- Added a Dependabot configuration for Cargo, npm and GitHub Actions, and bounded CI with per-job timeouts and duplicate-run cancellation.
+
 ### Testing
 
 - Added a router regression that locks a configured vault and asserts the export route returns `423`.

@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 安全与密钥问题
+  - name: Security or secrets
     url: https://github.com/badhope/digilegacy/security/policy
-    about: 不要在公开 issue 中贴密钥、token、个人数据
+    about: Report privately. Do not paste secrets, tokens or personal data in a public issue.
