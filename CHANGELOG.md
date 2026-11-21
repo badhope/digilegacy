@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.26] - November 2026
+
+### Fixed
+
+- Heir email and phone now survive the whole path: contract, Rust input/output, SQLite insert/update, HTTP API, generated mocks and the planning form. Previously the API accepted the fields but Serde dropped them, so the final notification used the heir's name as a recipient and SMTP delivery failed for every heir.
+- `GET /api/v1/notifications?limit=10` now parses the numeric query with the typed list input instead of rejecting it as `INVALID_ARGS`. The planning page calls this exact endpoint.
+- Heir email validation now rejects malformed values such as `foo@`, `@bar.com` and `foo@bar`; clearing a stored email still works.
+- The settings security page no longer overflows horizontally at 1280 px, and the audit table's scroll container is keyboard focusable.
+
+### Testing
+
+- Added domain and HTTP regressions for heir contact fields, invalid email and the numeric notification limit.
+- Re-ran the real four-stage trigger chain with SQLite time travel, delivered the final outbox over SMTP and HTTPS, and exercised the planning form and the send/retry button in Chromium.
+
 ## [0.0.25] - November 2026
 
 ### Fixed
