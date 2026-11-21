@@ -761,3 +761,13 @@ M0 可以判定“工程壳完成”的条件：
 - 验收：`./tools/verify.sh` exit 0；契约 **48 命令 / 23 工具 / 65 schema / 21 错误码**；schema v17 / 32 表；入口 82.70/83 KB，JS gzip 114.83/116 KB，CSS gzip 21.45/22 KB，总 gzip 136.28/138 KB。
 - 真实 Chromium：`/settings/harness` axe 0，页面无异常；截图 `screenshots-0.0.30/harness-overview.png`、`harness-mcp-test.png`、`harness-skills-mcp.png`。
 - 发布包：`packages/digilegacy-0.0.30-linux-x86_64.tar.gz`，18,602,833 bytes，SHA256 `90b4fa204ecc7374850afbcff8ab6a27c1bff1b05400fa307cd3eecd5150a192`。干净机演练 12/12 PASS，证据 `docs/operations/measurements/install-0.0.30-2026-11-21.json`。
+
+### 0.0.31 内置资源包（2026-11-22）
+
+- Schema v18 / 32 表；`agent_skills.builtin` 新增并通过 migration ledger 只 seed 一次。真实现有库升级后 `skills.list` 返回 8 条内置 Skill，其中数字资产盘点、执行人交付手册、平台遗产政策核对 3 条启用；`agent.harness.status` 返回 `skills.builtin: 8` 与 `builtinMcp: 6`。
+- `agent.harness.status.builtinMcp` 真实返回 6 条：随包 `digilegacy-mcp`、Filesystem、MarkItDown、Memory、Sequential Thinking、Fetch。随包 MCP 实测 `initialize` + `tools/list` 返回 20 个只读/草稿工具，`overview.get` 调用 `isError: false`；3 个写工具不进入 MCP manifest，仍走平台审批。
+- Web：Harness 总览显示 23 个工具、6 条 MCP、8 条 Skill；MCP 目录使用原生可展开条目，首条默认展开，显示来源、传输、真实命令与官方文档；Skill 列表带“内置”标记；本地模型卡片带“内置目录”标记并写明权重不随包分发。
+- 规划器回归断言：fresh DB 的 system prompt 同时包含用户 Skill 与数字资产盘点/执行人交付手册/平台遗产政策核对三条内置 Skill。
+- 验收：`./tools/verify.sh` exit 0；202 Rust + 83 Web；契约 **48 命令 / 23 工具 / 65 schema / 21 错误码**；schema v18 / 32 表；入口 82.70/83 KB，JS gzip 116.00/116 KB，CSS gzip 21.66/22 KB，总 gzip 137.65/138 KB。
+- 真实 Chromium：18/18 路由，axe 0，无页面异常、无 390px 横向溢出；证据 `docs/operations/measurements/live-browser-0.0.31-2026-11-22.json`，截图 `screenshots-0.0.31/settings-harness-light.png`、`settings-harness-mobile.png`、`settings-connections-light.png`。
+- 发布包：`packages/digilegacy-0.0.31-linux-x86_64.tar.gz`；校验值以同名 `.sha256` 为准。干净机演练 12/12 PASS，证据 `docs/operations/measurements/install-0.0.31-2026-11-22.json`（含归档 SHA 一致性检查）。

@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 mod audit;
+mod builtin_skills;
 pub mod checkpoint;
 pub mod cipher_migrate;
 mod diagnostics;
@@ -225,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn opens_schema_v17_and_integrity_ok() {
+    fn opens_schema_v18_and_integrity_ok() {
         let path = temp_path("v9");
         let store = Store::open(&path, None).unwrap();
         assert_eq!(store.state(), StoreState::Ready);

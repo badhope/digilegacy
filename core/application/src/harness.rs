@@ -178,7 +178,9 @@ pub fn status(app: &Application) -> Result<Value, PlatformError> {
         },
         "skills": {
             "total": skill_page.len() as i64,
-            "enabled": skills_enabled
-        }
+            "enabled": skills_enabled,
+            "builtin": skill_page.iter().filter(|skill| skill.builtin).count() as i64
+        },
+        "builtinMcp": crate::builtin_mcp::catalog()
     }))
 }

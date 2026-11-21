@@ -507,6 +507,16 @@ export interface LocalModelsPayload {
 
 export type PlannerSource = "stored" | "env" | "local" | "none";
 
+export interface BuiltinMcpEntry {
+  id: string;
+  name: string;
+  source: "bundled" | "official" | "vendor";
+  transport: "stdio" | "http";
+  command: string;
+  description: string;
+  docsUrl: string;
+}
+
 export interface HarnessStatus {
   planner: {
     configured: boolean;
@@ -520,7 +530,8 @@ export interface HarnessStatus {
   usage: { tokensIn: number; tokensOut: number; costMicros: number; priced: boolean };
   tools: { total: number; mcp: number; write: number; draft: number };
   mcp: { servers: number; enabled: number };
-  skills: { total: number; enabled: number };
+  skills: { total: number; enabled: number; builtin: number };
+  builtinMcp: BuiltinMcpEntry[];
 }
 
 export interface AgentSkill {
@@ -529,6 +540,7 @@ export interface AgentSkill {
   description: string;
   instructions: string;
   enabled: boolean;
+  builtin: boolean;
   createdAt: string;
   updatedAt: string;
 }

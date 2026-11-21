@@ -19,6 +19,7 @@ pub struct Skill {
     pub description: String,
     pub instructions: String,
     pub enabled: bool,
+    pub builtin: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -47,8 +48,9 @@ fn map_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Skill> {
         description: row.get(2)?,
         instructions: row.get(3)?,
         enabled: row.get::<_, i64>(4)? != 0,
-        created_at: row.get(5)?,
-        updated_at: row.get(6)?,
+        builtin: row.get::<_, i64>(5)? != 0,
+        created_at: row.get(6)?,
+        updated_at: row.get(7)?,
     })
 }
 
@@ -56,7 +58,7 @@ pub fn list(store: &Store) -> Result<Vec<Skill>, DomainError> {
     store
         .read(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, description, instructions, enabled, created_at, updated_at
+                "SELECT id, name, description, instructions, enabled, builtin, created_at, updated_at
                  FROM agent_skills ORDER BY enabled DESC, name, id",
             )?;
             let rows = stmt
@@ -71,7 +73,7 @@ fn get(store: &Store, id: &str) -> Result<Skill, DomainError> {
     store
         .read(|conn| {
             conn.query_row(
-                "SELECT id, name, description, instructions, enabled, created_at, updated_at
+                "SELECT id, name, description, instructions, enabled, builtin, created_at, updated_at
                  FROM agent_skills WHERE id=?1",
                 params![id],
                 map_row,
@@ -220,9 +222,12 @@ mod tests {
         assert!(enabled_prompt(&store, 4096)
             .unwrap()
             .contains("Always cite sources."));
-        assert_eq!(list(&store).unwrap().len(), 1);
+        assert_eq!(list(&store).unwrap().len(), 9, "8 built-ins plus Research");
+        assert!(
+            list(&store).unwrap()[0].builtin || list(&store).unwrap().iter().any(|s| s.builtin)
+        );
         assert_eq!(delete(&store, &saved.id).unwrap().1, "Research");
-        assert!(list(&store).unwrap().is_empty());
+        assert_eq!(list(&store).unwrap().len(), 8);
     }
 
     #[test]

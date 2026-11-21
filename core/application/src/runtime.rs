@@ -680,10 +680,11 @@ mod tests {
                 .unwrap();
             let body: Value = serde_json::from_slice(&request[split..]).unwrap();
             assert_eq!(body["model"], "agnes-3.0-flash");
-            assert!(body["messages"][0]["content"]
-                .as_str()
-                .unwrap()
-                .contains("Prefer primary sources."));
+            let system_prompt = body["messages"][0]["content"].as_str().unwrap();
+            assert!(system_prompt.contains("Prefer primary sources."));
+            assert!(system_prompt.contains("数字资产盘点"));
+            assert!(system_prompt.contains("执行人交付手册"));
+            assert!(system_prompt.contains("平台遗产政策核对"));
             let content = json!({
                 "steps": [{ "tool": "overview.get", "args": {} }]
             })

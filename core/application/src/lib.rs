@@ -11,6 +11,7 @@ use digilegacy_domains::{
 use digilegacy_integrations::{send_smtp, SmtpTarget};
 use serde_json::{json, Value};
 
+pub mod builtin_mcp;
 pub mod connections_health;
 pub mod deliver;
 pub mod harness;
@@ -1237,16 +1238,21 @@ mod tests {
         assert_eq!(saved["name"], "Research");
         assert_eq!(saved["enabled"], true);
         let list = app.dispatch("skills.list", json!({})).unwrap();
-        assert_eq!(list["total"], 1);
+        assert_eq!(list["total"], 9, "8 built-in skills plus the user skill");
         let status = app.dispatch("agent.harness.status", json!({})).unwrap();
-        assert_eq!(status["skills"]["total"], 1);
-        assert_eq!(status["skills"]["enabled"], 1);
+        assert_eq!(status["skills"]["total"], 9);
+        assert_eq!(
+            status["skills"]["enabled"], 4,
+            "3 core built-ins plus the user skill"
+        );
+        assert_eq!(status["skills"]["builtin"], 8);
+        assert_eq!(status["builtinMcp"].as_array().unwrap().len(), 6);
         assert_eq!(status["tools"]["total"], 23);
         let deleted = app
             .dispatch("skills.delete", json!({ "id": saved["id"] }))
             .unwrap();
         assert_eq!(deleted["name"], "Research");
-        assert_eq!(app.dispatch("skills.list", json!({})).unwrap()["total"], 0);
+        assert_eq!(app.dispatch("skills.list", json!({})).unwrap()["total"], 8);
     }
 
     #[test]
@@ -1323,7 +1329,7 @@ mod tests {
 
         let meta = app.security_checkpoint("before-upgrade").unwrap();
         let id = meta["id"].as_str().unwrap().to_string();
-        assert_eq!(meta["schema_version"], 17);
+        assert_eq!(meta["schema_version"], 18);
         assert_eq!(
             app.security_checkpoints()
                 .unwrap()
@@ -1889,7 +1895,7 @@ mod tests {
         let app = app();
         let data = app.dispatch("diagnostics.export", json!({})).unwrap();
         assert_eq!(data["audit"]["valid"], true);
-        assert_eq!(data["store"]["schema_version"], 17);
+        assert_eq!(data["store"]["schema_version"], 18);
         assert_eq!(data["store"]["table_count"], 32);
         assert!(data["rows"].get("audit_log").is_some());
         let text = data.to_string();

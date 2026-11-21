@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.0.30",
+    "version": "0.0.31",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -4002,7 +4002,8 @@
           "usage",
           "tools",
           "mcp",
-          "skills"
+          "skills",
+          "builtinMcp"
         ],
         "properties": {
           "planner": {
@@ -4145,7 +4146,8 @@
             "additionalProperties": false,
             "required": [
               "total",
-              "enabled"
+              "enabled",
+              "builtin"
             ],
             "properties": {
               "total": {
@@ -4153,6 +4155,57 @@
               },
               "enabled": {
                 "type": "integer"
+              },
+              "builtin": {
+                "type": "integer"
+              }
+            }
+          },
+          "builtinMcp": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "source",
+                "transport",
+                "command",
+                "description",
+                "docsUrl"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "bundled",
+                    "official",
+                    "vendor"
+                  ]
+                },
+                "transport": {
+                  "type": "string",
+                  "enum": [
+                    "stdio",
+                    "http"
+                  ]
+                },
+                "command": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "docsUrl": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -5569,6 +5622,7 @@
           "description",
           "instructions",
           "enabled",
+          "builtin",
           "createdAt",
           "updatedAt"
         ],
@@ -5593,6 +5647,9 @@
           },
           "updatedAt": {
             "type": "string"
+          },
+          "builtin": {
+            "type": "boolean"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

@@ -145,3 +145,13 @@ The detailed Chinese verification record keeps the historical evidence for each 
 - Clean-host drill: 12/12 PASS, archive unpacked, health v16/31, diagnostics valid, checkpoint verified, uninstall preserved data and keys, reinstall read the preserved database. Evidence: `docs/operations/measurements/install-0.0.18-2026-11-20.json`.
 - Live Chromium 0.0.18: 14/14 routes, 0 axe violations, no page errors, no horizontal overflow. Evidence: `docs/operations/measurements/live-browser-0.0.18-2026-11-20.json`.
 - Vault lock drill: locked overview 423, wrong password 400, correct unlock 200, overview 200, relock assets 423; CLI blocked without `DIGILEGACY_VAULT_PASSWORD`. Evidence: `docs/operations/measurements/security-lock-0.0.18-2026-11-20.json`.
+
+## 0.0.31 built-in starter pack
+
+- Schema v18 / 32 tables. `agent_skills.builtin` is added and the v18 pack is seeded once through the migration ledger. A real existing database upgraded to 8 built-in skills (3 enabled); `agent.harness.status` returned `skills.builtin: 8` and `builtinMcp: 6`.
+- The bundled `digilegacy-mcp` answered `initialize` + `tools/list` with 20 read/draft tools and `overview.get` returned `isError: false`. The three write tools are intentionally absent from the MCP manifest and remain behind platform approval.
+- Harness shows 23 tools, 6 MCP catalog entries and 8 skills. The MCP catalog uses native expandable rows; the bundled entry is open by default and shows source, transport, real command and official docs. Built-in skills carry a badge; local-model cards say weights are downloaded on demand and never bundled.
+- Planner regression: a fresh DB system prompt contains the user skill plus 数字资产盘点, 执行人交付手册 and 平台遗产政策核对.
+- Gate: `./tools/verify.sh` exit 0; 202 Rust + 83 Web; **48 commands / 23 tools / 65 schemas / 21 errors**; schema v18 / 32 tables; entry 82.70/83 KB, JS gzip 116.00/116 KB, CSS gzip 21.66/22 KB, total 137.65/138 KB.
+- Live Chromium: 18/18 routes, 0 axe violations, no page errors, no 390 px overflow. Evidence: `docs/operations/measurements/live-browser-0.0.31-2026-11-22.json`; screenshots in `screenshots-0.0.31/`.
+- Archive: `packages/digilegacy-0.0.31-linux-x86_64.tar.gz`; the sidecar `.sha256` is authoritative. Clean-host drill 12/12 PASS; evidence `docs/operations/measurements/install-0.0.31-2026-11-22.json`, including an archive-SHA consistency check.

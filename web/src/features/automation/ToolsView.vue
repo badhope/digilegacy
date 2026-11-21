@@ -10,7 +10,7 @@ import { useI18n } from "@/platform/i18n";
 import { TOOL_CATALOG } from "@/platform/generated/tools";
 
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 defineProps<{ embedded?: boolean }>();
 const query = ref("");
 const permission = ref("all");
@@ -54,6 +54,11 @@ function tone(value: string): "ready" | "planned" | "degraded" | "danger" | "neu
       </select>
       <span class="mono count">{{ t("tools.count", { count: filtered.length }) }}</span>
     </div>
+    <p class="tool-note">
+      {{ locale === "zh-CN"
+        ? "内置工具：全部随平台提供，无需下载；写工具仍需审批。"
+        : "Built-in tools: shipped with the platform, no download needed; write tools still require approval." }}
+    </p>
 
     <div v-if="filtered.length" class="tool-grid">
       <article v-for="tool in filtered" :key="tool.name" class="tool-card">
@@ -85,6 +90,7 @@ function tone(value: string): "ready" | "planned" | "degraded" | "danger" | "neu
 </template>
 
 <style scoped>
+.tool-note { margin: 0 0 12px; color: var(--ink-muted); font-size: 12px; }
 .back-arrow { transform: rotate(180deg); }
 .tools-page { max-width: var(--content-max); margin: 0 auto; }
 .tools-page.embedded { max-width: none; }

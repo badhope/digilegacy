@@ -1,4 +1,4 @@
--- DigiLegacy schema v17.
+-- DigiLegacy schema v18.
 -- 32 tables. The v8 lineage is preserved; new tables are additive so an old
 -- database can be migrated without recreating it.
 
@@ -409,6 +409,7 @@ CREATE TABLE IF NOT EXISTS agent_skills (
     description TEXT NOT NULL DEFAULT '',
     instructions TEXT NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
+    builtin INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );

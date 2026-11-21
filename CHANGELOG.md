@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.0.31] - November 2026
+
+### Added
+
+- **Built-in starter pack** in Agent Harness: the overview counts the 23 tools, 6 MCP entries and 8 seeded digital-legacy skills, with a full MCP catalog below; the local-model panel marks catalog entries. Any fresh install sees it without configuring anything.
+- **Built-in MCP catalog** exposed through `agent.harness.status.builtinMcp`: the bundled `digilegacy-mcp` (20 MCP-exposed read/draft tools) plus reviewed Filesystem, MarkItDown, Memory, Sequential Thinking and Fetch entries. Each shows source, transport, real command, copy action and official docs link.
+- **Eight seeded digital-legacy skills** in schema v18: asset inventory, executor runbook, platform legacy policy check, credential handoff, memorial/deletion wishes, annual review, family notification and legal boundary. The first three are enabled; all can be edited or deleted.
+- Model cards now state that metadata is built in but weights are downloaded on demand, never bundled and never enabled by default. Descriptions include the MiniCPM5-2B benchmark context and the Q4 repetition-loop warning.
+
+### Changed
+
+- Schema v18 adds `agent_skills.builtin` (32 tables remain). The v18 seed runs once through the migration ledger, so deleted built-in skills are not resurrected.
+- The harness schema now includes `skills.builtin` and `builtinMcp`.
+- Contracts remain **48 commands / 23 tools / 65 schemas / 21 error codes**.
+
+### Boundary
+
+- The bundled MCP catalog is metadata plus a real stdio server; the platform MCP client still only speaks HTTP JSON-RPC. The UI says this explicitly rather than faking one-click stdio support.
+- Built-in skills are prompt guidance, not legal advice, and are not executable scripts.
+
 ## [0.0.30] - November 2026
 
 ### Added

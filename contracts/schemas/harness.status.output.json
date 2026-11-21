@@ -2,77 +2,218 @@
   "title": "AgentHarnessStatus",
   "type": "object",
   "additionalProperties": false,
-  "required": ["planner", "runs", "approvals", "usage", "tools", "mcp", "skills"],
+  "required": [
+    "planner",
+    "runs",
+    "approvals",
+    "usage",
+    "tools",
+    "mcp",
+    "skills",
+    "builtinMcp"
+  ],
   "properties": {
     "planner": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["configured", "source", "model", "endpointHost", "timeoutSecs"],
+      "required": [
+        "configured",
+        "source",
+        "model",
+        "endpointHost",
+        "timeoutSecs"
+      ],
       "properties": {
-        "configured": { "type": "boolean" },
-        "source": { "type": "string", "enum": ["stored", "env", "local", "none"] },
-        "model": { "type": "string" },
-        "endpointHost": { "type": "string" },
-        "timeoutSecs": { "type": "integer", "minimum": 0 }
+        "configured": {
+          "type": "boolean"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "stored",
+            "env",
+            "local",
+            "none"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "endpointHost": {
+          "type": "string"
+        },
+        "timeoutSecs": {
+          "type": "integer",
+          "minimum": 0
+        }
       }
     },
     "runs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["total", "running", "waitingApproval", "failed"],
+      "required": [
+        "total",
+        "running",
+        "waitingApproval",
+        "failed"
+      ],
       "properties": {
-        "total": { "type": "integer" },
-        "running": { "type": "integer" },
-        "waitingApproval": { "type": "integer" },
-        "failed": { "type": "integer" }
+        "total": {
+          "type": "integer"
+        },
+        "running": {
+          "type": "integer"
+        },
+        "waitingApproval": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        }
       }
     },
     "approvals": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["pending"],
+      "required": [
+        "pending"
+      ],
       "properties": {
-        "pending": { "type": "integer" }
+        "pending": {
+          "type": "integer"
+        }
       }
     },
     "usage": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tokensIn", "tokensOut", "costMicros", "priced"],
+      "required": [
+        "tokensIn",
+        "tokensOut",
+        "costMicros",
+        "priced"
+      ],
       "properties": {
-        "tokensIn": { "type": "integer" },
-        "tokensOut": { "type": "integer" },
-        "costMicros": { "type": "integer" },
-        "priced": { "type": "boolean" }
+        "tokensIn": {
+          "type": "integer"
+        },
+        "tokensOut": {
+          "type": "integer"
+        },
+        "costMicros": {
+          "type": "integer"
+        },
+        "priced": {
+          "type": "boolean"
+        }
       }
     },
     "tools": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["total", "mcp", "write", "draft"],
+      "required": [
+        "total",
+        "mcp",
+        "write",
+        "draft"
+      ],
       "properties": {
-        "total": { "type": "integer" },
-        "mcp": { "type": "integer" },
-        "write": { "type": "integer" },
-        "draft": { "type": "integer" }
+        "total": {
+          "type": "integer"
+        },
+        "mcp": {
+          "type": "integer"
+        },
+        "write": {
+          "type": "integer"
+        },
+        "draft": {
+          "type": "integer"
+        }
       }
     },
     "mcp": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["servers", "enabled"],
+      "required": [
+        "servers",
+        "enabled"
+      ],
       "properties": {
-        "servers": { "type": "integer" },
-        "enabled": { "type": "integer" }
+        "servers": {
+          "type": "integer"
+        },
+        "enabled": {
+          "type": "integer"
+        }
       }
     },
     "skills": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["total", "enabled"],
+      "required": [
+        "total",
+        "enabled",
+        "builtin"
+      ],
       "properties": {
-        "total": { "type": "integer" },
-        "enabled": { "type": "integer" }
+        "total": {
+          "type": "integer"
+        },
+        "enabled": {
+          "type": "integer"
+        },
+        "builtin": {
+          "type": "integer"
+        }
+      }
+    },
+    "builtinMcp": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "source",
+          "transport",
+          "command",
+          "description",
+          "docsUrl"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "bundled",
+              "official",
+              "vendor"
+            ]
+          },
+          "transport": {
+            "type": "string",
+            "enum": [
+              "stdio",
+              "http"
+            ]
+          },
+          "command": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "docsUrl": {
+            "type": "string"
+          }
+        }
       }
     }
   },

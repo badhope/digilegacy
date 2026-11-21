@@ -1,10 +1,10 @@
-//! Schema v17: agent skills, additive migrations and ledger.
+//! Schema v18: built-in skills and MCP catalog metadata.
 
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use sha2::{Digest, Sha256};
 
-pub const SCHEMA_VERSION: i64 = 17;
+pub const SCHEMA_VERSION: i64 = 18;
 pub const SCHEMA_SQL: &str = include_str!("schema.sql");
 pub const EXPECTED_TABLES: i64 = 32;
 
@@ -94,6 +94,23 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
     )?;
     add_column(conn, "dms_config", "triggered_at", "TEXT DEFAULT ''")?;
     add_column(conn, "dms_config", "trigger_stage", "INTEGER DEFAULT 0")?;
+    add_column(
+        conn,
+        "agent_skills",
+        "builtin",
+        "INTEGER NOT NULL DEFAULT 0",
+    )?;
+
+    // Seed only when v18 first runs. A user may edit or delete a built-in skill
+    // afterwards; do not resurrect it on every startup.
+    let v18_applied: i64 = conn.query_row(
+        "SELECT count(*) FROM schema_migrations WHERE version = 18",
+        [],
+        |row| row.get(0),
+    )?;
+    if v18_applied == 0 {
+        crate::builtin_skills::seed(conn)?;
+    }
 
     conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     conn.execute(
@@ -101,7 +118,7 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
          VALUES (?1, ?2, ?3, ?4)",
         params![
             SCHEMA_VERSION,
-            "v17_agent_skills",
+            "v18_builtin_resources",
             checksum(),
             Utc::now().to_rfc3339()
         ],
@@ -127,7 +144,7 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
-    fn schema_is_v17_and_has_32_tables() {
+    fn schema_is_v18_and_has_32_tables() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let version: i64 = conn
@@ -142,21 +159,59 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(count, EXPECTED_TABLES, "schema v17 必须正好 32 张表");
+        assert_eq!(count, EXPECTED_TABLES, "schema v18 必须正好 32 张表");
     }
 
     #[test]
-    fn migration_ledger_records_v17() {
+    fn migration_ledger_records_v18() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let name: String = conn
             .query_row(
-                "SELECT name FROM schema_migrations WHERE version = 17",
+                "SELECT name FROM schema_migrations WHERE version = 18",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(name, "v17_agent_skills");
+        assert_eq!(name, "v18_builtin_resources");
+    }
+
+    #[test]
+    fn seeds_builtin_skills_once() {
+        let conn = Connection::open_in_memory().unwrap();
+        apply_schema(&conn).unwrap();
+        let builtin: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM agent_skills WHERE builtin=1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(builtin, 8);
+        let enabled: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM agent_skills WHERE builtin=1 AND enabled=1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(enabled, 3);
+
+        // Deleting a user-visible built-in skill must survive the next launch.
+        conn.execute("DELETE FROM agent_skills WHERE name='年度复核与演练'", [])
+            .unwrap();
+        apply_schema(&conn).unwrap();
+        let builtin_after: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM agent_skills WHERE builtin=1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            builtin_after, 7,
+            "v18 seed must not resurrect deleted skills"
+        );
     }
 
     #[test]

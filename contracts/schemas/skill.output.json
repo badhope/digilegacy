@@ -2,15 +2,41 @@
   "title": "AgentSkill",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "name", "description", "instructions", "enabled", "createdAt", "updatedAt"],
+  "required": [
+    "id",
+    "name",
+    "description",
+    "instructions",
+    "enabled",
+    "builtin",
+    "createdAt",
+    "updatedAt"
+  ],
   "properties": {
-    "id": { "type": "string" },
-    "name": { "type": "string" },
-    "description": { "type": "string" },
-    "instructions": { "type": "string" },
-    "enabled": { "type": "boolean" },
-    "createdAt": { "type": "string" },
-    "updatedAt": { "type": "string" }
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "instructions": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "updatedAt": {
+      "type": "string"
+    },
+    "builtin": {
+      "type": "boolean"
+    }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"
 }

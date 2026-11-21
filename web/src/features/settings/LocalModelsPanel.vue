@@ -26,7 +26,7 @@ const localModelCopy = computed(() =>
   locale.value === "zh-CN"
     ? {
         title: "本地模型",
-        note: "用于能力测试的本地模型，按需下载和启用；不内置、不默认启用，用户自行选择。",
+        note: "内置模型目录：只预置元数据与下载地址，权重按需下载，不随安装包分发，不默认启用，也不替用户选择。",
         root: "模型目录",
         download: "下载",
         downloading: "下载中",
@@ -45,20 +45,21 @@ const localModelCopy = computed(() =>
         partial: "未完成",
         missing: "未下载",
         context: "上下文",
+        catalogBadge: "内置目录",
         items: {
           "minicpm5-1b": {
             params: "1.08B 稠密",
-            description: "轻量测试候选：1.08B 稠密参数，128K 上下文，标准 Llama 架构，适合基础规划与日常生成测试。",
+            description: "1.08B 稠密、128K；轻量规划候选，复杂多步工具调用仍弱。",
           },
           "minicpm5-2b": {
             params: "2.52B 稠密",
-            description: "较大测试候选：2.52B 稠密参数，128K 上下文，适合长文本与工具调用测试。",
+            description: "2.52B 稠密、128K；工具调用候选；Q4 有重复循环风险，保留 repeat penalty 或选 Q8。",
           },
         },
       }
     : {
         title: "Local models",
-        note: "Local models for capability testing. Download and enable on demand; none are bundled or enabled by default. Choose your own.",
+        note: "Built-in model catalog: metadata and download URLs only. Weights are fetched on demand, never bundled, never enabled by default, and never chosen for you.",
         root: "Model directory",
         download: "Download",
         downloading: "Downloading",
@@ -77,14 +78,15 @@ const localModelCopy = computed(() =>
         partial: "Incomplete",
         missing: "Not downloaded",
         context: "context",
+        catalogBadge: "Built-in catalog",
         items: {
           "minicpm5-1b": {
             params: "1.08B dense",
-            description: "Lightweight test candidate: 1.08B dense parameters, 128K context, standard Llama architecture; suits basic planning and everyday generation tests.",
+            description: "1.08B dense, 128K; lightweight planning candidate, weak at complex multi-step tool calls.",
           },
           "minicpm5-2b": {
             params: "2.52B dense",
-            description: "Larger test candidate: 2.52B dense parameters, 128K context; suits long-text and tool-calling tests.",
+            description: "2.52B dense, 128K; tool-calling candidate. Q4 can loop, so keep repeat penalty or use Q8.",
           },
         },
       },
@@ -242,6 +244,7 @@ onUnmounted(() => {
         <div class="local-model-card-head">
           <div>
             <strong>{{ item.name }}</strong>
+            <small class="model-catalog-badge">{{ localModelCopy.catalogBadge }}</small>
           </div>
           <StatusPill :tone="localModelTone(item)" :label="localModelStatusLabel(item)" />
         </div>
@@ -292,6 +295,16 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.model-catalog-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 500;
+}
 .local-model-block { display: grid; gap: 10px; margin: 0 0 18px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--accent) 4%, var(--surface)); }
 .local-model-head-actions { display: flex; align-items: center; gap: 10px; }
 .local-model-root { margin-top: 0; overflow-wrap: anywhere; }

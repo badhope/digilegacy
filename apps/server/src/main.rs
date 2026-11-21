@@ -1004,7 +1004,7 @@ mod tests {
         assert_eq!(data["requests"]["total"], 1);
         assert_eq!(data["requests"]["status2xx"], 1);
         assert_eq!(data["latencyMs"]["p95"], 25);
-        assert_eq!(data["store"]["schemaVersion"], 17);
+        assert_eq!(data["store"]["schemaVersion"], 18);
         let text = data.to_string().to_lowercase();
         assert!(!text.contains("token"));
         assert!(!text.contains("secret"));
@@ -1174,7 +1174,7 @@ mod tests {
             .unwrap();
         let body: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(body["data"]["audit"]["valid"], true);
-        assert_eq!(body["data"]["store"]["schema_version"], 17);
+        assert_eq!(body["data"]["store"]["schema_version"], 18);
     }
 
     #[tokio::test]

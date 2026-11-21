@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.0.31] - 2026-11-22
+
+### 新增
+
+- **内置资源包**：Agent Harness 总览直接显示 23 个工具、6 条 MCP 目录、8 条内置 Skill；下方新增 MCP 目录，列出随包 `digilegacy-mcp` 与 Filesystem、MarkItDown、Memory、Sequential Thinking、Fetch 五个已核对条目，含来源、传输、真实命令与官方文档链接。
+- **8 条数字遗产主题内置 Skill**：数字资产盘点、执行人交付手册、平台遗产政策核对、凭据与恢复材料交接、纪念与删除意愿、年度复核与演练、家属通知草稿、法律与管辖边界。前三条默认启用，全部可编辑/停用/删除。
+- 本地模型卡片增加“内置目录”标识并写明：只预置元数据与下载地址，权重按需下载、不随包分发、不默认启用；补充 MiniCPM5-2B 基准背景与 Q4 重复循环提醒。
+
+### 调整
+
+- Schema v18 增加 `agent_skills.builtin`（仍为 32 张表）。v18 通过 migration ledger 只 seed 一次，删除后的内置 Skill 不会在重启时复活。
+- Harness schema 增加 `skills.builtin` 与 `builtinMcp`。契约保持 **48 命令 / 23 工具 / 65 schema / 21 错误码**。
+
+### 边界
+
+- 随包 MCP 真实暴露 20 个只读/草稿工具；3 个写工具不通过 MCP 暴露，仍走平台审批。
+- 平台 MCP 客户端只支持 HTTP JSON-RPC；内置/官方 stdio 条目在 UI 明确标注，需要外部 stdio 客户端或本地 HTTP 网关，不做假的一键连接。
+- 内置 Skill 是提示词，不是法律意见，也不执行脚本。
+
 ## [0.0.30] - 2026-11-21
 
 ### 新增

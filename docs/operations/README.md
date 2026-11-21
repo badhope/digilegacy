@@ -9,6 +9,7 @@ Guides for running a self-hosted DigiLegacy instance.
 - [Connection setup handoff](CONNECTION-SETUP.md) is the page to send when the mailbox or webhook account belongs to someone else.
 - [Release checklist](RELEASE-CHECKLIST.md) tracks automated evidence, open human gates and sign-off.
 - [Policy source precheck](POLICY-SOURCES.md) explains the 152-row source worklist and keeps machine reachability separate from human verification.
+- [Built-in starter pack](BUILTIN-PACK.md) documents the model catalog, 23 tools, six MCP entries and eight seeded digital-legacy skills.
 
 The product is a single-node deployment by default. `GET /api/v1/metrics` exposes process-local counters and latency buckets as JSON; it is not Prometheus text format. The SLO guide explains the probe, metrics, diagnostics and checkpoint signals.
 

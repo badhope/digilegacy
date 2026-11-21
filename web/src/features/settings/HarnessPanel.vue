@@ -7,7 +7,7 @@ import StatusPill from "@/shared/ui/StatusPill.vue";
 import { platformClient } from "@/platform/client";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
-import type { AgentSkill, ConnectionItem, SkillUpsertInput } from "@/platform/types";
+import type { AgentSkill, BuiltinMcpEntry, ConnectionItem, SkillUpsertInput } from "@/platform/types";
 
 const { locale } = useI18n();
 const status = useResource(() => platformClient.harnessStatus());
@@ -19,6 +19,9 @@ const copy = computed(() =>
     ? {
         overview: "Harness 总览",
         overviewNote: "只读聚合：规划器来源、运行、审批、用量、工具目录与 MCP/Skill 计数。",
+        builtinBadge: "内置",
+        catalogTitle: "MCP 目录",
+        docs: "文档",
         planner: "规划器",
         runs: "运行",
         approvals: "待审批",
@@ -87,6 +90,9 @@ const copy = computed(() =>
     : {
         overview: "Harness overview",
         overviewNote: "Read-only totals: planner source, runs, approvals, usage, tool catalog and MCP/Skill counts.",
+        builtinBadge: "Built-in",
+        catalogTitle: "MCP catalog",
+        docs: "Docs",
         planner: "Planner",
         runs: "Runs",
         approvals: "Approvals",
@@ -323,6 +329,10 @@ async function deleteSkill(skill: AgentSkill) {
   status.reload();
 }
 
+function scrollTo(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function refreshAll() {
   status.reload();
   connections.reload();
@@ -388,6 +398,22 @@ function refreshAll() {
       </div>
     </SectionCard>
 
+
+
+    <div id="builtin-mcp">
+      <SectionCard :title="copy.catalogTitle">
+        <p class="harness-hint">{{ copy.mcpOnly }}</p>
+        <div class="builtin-list">
+          <details v-for="entry in status.data.value?.builtinMcp ?? []" :key="entry.id" class="builtin-entry" :open="entry.id === 'digilegacy-platform'">
+            <summary><strong>{{ entry.name }}</strong><span class="mono">{{ entry.source }} · {{ entry.transport }}</span></summary>
+            <p>{{ entry.description }}</p>
+            <code>{{ entry.command }}</code>
+            <a class="link-button" :href="entry.docsUrl" target="_blank" rel="noreferrer">{{ copy.docs }}</a>
+          </details>
+        </div>
+      </SectionCard>
+    </div>
+
     <SectionCard :title="copy.mcpTitle" :subtitle="copy.mcpNote">
       <div class="harness-toolbar">
         <button type="button" class="link-button" @click="openAddMcp">{{ copy.addMcp }}</button>
@@ -432,6 +458,7 @@ function refreshAll() {
       <p v-if="mcpNotice" class="harness-notice">{{ mcpNotice }}</p>
     </SectionCard>
 
+    <div id="builtin-skills">
     <SectionCard :title="copy.skillsTitle" :subtitle="copy.skillsNote">
       <div class="harness-toolbar">
         <button type="button" class="link-button" @click="openAddSkill">{{ copy.addSkill }}</button>
@@ -465,7 +492,7 @@ function refreshAll() {
       <ul v-else class="harness-list">
         <li v-for="skill in skills.data.value.items" :key="skill.id" class="harness-row">
           <div>
-            <strong>{{ skill.name }}</strong>
+            <strong>{{ skill.name }} <span v-if="skill.builtin" class="builtin-tag">{{ copy.builtinBadge }}</span></strong>
             <small>{{ skill.description || '—' }}</small>
             <small class="mono">{{ skill.enabled ? copy.enabledLabel : copy.disabledLabel }}</small>
           </div>
@@ -481,10 +508,17 @@ function refreshAll() {
       </ul>
       <p v-if="skillNotice" class="harness-notice">{{ skillNotice }}</p>
     </SectionCard>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.builtin-list { display: flex; flex-direction: column; gap: 8px; }
+.builtin-entry { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface-soft); }
+.builtin-entry summary { display: flex; justify-content: space-between; gap: 10px; cursor: pointer; }
+.builtin-entry summary span { color: var(--ink-muted); font-size: 11px; }
+.builtin-entry p { margin: 8px 0; color: var(--ink-muted); font-size: 12px; line-height: 1.55; }
+.builtin-entry code { display: block; margin-bottom: 6px; padding: 7px 9px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); font-size: 11px; overflow-wrap: anywhere; }
 .harness-panel {
   display: flex;
   flex-direction: column;
