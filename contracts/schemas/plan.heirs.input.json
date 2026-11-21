@@ -2,7 +2,9 @@
   "title": "PlanHeirsInput",
   "type": "object",
   "additionalProperties": false,
-  "required": ["heirs"],
+  "required": [
+    "heirs"
+  ],
   "properties": {
     "heirs": {
       "type": "array",
@@ -10,7 +12,9 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -29,6 +33,16 @@
           "isExecutor": {
             "type": "boolean",
             "default": false
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "description": "最终交付通知接收邮箱；可留空，留空时无法通过邮件送达。"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "继承人联系电话，可选。"
           }
         }
       }

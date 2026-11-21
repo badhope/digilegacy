@@ -28,6 +28,7 @@ withDefaults(
 
 <style scoped>
 .section-card {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);

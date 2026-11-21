@@ -396,12 +396,12 @@
   "assets.discover.viewAssets": "View assets",
   "common.remove": "Remove",
   "planning.notifications.title": "Final notifications",
-  "planning.notifications.subtitle": "The final trigger stage writes to the outbox; the platform sends through the configured webhook, Feishu or WeCom channel, and failed rows can be retried.",
+  "planning.notifications.subtitle": "The final stage writes to the outbox; the platform sends via SMTP or webhook, and failed rows can be retried.",
   "planning.notifications.count": "Latest {count}",
   "planning.notifications.send": "Send pending",
   "planning.notifications.sending": "Sending…",
   "planning.notifications.sent": "Sent {sent}, failed {failed}, remaining {pending}",
-  "planning.notifications.notConfigured": "Notification channel not configured: entries stay in the outbox until DIGILEGACY_WEBHOOK_URL, DIGILEGACY_FEISHU_WEBHOOK_URL or DIGILEGACY_WECOM_WEBHOOK_URL is set.",
+  "planning.notifications.notConfigured": "Notification channel not configured: entries stay queued until SMTP or webhook is set up.",
   "planning.notifications.empty": "No final notifications yet",
   "planning.notifications.noRecipient": "No recipient configured",
   "planning.notification.status.pending": "Pending",
@@ -438,7 +438,7 @@
   "planning.heirs.executor": "Primary executor",
   "planning.heirs.saved": "Heirs saved.",
   "planning.heirs.remove": "Remove",
-  "planning.heirs.note": "Only one primary executor; removing a row and saving deletes it.",
+  "planning.heirs.note": "Email receives final notices; keep one primary executor; removing a row and saving deletes it.",
   "planning.form.nameRequired": "Please enter a name.",
   "planning.form.maxHeirs": "Up to 20 heirs.",
   "planning.form.saving": "Saving…",
@@ -460,5 +460,8 @@
   "lock.recoveryNote": "Enter the one-time recovery code created during setup. It is used only for local unlock and is never stored in the browser.",
   "lock.useRecovery": "Use a recovery code",
   "lock.usePassword": "Use the master password",
-  "lock.rateLimited": "Too many attempts. Try again shortly."
+  "lock.rateLimited": "Too many attempts. Try again shortly.",
+  "planning.heirs.email": "Email",
+  "planning.heirs.phone": "Phone",
+  "planning.heirs.emailMissing": "No email; final notice cannot be delivered"
 }

@@ -29,6 +29,8 @@ pub struct Heir {
     pub id: String,
     pub name: String,
     pub role: String,
+    pub email: String,
+    pub phone: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -213,7 +215,48 @@ pub struct HeirInput {
     #[serde(default)]
     pub role: Option<String>,
     #[serde(default)]
+    pub email: Option<String>,
+    #[serde(default)]
+    pub phone: Option<String>,
+    #[serde(default)]
     pub is_executor: Option<bool>,
+}
+
+fn clean_email(value: Option<&str>) -> Result<Option<String>, DomainError> {
+    let Some(value) = value else { return Ok(None) };
+    let email = value.trim();
+    if email.is_empty() {
+        return Ok(Some(String::new()));
+    }
+    if email.chars().count() > 254 || email.chars().any(char::is_control) {
+        return Err(DomainError::Invalid("继承人邮箱格式不正确".to_string()));
+    }
+    let mut parts = email.split('@');
+    let local = parts.next().unwrap_or_default();
+    let domain = parts.next().unwrap_or_default();
+    if local.is_empty()
+        || domain.is_empty()
+        || !domain.contains('.')
+        || domain.starts_with('.')
+        || domain.ends_with('.')
+        || parts.next().is_some()
+        || email.chars().any(char::is_whitespace)
+    {
+        return Err(DomainError::Invalid("继承人邮箱格式不正确".to_string()));
+    }
+    Ok(Some(email.to_string()))
+}
+
+fn clean_phone(value: Option<&str>) -> Result<Option<String>, DomainError> {
+    let Some(value) = value else { return Ok(None) };
+    let phone = value.trim();
+    if phone.is_empty() {
+        return Ok(Some(String::new()));
+    }
+    if phone.chars().count() > 40 || phone.chars().any(char::is_control) {
+        return Err(DomainError::Invalid("继承人电话格式不正确".to_string()));
+    }
+    Ok(Some(phone.to_string()))
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -276,6 +319,8 @@ pub fn set_heirs(store: &Store, input: &HeirsInput) -> Result<Plan, DomainError>
                 "继承关系不能超过 {MAX_ROLE} 个字符"
             )));
         }
+        let email = clean_email(heir.email.as_deref())?;
+        let phone = clean_phone(heir.phone.as_deref())?;
         let is_executor = heir.is_executor.unwrap_or(false);
         if is_executor {
             executor_count += 1;
@@ -298,7 +343,7 @@ pub fn set_heirs(store: &Store, input: &HeirsInput) -> Result<Plan, DomainError>
                 return Err(DomainError::Invalid(format!("继承人 ID 重复: {id}")));
             }
         }
-        rows.push((id, name, role.to_string(), is_executor));
+        rows.push((id, name, role.to_string(), email, phone, is_executor));
     }
     if executor_count > 1 {
         return Err(DomainError::Invalid("只能指定一位主要执行人".to_string()));
@@ -309,15 +354,18 @@ pub fn set_heirs(store: &Store, input: &HeirsInput) -> Result<Plan, DomainError>
         .write(|conn| {
             let tx = conn.transaction()?;
             let mut keep_ids = Vec::with_capacity(rows.len());
-            for (index, (id, name, role, is_executor)) in rows.iter().enumerate() {
+            for (index, (id, name, role, email, phone, is_executor)) in rows.iter().enumerate() {
                 let sort_order = (index + 1) as i64;
                 match id {
                     Some(id) => {
                         let changed = tx.execute(
                             "UPDATE heirs
-                             SET name=?2, relation=?3, is_executor=?4, sort_order=?5, updated_at=?6
+                             SET name=?2, relation=?3, is_executor=?4, sort_order=?5,
+                                 email=COALESCE(?7, email), phone=COALESCE(?8, phone), updated_at=?6
                              WHERE id=?1",
-                            params![id, name, role, i64::from(*is_executor), sort_order, now],
+                            params![
+                                id, name, role, i64::from(*is_executor), sort_order, now, email, phone
+                            ],
                         )?;
                         if changed == 0 {
                             return Err(StoreError::Sql(rusqlite::Error::QueryReturnedNoRows));
@@ -326,9 +374,9 @@ pub fn set_heirs(store: &Store, input: &HeirsInput) -> Result<Plan, DomainError>
                     }
                     None => {
                         tx.execute(
-                            "INSERT INTO heirs (name, relation, is_executor, sort_order, created_at, updated_at)
-                             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-                            params![name, role, i64::from(*is_executor), sort_order, now],
+                            "INSERT INTO heirs (name, relation, email, phone, is_executor, sort_order, created_at, updated_at)
+                             VALUES (?1, ?2, COALESCE(?3,''), COALESCE(?4,''), ?5, ?6, ?7, ?7)",
+                            params![name, role, email, phone, i64::from(*is_executor), sort_order, now],
                         )?;
                         keep_ids.push(tx.last_insert_rowid());
                     }
@@ -378,7 +426,8 @@ pub fn get(store: &Store) -> Result<Plan, DomainError> {
 
             let mut stmt = conn.prepare(
                 "SELECT id, name, CASE WHEN is_executor != 0 THEN 'executor'
-                                       ELSE coalesce(nullif(relation,''), 'heir') END
+                                       ELSE coalesce(nullif(relation,''), 'heir') END,
+                        coalesce(email,''), coalesce(phone,'')
                  FROM heirs ORDER BY sort_order, id",
             )?;
             let heirs = stmt
@@ -387,6 +436,8 @@ pub fn get(store: &Store) -> Result<Plan, DomainError> {
                         id: r.get::<_, i64>(0)?.to_string(),
                         name: r.get(1)?,
                         role: r.get(2)?,
+                        email: r.get(3)?,
+                        phone: r.get(4)?,
                     })
                 })?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -635,6 +686,8 @@ mod tests {
                     id: None,
                     name: "林若岚".to_string(),
                     role: Some("配偶".to_string()),
+                    email: Some("lin@example.com".to_string()),
+                    phone: Some("+86 13800000001".to_string()),
                     is_executor: Some(true),
                 }],
             },
@@ -642,6 +695,8 @@ mod tests {
         .unwrap();
         assert_eq!(first.heirs.len(), 1);
         assert_eq!(first.heirs[0].role, "executor");
+        assert_eq!(first.heirs[0].email, "lin@example.com");
+        assert_eq!(first.heirs[0].phone, "+86 13800000001");
         let first_id = first.heirs[0].id.clone();
 
         let updated = set_heirs(
@@ -652,12 +707,16 @@ mod tests {
                         id: Some(first_id.clone()),
                         name: "林若岚（更新）".to_string(),
                         role: Some("配偶".to_string()),
+                        email: None,
+                        phone: None,
                         is_executor: Some(true),
                     },
                     HeirInput {
                         id: None,
                         name: "林一川".to_string(),
                         role: Some("子女".to_string()),
+                        email: Some("lin1@example.com".to_string()),
+                        phone: Some("13900000002".to_string()),
                         is_executor: None,
                     },
                 ],
@@ -667,7 +726,9 @@ mod tests {
         assert_eq!(updated.heirs.len(), 2);
         assert_eq!(updated.heirs[0].id, first_id);
         assert_eq!(updated.heirs[0].name, "林若岚（更新）");
+        assert_eq!(updated.heirs[0].email, "lin@example.com");
         assert_eq!(updated.heirs[1].name, "林一川");
+        assert_eq!(updated.heirs[1].email, "lin1@example.com");
         let second_id = updated.heirs[1].id.clone();
 
         let removed = set_heirs(
@@ -677,6 +738,8 @@ mod tests {
                     id: Some(second_id),
                     name: "林一川".to_string(),
                     role: Some("子女".to_string()),
+                    email: None,
+                    phone: None,
                     is_executor: None,
                 }],
             },
@@ -708,12 +771,16 @@ mod tests {
                             id: None,
                             name: "甲".to_string(),
                             role: None,
+                            email: None,
+                            phone: None,
                             is_executor: Some(true),
                         },
                         HeirInput {
                             id: None,
                             name: "乙".to_string(),
                             role: None,
+                            email: None,
+                            phone: None,
                             is_executor: Some(true),
                         }
                     ],
@@ -729,12 +796,70 @@ mod tests {
                         id: Some("999".to_string()),
                         name: "甲".to_string(),
                         role: None,
+                        email: None,
+                        phone: None,
                         is_executor: None,
                     }],
                 },
             ),
             Err(DomainError::NotFound(_))
         ));
+    }
+
+    #[test]
+    fn heir_email_validation_and_clear() {
+        let store = Store::open_in_memory(None).unwrap();
+        for bad in [
+            "foo@",
+            "@bar.com",
+            "foo@bar",
+            "foo@@bar.com",
+            "foo @bar.com",
+        ] {
+            let result = set_heirs(
+                &store,
+                &HeirsInput {
+                    heirs: vec![HeirInput {
+                        id: None,
+                        name: "甲".to_string(),
+                        role: None,
+                        email: Some(bad.to_string()),
+                        phone: None,
+                        is_executor: None,
+                    }],
+                },
+            );
+            assert!(matches!(result, Err(DomainError::Invalid(_))), "{bad}");
+        }
+        let saved = set_heirs(
+            &store,
+            &HeirsInput {
+                heirs: vec![HeirInput {
+                    id: None,
+                    name: "甲".to_string(),
+                    role: None,
+                    email: Some("ok@example.com".to_string()),
+                    phone: None,
+                    is_executor: None,
+                }],
+            },
+        )
+        .unwrap();
+        let cleared = set_heirs(
+            &store,
+            &HeirsInput {
+                heirs: vec![HeirInput {
+                    id: Some(saved.heirs[0].id.clone()),
+                    name: "甲".to_string(),
+                    role: None,
+                    email: Some(String::new()),
+                    phone: None,
+                    is_executor: None,
+                }],
+            },
+        )
+        .unwrap();
+        assert_eq!(cleared.heirs[0].email, "");
     }
 
     #[test]

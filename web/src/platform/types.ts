@@ -88,12 +88,16 @@ export interface Heir {
   id: string;
   name: string;
   role: string;
+  email: string;
+  phone: string;
 }
 
 export interface HeirDraft {
   id?: string;
   name: string;
   role?: string;
+  email?: string;
+  phone?: string;
   isExecutor?: boolean;
 }
 

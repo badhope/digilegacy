@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.0.25",
+    "version": "0.0.26",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -4125,6 +4125,16 @@
                 "isExecutor": {
                   "type": "boolean",
                   "default": false
+                },
+                "email": {
+                  "type": "string",
+                  "maxLength": 254,
+                  "description": "最终交付通知接收邮箱；可留空，留空时无法通过邮件送达。"
+                },
+                "phone": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "description": "继承人联系电话，可选。"
                 }
               }
             }
@@ -4164,7 +4174,9 @@
               "required": [
                 "id",
                 "name",
-                "role"
+                "role",
+                "email",
+                "phone"
               ],
               "properties": {
                 "id": {
@@ -4174,6 +4186,12 @@
                   "type": "string"
                 },
                 "role": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "phone": {
                   "type": "string"
                 }
               }

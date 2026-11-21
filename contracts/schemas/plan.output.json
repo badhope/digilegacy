@@ -30,7 +30,9 @@
         "required": [
           "id",
           "name",
-          "role"
+          "role",
+          "email",
+          "phone"
         ],
         "properties": {
           "id": {
@@ -40,6 +42,12 @@
             "type": "string"
           },
           "role": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
             "type": "string"
           }
         }

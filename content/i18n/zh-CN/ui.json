@@ -396,12 +396,12 @@
   "assets.discover.viewAssets": "查看资产",
   "common.remove": "移除",
   "planning.notifications.title": "最终通知",
-  "planning.notifications.subtitle": "触发链进入最终阶段会自动写入发件箱；配置 Webhook / 飞书 / 企业微信通道后由平台发送，失败可手动重试。",
+  "planning.notifications.subtitle": "最终阶段自动写入发件箱；配置 SMTP 邮件或 Webhook 后由平台发送，失败可重试。",
   "planning.notifications.count": "最近 {count} 条",
   "planning.notifications.send": "发送待发",
   "planning.notifications.sending": "发送中…",
   "planning.notifications.sent": "已发送 {sent}，失败 {failed}，剩余 {pending}",
-  "planning.notifications.notConfigured": "未配置通知通道：通知保留在发件箱，配置 DIGILEGACY_WEBHOOK_URL、DIGILEGACY_FEISHU_WEBHOOK_URL 或 DIGILEGACY_WECOM_WEBHOOK_URL 后重试。",
+  "planning.notifications.notConfigured": "未配置通知通道：通知暂存发件箱，配置 SMTP 或 Webhook 后重试。",
   "planning.notifications.empty": "还没有最终通知",
   "planning.notifications.noRecipient": "未配置接收人",
   "planning.notification.status.pending": "待发送",
@@ -438,7 +438,7 @@
   "planning.heirs.executor": "主要执行人",
   "planning.heirs.saved": "继承人已保存。",
   "planning.heirs.remove": "移除",
-  "planning.heirs.note": "只保留一位主要执行人；移除后保存即删除。",
+  "planning.heirs.note": "邮箱用于接收最终通知；仅保留一位主要执行人；移除后保存即删除。",
   "planning.form.nameRequired": "请填写姓名。",
   "planning.form.maxHeirs": "最多 20 位继承人。",
   "planning.form.saving": "保存中…",
@@ -460,5 +460,8 @@
   "lock.recoveryNote": "输入初始化时生成的一次性恢复码。恢复码只用于本地解锁，不会保存到浏览器。",
   "lock.useRecovery": "使用恢复码",
   "lock.usePassword": "使用主密码",
-  "lock.rateLimited": "尝试次数过多，请稍后再试"
+  "lock.rateLimited": "尝试次数过多，请稍后再试",
+  "planning.heirs.email": "邮箱",
+  "planning.heirs.phone": "电话",
+  "planning.heirs.emailMissing": "未填邮箱，无法接收最终通知"
 }

@@ -259,6 +259,8 @@ function startHeirsEdit(addBlank = false) {
     id: heir.id,
     name: heir.name,
     role: heir.role === "executor" ? "" : heir.role,
+    email: heir.email,
+    phone: heir.phone,
     isExecutor: heir.role === "executor",
   }));
   heirsError.value = "";
@@ -272,7 +274,7 @@ function addHeirDraft() {
     heirsError.value = t("planning.form.maxHeirs");
     return;
   }
-  heirDrafts.value.push({ name: "", role: "", isExecutor: false });
+  heirDrafts.value.push({ name: "", role: "", email: "", phone: "", isExecutor: false });
 }
 
 function removeHeirDraft(index: number) {
@@ -291,6 +293,8 @@ async function saveHeirs() {
     id: heir.id,
     name: heir.name.trim(),
     role: (heir.role ?? "").trim(),
+    email: (heir.email ?? "").trim(),
+    phone: (heir.phone ?? "").trim(),
     isExecutor: Boolean(heir.isExecutor),
   }));
   if (drafts.some((heir) => !heir.name)) {
@@ -305,6 +309,8 @@ async function saveHeirs() {
         ...(heir.id ? { id: heir.id } : {}),
         name: heir.name,
         role: heir.role,
+        email: heir.email,
+        phone: heir.phone,
         isExecutor: heir.isExecutor,
       })),
     );
@@ -400,6 +406,14 @@ async function saveHeirs() {
                 <span>{{ t("planning.heirs.role") }}</span>
                 <input v-model="heir.role" type="text" maxlength="80" />
               </label>
+              <label class="form-field">
+                <span>{{ t("planning.heirs.email") }}</span>
+                <input v-model="heir.email" type="email" maxlength="254" autocomplete="email" />
+              </label>
+              <label class="form-field">
+                <span>{{ t("planning.heirs.phone") }}</span>
+                <input v-model="heir.phone" type="tel" maxlength="40" autocomplete="tel" />
+              </label>
               <label class="executor-toggle">
                 <input
                   type="checkbox"
@@ -434,6 +448,9 @@ async function saveHeirs() {
                 <span class="heir-copy">
                   <strong>{{ heir.name }}</strong>
                   <small>{{ heir.role }}</small>
+                  <small v-if="heir.email">{{ heir.email }}</small>
+                  <small v-else class="heir-contact-warning">{{ t("planning.heirs.emailMissing") }}</small>
+                  <small v-if="heir.phone">{{ heir.phone }}</small>
                 </span>
               </div>
             </div>
@@ -680,7 +697,7 @@ async function saveHeirs() {
 
 .heir-edit-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto auto;
   align-items: end;
   gap: 8px;
   padding: 10px 0;
@@ -749,6 +766,10 @@ async function saveHeirs() {
   margin-top: 2px;
   color: var(--muted);
   font-size: 10px;
+}
+
+.heir-contact-warning {
+  color: var(--warning, #9a5b21);
 }
 
 .trigger-chain {

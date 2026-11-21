@@ -21,7 +21,7 @@ use axum::{
     Router,
 };
 use digilegacy_application::{jobs, Application};
-use digilegacy_domains::{approvals, assets, audit, discovery, plan, policy};
+use digilegacy_domains::{approvals, assets, audit, discovery, notify, plan, policy};
 use digilegacy_foundation::{Envelope, Permission, PlatformError};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -474,9 +474,9 @@ async fn local_model_stop(State(state): State<AppState>, headers: HeaderMap) -> 
 
 async fn notifications_list(
     State(state): State<AppState>,
-    Query(query): Query<Value>,
+    Query(input): Query<notify::ListInput>,
 ) -> impl IntoResponse {
-    dispatch(&state, "notifications.list", query, None)
+    dispatch(&state, "notifications.list", json!(input), None)
 }
 
 async fn connections_list(
@@ -977,6 +977,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn notifications_list_accepts_numeric_query_limit() {
+        let state = test_app();
+        let response = router(state)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/notifications?limit=10")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
     async fn plan_write_routes_update_holder_and_heirs() {
         let state = test_app_with_token(Some("test-token"));
         let profile = router(state.clone())
@@ -1001,7 +1016,7 @@ mod tests {
                     .header(header::AUTHORIZATION, "Bearer test-token")
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
-                        r#"{"heirs":[{"name":"林若岚","role":"配偶","isExecutor":true}]}"#,
+                        r#"{"heirs":[{"name":"林若岚","role":"配偶","email":"lin@example.com","phone":"13800000001","isExecutor":true}]}"#,
                     ))
                     .unwrap(),
             )
@@ -1026,6 +1041,28 @@ mod tests {
         assert_eq!(plan["data"]["holder"]["name"], "林知远");
         assert_eq!(plan["data"]["heirs"][0]["name"], "林若岚");
         assert_eq!(plan["data"]["heirs"][0]["role"], "executor");
+        assert_eq!(plan["data"]["heirs"][0]["email"], "lin@example.com");
+        assert_eq!(plan["data"]["heirs"][0]["phone"], "13800000001");
+    }
+
+    #[tokio::test]
+    async fn plan_write_routes_reject_invalid_heir_email() {
+        let state = test_app_with_token(Some("test-token"));
+        let response = router(state)
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/api/v1/plan/heirs")
+                    .header(header::AUTHORIZATION, "Bearer test-token")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"heirs":[{"name":"林若岚","email":"foo@"}]}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]

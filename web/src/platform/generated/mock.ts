@@ -343,17 +343,23 @@ const MOCK_DATA: Record<string, unknown> = {
       {
         "id": "heir_01",
         "name": "林若岚",
-        "role": "配偶 / 第一执行人"
+        "role": "配偶 / 第一执行人",
+        "email": "heir1@example.com",
+        "phone": ""
       },
       {
         "id": "heir_02",
         "name": "林一川",
-        "role": "子女 / 继承人"
+        "role": "子女 / 继承人",
+        "email": "heir2@example.com",
+        "phone": ""
       },
       {
         "id": "heir_03",
         "name": "周文清",
-        "role": "挚友 / 备选执行人"
+        "role": "挚友 / 备选执行人",
+        "email": "heir3@example.com",
+        "phone": ""
       }
     ],
     "trigger": {

@@ -584,7 +584,7 @@ function go(section: Section) {
             <div v-if="audit.loading.value" class="empty-note">{{ t("common.loading") }}</div>
             <div v-else-if="audit.error.value" class="empty-note">{{ audit.error.value }}</div>
             <div v-else-if="!audit.data.value?.items.length" class="empty-note">{{ t("settings.tab.audit.empty") }}</div>
-            <div v-else class="audit-table-wrap">
+            <div v-else class="audit-table-wrap" tabindex="0">
               <table class="audit-table">
                 <thead>
                   <tr>

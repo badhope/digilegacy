@@ -85,7 +85,7 @@ describe("planning CRUD", () => {
     const update = vi.spyOn(platformClient, "setPlanHeirs").mockResolvedValue(
       envelope({
         ...plan,
-        heirs: [{ id: "heir_01", name: "林若岚", role: "executor" }],
+        heirs: [{ id: "heir_01", name: "林若岚", role: "executor", email: "heir@example.com", phone: "" }],
       }),
     );
     const wrapper = await mountView();
@@ -94,12 +94,14 @@ describe("planning CRUD", () => {
     const inputs = wrapper.findAll(".heir-edit-row .form-field input");
     await inputs[0].setValue("林若岚");
     await inputs[1].setValue("配偶");
+    await inputs[2].setValue("heir@example.com");
+    await inputs[3].setValue("13800000001");
     await wrapper.find(".heir-edit-form .executor-toggle input").setValue(true);
     await wrapper.find(".heir-edit-form .form-actions button").trigger("click");
     await flushPromises();
 
     expect(update).toHaveBeenCalledWith([
-      { name: "林若岚", role: "配偶", isExecutor: true },
+      { name: "林若岚", role: "配偶", email: "heir@example.com", phone: "13800000001", isExecutor: true },
     ]);
     expect(wrapper.text()).toContain("继承人已保存");
     expect(wrapper.text()).toContain("林若岚");
