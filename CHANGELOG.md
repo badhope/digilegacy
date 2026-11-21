@@ -1,11 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [0.0.28] - November 2026
 
 ### Changed
 
 - Bulk asset discovery is now the third tab in the asset section (`Assets / Policies / Bulk add`) instead of a detached page with its own back button. The active tab follows `/assets`, `/assets/:id`, `/assets/discover` and `/policies` independently.
 - Removed the duplicate "this session" list from Deliverables. Each card already carries the generated file, status and download action; the local-only export note now sits beside the API-first boundary note.
+- `tools/generate.mjs` now reads the workspace version from `Cargo.toml` for the OpenAPI document, so a release bump cannot leave the contract version behind.
 
 ## [0.0.27] - November 2026
 

@@ -184,10 +184,11 @@ def main() -> int:
         metrics = http_json(f"{base}/api/v1/metrics")
         checks["health"] = {
             "code": health.get("code"),
+            "version": health.get("data", {}).get("version"),
             "schemaVersion": metrics.get("data", {}).get("store", {}).get("schemaVersion"),
             "tables": metrics.get("data", {}).get("store", {}).get("tables"),
         }
-        if health.get("code") != "OK":
+        if health.get("code") != "OK" or not checks["health"]["version"]:
             raise RuntimeError(f"health returned {health.get('code')}")
         if checks["health"]["schemaVersion"] != 16 or checks["health"]["tables"] != 31:
             raise RuntimeError(f"unexpected store shape: {checks['health']}")
