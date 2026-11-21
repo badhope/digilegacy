@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref } from "vue";
+import { onUnmounted, reactive, ref } from "vue";
 import AppButton from "@/shared/ui/AppButton.vue";
 import AppIcon from "@/shared/icons/AppIcon.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
-import SectionCard from "@/shared/ui/SectionCard.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
 import { platformClient } from "@/platform/client";
@@ -22,9 +21,6 @@ const kinds: Array<{ kind: "report" | "checklist" | "legal" | "toolkit"; key: st
 const busy = ref<string | null>(null);
 const errors = reactive<Record<string, string>>({});
 const results = reactive<Record<string, DeliverableExport | undefined>>({});
-const generated = computed(() =>
-  Object.values(results).filter((item): item is DeliverableExport => item?.status === "succeeded"),
-);
 const pollers = new Map<string, number>();
 const streams = new Map<string, EventSource>();
 const cancelling = ref<string | null>(null);
@@ -158,6 +154,7 @@ onUnmounted(() => {
     <PageHeader eyebrow="DELIVERABLES / EXPORT" :title="t('deliverables.title')" :description="t('deliverables.description')" />
 
     <p class="deliverable-boundary">{{ t("deliverables.boundary") }}</p>
+    <p class="deliverable-note">{{ t("deliverables.note") }}</p>
 
     <div class="deliverable-grid">
       <article v-for="kind in kinds" :key="kind.kind" class="deliverable-card">
@@ -207,17 +204,6 @@ onUnmounted(() => {
         </div>
       </article>
     </div>
-
-    <div class="deliverable-lower">
-      <SectionCard :title="t('deliverables.history')" :subtitle="t('deliverables.note')">
-        <div v-if="!generated.length" class="queue-empty">{{ t("common.pending") }}</div>
-        <div v-for="item in generated" :key="item.jobId" class="queue-row">
-          <span class="queue-id mono">{{ item.jobId.slice(-10) }}</span>
-          <span>{{ item.fileName }}</span>
-          <StatusPill tone="ready" :label="t('deliverables.generated')" />
-        </div>
-      </SectionCard>
-    </div>
   </div>
 </template>
 
@@ -228,9 +214,16 @@ onUnmounted(() => {
 }
 
 .deliverable-boundary {
-  margin: 0 0 16px;
+  margin: 0;
   color: var(--muted);
   font-size: 11px;
+  line-height: 1.6;
+}
+
+.deliverable-note {
+  margin: 2px 0 16px;
+  color: var(--muted);
+  font-size: 10px;
   line-height: 1.6;
 }
 
@@ -333,45 +326,6 @@ onUnmounted(() => {
   color: var(--muted);
   font-size: 9px;
   letter-spacing: 0.08em;
-}
-
-.deliverable-lower {
-  display: grid;
-  gap: 14px;
-  margin-top: 14px;
-}
-
-.queue-row,
-.queue-empty {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-  color: var(--ink-soft);
-  font-size: 12px;
-}
-
-.queue-row:first-child,
-.queue-empty:first-child {
-  border-top: 0;
-}
-
-.queue-empty {
-  color: var(--muted);
-}
-
-.queue-id {
-  min-width: 72px;
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.queue-row > span:nth-child(2) {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 @media (max-width: 1100px) {

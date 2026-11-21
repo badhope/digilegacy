@@ -7,12 +7,18 @@ const { t } = useI18n();
 const tabs = [
   { path: "/assets", key: "assets.tab.assets" },
   { path: "/policies", key: "assets.tab.policies" },
+  { path: "/assets/discover", key: "assets.tab.discover" },
 ];
-const isActive = (path: string) => route.path === path || route.path.startsWith(`${path}/`);
+function isActive(path: string): boolean {
+  if (path === "/assets") {
+    return route.path === "/assets" || (route.path.startsWith("/assets/") && route.path !== "/assets/discover");
+  }
+  return route.path === path || route.path.startsWith(`${path}/`);
+}
 </script>
 
 <template>
-  <nav class="asset-tabs" aria-label="Assets sections">
+  <nav class="asset-tabs" :aria-label="t('assets.tabs.aria')">
     <RouterLink
       v-for="tab in tabs"
       :key="tab.path"

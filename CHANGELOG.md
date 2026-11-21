@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Bulk asset discovery is now the third tab in the asset section (`Assets / Bulk add / Policies`) instead of a detached page with its own back button. The active tab follows `/assets`, `/assets/:id`, `/assets/discover` and `/policies` independently.
+- Removed the duplicate "this session" list from Deliverables. Each card already carries the generated file, status and download action; the local-only export note now sits beside the API-first boundary note.
+
 ## [0.0.27] - November 2026
 
 ### Fixed

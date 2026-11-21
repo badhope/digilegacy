@@ -6,6 +6,7 @@ import AppIcon from "@/shared/icons/AppIcon.vue";
 import ErrorState from "@/shared/ui/ErrorState.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
+import AssetTabs from "./AssetTabs.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
 import { useResource } from "@/platform/useResource";
@@ -126,11 +127,9 @@ function backToAssets() {
 
 <template>
   <div class="discover-page">
-    <PageHeader eyebrow="ASSETS / DISCOVERY" :title="t('assets.discover.title')" :description="t('assets.discover.description')">
-      <template #actions>
-        <AppButton variant="secondary" size="sm" @click="backToAssets">{{ t("assets.discover.back") }}</AppButton>
-      </template>
-    </PageHeader>
+    <PageHeader eyebrow="ASSETS / DISCOVERY" :title="t('assets.discover.title')" :description="t('assets.discover.description')" />
+
+    <AssetTabs />
 
     <ErrorState v-if="error" :title="t('error.generic')" :message="error" :retry-label="t('common.retry')" @retry="reload" />
 
