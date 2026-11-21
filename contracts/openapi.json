@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.0.31",
+    "version": "0.0.32",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -3190,7 +3190,15 @@
               "domain",
               "subscription",
               "physical",
-              "other"
+              "other",
+              "financial",
+              "real_estate",
+              "vehicle",
+              "intellectual_property",
+              "business",
+              "virtual_item",
+              "membership",
+              "identity"
             ]
           },
           "platform": {

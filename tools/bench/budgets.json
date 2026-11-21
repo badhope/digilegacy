@@ -2,8 +2,8 @@
   "entryRawKb": 83.0,
   "vendorRawKb": 130,
   "routeRawKb": 24,
-  "totalJsGzipKb": 116.0,
+  "totalJsGzipKb": 117,
   "totalCssGzipKb": 22.0,
-  "totalGzipKb": 138.0,
-  "_note": "0.0.19 raised for real vault lock and recovery. 0.0.20 added the lazy LocalModelsPanel chunk; 0.0.21 added bilingual copy, network errors and configurable context; 0.0.22 removes Spark.；0.0.26 adds heir email/phone fields and notification channel copy, entry limit 82.2→83.0."
+  "totalGzipKb": 139,
+  "_note": "0.0.19 raised for real vault lock and recovery. 0.0.20 added the lazy LocalModelsPanel chunk; 0.0.21 added bilingual copy, network errors and configurable context; 0.0.22 removes Spark.；0.0.26 adds heir email/phone fields and notification channel copy, entry limit 82.2→83.0.；0.0.32 adds grouped asset taxonomy, JS gzip total 116→117 and all gzip 138→139."
 }

@@ -17,6 +17,14 @@ pub const ASSET_KINDS: &[&str] = &[
     "domain",
     "subscription",
     "physical",
+    "financial",
+    "real_estate",
+    "vehicle",
+    "intellectual_property",
+    "business",
+    "virtual_item",
+    "membership",
+    "identity",
     "other",
 ];
 
@@ -545,6 +553,27 @@ mod tests {
         )
         .unwrap();
         assert_eq!(restored.status, "active");
+    }
+
+    #[test]
+    fn every_declared_asset_kind_is_accepted() {
+        let store = Store::open_in_memory(None).unwrap();
+        for kind in ASSET_KINDS {
+            let created = create(
+                &store,
+                &Mutation {
+                    id: None,
+                    name: format!("分类测试-{kind}"),
+                    kind: (*kind).to_string(),
+                    platform: None,
+                    value: None,
+                    note: None,
+                    status: None,
+                },
+            )
+            .unwrap();
+            assert_eq!(created.kind, *kind);
+        }
     }
 
     #[test]

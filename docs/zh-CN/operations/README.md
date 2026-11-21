@@ -9,6 +9,7 @@
 - [连接配置交接](CONNECTION-SETUP.md)：邮箱或 Webhook 账号属于别人时，直接发给填写人。
 - [发布清单](RELEASE-CHECKLIST.md)：自动证据、未完成人工项与签字栏。
 - [政策来源预审](POLICY-SOURCES.md)：152 条来源清单，以及“机器可达”与“人工核实”的边界。
+- [资产分类口径](ASSET-TAXONOMY.md)：资产分组，以及资产、负债、访问材料与政策库之间的边界。
 
 产品默认是单节点部署。`GET /api/v1/metrics` 以 JSON 暴露进程内计数与延迟桶，不是 Prometheus 文本格式；SLO 文档说明健康探针、metrics、诊断导出与检查点的测量方式。
 

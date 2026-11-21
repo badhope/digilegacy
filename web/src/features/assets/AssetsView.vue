@@ -8,7 +8,7 @@ import ErrorState from "@/shared/ui/ErrorState.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import AssetTabs from "./AssetTabs.vue";
 import AssetEditor from "./AssetEditor.vue";
-import { assetKindKey, type AssetDraft } from "./model";
+import { assetKindLabel, type AssetDraft } from "./model";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
@@ -209,11 +209,11 @@ async function createAsset(draft: AssetDraft) {
                   <span class="asset-glyph"><AppIcon name="assets" :size="15" /></span>
                   <span>
                     <strong>{{ asset.name }}</strong>
-                    <small>{{ asset.value || t(assetKindKey(asset.kind)) }}</small>
+                    <small>{{ asset.value || assetKindLabel(asset.kind, locale) }}</small>
                   </span>
                 </div>
               </td>
-              <td><span class="mono kind">{{ t(assetKindKey(asset.kind)) }}</span></td>
+              <td><span class="mono kind">{{ assetKindLabel(asset.kind, locale) }}</span></td>
               <td>{{ asset.platform }}</td>
               <td>
                 <StatusPill

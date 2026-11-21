@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.0.32] - November 2026
+
+### Added
+
+- **Grouped asset entry taxonomy.** The asset form now presents the `kind` field in eleven labeled groups instead of one flat list. New first-class kinds cover financial assets, real estate, vehicles, intellectual property, business interests, virtual items, memberships/points and identity rights.
+- **Coverage guard.** `model.test.ts` fails when a kind is missing from the groups or appears in two groups, and a Rust test creates one asset of every declared kind.
+
+### Changed
+
+- The asset contract enum grows from seven to fifteen kinds. All seven legacy kinds keep their identifiers, meaning and rows; this is additive and needs no database migration (schema stays v18).
+- Web totals are now 116.74 KB JS gzip / 138.39 KB all gzip; the budget moves from 116/138 to 117/139 KB for the taxonomy labels.
+
+### Boundary
+
+- Liabilities and access materials are **not** asset kinds. They remain reserved for separate ledgers so a mortgage never inflates the asset count and a recovery code never becomes a saleable asset. This release adds no fake entries for them.
+- The platform policy library remains a rule catalog, not a user asset list. See `docs/operations/ASSET-TAXONOMY.md`.
+
 ## [0.0.31] - November 2026
 
 ### Added

@@ -3,7 +3,7 @@ import { ref } from "vue";
 import AppButton from "@/shared/ui/AppButton.vue";
 import { useI18n } from "@/platform/i18n";
 import type { Asset } from "@/platform/types";
-import { ASSET_KINDS, assetKindKey, draftFromAsset, type AssetDraft } from "./model";
+import { ASSET_KIND_GROUPS, assetGroupLabel, assetKindLabel, draftFromAsset, type AssetDraft } from "./model";
 
 const props = withDefaults(
   defineProps<{
@@ -15,7 +15,7 @@ const props = withDefaults(
   { initial: null, mode: "create", saving: false, error: "" },
 );
 const emit = defineEmits<{ submit: [draft: AssetDraft]; cancel: [] }>();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const draft = ref<AssetDraft>(draftFromAsset(props.initial));
 const localError = ref("");
 
@@ -52,7 +52,9 @@ function submit() {
       <label>
         <span>{{ t("assets.table.kind") }}</span>
         <select v-model="draft.kind">
-          <option v-for="kind in ASSET_KINDS" :key="kind" :value="kind">{{ t(assetKindKey(kind)) }}</option>
+          <optgroup v-for="group in ASSET_KIND_GROUPS" :key="group.label" :label="assetGroupLabel(group.label, locale)">
+            <option v-for="kind in group.kinds" :key="kind" :value="kind">{{ assetKindLabel(kind, locale) }}</option>
+          </optgroup>
         </select>
       </label>
       <label>

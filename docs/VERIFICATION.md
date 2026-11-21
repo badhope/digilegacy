@@ -155,3 +155,13 @@ The detailed Chinese verification record keeps the historical evidence for each 
 - Gate: `./tools/verify.sh` exit 0; 202 Rust + 83 Web; **48 commands / 23 tools / 65 schemas / 21 errors**; schema v18 / 32 tables; entry 82.70/83 KB, JS gzip 116.00/116 KB, CSS gzip 21.66/22 KB, total 137.65/138 KB.
 - Live Chromium: 18/18 routes, 0 axe violations, no page errors, no 390 px overflow. Evidence: `docs/operations/measurements/live-browser-0.0.31-2026-11-22.json`; screenshots in `screenshots-0.0.31/`.
 - Archive: `packages/digilegacy-0.0.31-linux-x86_64.tar.gz`; the sidecar `.sha256` is authoritative. Clean-host drill 12/12 PASS; evidence `docs/operations/measurements/install-0.0.31-2026-11-22.json`, including an archive-SHA consistency check.
+
+## 0.0.32 grouped asset entry
+
+- Asset `kind` expands from seven to fifteen values, grouped into eleven entry sections: financial, real estate & vehicles, physical & collectibles, intellectual property, business, digital accounts, virtual items, files/devices/domains, subscriptions & memberships, identity & rights, and other.
+- All seven legacy kinds and rows remain valid. The change is additive with no migration; schema stays v18 / 32 tables.
+- Boundary: liabilities and access materials are deliberately absent from the asset table. A mortgage cannot inflate the asset count, and a recovery code is not a saleable asset. Both remain separate ledgers for a later release. The policy library remains a rule catalog, not a user asset list. See `docs/operations/ASSET-TAXONOMY.md`.
+- Tests: Rust creates one asset of every declared kind; Web fails if a kind is missing from the groups or appears twice.
+- Gate: `./tools/verify.sh` exit 0; **203 Rust + 85 Web**; **48 commands / 23 tools / 65 schemas / 21 errors**; schema v18 / 32 tables; entry 82.70/83 KB, JS gzip 116.74/117 KB, CSS gzip 21.66/22 KB, total 138.39/139 KB.
+- Live Chromium: 18/18 routes, 0 axe violations, no page errors, no 390 px overflow. Evidence: `docs/operations/measurements/live-browser-0.0.32-2026-11-22.json`.
+- Archive: `packages/digilegacy-0.0.32-linux-x86_64.tar.gz`; the sidecar `.sha256` is authoritative. Clean-host drill 12/12 PASS; evidence `docs/operations/measurements/install-0.0.32-2026-11-22.json`.

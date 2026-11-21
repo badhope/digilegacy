@@ -771,3 +771,13 @@ M0 可以判定“工程壳完成”的条件：
 - 验收：`./tools/verify.sh` exit 0；202 Rust + 83 Web；契约 **48 命令 / 23 工具 / 65 schema / 21 错误码**；schema v18 / 32 表；入口 82.70/83 KB，JS gzip 116.00/116 KB，CSS gzip 21.66/22 KB，总 gzip 137.65/138 KB。
 - 真实 Chromium：18/18 路由，axe 0，无页面异常、无 390px 横向溢出；证据 `docs/operations/measurements/live-browser-0.0.31-2026-11-22.json`，截图 `screenshots-0.0.31/settings-harness-light.png`、`settings-harness-mobile.png`、`settings-connections-light.png`。
 - 发布包：`packages/digilegacy-0.0.31-linux-x86_64.tar.gz`；校验值以同名 `.sha256` 为准。干净机演练 12/12 PASS，证据 `docs/operations/measurements/install-0.0.31-2026-11-22.json`（含归档 SHA 一致性检查）。
+
+### 0.0.32 资产分类入口（2026-11-22）
+
+- 资产 `kind` 从 7 类扩到 15 类，表单按 11 个分组展示：金融资产、不动产与车辆、实物与收藏、知识产权、企业经营、数字账号、虚拟物品、文件/设备/域名、订阅与会员、身份与权益、其他。
+- 原有 7 类标识与数据全部保留；新增类型只做加法，schema 仍为 v18 / 32 表，不需要迁移。
+- 边界：负债与访问材料没有塞进资产表。房贷不得计入资产总额，恢复码不得当作可出售资产；两者保留为后续独立台账。平台政策库仍是规则目录，不是资产清单。口径见 `docs/zh-CN/operations/ASSET-TAXONOMY.md`。
+- 测试：Rust 新增“每个声明的 kind 均可创建”用例；Web 新增分组完整性测试，漏项或重复即失败。
+- 验收：`./tools/verify.sh` exit 0；**203 Rust + 85 Web**；契约 **48 命令 / 23 工具 / 65 schema / 21 错误码**；schema v18 / 32 表；入口 82.70/83 KB，JS gzip 116.74/117 KB，CSS gzip 21.66/22 KB，总 gzip 138.39/139 KB。
+- 真实 Chromium：18/18 路由，axe 0，无页面异常、无 390px 横向溢出；证据 `docs/operations/measurements/live-browser-0.0.32-2026-11-22.json`。
+- 发布包：`packages/digilegacy-0.0.32-linux-x86_64.tar.gz`；校验值以同名 `.sha256` 为准。干净机演练 12/12 PASS，证据 `docs/operations/measurements/install-0.0.32-2026-11-22.json`。

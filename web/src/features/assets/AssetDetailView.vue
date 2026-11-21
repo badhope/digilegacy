@@ -12,7 +12,7 @@ import { useI18n } from "@/platform/i18n";
 import { formatDate } from "@/shared/format";
 import { useResource } from "@/platform/useResource";
 import AssetEditor from "./AssetEditor.vue";
-import { assetKindKey, type AssetDraft } from "./model";
+import { assetKindLabel, type AssetDraft } from "./model";
 import { loadAsset } from "./api";
 import { platformClient } from "@/platform/client";
 
@@ -146,7 +146,7 @@ async function toggleStatus() {
           <dl class="detail-list">
             <div>
               <dt>{{ t("assets.table.kind") }}</dt>
-              <dd class="mono">{{ t(assetKindKey(data.kind)) }}</dd>
+              <dd class="mono">{{ assetKindLabel(data.kind, locale) }}</dd>
             </div>
             <div>
               <dt>{{ t("assets.table.platform") }}</dt>

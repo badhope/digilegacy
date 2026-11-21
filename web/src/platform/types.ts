@@ -34,7 +34,22 @@ export interface Overview {
   activity: OverviewActivity[];
 }
 
-export type AssetKind = "account" | "file" | "device" | "domain" | "subscription" | "physical" | "other";
+export type AssetKind =
+  | "account"
+  | "file"
+  | "device"
+  | "domain"
+  | "subscription"
+  | "physical"
+  | "financial"
+  | "real_estate"
+  | "vehicle"
+  | "intellectual_property"
+  | "business"
+  | "virtual_item"
+  | "membership"
+  | "identity"
+  | "other";
 export type AssetStatus = "active" | "archived";
 
 export interface Asset {
