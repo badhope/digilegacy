@@ -192,6 +192,7 @@ export interface ConnectionTestResult {
   message: string;
   connectionId?: string;
   checkedAt?: string;
+  models?: string[];
 }
 
 export interface ConnectionUpsertInput {

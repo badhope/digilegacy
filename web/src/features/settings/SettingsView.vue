@@ -61,7 +61,11 @@ const connectionCopy = computed(() =>
         endpoint: "连接地址",
         endpointHint: "HTTP 类型填完整 URL；SMTP/IMAP 填 host:port。",
         model: "模型",
-        modelHint: "OpenAI 兼容模型名，例如 agnes-3.0-flash；保存后规划器优先使用这条连接。",
+        modelHint: "OpenAI 兼容模型名，例如 agnes-3.0-flash；可先从地址拉取真实模型列表。",
+        discoverModels: "拉取真实模型",
+        discoveringModels: "拉取中…",
+        modelsFound: "已发现 {n} 个模型，点下拉框选择",
+        modelsEmpty: "没有发现模型；可手动填写模型名",
         token: "凭据",
         tokenHint: "可选；编辑时必须重新填写地址和凭据，旧值不会回显。",
         username: "用户名",
@@ -90,7 +94,11 @@ const connectionCopy = computed(() =>
         endpoint: "Endpoint",
         endpointHint: "HTTP kinds use a full URL; SMTP/IMAP use host:port.",
         model: "Model",
-        modelHint: "OpenAI-compatible model name, e.g. agnes-3.0-flash. The planner prefers this saved connection.",
+        modelHint: "OpenAI-compatible model name, e.g. agnes-3.0-flash. Pull the real model list from the endpoint first.",
+        discoverModels: "Pull models",
+        discoveringModels: "Pulling…",
+        modelsFound: "{n} models found; choose from the dropdown",
+        modelsEmpty: "No models returned; enter a model name manually",
         token: "Credential",
         tokenHint: "Optional; editing requires re-entering endpoint and credential. Old values are never echoed.",
         username: "Username",
@@ -123,6 +131,9 @@ function connectionRowStatus(item: ConnectionItem): string {
 }
 
 const testingId = ref<string | null>(null);
+const modelOptions = ref<string[]>([]);
+const modelDiscoveryLoading = ref(false);
+const modelDiscoveryNotice = ref("");
 const connectionNotice = ref("");
 const connectionError = ref("");
 
@@ -168,6 +179,8 @@ function resetConnectionForm() {
   };
   editingConnectionId.value = "";
   connectionFormError.value = "";
+  modelOptions.value = [];
+  modelDiscoveryNotice.value = "";
 }
 
 function openAddConnection() {
@@ -249,6 +262,46 @@ function openEditConnection(item: ConnectionItem) {
 function closeConnectionForm() {
   connectionFormOpen.value = false;
   connectionFormError.value = "";
+}
+
+async function discoverModels() {
+  if (!isLlmKind.value) return;
+  const endpoint = connectionForm.value.endpoint.trim();
+  if (!endpoint) {
+    modelDiscoveryNotice.value = connectionCopy.value.modelsEmpty;
+    return;
+  }
+  modelDiscoveryLoading.value = true;
+  modelDiscoveryNotice.value = "";
+  connectionFormError.value = "";
+  try {
+    const envelope = await platformClient.testConnection({
+      kind: "llm",
+      endpoint,
+      token: connectionForm.value.token.trim() || undefined,
+    });
+    if (!envelope.success || !envelope.data) {
+      connectionFormError.value =
+        envelope.code === "AUTH_REQUIRED" || envelope.code === "FORBIDDEN"
+          ? connectionCopy.value.tokenRequired
+          : envelope.message || envelope.code;
+      return;
+    }
+    const models = envelope.data.models ?? [];
+    modelOptions.value = models;
+    if (models.length) {
+      modelDiscoveryNotice.value = connectionCopy.value.modelsFound.replace("{n}", String(models.length));
+      if (!models.includes(connectionForm.value.model)) {
+        connectionForm.value.model = models[0] ?? "";
+      }
+    } else {
+      modelDiscoveryNotice.value = connectionCopy.value.modelsEmpty;
+    }
+  } catch (cause) {
+    connectionFormError.value = cause instanceof Error ? cause.message : "error";
+  } finally {
+    modelDiscoveryLoading.value = false;
+  }
 }
 
 async function saveConnection() {
@@ -459,14 +512,29 @@ function go(section: Section) {
               </label>
               <label v-if="isLlmKind" class="connection-form-wide">
                 <span>{{ connectionCopy.model }}</span>
-                <input
-                  v-model="connectionForm.model"
-                  :required="isLlmKind"
-                  maxlength="120"
-                  autocomplete="off"
-                  placeholder="agnes-3.0-flash"
-                />
+                <div class="model-picker-row">
+                  <select v-if="modelOptions.length" v-model="connectionForm.model" :required="isLlmKind">
+                    <option v-for="model in modelOptions" :key="model" :value="model">{{ model }}</option>
+                  </select>
+                  <input
+                    v-else
+                    v-model="connectionForm.model"
+                    :required="isLlmKind"
+                    maxlength="120"
+                    autocomplete="off"
+                    placeholder="agnes-3.0-flash"
+                  />
+                  <button
+                    type="button"
+                    class="link-button"
+                    :disabled="modelDiscoveryLoading || !connectionForm.endpoint.trim()"
+                    @click="discoverModels"
+                  >
+                    {{ modelDiscoveryLoading ? connectionCopy.discoveringModels : connectionCopy.discoverModels }}
+                  </button>
+                </div>
                 <small>{{ connectionCopy.modelHint }}</small>
+                <small v-if="modelDiscoveryNotice" class="model-picker-note">{{ modelDiscoveryNotice }}</small>
               </label>
               <label>
                 <span>{{ connectionCopy.token }}</span>
@@ -765,6 +833,22 @@ function go(section: Section) {
 .connection-form-wide { grid-column: 1 / -1; }
 .connection-check { flex-direction: row !important; align-items: center; gap: 7px !important; text-transform: none !important; letter-spacing: 0 !important; }
 .connection-check input { width: auto; }
+.model-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-picker-row select,
+.model-picker-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-picker-note {
+  color: var(--accent-strong);
+}
+
 .connection-form-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .connection-form-actions .solid-button { padding: 8px 14px; border: 1px solid var(--accent-strong); border-radius: var(--radius-sm); background: var(--accent-strong); color: var(--surface); font-size: 11px; }
 .connection-form-actions .solid-button:disabled { opacity: 0.55; }

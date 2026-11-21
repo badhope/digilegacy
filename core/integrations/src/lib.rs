@@ -359,6 +359,61 @@ fn tcp_probe(endpoint: &str, timeout: Duration) -> ProbeResult {
 
 /// Probe one connection with a bounded timeout. `endpoint` must already be
 /// resolved by the caller; no secrets are accepted or returned.
+fn llm_models_url(endpoint: &str) -> String {
+    let endpoint = endpoint.trim();
+    if endpoint.ends_with("/v1") {
+        format!("{endpoint}/models")
+    } else if endpoint.ends_with("/models") {
+        endpoint.to_string()
+    } else {
+        format!("{}/models", endpoint.trim_end_matches('/'))
+    }
+}
+
+/// List model ids exposed by an OpenAI-compatible endpoint. This is a
+/// read-only discovery call; it returns an empty list on any probe failure so
+/// callers can keep the connection usable with a manually typed model name.
+pub fn list_llm_models(endpoint: &str, token: Option<&str>) -> Vec<String> {
+    let url = llm_models_url(endpoint);
+    let token = token.map(str::to_string);
+    let worker = std::thread::spawn(move || {
+        let resolved = match resolve_external_url(&url) {
+            Ok(resolved) => resolved,
+            Err(_) => return Vec::new(),
+        };
+        let client = match client(Duration::from_secs(8), &resolved) {
+            Ok(client) => client,
+            Err(_) => return Vec::new(),
+        };
+        let mut request = client.get(&resolved.url);
+        if let Some(token) = token.as_deref().filter(|value| !value.is_empty()) {
+            request = request.bearer_auth(token);
+        }
+        let response = match request.send() {
+            Ok(response) if response.status().is_success() => response,
+            _ => return Vec::new(),
+        };
+        let body: serde_json::Value = match response.json() {
+            Ok(value) => value,
+            Err(_) => return Vec::new(),
+        };
+        let mut ids = body
+            .get("data")
+            .and_then(|value| value.as_array())
+            .map(|rows| {
+                rows.iter()
+                    .filter_map(|row| row.get("id").and_then(|id| id.as_str()))
+                    .map(str::to_string)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        ids.sort();
+        ids.dedup();
+        ids
+    });
+    worker.join().unwrap_or_default()
+}
+
 pub fn probe(kind: &str, endpoint: &str, token: Option<&str>) -> ProbeResult {
     let started = Instant::now();
     let Some(kind) = ConnectionKind::parse(kind) else {
@@ -371,16 +426,7 @@ pub fn probe(kind: &str, endpoint: &str, token: Option<&str>) -> ProbeResult {
     let timeout = Duration::from_secs(5);
     match kind {
         ConnectionKind::Smtp | ConnectionKind::Imap => tcp_probe(endpoint, timeout),
-        ConnectionKind::Llm => {
-            let url = if endpoint.ends_with("/v1") {
-                format!("{endpoint}/models")
-            } else if endpoint.ends_with("/models") {
-                endpoint.to_string()
-            } else {
-                format!("{}/models", endpoint.trim_end_matches('/'))
-            };
-            http_probe("GET", &url, token, None, timeout)
-        }
+        ConnectionKind::Llm => http_probe("GET", &llm_models_url(endpoint), token, None, timeout),
         ConnectionKind::Policy | ConnectionKind::Heartbeat => {
             http_probe("GET", endpoint, token, None, timeout)
         }

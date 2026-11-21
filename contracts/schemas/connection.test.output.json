@@ -28,6 +28,13 @@
     "checkedAt": {
       "type": "string",
       "format": "date-time"
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "LLM 测试成功时返回的可用模型 id；不保存"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

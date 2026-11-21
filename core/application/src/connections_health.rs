@@ -168,6 +168,8 @@ struct TestInput {
     label: Option<String>,
     #[serde(default)]
     endpoint: Option<String>,
+    #[serde(default)]
+    token: Option<String>,
 }
 
 fn env_value(name: &str) -> Option<String> {
@@ -530,14 +532,16 @@ impl Application {
                 })
             })
             .or_else(|| env_endpoint(&input.kind));
-        let token = stored
-            .as_ref()
-            .and_then(|config| config.token.clone())
+        let token = input
+            .token
+            .clone()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| stored.as_ref().and_then(|config| config.token.clone()))
             .or_else(|| env_token(&input.kind));
         let mut checked_at = Utc::now().to_rfc3339();
-        let probe_result = match endpoint {
+        let probe_result = match endpoint.as_deref() {
             Some(endpoint) => {
-                let probe_result = probe(&input.kind, &endpoint, token.as_deref());
+                let probe_result = probe(&input.kind, endpoint, token.as_deref());
                 if let Some(id) = connection_id.as_deref() {
                     let checked = connections::record_check(
                         self.store(),
@@ -592,6 +596,14 @@ impl Application {
         });
         if let Some(id) = connection_id {
             response["connectionId"] = json!(id);
+        }
+        if input.kind == "llm" && probe_result.ok {
+            if let Some(endpoint) = endpoint.as_deref() {
+                let models = digilegacy_integrations::list_llm_models(endpoint, token.as_deref());
+                if !models.is_empty() {
+                    response["models"] = json!(models);
+                }
+            }
         }
         Ok(response)
     }

@@ -3744,6 +3744,11 @@
             "type": "integer",
             "minimum": 1,
             "description": "可选：已保存连接 id，测试后写入健康状态"
+          },
+          "token": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "可选：尚未保存时用于模型发现的凭据；不会写入列表或审计"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -3778,6 +3783,13 @@
           "checkedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "LLM 测试成功时返回的可用模型 id；不保存"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

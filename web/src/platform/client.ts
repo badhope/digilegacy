@@ -223,7 +223,7 @@ export const platformClient = {
   evaluateTrigger: () => write<Trigger>(COMMANDS.triggerEvaluate, {}, ["plan", "trigger.events", "overview"]),
   triggerEvents: (args: Record<string, unknown> = {}) => read<TriggerEventPage>(COMMANDS.triggerEventsList, args, "trigger.events"),
   listConnections: (args: Record<string, unknown> = {}) => read<ConnectionPage>(COMMANDS.connectionsList, args, "connections"),
-  testConnection: (args: { kind: ConnectionKind; id?: number; label?: string; endpoint?: string }) =>
+  testConnection: (args: { kind: ConnectionKind; id?: number; label?: string; endpoint?: string; token?: string }) =>
     write<ConnectionTestResult>(COMMANDS.connectionsTest, args, ["connections"]),
   saveConnection: (args: ConnectionUpsertInput) =>
     write<ConnectionItem>(COMMANDS.connectionsUpsert, { ...args } as Record<string, unknown>, ["connections", "overview"]),
