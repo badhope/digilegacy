@@ -41,5 +41,6 @@
   "policies.candidatePending": "待审核",
   "policies.candidateConflict": "冲突",
   "policies.approve": "批准",
-  "policies.reject": "拒绝"
+  "policies.reject": "拒绝",
+  "policies.notes": "补充说明"
 }

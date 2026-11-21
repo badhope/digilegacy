@@ -41,5 +41,6 @@
   "policies.candidatePending": "Pending",
   "policies.candidateConflict": "Conflict",
   "policies.approve": "Approve",
-  "policies.reject": "Reject"
+  "policies.reject": "Reject",
+  "policies.notes": "Notes"
 }

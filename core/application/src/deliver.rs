@@ -56,6 +56,8 @@ struct Labels {
     risk: &'static str,
     source: &'static str,
     no_policy: &'static str,
+    unmatched: &'static str,
+    unmatched_note: &'static str,
     generated: &'static str,
     provenance: &'static str,
 }
@@ -72,6 +74,8 @@ fn labels(locale: &str) -> Labels {
             risk: "Risk notes",
             source: "Source",
             no_policy: "No policy entry found for this platform.",
+            unmatched: "Assets without a matching policy (no legal template generated):",
+            unmatched_note: "No process is available yet; add a platform policy or approve a policy candidate first.",
             generated: "Generated",
             provenance:
                 "Policy status is shown as recorded. Unverified entries are not official advice.",
@@ -87,6 +91,8 @@ fn labels(locale: &str) -> Labels {
             risk: "风险提示",
             source: "来源",
             no_policy: "该平台尚未收录政策条目。",
+            unmatched: "以下资产未匹配政策，未生成对应法律模板：",
+            unmatched_note: "暂未生成办理流程；请先在政策库补充平台政策，或完成候选审核。",
             generated: "生成时间",
             provenance: "政策状态按实际记录展示；未核实条目不代表官方口径。",
         }
@@ -284,6 +290,7 @@ fn build_body(
         }
         "legal" => {
             let mut ids = BTreeSet::new();
+            let mut unmatched = Vec::new();
             for asset in &data.assets {
                 if let Some(policy) = &asset.policy {
                     for id in policy.legal_template_ids.split(',') {
@@ -291,6 +298,19 @@ fn build_body(
                             ids.insert(id.trim().to_string());
                         }
                     }
+                }
+                if asset
+                    .policy
+                    .as_ref()
+                    .map(|policy| {
+                        policy
+                            .legal_template_ids
+                            .split(',')
+                            .all(|id| id.trim().is_empty())
+                    })
+                    .unwrap_or(true)
+                {
+                    unmatched.push(asset.name.as_str());
                 }
             }
             let templates: Vec<LegalTemplate> = serde_json::from_str(LEGAL_JSON)
@@ -313,6 +333,13 @@ fn build_body(
                     None => body.push_str(&format!("<p class=\"mono\">{}</p>", escape_html(id))),
                 }
             }
+            if !unmatched.is_empty() {
+                body.push_str(&format!("<h2>{}</h2><ul>", labels.unmatched));
+                for name in unmatched {
+                    body.push_str(&format!("<li>{}</li>", escape_html(name)));
+                }
+                body.push_str("</ul>");
+            }
             body.push_str(
                 "<p class=\"muted\">模板仅供参考，签署前需由执业律师按当地法律审阅。</p>",
             );
@@ -320,6 +347,14 @@ fn build_body(
         "toolkit" => {
             for asset in &data.assets {
                 let Some(policy) = &asset.policy else {
+                    body.push_str(&format!(
+                        "<div class=\"card\"><h3>{}</h3><p class=\"muted\">{} · {}</p><p>{}</p><p>{}</p></div>",
+                        escape_html(&asset.name),
+                        escape_html(&asset.kind),
+                        escape_html(&asset.platform),
+                        labels.no_policy,
+                        labels.unmatched_note,
+                    ));
                     continue;
                 };
                 body.push_str(&policy_block(policy, &labels));
@@ -546,6 +581,36 @@ mod tests {
             .ends_with(".html"));
         let (_, bytes) = read_export(app.store(), &job_id).unwrap();
         assert!(bytes.starts_with(b"<!doctype html>"));
+    }
+
+    #[test]
+    fn unmatched_assets_render_legal_and_toolkit_fallbacks() {
+        let store = temp_store("unmatched");
+        policy::seed_if_empty(&store).unwrap();
+        store
+            .write(|conn| {
+                conn.execute(
+                    "INSERT OR IGNORE INTO platforms (id,name,category) VALUES (0,'未分类','unknown')",
+                    [],
+                )?;
+                conn.execute(
+                    "INSERT INTO digital_assets (platform_id,category,account_description,created_at,updated_at) VALUES (0,'other','未匹配资产','now','now')",
+                    [],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        let legal = export(&store, "legal", "zh-CN").unwrap();
+        let (_, bytes) = read_export(&store, legal["jobId"].as_str().unwrap()).unwrap();
+        let html = String::from_utf8(bytes).unwrap();
+        assert!(html.contains("以下资产未匹配政策"));
+        assert!(html.contains("未匹配资产"));
+        let toolkit = export(&store, "toolkit", "zh-CN").unwrap();
+        let (_, bytes) = read_export(&store, toolkit["jobId"].as_str().unwrap()).unwrap();
+        let html = String::from_utf8(bytes).unwrap();
+        assert!(html.contains("未匹配资产"));
+        assert!(html.contains("暂未生成办理流程"));
+        let _ = std::fs::remove_file(store.path());
     }
 
     #[test]

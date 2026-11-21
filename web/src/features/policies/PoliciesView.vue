@@ -386,6 +386,11 @@ function splitList(value: string): string[] {
               <p class="pre-line">{{ selected.processDescription || "—" }}</p>
             </section>
 
+            <section class="detail-block" v-if="selected.notes">
+              <h3>{{ tp("policies.notes") }}</h3>
+              <p class="pre-line">{{ selected.notes }}</p>
+            </section>
+
             <section class="detail-block" v-if="selected.riskWarnings">
               <h3>{{ tp("policies.risk") }}</h3>
               <p class="pre-line risk">{{ selected.riskWarnings }}</p>

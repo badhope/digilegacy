@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.27] - November 2026
+
+### Fixed
+
+- `GET /api/v1/exports/{job_id}` now refuses to serve a generated file while the vault is locked and returns `423 VAULT_LOCKED`. The route previously bypassed the command dispatch and read the file directly, so a locked instance still exposed exported reports to anyone who knew the job id.
+- Legal and toolkit deliverables no longer render empty when assets have no matching policy. The legal export lists the unmatched assets and explains why no template was generated; the toolkit renders one card per asset with a clear "policy not recorded" note instead of silently skipping it.
+
+### Testing
+
+- Added a router regression that locks a configured vault and asserts the export route returns `423`.
+- Added a deliverable regression with an unmatched asset and verified both fallback sections render.
+- Re-ran the second full-function test round in Chromium: connections add/test/edit/delete, SMTP probe, new-run form, approval approve/reject with required reason, run cancel/retry, policy sync, and four deliverable downloads. Also verified the export lock boundary against a real configured vault database.
+
 ## [0.0.26] - November 2026
 
 ### Fixed

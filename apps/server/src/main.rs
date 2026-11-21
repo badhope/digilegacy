@@ -688,6 +688,17 @@ async fn diagnostics_export(
 }
 
 async fn download_export(State(state): State<AppState>, Path(job_id): Path<String>) -> Response {
+    match state.app.security_status() {
+        Ok(status) if status["locked"].as_bool() == Some(true) => {
+            return error_response(PlatformError::new(
+                "VAULT_LOCKED",
+                "保险库已锁定；请先执行 security.unlock",
+            ))
+            .into_response();
+        }
+        Ok(_) => {}
+        Err(error) => return error_response(error).into_response(),
+    }
     match state.app.read_export(&job_id) {
         Ok((file_name, bytes)) => Response::builder()
             .header(header::CONTENT_TYPE, "text/html; charset=utf-8")
@@ -1133,8 +1144,8 @@ mod tests {
         assert_eq!(body["data"]["store"]["schema_version"], 16);
     }
 
-    #[test]
-    fn configured_vault_blocks_reads_until_password_unlocks() {
+    #[tokio::test]
+    async fn configured_vault_blocks_reads_until_password_unlocks() {
         let state = test_app();
         let init = state.app.security_init("correct horse battery").unwrap();
         assert_eq!(init["configured"], true);
@@ -1149,6 +1160,17 @@ mod tests {
         let (status, envelope) = dispatch(&state, "assets.list", json!({}), None);
         assert_eq!(status, StatusCode::LOCKED);
         assert_eq!(envelope.code, "VAULT_LOCKED");
+
+        let export = router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/exports/job_does_not_exist")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(export.status(), StatusCode::LOCKED);
 
         let (status, envelope) = dispatch(
             &state,
