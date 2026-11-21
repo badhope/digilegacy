@@ -50,7 +50,7 @@ sidecar 用 GGUF 自带 chat template 渲染，默认 `enable_thinking=false`。
 }
 ```
 
-`PlannerConfig::from_env()` 在未设置 `DIGILEGACY_LLM_BASE_URL` / `DIGILEGACY_LLM_API_KEY` 时会读取这个文件，因此 Web、CLI 和 HTTP 规划器都会自动使用已启用的本地模型。sidecar 的默认超时为 180 秒，可用 `DIGILEGACY_LLM_TIMEOUT_SECS` 调整，上限 300 秒，以适应小模型在弱 CPU 上的首轮规划。
+`PlannerConfig::from_env()` 在未设置 `DIGILEGACY_LLM_BASE_URL` / `DIGILEGACY_LLM_API_KEY` 时会读取这个文件，因此 Web、CLI 和 HTTP 规划器都能使用已启用的本地模型。注意优先级：只要存在启用且字段完整的已保存 LLM 连接，规划器会先使用该连接；本地模型不会覆盖它。sidecar 的默认超时为 180 秒，可用 `DIGILEGACY_LLM_TIMEOUT_SECS` 调整，上限 300 秒，以适应小模型在弱 CPU 上的首轮规划。
 
 sidecar 默认以 `--ctx 8192` 启动，可用 `DIGILEGACY_LOCAL_MODEL_CTX` 覆盖，允许 2,048–131,072。上下文越大，KV cache 占用和首 token 时间越高；在 2 核 / 3.9 GiB 环境建议从 8K 或 16K 起步，不要直接按模型原生 128K/1M 设置。
 
