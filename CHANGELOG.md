@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.0.25] - November 2026
+
+### Fixed
+
+- `POST /api/v1/diagnostics/export` now matches its contract: the server registers the route and the application dispatch table handles `diagnostics.export`. Before this, the HTTP endpoint and the documented `invoke diagnostics.export` CLI command returned "not supported" even though the dedicated `diagnostics export` command worked.
+
+### Testing
+
+- Added a router regression test that calls the real HTTP route and checks `audit.valid` plus schema version.
+- The application unit test now exercises the dispatch path instead of calling the method directly.
+
 English | [简体中文](docs/zh-CN/CHANGELOG.md)
 
 Notable user-facing changes. The detailed per-milestone engineering log is kept in Chinese under [docs/zh-CN/CHANGELOG.md](docs/zh-CN/CHANGELOG.md).

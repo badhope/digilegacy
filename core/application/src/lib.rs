@@ -300,6 +300,7 @@ impl Application {
             "notifications.list" => self.notifications_list(args),
             "notifications.send" => self.notifications_send(args),
             "deliver.export" => self.deliver_export(args),
+            "diagnostics.export" => self.diagnostics_export(),
             "security.status" => self.security_status(),
             "security.unlock" => self.security_unlock(args),
             "security.recover" => self.security_recover(args),
@@ -1852,7 +1853,7 @@ mod tests {
     #[test]
     fn diagnostics_export_reports_valid_chain_without_row_values() {
         let app = app();
-        let data = app.diagnostics_export().unwrap();
+        let data = app.dispatch("diagnostics.export", json!({})).unwrap();
         assert_eq!(data["audit"]["valid"], true);
         assert_eq!(data["store"]["schema_version"], 16);
         assert_eq!(data["store"]["table_count"], 31);

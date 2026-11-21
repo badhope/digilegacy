@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.0.25] - 2026-11-21
+
+### 修复
+
+- `POST /api/v1/diagnostics/export` 现在与契约一致：服务端注册了路由，应用层 `dispatch` 也处理 `diagnostics.export`。修复前该 HTTP 端点返回“不支持”，文档里的 `invoke diagnostics.export` CLI 命令同样失败；只有专用命令 `diagnostics export` 可用。
+
+### 测试
+
+- 新增路由回归测试，真实调用 HTTP 端点并校验 `audit.valid` 与 schema 版本。
+- 应用层单测改为走 `dispatch` 路径，不再直接调用方法。
+
 [English](../../CHANGELOG.md) | 简体中文
 
 ## [0.0.24] - 2026-11-21

@@ -240,6 +240,7 @@ pub fn router(state: AppState) -> Router {
             patch(policy_provenance_set),
         )
         .route("/api/v1/deliverables/export", post(deliver_export))
+        .route("/api/v1/diagnostics/export", post(diagnostics_export))
         .route("/api/v1/exports/{job_id}", get(download_export))
         .route("/api/v1/jobs/{id}", get(job_detail))
         .route("/api/v1/jobs/{id}/cancel", post(job_cancel))
@@ -679,6 +680,13 @@ async fn deliver_export(
     )
 }
 
+async fn diagnostics_export(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    dispatch(&state, "diagnostics.export", json!({}), Some(&headers))
+}
+
 async fn download_export(State(state): State<AppState>, Path(job_id): Path<String>) -> Response {
     match state.app.read_export(&job_id) {
         Ok((file_name, bytes)) => Response::builder()
@@ -1063,6 +1071,29 @@ mod tests {
             .unwrap();
         let updated: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(updated["data"]["status"], "archived");
+    }
+
+    #[tokio::test]
+    async fn diagnostics_export_route_matches_contract() {
+        let state = test_app_with_token(Some("test-token"));
+        let response = router(state)
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/diagnostics/export")
+                    .header(header::AUTHORIZATION, "Bearer test-token")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(body["data"]["audit"]["valid"], true);
+        assert_eq!(body["data"]["store"]["schema_version"], 16);
     }
 
     #[test]
