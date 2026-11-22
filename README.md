@@ -18,16 +18,19 @@ Sensitive fields are encrypted before they reach the database, and exports are b
 
 ## Screenshots
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-list.png" alt="Asset list with type filters"><br><sub>Asset list, type filters and archived state</sub></td>
-    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-form-depth.png" alt="Asset form with depth fields expanded"><br><sub>Single-record entry with depth fields</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-detail.png" alt="Asset detail with valuation basis and beneficiary"><br><sub>Valuation basis, ownership and beneficiary details</sub></td>
-    <td width="50%"><img src="docs/assets/screenshots/0.0.34/delete-confirm.png" alt="Permanent delete confirmation for an archived asset"><br><sub>Permanent delete after archive, with confirmation</sub></td>
-  </tr>
-</table>
+**Asset list and depth-field entry**
+
+| Asset list | Single-record form |
+| :---: | :---: |
+| ![Asset list with type filters](docs/assets/screenshots/0.0.34/asset-list.png) | ![Asset form with depth fields expanded](docs/assets/screenshots/0.0.34/asset-form-depth.png) |
+| Type filters and archived state | Base fields plus the expanded depth fields |
+
+**Valuation and permanent delete**
+
+| Asset detail | Delete confirmation |
+| :---: | :---: |
+| ![Asset detail with valuation basis and beneficiary](docs/assets/screenshots/0.0.34/asset-detail.png) | ![Permanent delete confirmation for an archived asset](docs/assets/screenshots/0.0.34/delete-confirm.png) |
+| Valuation basis, ownership and beneficiary details | Permanent delete after archive, with confirmation |
 
 Screens taken from the 0.0.34 browser acceptance run against an isolated demo database.
 

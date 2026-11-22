@@ -18,16 +18,19 @@
 
 ## 界面预览
 
-<table>
-  <tr>
-    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-list.png" alt="资产列表与类型筛选"><br><sub>资产总览：类型筛选与归档状态</sub></td>
-    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-form-depth.png" alt="展开深字段的单条资产表单"><br><sub>单条录入：基础字段与展开的深字段</sub></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-detail.png" alt="资产详情中的估值口径与受益人"><br><sub>资产详情：估值口径、权属与受益人</sub></td>
-    <td width="50%"><img src="docs/assets/screenshots/0.0.34/delete-confirm.png" alt="归档资产永久删除确认"><br><sub>归档后物理删除：二次确认</sub></td>
-  </tr>
-</table>
+**资产总览与深字段录入**
+
+| 资产列表 | 单条录入表单 |
+| :---: | :---: |
+| ![资产列表与类型筛选](docs/assets/screenshots/0.0.34/asset-list.png) | ![展开深字段的单条资产表单](docs/assets/screenshots/0.0.34/asset-form-depth.png) |
+| 类型筛选与归档状态 | 基础字段加展开后的深字段 |
+
+**估值口径与物理删除**
+
+| 资产详情 | 删除确认 |
+| :---: | :---: |
+| ![资产详情中的估值口径与受益人](docs/assets/screenshots/0.0.34/asset-detail.png) | ![归档资产永久删除确认](docs/assets/screenshots/0.0.34/delete-confirm.png) |
+| 估值口径、权属与受益人 | 归档后物理删除，二次确认 |
 
 截图来自 0.0.34 隔离演示库的真实浏览器验收。
 
