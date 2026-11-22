@@ -52,14 +52,14 @@ node tools/bench/web-budget.mjs
 - **Application tests** exercise use cases without HTTP.
 - **Network guard tests** cover metadata/private/link-local URL rejection, loopback allowance and signed policy-feed transport against a local HTTP server.
 - **SMTP TLS tests** start local STARTTLS and implicit TLS servers with a test certificate, then verify the full mail dialog and UTF-8 body.
-- **Live Chromium smoke** renders 15 route/theme/viewport combinations against the real API and Vue dev server. It requires a `main` element, no horizontal overflow, no page exceptions, no API 5xx and no console errors, and runs axe WCAG A/AA/2.2 AA with colour contrast enabled in the real browser. The first run found two `label-content-name-mismatch` violations in the topbar (search and language buttons); both were fixed. The final 2026-11-20 run passed all 15 with zero axe violations; evidence is `docs/operations/measurements/live-browser-2026-11-20.json`. This supplements, but does not replace, human screen-reader review.
-- **Release package drill** builds a versioned tar archive, unpacks it under a fresh HOME, prefix and data directory, installs, starts, checks health and metrics, runs `diagnostics export`, creates and verifies a checkpoint, uninstalls while preserving data, reinstalls against the preserved database and finally purges. Evidence: `docs/operations/measurements/install-2026-11-20.json`.
+- **Live Chromium smoke** renders 18 route/theme/viewport combinations against the real API and Vue dev server. It requires a `main` element, no horizontal overflow, no page exceptions, no API 5xx and no console errors, and runs axe WCAG A/AA/2.2 AA with colour contrast enabled in the real browser. The first run found two `label-content-name-mismatch` violations in the topbar (search and language buttons); both were fixed. The 0.0.34 run passed all 18 with zero axe violations; evidence is `docs/operations/measurements/live-browser-0.0.34-2026-11-22.json`. This supplements, but does not replace, human screen-reader review.
+- **Release package drill** builds a versioned tar archive, unpacks it under a fresh HOME, prefix and data directory, installs, starts, checks health and metrics, runs `diagnostics export`, creates and verifies a checkpoint, uninstalls while preserving data, reinstalls against the preserved database and finally purges. Evidence: `docs/operations/measurements/install-0.0.34-2026-11-22.json`; the 0.0.19 drill remains as historical evidence.
 - **Outbound resolution tests** resolve a loopback URL, assert every returned address passes the block rules, and reject metadata, CGNAT, benchmarking, reserved and documentation ranges. The HTTP, policy-sync and SMTP paths then connect to the resolved address list instead of resolving the hostname again.
 - **Fuzz smoke tests** use fixed seeds and 45,000 inputs across five public boundaries: URL validation, recovery seals, paper shares, KDF parameters and HTML escaping. They are deterministic regression tests, not coverage-guided fuzzing.
 - **Checkpoint CLI test** creates a checkpoint in a temporary encrypted store, lists it, verifies its manifest, and confirms `security status` sees the audit record.
 - **Connections route test** mounts `Settings/Settings/connections` with the handoff guide and connection form, then runs the same axe gate used by every other route.
 - **Server tests** cover transport behavior, error mapping, the metrics snapshot, middleware counting of both handled routes and fallback 404s, and the absence of secrets or asset names in the output.
-- **Diagnostics test** exports the structural snapshot and requires `audit.valid`, schema v16, 31 tables and no row values.
+- **Diagnostics test** exports the structural snapshot and requires `audit.valid`, schema v19, 32 tables and no row values.
 - **Capacity drill** seeds 1,000 assets, 250 heirs and 10,000 audit rows, then runs 1,200 reads and 120 writes over real HTTP. The 2026-11-20 result was read p95 9.54 ms / p99 11.09 ms and write p95 3.70 ms with zero errors.
 - **Restore drill** copies a verified 3.5 MB checkpoint to a new path, starts a temporary instance, probes health, reads counts and verifies 10,120 audit rows. The 2026-11-20 result was healthy in 158 ms.
 - **Web tests** cover cache behavior, routing, page states, modal focus containment, the mobile navigation drawer, and axe WCAG A/AA scans of the app shell, the three dialogs and all sixteen feature routes.
@@ -86,8 +86,8 @@ review worklist, not a verification result.
 - Boundary: the script does not edit policy data or provenance. A reachable
   home page does not prove the page contains the cited rule.
 - The verify gate now byte-compiles the policy audit, clean-host drill and
-  capacity scripts; the last full run is **184 Rust + 79 Web** tests, with
-  **44 commands / 23 tools / 60 schemas / 21 errors** and schema v16 / 31 tables.
+  capacity scripts; the 0.0.34 full run is **211 Rust + 99 Web** tests, with
+  **49 commands / 23 tools / 67 schemas / 21 errors** and schema v19 / 32 tables.
 
 ## Manual smoke before release
 
@@ -102,10 +102,10 @@ review worklist, not a verification result.
 7. Open the mobile layout and the dark theme; check for overflow and unreadable text.
 8. On a narrow viewport, open the navigation drawer with the keyboard: focus should enter the drawer, `Escape` should close it and return focus to the menu button.
 9. Open the tools page and move through the search field and permission filter with the keyboard; both should announce a name, and the filter should expose its current value.
-10. Build the mock console, start the preview server and run `python3 tools/visual/regress.py`; all nine shots should stay within the 0.4% pixel budget. Then start the API and the dev server and run `python3 tools/visual/live_smoke.py`; all 15 route/theme/viewport combinations should pass.
+10. Build the mock console, start the preview server and run `python3 tools/visual/regress.py`; all nine shots should stay within the 0.4% pixel budget. Then start the API and the dev server and run `python3 tools/visual/live_smoke.py`; all 18 route/theme/viewport combinations should pass.
 11. Create a checkpoint with `security checkpoint --label smoke`, list it, run `security verify <id>` and confirm `security status` reports the new `lastBackupAt`.
 12. Read `/api/v1/metrics`; confirm counters increase after a few requests and contain no path, asset name or token.
-13. Run `diagnostics export --allow-write --json`; confirm `audit.valid: true` and schema v16 / 31 tables.
+13. Run `diagnostics export --allow-write --json`; confirm `audit.valid: true` and schema v19 / 32 tables.
 14. Run `unshare -Urnm python3 tools/security/dns_rebind_drill.py`; confirm PASS, one A query, a pinned connection and a rejected rebound resolution.
 
 ## Release checklist
@@ -120,6 +120,18 @@ review worklist, not a verification result.
 - [ ] A verified checkpoint exists before any migration or destructive repair; restore follows the offline runbook.
 
 The detailed Chinese verification record keeps the historical evidence for each delivery. The English page describes the gates and the expected behavior, not a running tally.
+
+## 0.0.34 asset depth
+
+- Schema v19 adds six nullable `digital_assets` columns (`ownership_share`, `credential_location`, `expires_at`, `quantity`, `unit`, `value_status`), keeping 32 tables. The asset form exposes eight optional fields behind “More details”; the detail page renders them without inventing blanks.
+- The asset list has a fifteen-kind filter that survives pagination. The create form supports "save and continue" and keeps the kind and valuation basis. Text drafts survive a route change; a type-only form does not reopen as a draft.
+- Archived assets can be permanently deleted with `confirm: true`. Active assets return `CONFLICT`, missing confirmation returns `400`, and a successful delete is audited as `asset.delete`. `assets.delete` is deliberately not exposed through MCP.
+- Partial updates now preserve omitted platform, amount, note and deep fields; explicit empty strings still clear them. `valueStatus=unknown` clears the amount and rejects a later non-empty amount.
+- Real Chromium on an isolated database: six records, financial filter 1 item, deep form, save-and-continue (`financial` / `insured` retained), text-draft restore, type-only form not restored, archived delete list 6→5, GET 404 and audit row. Evidence: `docs/operations/measurements/ux-asset-depth-0.0.34-2026-11-22.json`; screenshots in `screenshots-0.0.34-ui/`.
+- Gate: `./tools/verify.sh` exit 0; **211 Rust + 99 Web**; **49 commands / 23 tools / 67 schemas / 21 errors**; schema v19 / 32 tables; entry 87.36/88 KB, vendor 101.41/130 KB, route max 22.48/24 KB, JS gzip 120.97/121 KB, CSS 22.12/23 KB, total 143.09/144 KB.
+- Live Chromium: 18/18 routes, 0 axe violations, 0 page or API errors, no horizontal overflow. Evidence: `docs/operations/measurements/live-browser-0.0.34-2026-11-22.json`.
+- Archive: `packages/digilegacy-0.0.34-linux-x86_64.tar.gz`; the sidecar `.sha256` is authoritative and the archive carries `SHA256SUMS`. Clean-host drill 12/12 PASS; evidence `docs/operations/measurements/install-0.0.34-2026-11-22.json`.
+- Boundary: identifiers and credential locations describe where a credential is kept; they never store a password, private key or recovery code. Hard delete is archive-only, with no bulk-delete or undo window.
 
 ## 0.0.19 recovery and failure limit
 

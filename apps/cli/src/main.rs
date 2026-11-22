@@ -314,6 +314,9 @@ enum AssetsCommand {
         status: String,
         #[arg(long, default_value = "")]
         q: String,
+        /// Optional asset kind, e.g. account or real_estate.
+        #[arg(long, default_value = "")]
+        kind: String,
         #[arg(long, default_value_t = 50)]
         limit: i64,
         #[arg(long)]
@@ -333,30 +336,66 @@ enum AssetsCommand {
         name: String,
         #[arg(long)]
         kind: String,
-        #[arg(long, default_value = "")]
-        platform: String,
-        #[arg(long, default_value = "")]
-        value: String,
-        #[arg(long, default_value = "")]
-        note: String,
+        #[arg(long)]
+        platform: Option<String>,
+        #[arg(long)]
+        value: Option<String>,
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(long)]
+        value_status: Option<String>,
+        #[arg(long)]
+        identifier: Option<String>,
+        #[arg(long)]
+        ownership_share: Option<String>,
+        #[arg(long)]
+        beneficiary: Option<String>,
+        #[arg(long)]
+        beneficiary_contact: Option<String>,
+        #[arg(long)]
+        credential_location: Option<String>,
+        #[arg(long)]
+        expires_at: Option<String>,
+        #[arg(long)]
+        quantity: Option<String>,
+        #[arg(long)]
+        unit: Option<String>,
         #[arg(long)]
         allow_write: bool,
         #[arg(long)]
         json: bool,
     },
-    /// Update one asset (local privileged surface).
+    /// Update one asset (local privileged surface; omitted fields are kept).
     Update {
         id: String,
         #[arg(long)]
         name: String,
         #[arg(long)]
         kind: String,
-        #[arg(long, default_value = "")]
-        platform: String,
-        #[arg(long, default_value = "")]
-        value: String,
-        #[arg(long, default_value = "")]
-        note: String,
+        #[arg(long)]
+        platform: Option<String>,
+        #[arg(long)]
+        value: Option<String>,
+        #[arg(long)]
+        note: Option<String>,
+        #[arg(long)]
+        value_status: Option<String>,
+        #[arg(long)]
+        identifier: Option<String>,
+        #[arg(long)]
+        ownership_share: Option<String>,
+        #[arg(long)]
+        beneficiary: Option<String>,
+        #[arg(long)]
+        beneficiary_contact: Option<String>,
+        #[arg(long)]
+        credential_location: Option<String>,
+        #[arg(long)]
+        expires_at: Option<String>,
+        #[arg(long)]
+        quantity: Option<String>,
+        #[arg(long)]
+        unit: Option<String>,
         /// active | archived; empty keeps the current status.
         #[arg(long, default_value = "")]
         status: String,
@@ -371,6 +410,16 @@ enum AssetsCommand {
         category: String,
         #[arg(long, default_value = "")]
         q: String,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Permanently delete an archived asset. Requires --confirm.
+    Delete {
+        id: String,
+        #[arg(long)]
+        confirm: bool,
+        #[arg(long)]
+        allow_write: bool,
         #[arg(long)]
         json: bool,
     },
@@ -674,13 +723,14 @@ fn main() -> ExitCode {
             AssetsCommand::List {
                 status,
                 q,
+                kind,
                 limit,
                 cursor,
                 json: as_json,
             } => run(
                 &app,
                 "assets.list",
-                json!({ "status": status, "q": q, "limit": limit, "cursor": cursor }),
+                json!({ "status": status, "q": q, "kind": if kind.is_empty() { None } else { Some(kind) }, "limit": limit, "cursor": cursor }),
                 as_json,
                 false,
             ),
@@ -693,18 +743,39 @@ fn main() -> ExitCode {
                 platform,
                 value,
                 note,
+                value_status,
+                identifier,
+                ownership_share,
+                beneficiary,
+                beneficiary_contact,
+                credential_location,
+                expires_at,
+                quantity,
+                unit,
                 allow_write,
                 json: as_json,
-            } => run(
-                &app,
-                "assets.create",
-                json!({
-                    "name": name, "kind": kind, "platform": platform,
-                    "value": value, "note": note
-                }),
-                as_json,
-                allow_write,
-            ),
+            } => {
+                let mut args = json!({ "name": name, "kind": kind });
+                for (key, value) in [
+                    ("platform", platform),
+                    ("value", value),
+                    ("note", note),
+                    ("valueStatus", value_status),
+                    ("identifier", identifier),
+                    ("ownershipShare", ownership_share),
+                    ("beneficiary", beneficiary),
+                    ("beneficiaryContact", beneficiary_contact),
+                    ("credentialLocation", credential_location),
+                    ("expiresAt", expires_at),
+                    ("quantity", quantity),
+                    ("unit", unit),
+                ] {
+                    if let Some(value) = value {
+                        args[key] = json!(value);
+                    }
+                }
+                run(&app, "assets.create", args, as_json, allow_write)
+            }
             AssetsCommand::Update {
                 id,
                 name,
@@ -712,17 +783,52 @@ fn main() -> ExitCode {
                 platform,
                 value,
                 note,
+                value_status,
+                identifier,
+                ownership_share,
+                beneficiary,
+                beneficiary_contact,
+                credential_location,
+                expires_at,
+                quantity,
+                unit,
                 status,
+                allow_write,
+                json: as_json,
+            } => {
+                let mut args = json!({
+                    "id": id, "name": name, "kind": kind,
+                    "status": if status.is_empty() { None } else { Some(status) }
+                });
+                for (key, value) in [
+                    ("platform", platform),
+                    ("value", value),
+                    ("note", note),
+                    ("valueStatus", value_status),
+                    ("identifier", identifier),
+                    ("ownershipShare", ownership_share),
+                    ("beneficiary", beneficiary),
+                    ("beneficiaryContact", beneficiary_contact),
+                    ("credentialLocation", credential_location),
+                    ("expiresAt", expires_at),
+                    ("quantity", quantity),
+                    ("unit", unit),
+                ] {
+                    if let Some(value) = value {
+                        args[key] = json!(value);
+                    }
+                }
+                run(&app, "assets.update", args, as_json, allow_write)
+            }
+            AssetsCommand::Delete {
+                id,
+                confirm,
                 allow_write,
                 json: as_json,
             } => run(
                 &app,
-                "assets.update",
-                json!({
-                    "id": id, "name": name, "kind": kind, "platform": platform,
-                    "value": value, "note": note,
-                    "status": if status.is_empty() { None } else { Some(status) }
-                }),
+                "assets.delete",
+                json!({ "id": id, "confirm": confirm }),
                 as_json,
                 allow_write,
             ),

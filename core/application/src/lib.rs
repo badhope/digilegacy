@@ -281,6 +281,7 @@ impl Application {
             "assets.get" => self.assets_get(args),
             "assets.create" => self.assets_create(args),
             "assets.update" => self.assets_update(args),
+            "assets.delete" => self.assets_delete(args),
             "assets.discover" => self.assets_discover(args),
             "assets.bulkCreate" => self.assets_bulk_create(args),
             "plan.get" => self.plan(),
@@ -380,6 +381,19 @@ impl Application {
         let asset = assets::update(&self.store, &input).map_err(map_domain)?;
         self.audit("asset.update", &asset.id)?;
         Ok(json!(asset))
+    }
+
+    pub fn assets_delete(&self, args: Value) -> Result<Value, PlatformError> {
+        let input: assets::DeleteInput = parse(args)?;
+        if !input.confirm {
+            return Err(PlatformError::new(
+                "INVALID_ARGS",
+                "物理删除不可撤销，必须传 confirm: true",
+            ));
+        }
+        let result = assets::delete(&self.store, &input.id).map_err(map_domain)?;
+        self.audit("asset.delete", &result.id)?;
+        Ok(json!(result))
     }
 
     pub fn assets_discover(&self, args: Value) -> Result<Value, PlatformError> {
@@ -1329,7 +1343,7 @@ mod tests {
 
         let meta = app.security_checkpoint("before-upgrade").unwrap();
         let id = meta["id"].as_str().unwrap().to_string();
-        assert_eq!(meta["schema_version"], 18);
+        assert_eq!(meta["schema_version"], 19);
         assert_eq!(
             app.security_checkpoints()
                 .unwrap()
@@ -1463,6 +1477,66 @@ mod tests {
         let overview = app.dispatch("app.overview", json!({})).unwrap();
         assert_eq!(overview["assetsTotal"], 1);
         assert!(overview["activity"].as_array().unwrap().len() >= 2);
+    }
+
+    #[test]
+    fn deep_asset_fields_kind_filter_and_hard_delete() {
+        let app = app();
+        let created = app
+            .dispatch(
+                "assets.create",
+                json!({
+                    "name": "鼓浪屿老宅", "kind": "real_estate",
+                    "platform": "不动产登记中心",
+                    "valueStatus": "unknown", "note": "待评估",
+                    "identifier": "闽(2026)第0001号", "ownershipShare": "50%",
+                    "beneficiary": "林小雨", "beneficiaryContact": "lin@example.com",
+                    "credentialLocation": "保险柜 A-03", "expiresAt": "2056-12-31",
+                    "quantity": "1", "unit": "套"
+                }),
+            )
+            .unwrap();
+        let id = created["id"].as_str().unwrap().to_string();
+        assert_eq!(created["identifier"], "闽(2026)第0001号");
+        assert_eq!(created["ownershipShare"], "50%");
+        assert_eq!(created["beneficiary"], "林小雨");
+        assert_eq!(created["credentialLocation"], "保险柜 A-03");
+
+        let real_estate = app
+            .dispatch(
+                "assets.list",
+                json!({ "status": "all", "kind": "real_estate" }),
+            )
+            .unwrap();
+        assert_eq!(real_estate["total"], 1);
+        let vehicles = app
+            .dispatch("assets.list", json!({ "status": "all", "kind": "vehicle" }))
+            .unwrap();
+        assert_eq!(vehicles["total"], 0);
+
+        let active_delete = app.dispatch("assets.delete", json!({ "id": id, "confirm": true }));
+        assert!(active_delete.is_err());
+
+        app.dispatch(
+            "assets.update",
+            json!({
+                "id": id, "name": "鼓浪屿老宅", "kind": "real_estate",
+                "platform": "不动产登记中心", "status": "archived"
+            }),
+        )
+        .unwrap();
+        let fetched = app.dispatch("assets.get", json!({ "id": id })).unwrap();
+        assert_eq!(fetched["status"], "archived");
+        assert_eq!(fetched["beneficiary"], "林小雨");
+        assert_eq!(fetched["credentialLocation"], "保险柜 A-03");
+
+        let no_confirm = app.dispatch("assets.delete", json!({ "id": id }));
+        assert!(no_confirm.is_err());
+        let deleted = app
+            .dispatch("assets.delete", json!({ "id": id, "confirm": true }))
+            .unwrap();
+        assert_eq!(deleted["deleted"], true);
+        assert!(app.dispatch("assets.get", json!({ "id": id })).is_err());
     }
 
     #[test]
@@ -1895,7 +1969,7 @@ mod tests {
         let app = app();
         let data = app.dispatch("diagnostics.export", json!({})).unwrap();
         assert_eq!(data["audit"]["valid"], true);
-        assert_eq!(data["store"]["schema_version"], 18);
+        assert_eq!(data["store"]["schema_version"], 19);
         assert_eq!(data["store"]["table_count"], 32);
         assert!(data["rows"].get("audit_log").is_some());
         let text = data.to_string();

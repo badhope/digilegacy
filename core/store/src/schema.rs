@@ -1,10 +1,10 @@
-//! Schema v18: built-in skills and MCP catalog metadata.
+//! Schema v19: asset depth fields (ownership, beneficiary, credential location, expiry, quantity, value status).
 
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use sha2::{Digest, Sha256};
 
-pub const SCHEMA_VERSION: i64 = 18;
+pub const SCHEMA_VERSION: i64 = 19;
 pub const SCHEMA_SQL: &str = include_str!("schema.sql");
 pub const EXPECTED_TABLES: i64 = 32;
 
@@ -63,6 +63,22 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
         "policy_snapshot_hash",
         "TEXT DEFAULT ''",
     )?;
+    add_column(conn, "digital_assets", "ownership_share", "TEXT DEFAULT ''")?;
+    add_column(
+        conn,
+        "digital_assets",
+        "credential_location",
+        "TEXT DEFAULT ''",
+    )?;
+    add_column(conn, "digital_assets", "expires_at", "TEXT DEFAULT ''")?;
+    add_column(conn, "digital_assets", "quantity", "TEXT DEFAULT ''")?;
+    add_column(conn, "digital_assets", "unit", "TEXT DEFAULT ''")?;
+    add_column(
+        conn,
+        "digital_assets",
+        "value_status",
+        "TEXT NOT NULL DEFAULT 'market'",
+    )?;
     add_column(
         conn,
         "user_profile",
@@ -101,14 +117,13 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
         "INTEGER NOT NULL DEFAULT 0",
     )?;
 
-    // Seed only when v18 first runs. A user may edit or delete a built-in skill
-    // afterwards; do not resurrect it on every startup.
-    let v18_applied: i64 = conn.query_row(
-        "SELECT count(*) FROM schema_migrations WHERE version = 18",
-        [],
-        |row| row.get(0),
-    )?;
-    if v18_applied == 0 {
+    // Seed only on the first schema application. A user may edit or delete a
+    // built-in skill afterwards; do not resurrect it on every startup.
+    let migrations_applied: i64 =
+        conn.query_row("SELECT count(*) FROM schema_migrations", [], |row| {
+            row.get(0)
+        })?;
+    if migrations_applied == 0 {
         crate::builtin_skills::seed(conn)?;
     }
 
@@ -118,7 +133,7 @@ pub fn apply_schema(conn: &Connection) -> rusqlite::Result<()> {
          VALUES (?1, ?2, ?3, ?4)",
         params![
             SCHEMA_VERSION,
-            "v18_builtin_resources",
+            "v19_asset_details",
             checksum(),
             Utc::now().to_rfc3339()
         ],
@@ -144,7 +159,7 @@ mod tests {
     use rusqlite::Connection;
 
     #[test]
-    fn schema_is_v18_and_has_32_tables() {
+    fn schema_is_v19_and_has_32_tables() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let version: i64 = conn
@@ -159,21 +174,21 @@ mod tests {
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(count, EXPECTED_TABLES, "schema v18 必须正好 32 张表");
+        assert_eq!(count, EXPECTED_TABLES, "schema v19 必须正好 32 张表");
     }
 
     #[test]
-    fn migration_ledger_records_v18() {
+    fn migration_ledger_records_v19() {
         let conn = Connection::open_in_memory().unwrap();
         apply_schema(&conn).unwrap();
         let name: String = conn
             .query_row(
-                "SELECT name FROM schema_migrations WHERE version = 18",
+                "SELECT name FROM schema_migrations WHERE version = 19",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(name, "v18_builtin_resources");
+        assert_eq!(name, "v19_asset_details");
     }
 
     #[test]
@@ -210,7 +225,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             builtin_after, 7,
-            "v18 seed must not resurrect deleted skills"
+            "v19 seed must not resurrect deleted skills"
         );
     }
 
@@ -223,5 +238,47 @@ mod tests {
             .query_row("SELECT count(*) FROM schema_migrations", [], |r| r.get(0))
             .unwrap();
         assert_eq!(rows, 1);
+    }
+    #[test]
+    fn v18_database_gains_asset_depth_columns_without_losing_rows() {
+        let conn = Connection::open_in_memory().unwrap();
+        let v18 = SCHEMA_SQL
+            .replace("    ownership_share TEXT DEFAULT '',\n", "")
+            .replace("    credential_location TEXT DEFAULT '',\n", "")
+            .replace("    expires_at TEXT DEFAULT '',\n", "")
+            .replace("    quantity TEXT DEFAULT '',\n", "")
+            .replace("    unit TEXT DEFAULT '',\n", "")
+            .replace("    value_status TEXT NOT NULL DEFAULT 'market',\n", "");
+        conn.execute_batch(&v18).unwrap();
+        conn.execute(
+            "INSERT INTO platforms (name, category) VALUES ('示例银行', 'finance')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO digital_assets
+             (platform_id, account_description, category, estimated_value, created_at, updated_at, status)
+             VALUES (1, '旧版助学金卡', 'financial', 3200, '2026-11-01T00:00:00+08:00', '2026-11-01T00:00:00+08:00', 'active')",
+            [],
+        )
+        .unwrap();
+
+        apply_schema(&conn).unwrap();
+        let row: (i64, String, String, String, String, String, String) = conn
+            .query_row(
+                "SELECT count(*), max(account_description), max(ownership_share), max(credential_location),
+                        max(expires_at), max(quantity), max(value_status)
+                 FROM digital_assets",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)),
+            )
+            .unwrap();
+        assert_eq!(row.0, 1);
+        assert_eq!(row.1, "旧版助学金卡");
+        assert_eq!(row.2, "");
+        assert_eq!(row.3, "");
+        assert_eq!(row.4, "");
+        assert_eq!(row.5, "");
+        assert_eq!(row.6, "market");
     }
 }

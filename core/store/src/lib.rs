@@ -226,7 +226,7 @@ mod tests {
     }
 
     #[test]
-    fn opens_schema_v18_and_integrity_ok() {
+    fn opens_schema_v19_and_integrity_ok() {
         let path = temp_path("v9");
         let store = Store::open(&path, None).unwrap();
         assert_eq!(store.state(), StoreState::Ready);

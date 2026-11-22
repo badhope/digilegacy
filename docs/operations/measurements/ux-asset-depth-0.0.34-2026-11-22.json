@@ -1,0 +1,73 @@
+{
+  "version": "0.0.34",
+  "date": "2026-11-22",
+  "environment": "isolated database /tmp/dg-ui-demo.db; API 127.0.0.1:8787; Chromium 1910x993",
+  "real_database": {
+    "path": "data/digilegacy.db",
+    "assets": 0,
+    "audit_rows": 18,
+    "last_audit_hash": "3c7a2931f2bc4214249df94137e775471040daa2dbc6c470f83d51dd93e50f79",
+    "schema_version": 19,
+    "incident": "A wrong env var briefly opened the real DB during the first demo run. Six demo assets, five platform rows, six asset.create audit rows and the asset sequence were removed; the schema migration to v19 remains."
+  },
+  "demo_counts": {
+    "before_delete": 6,
+    "after_delete": 5,
+    "after_save_continue": 7,
+    "active": 6,
+    "archived": 1
+  },
+  "checks": {
+    "kind_filter": "PASS: financial -> 1 item",
+    "deep_form": "PASS: eight optional fields visible",
+    "valuation_basis": "PASS: market/appraised/insured/unknown",
+    "save_and_continue": "PASS: type financial and value status insured retained",
+    "draft_restore": "PASS: text draft restored; type-only form did not reopen",
+    "hard_delete": "PASS: archived id 6 deleted after confirm; list 6->5; GET 404; audit asset.delete"
+  },
+  "screenshots": [
+    "screenshots-0.0.34-ui/01-assets-list.png",
+    "screenshots-0.0.34-ui/02-asset-form-deep.png",
+    "screenshots-0.0.34-ui/03-asset-detail-deep.png",
+    "screenshots-0.0.34-ui/04-asset-detail-beneficiary.png",
+    "screenshots-0.0.34-ui/05-delete-confirm.png",
+    "screenshots-0.0.34-ui/06-type-filter.png",
+    "screenshots-0.0.34-ui/07-save-continue.png",
+    "screenshots-0.0.34-ui/08-draft-restore.png"
+  ],
+  "gate": {
+    "rust_tests": "211",
+    "web_tests": "99",
+    "commands": 49,
+    "tools": 23,
+    "schemas": 67,
+    "errors": 21,
+    "schema_version": 19,
+    "tables": 32,
+    "entry_kb": "87.36",
+    "vendor_kb": "101.41",
+    "route_max_kb": "22.48",
+    "js_gzip_kb": "120.97",
+    "js_budget_kb": 121,
+    "css_gzip_kb": "22.12",
+    "css_budget_kb": 23,
+    "total_gzip_kb": "143.09",
+    "total_budget_kb": 144
+  },
+  "report": "docs/zh-CN/operations/UX-ASSET-DEPTH-0.0.34-2026-11-22.md",
+  "archive": {
+    "name": "digilegacy-0.0.34-linux-x86_64.tar.gz",
+    "checksum": "sidecar .sha256 and SHA256SUMS inside the archive"
+  },
+  "live_browser": {
+    "routes": 18,
+    "axe": 0,
+    "failures": 0,
+    "evidence": "docs/operations/measurements/live-browser-0.0.34-2026-11-22.json"
+  },
+  "install_drill": {
+    "result": "PASS",
+    "steps": 12,
+    "evidence": "docs/operations/measurements/install-0.0.34-2026-11-22.json"
+  }
+}

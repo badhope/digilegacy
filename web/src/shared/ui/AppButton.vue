@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    variant?: "primary" | "secondary" | "ghost" | "quiet";
+    variant?: "primary" | "secondary" | "ghost" | "quiet" | "danger";
     size?: "sm" | "md";
     type?: "button" | "submit";
     disabled?: boolean;
@@ -43,6 +43,11 @@ withDefaults(
   transform: translateY(1px);
 }
 
+.app-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .size-md {
   min-height: 38px;
   padding: 0 16px;
@@ -82,6 +87,17 @@ withDefaults(
 .variant-ghost:hover:not(:disabled) {
   background: var(--surface-soft);
   color: var(--ink);
+}
+
+.variant-danger {
+  border-color: color-mix(in srgb, var(--danger, #b42318) 40%, var(--line));
+  background: color-mix(in srgb, var(--danger, #b42318) 8%, var(--surface));
+  color: var(--danger, #b42318);
+}
+
+.variant-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger, #b42318) 14%, var(--surface));
+  border-color: var(--danger, #b42318);
 }
 
 .variant-quiet {

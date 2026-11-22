@@ -200,6 +200,32 @@
       ]
     },
     {
+      "name": "assets.delete",
+      "domain": "assets",
+      "summary": "物理删除已归档资产，必须显式确认",
+      "permission": "write",
+      "requiresUnlock": true,
+      "idempotent": false,
+      "input": "schemas/asset.delete.input.json",
+      "output": "schemas/asset.delete.output.json",
+      "transports": {
+        "ipc": true,
+        "cli": "assets delete",
+        "http": "DELETE /api/v1/assets/{id}",
+        "mcp": false,
+        "agent": false
+      },
+      "agentApproval": "required",
+      "audit": true,
+      "errors": [
+        "INVALID_ARGS",
+        "NOT_FOUND",
+        "CONFLICT",
+        "VAULT_LOCKED",
+        "INTERNAL"
+      ]
+    },
+    {
       "name": "plan.get",
       "domain": "plan",
       "summary": "读取规划：持有人、继承人、触发链",

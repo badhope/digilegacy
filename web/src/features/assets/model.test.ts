@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ASSET_KINDS, ASSET_KIND_GROUPS, formatAssetValue, normalizeValuation } from "./model";
+import { ASSET_KINDS, ASSET_KIND_GROUPS, ASSET_VALUE_STATUSES, assetValueStatusLabel, draftFromAsset, formatAssetValue, normalizeValuation } from "./model";
 
 describe("asset kind groups", () => {
   it("places every kind in exactly one group", () => {
@@ -32,5 +32,46 @@ describe("asset kind groups", () => {
     for (const kind of ["account", "file", "device", "domain", "subscription", "physical", "other"]) {
       expect(ASSET_KINDS).toContain(kind);
     }
+  });
+
+  it("keeps the draft and the asset schema aligned", () => {
+    const draft = draftFromAsset({
+      id: "7",
+      name: "老宅",
+      kind: "real_estate",
+      platform: "不动产登记中心",
+      valueStatus: "appraised",
+      identifier: "闽(2026)第0001号",
+      ownershipShare: "50%",
+      beneficiary: "林小雨",
+      beneficiaryContact: "lin@example.com",
+      credentialLocation: "保险柜 A-03",
+      expiresAt: "2056-12-31",
+      quantity: "1",
+      unit: "套",
+    });
+    expect(draft).toMatchObject({
+      name: "老宅",
+      kind: "real_estate",
+      platform: "不动产登记中心",
+      valueStatus: "appraised",
+      identifier: "闽(2026)第0001号",
+      ownershipShare: "50%",
+      beneficiary: "林小雨",
+      beneficiaryContact: "lin@example.com",
+      credentialLocation: "保险柜 A-03",
+      expiresAt: "2056-12-31",
+      quantity: "1",
+      unit: "套",
+    });
+  });
+
+  it("labels every value status in both locales", () => {
+    for (const status of ASSET_VALUE_STATUSES) {
+      expect(assetValueStatusLabel(status, "zh-CN").length).toBeGreaterThan(0);
+      expect(assetValueStatusLabel(status, "en-US").length).toBeGreaterThan(0);
+    }
+    expect(assetValueStatusLabel("unknown", "zh-CN")).toBe("待评估");
+    expect(assetValueStatusLabel("market", "en-US")).toBe("Market value");
   });
 });

@@ -1,4 +1,4 @@
-import type { Asset, AssetKind, Locale } from "@/platform/types";
+import type { Asset, AssetKind, AssetValueStatus, Locale } from "@/platform/types";
 import { t } from "@/platform/i18n";
 
 export interface AssetDraft {
@@ -6,7 +6,16 @@ export interface AssetDraft {
   kind: AssetKind;
   platform: string;
   value: string;
+  valueStatus: AssetValueStatus;
   note: string;
+  identifier: string;
+  ownershipShare: string;
+  beneficiary: string;
+  beneficiaryContact: string;
+  credentialLocation: string;
+  expiresAt: string;
+  quantity: string;
+  unit: string;
 }
 
 export const ASSET_KINDS: AssetKind[] = [
@@ -26,6 +35,21 @@ export const ASSET_KINDS: AssetKind[] = [
   "identity",
   "other",
 ];
+
+export const ASSET_VALUE_STATUSES: AssetValueStatus[] = ["market", "appraised", "insured", "unknown"];
+
+const VALUE_STATUS_LABELS: Record<AssetValueStatus, { zh: string; en: string }> = {
+  market: { zh: "市值", en: "Market value" },
+  appraised: { zh: "评估价", en: "Appraised" },
+  insured: { zh: "保额", en: "Insured sum" },
+  unknown: { zh: "待评估", en: "Not assessed" },
+};
+
+export function assetValueStatusLabel(status: string | undefined, locale: Locale): string {
+  const key = (status || "market") as AssetValueStatus;
+  const label = VALUE_STATUS_LABELS[key] ?? VALUE_STATUS_LABELS.market;
+  return label[locale === "en-US" ? "en" : "zh"];
+}
 
 export interface AssetKindGroup {
   label: string;
@@ -130,6 +154,15 @@ export function draftFromAsset(asset?: Partial<Asset> | null): AssetDraft {
     kind: asset?.kind ?? "account",
     platform: asset?.platform ?? "",
     value: asset?.value ?? "",
+    valueStatus: asset?.valueStatus ?? "market",
     note: asset?.note ?? "",
+    identifier: asset?.identifier ?? "",
+    ownershipShare: asset?.ownershipShare ?? "",
+    beneficiary: asset?.beneficiary ?? "",
+    beneficiaryContact: asset?.beneficiaryContact ?? "",
+    credentialLocation: asset?.credentialLocation ?? "",
+    expiresAt: asset?.expiresAt ?? "",
+    quantity: asset?.quantity ?? "",
+    unit: asset?.unit ?? "",
   };
 }

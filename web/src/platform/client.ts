@@ -1,7 +1,7 @@
 import { COMMAND_PERMISSION, COMMANDS, INVOKE_PATH, type CommandName } from "./generated/ipc";
 import { mockInvoke } from "./generated/mock";
 import { cachedQuery, clearQueryCache, invalidateQuery, queryCacheKey } from "./queryCache";
-import type { HeirDraft, UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, LocalModelsPayload, ConnectionKind,
+import type { HeirDraft, UsageSummary, AgentRuns, ApprovalPage, Approval, AssetsPage, Asset, AssetMutationInput, AssetDeleteResult, LocalModelsPayload, ConnectionKind,
   ConnectionItem,
   ConnectionUpsertInput,
   ConnectionDeleteResult, ConnectionPage, ConnectionTestResult, DiscoveryResult, HarnessStatus, AgentSkillPage, AgentSkill, SkillUpsertInput, SkillDeleteResult, BulkCreateResult, AuditPage, CheckinResult, DeliverableExport, Envelope, JobDetail, NotificationPage, NotificationSendResult, Overview, Plan, PoliciesPage, Policy, PolicyCandidate, PolicyCandidatePage, PolicySyncResult, RunDetail, RunPlan, SecurityStatus, Trigger, TriggerEventPage } from "./types";
@@ -198,17 +198,12 @@ export const platformClient = {
   getOverview: () => read<Overview>(COMMANDS.appOverview, {}, "overview"),
   listAssets: (args: Record<string, unknown> = {}) => read<AssetsPage>(COMMANDS.assetsList, args, "assets"),
   getAsset: (id: string) => read<Asset>(COMMANDS.assetsGet, { id }, "assets"),
-  createAsset: (args: { name: string; kind: string; platform?: string; value?: string; note?: string }) =>
-    write<Asset>(COMMANDS.assetsCreate, args, ["assets", "overview"]),
-  updateAsset: (args: {
-    id: string;
-    name: string;
-    kind: string;
-    platform?: string;
-    value?: string;
-    note?: string;
-    status?: Asset["status"];
-  }) => write<Asset>(COMMANDS.assetsUpdate, args, ["assets", "overview"]),
+  createAsset: (args: AssetMutationInput) =>
+    write<Asset>(COMMANDS.assetsCreate, { ...args } as Record<string, unknown>, ["assets", "overview"]),
+  updateAsset: (args: AssetMutationInput & { id: string }) =>
+    write<Asset>(COMMANDS.assetsUpdate, { ...args } as Record<string, unknown>, ["assets", "overview"]),
+  deleteAsset: (id: string, confirm: boolean) =>
+    write<AssetDeleteResult>(COMMANDS.assetsDelete, { id, confirm }, ["assets", "overview"]),
   discoverAssets: (args: { category?: string; q?: string } = {}) =>
     read<DiscoveryResult>(COMMANDS.assetsDiscover, args, "assets.discover"),
   bulkCreateAssets: (items: Array<{ name: string; kind: string; platform?: string; value?: string; note?: string }>) =>

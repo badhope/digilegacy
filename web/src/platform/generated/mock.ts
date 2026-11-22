@@ -186,9 +186,18 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "file",
         "platform": "iCloud",
         "status": "active",
-        "value": "2014–2024 的家庭照片与视频，按年份归档",
+        "value": "",
         "note": "",
-        "updatedAt": "2026-11-18T09:20:00+08:00"
+        "updatedAt": "2026-11-18T09:20:00+08:00",
+        "valueStatus": "unknown",
+        "identifier": "iCloud 照片图库",
+        "ownershipShare": "100%",
+        "beneficiary": "林若岚",
+        "beneficiaryContact": "heir1@example.com",
+        "credentialLocation": "NAS 备份 + iCloud 共享",
+        "expiresAt": "",
+        "quantity": "1",
+        "unit": "套"
       },
       {
         "id": "ast_02",
@@ -196,9 +205,18 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "account",
         "platform": "招商银行",
         "status": "active",
-        "value": "工资与日常结算账户，含联名卡",
+        "value": "3200",
         "note": "",
-        "updatedAt": "2026-11-17T16:05:00+08:00"
+        "updatedAt": "2026-11-17T16:05:00+08:00",
+        "valueStatus": "market",
+        "identifier": "尾号 8821",
+        "ownershipShare": "50%",
+        "beneficiary": "林若岚",
+        "beneficiaryContact": "heir1@example.com",
+        "credentialLocation": "书房保险柜",
+        "expiresAt": "",
+        "quantity": "1",
+        "unit": "张"
       },
       {
         "id": "ast_03",
@@ -206,9 +224,18 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "account",
         "platform": "华泰证券",
         "status": "active",
-        "value": "长期指数基金与年金账户",
+        "value": "86000",
         "note": "",
-        "updatedAt": "2026-11-16T11:40:00+08:00"
+        "updatedAt": "2026-11-16T11:40:00+08:00",
+        "valueStatus": "appraised",
+        "identifier": "资金账号 6688",
+        "ownershipShare": "100%",
+        "beneficiary": "林一川",
+        "beneficiaryContact": "heir2@example.com",
+        "credentialLocation": "券商 App + 纸质对账单",
+        "expiresAt": "",
+        "quantity": "1",
+        "unit": "户"
       },
       {
         "id": "ast_04",
@@ -216,9 +243,18 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "domain",
         "platform": "Cloudflare",
         "status": "active",
-        "value": "个人博客与作品集域名，含 DNS 记录",
+        "value": "5000",
         "note": "",
-        "updatedAt": "2026-11-15T14:10:00+08:00"
+        "updatedAt": "2026-11-15T14:10:00+08:00",
+        "valueStatus": "appraised",
+        "identifier": "example.com",
+        "ownershipShare": "100%",
+        "beneficiary": "林一川",
+        "beneficiaryContact": "heir2@example.com",
+        "credentialLocation": "Cloudflare 账户与域名证书",
+        "expiresAt": "2027-03-31",
+        "quantity": "1",
+        "unit": "个"
       },
       {
         "id": "ast_05",
@@ -226,9 +262,18 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "file",
         "platform": "本地 NAS",
         "status": "active",
-        "value": "未发表的手稿、信件与写作素材",
+        "value": "",
         "note": "",
-        "updatedAt": "2026-11-14T20:30:00+08:00"
+        "updatedAt": "2026-11-14T20:30:00+08:00",
+        "valueStatus": "unknown",
+        "identifier": "NAS/writing",
+        "ownershipShare": "100%",
+        "beneficiary": "林若岚",
+        "beneficiaryContact": "heir1@example.com",
+        "credentialLocation": "NAS + 离线硬盘",
+        "expiresAt": "",
+        "quantity": "12",
+        "unit": "份"
       },
       {
         "id": "ast_06",
@@ -236,19 +281,37 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "subscription",
         "platform": "阿里云盘",
         "status": "active",
-        "value": "家庭共享空间，含授权说明",
+        "value": "600",
         "note": "",
-        "updatedAt": "2026-11-13T10:00:00+08:00"
+        "updatedAt": "2026-11-13T10:00:00+08:00",
+        "valueStatus": "market",
+        "identifier": "family@example.com",
+        "ownershipShare": "100%",
+        "beneficiary": "林若岚",
+        "beneficiaryContact": "heir1@example.com",
+        "credentialLocation": "共享空间说明",
+        "expiresAt": "2027-01-15",
+        "quantity": "1",
+        "unit": "份"
       },
       {
         "id": "ast_07",
         "name": "保险保单",
-        "kind": "physical",
+        "kind": "financial",
         "platform": "中国人寿",
         "status": "active",
-        "value": "寿险与医疗险保单，纸质原件在书房",
+        "value": "500000",
         "note": "",
-        "updatedAt": "2026-11-12T15:25:00+08:00"
+        "updatedAt": "2026-11-12T15:25:00+08:00",
+        "valueStatus": "insured",
+        "identifier": "保单号 2026-8891",
+        "ownershipShare": "100%",
+        "beneficiary": "林一川",
+        "beneficiaryContact": "heir2@example.com",
+        "credentialLocation": "纸质原件在书房保险柜",
+        "expiresAt": "2036-11-20",
+        "quantity": "1",
+        "unit": "份"
       },
       {
         "id": "ast_08",
@@ -256,9 +319,18 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "account",
         "platform": "微信",
         "status": "active",
-        "value": "仅保留纪念内容，指定继承人可申请纪念账号",
+        "value": "",
         "note": "",
-        "updatedAt": "2026-11-11T08:50:00+08:00"
+        "updatedAt": "2026-11-11T08:50:00+08:00",
+        "valueStatus": "unknown",
+        "identifier": "微信 wxid_lin",
+        "ownershipShare": "100%",
+        "beneficiary": "林若岚",
+        "beneficiaryContact": "heir1@example.com",
+        "credentialLocation": "手机内微信 + 纪念账号申请说明",
+        "expiresAt": "",
+        "quantity": "1",
+        "unit": "个"
       },
       {
         "id": "ast_09",
@@ -266,9 +338,18 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "device",
         "platform": "自建",
         "status": "active",
-        "value": "包含加密备份与恢复说明",
+        "value": "12000",
         "note": "",
-        "updatedAt": "2026-11-10T18:15:00+08:00"
+        "updatedAt": "2026-11-10T18:15:00+08:00",
+        "valueStatus": "market",
+        "identifier": "工作站 SN-2024",
+        "ownershipShare": "100%",
+        "beneficiary": "林一川",
+        "beneficiaryContact": "heir2@example.com",
+        "credentialLocation": "BitLocker 恢复说明在保险柜",
+        "expiresAt": "",
+        "quantity": "2",
+        "unit": "台"
       },
       {
         "id": "ast_10",
@@ -276,9 +357,18 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "account",
         "platform": "Gmail",
         "status": "archived",
-        "value": "早年的通信与订阅，保留只读导出",
+        "value": "",
         "note": "",
-        "updatedAt": "2026-11-09T12:00:00+08:00"
+        "updatedAt": "2026-11-09T12:00:00+08:00",
+        "valueStatus": "unknown",
+        "identifier": "old@example.com",
+        "ownershipShare": "",
+        "beneficiary": "",
+        "beneficiaryContact": "",
+        "credentialLocation": "只读导出文件",
+        "expiresAt": "",
+        "quantity": "1",
+        "unit": "个"
       },
       {
         "id": "ast_11",
@@ -286,9 +376,18 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "other",
         "platform": "自建",
         "status": "active",
-        "value": "收藏编号与取得记录，不含私钥",
+        "value": "8000",
         "note": "",
-        "updatedAt": "2026-11-08T09:30:00+08:00"
+        "updatedAt": "2026-11-08T09:30:00+08:00",
+        "valueStatus": "appraised",
+        "identifier": "收藏编号 DC-001..012",
+        "ownershipShare": "100%",
+        "beneficiary": "林一川",
+        "beneficiaryContact": "heir2@example.com",
+        "credentialLocation": "取得记录 PDF",
+        "expiresAt": "",
+        "quantity": "12",
+        "unit": "件"
       },
       {
         "id": "ast_12",
@@ -296,13 +395,22 @@ const MOCK_DATA: Record<string, unknown> = {
         "kind": "subscription",
         "platform": "Apple",
         "status": "active",
-        "value": "家庭共享与订阅到期时间",
+        "value": "1200",
         "note": "",
-        "updatedAt": "2026-11-07T07:45:00+08:00"
+        "updatedAt": "2026-11-07T07:45:00+08:00",
+        "valueStatus": "market",
+        "identifier": "Apple 家庭组",
+        "ownershipShare": "100%",
+        "beneficiary": "林若岚",
+        "beneficiaryContact": "heir1@example.com",
+        "credentialLocation": "订阅邮箱",
+        "expiresAt": "2027-06-30",
+        "quantity": "1",
+        "unit": "份"
       }
     ],
     "nextCursor": null,
-    "total": 18
+    "total": 12
   },
   "assets.get": {
     "id": "ast_01",
@@ -310,9 +418,18 @@ const MOCK_DATA: Record<string, unknown> = {
     "kind": "file",
     "platform": "iCloud",
     "status": "active",
-    "value": "2014–2024 的家庭照片与视频，按年份归档",
+    "value": "",
     "note": "",
-    "updatedAt": "2026-11-18T09:20:00+08:00"
+    "updatedAt": "2026-11-18T09:20:00+08:00",
+    "valueStatus": "unknown",
+    "identifier": "iCloud 照片图库",
+    "ownershipShare": "100%",
+    "beneficiary": "林若岚",
+    "beneficiaryContact": "heir1@example.com",
+    "credentialLocation": "NAS 备份 + iCloud 共享",
+    "expiresAt": "",
+    "quantity": "1",
+    "unit": "套"
   },
   "assets.create": {
     "id": "ast_01",
@@ -320,9 +437,18 @@ const MOCK_DATA: Record<string, unknown> = {
     "kind": "file",
     "platform": "iCloud",
     "status": "active",
-    "value": "2014–2024 的家庭照片与视频，按年份归档",
+    "value": "",
     "note": "",
-    "updatedAt": "2026-11-18T09:20:00+08:00"
+    "updatedAt": "2026-11-18T09:20:00+08:00",
+    "valueStatus": "unknown",
+    "identifier": "iCloud 照片图库",
+    "ownershipShare": "100%",
+    "beneficiary": "林若岚",
+    "beneficiaryContact": "heir1@example.com",
+    "credentialLocation": "NAS 备份 + iCloud 共享",
+    "expiresAt": "",
+    "quantity": "1",
+    "unit": "套"
   },
   "assets.update": {
     "id": "ast_01",
@@ -330,9 +456,22 @@ const MOCK_DATA: Record<string, unknown> = {
     "kind": "file",
     "platform": "iCloud",
     "status": "active",
-    "value": "2014–2024 的家庭照片与视频，按年份归档",
+    "value": "",
     "note": "",
-    "updatedAt": "2026-11-18T09:20:00+08:00"
+    "updatedAt": "2026-11-18T09:20:00+08:00",
+    "valueStatus": "unknown",
+    "identifier": "iCloud 照片图库",
+    "ownershipShare": "100%",
+    "beneficiary": "林若岚",
+    "beneficiaryContact": "heir1@example.com",
+    "credentialLocation": "NAS 备份 + iCloud 共享",
+    "expiresAt": "",
+    "quantity": "1",
+    "unit": "套"
+  },
+  "assets.delete": {
+    "id": "ast_demo_01",
+    "deleted": true
   },
   "plan.get": {
     "holder": {

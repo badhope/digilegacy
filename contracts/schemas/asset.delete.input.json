@@ -1,0 +1,20 @@
+{
+  "title": "AssetDeleteInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "confirm"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "confirm": {
+      "type": "boolean",
+      "const": true,
+      "description": "物理删除不可撤销，必须显式确认。"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

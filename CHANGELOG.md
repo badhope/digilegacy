@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.0.34] - November 2026
+
+### Added
+
+- **Deep asset records.** The single-entry form now keeps the five primary fields and exposes eight optional fields behind “More details”: account identifier, ownership share, beneficiary, beneficiary contact, credential location, expiry date, quantity and unit. The detail page renders the same facts without inventing values.
+- **Valuation basis.** `valueStatus` distinguishes market value, appraised value, sum insured and not yet appraised. Choosing “not yet appraised” clears the amount and blocks a contradictory amount until the status changes.
+- **Kind filter.** The asset list filters by all fifteen kinds and keeps the kind and page size when pagination changes.
+- **Save and continue.** A successful save keeps the asset kind and valuation basis, clears the text fields, and leaves the form open for the next record.
+- **Draft protection.** Text entered in the create form survives a route change through `sessionStorage`; returning to Assets reopens the form with a visible restore notice. Closing with unsaved text asks for confirmation, and “discard draft” clears it deliberately.
+- **Archived-only hard delete.** Archived assets can be permanently deleted after a second confirmation. Active assets return `CONFLICT`; missing `confirm: true` returns `400`; a successful delete is audited as `asset.delete`.
+
+### Fixed
+
+- Partial asset updates no longer reset an omitted platform to “uncategorised”, clear an omitted amount or erase an omitted note. Omitted fields stay unchanged; an explicit empty string still clears the field.
+- `valueStatus=unknown` clears the amount and rejects later non-empty amounts, so a record cannot read “not yet appraised” while carrying a number.
+- Empty valuations in the detail header now read “Not yet appraised” or “No valuation” instead of the market-value label.
+- The delete confirmation’s cancel action showed the raw key `common.cancel`; both locales now provide the label.
+- The delete confirmation is forced onto its own row instead of being squeezed beside lifecycle actions.
+- Expiry input rejects impossible dates such as `2026-02-30` even though the string matches the date pattern.
+- Negative, `NaN` and infinite valuations are rejected; platform and note length limits are enforced; list status accepts only `all`, `active` and `archived`.
+- CLI `assets create/update` expose every deep field. Update flags are omit-to-preserve and explicit-empty-to-clear.
+- The DELETE route has a real router test: active fails, missing confirm returns `400`, confirmed archived returns `200`, then GET returns `404`.
+- `clean_drill.py` expects schema v19, so a 0.0.34 clean-host drill cannot pass against the old assertion.
+
+### Verified
+
+- `./tools/verify.sh` exit 0: **211 Rust + 99 Web** tests; **49 commands / 23 tools / 67 schemas / 21 error codes**; schema **v19 / 32 tables**.
+- Web build: entry 87.36/88 KB, vendor 101.41/130 KB, route max 22.48/24 KB; JS gzip **120.97/121 KB**, CSS **22.12/23 KB**, total **143.09/144 KB**.
+- Real Chromium on an isolated database: six records, kind filter, deep form, save-and-continue, draft restore, and a confirmed permanent delete (list 6→5, GET 404, audit row present). Screenshots are in `screenshots-0.0.34-ui/`; the UX record is `docs/zh-CN/operations/UX-ASSET-DEPTH-0.0.34-2026-11-22.md`.
+- Archive: `packages/digilegacy-0.0.34-linux-x86_64.tar.gz`; clean-host drill 12/12 PASS. The sidecar `.sha256` is authoritative and the archive itself carries `SHA256SUMS`.
+
+### Changed
+
+- Schema v19 adds six nullable columns to `digital_assets`: `ownership_share`, `credential_location`, `expires_at`, `quantity`, `unit` and `value_status` (default `market`). Table count stays 32.
+- `assets.delete` is an HTTP/CLI/platform command but is deliberately not exposed as an MCP tool; write actions stay behind the platform approval boundary.
+
+### Boundary
+
+- Identifier and credential-location fields describe where a credential is kept; they never store a password, private key or recovery code.
+- A permanent delete is allowed only after archive. The platform does not add a bulk delete, an undo window or a “clear all” shortcut.
+
+
 ## [0.0.33] - November 2026
 
 ### Fixed

@@ -1,0 +1,153 @@
+{
+  "generatedAt": "2026-11-22T06:47:02.365459+00:00",
+  "result": "PASS",
+  "cleanEnvironment": {
+    "freshHome": true,
+    "freshPrefix": true,
+    "freshDataDirectory": true,
+    "minimalEnvironment": [
+      "PATH",
+      "HOME",
+      "LANG",
+      "LC_ALL",
+      "TZ",
+      "TMPDIR"
+    ],
+    "loopbackBind": "127.0.0.1:38685"
+  },
+  "archive": {
+    "name": "digilegacy-0.0.34-linux-x86_64.tar.gz",
+    "bytes": 18798654,
+    "sha256": "7c24f9d9527b56981ba8426d107970a7d34dfa8eb1e3bbce51759e0f3dbbf775"
+  },
+  "host": {
+    "platform": "Linux-6.6.95.bck.4-rc5-amd64-x86_64-with-glibc2.35",
+    "machine": "x86_64"
+  },
+  "totalDurationMs": 2499,
+  "steps": [
+    {
+      "name": "extract",
+      "status": "done",
+      "durationMs": 954,
+      "detail": "unpacked digilegacy-0.0.34-linux-x86_64.tar.gz"
+    },
+    {
+      "name": "install",
+      "status": "done",
+      "durationMs": 299,
+      "detail": "fresh prefix and data"
+    },
+    {
+      "name": "start",
+      "status": "done",
+      "durationMs": 321,
+      "detail": "health probe inside start script"
+    },
+    {
+      "name": "health",
+      "status": "done",
+      "durationMs": 0,
+      "detail": "HTTP /api/v1/health and /api/v1/metrics"
+    },
+    {
+      "name": "diagnostics-export",
+      "status": "done",
+      "durationMs": 19,
+      "detail": "sanitized export with valid audit chain"
+    },
+    {
+      "name": "checkpoint",
+      "status": "done",
+      "durationMs": 38,
+      "detail": "created and verified"
+    },
+    {
+      "name": "stop",
+      "status": "done",
+      "durationMs": 40,
+      "detail": "SIGTERM"
+    },
+    {
+      "name": "uninstall-preserve-data",
+      "status": "done",
+      "durationMs": 58,
+      "detail": "prefix removed; database and keys preserved"
+    },
+    {
+      "name": "reinstall",
+      "status": "done",
+      "durationMs": 255,
+      "detail": "same data directory and preserved keys"
+    },
+    {
+      "name": "reinstall-health",
+      "status": "done",
+      "durationMs": 340,
+      "detail": "preserved database reopened and audit chain valid"
+    },
+    {
+      "name": "stop-again",
+      "status": "done",
+      "durationMs": 41,
+      "detail": "SIGTERM"
+    },
+    {
+      "name": "uninstall-purge",
+      "status": "done",
+      "durationMs": 37,
+      "detail": "prefix and data removed"
+    }
+  ],
+  "checks": {
+    "permissions": {
+      "expected": {
+        "web/index.html": "0o644",
+        "share/nginx/digilegacy.conf.example": "0o644",
+        "docs/operations/INSTALL.md": "0o644",
+        "tools/policies/source_audit.py": "0o755",
+        "etc/digilegacy.env": "0o600"
+      },
+      "actual": {
+        "web/index.html": "0o644",
+        "share/nginx/digilegacy.conf.example": "0o644",
+        "docs/operations/INSTALL.md": "0o644",
+        "tools/policies/source_audit.py": "0o755",
+        "etc/digilegacy.env": "0o600"
+      }
+    },
+    "health": {
+      "code": "OK",
+      "version": "0.0.34",
+      "schemaVersion": 19,
+      "tables": 32
+    },
+    "diagnostics": {
+      "code": "OK",
+      "auditValid": true,
+      "schemaVersion": 19
+    },
+    "checkpoint": {
+      "id": "20261122-064701-511220114",
+      "verified": true
+    },
+    "uninstall": {
+      "prefixRemoved": true,
+      "dataPreserved": true,
+      "keysPreserved": true
+    },
+    "reinstall": {
+      "healthCode": "OK",
+      "auditValid": true
+    },
+    "purge": {
+      "prefixRemoved": true,
+      "dataRemoved": true
+    }
+  },
+  "notes": [
+    "The Web SPA is included but not served by the API; a reverse proxy is required for the console.",
+    "This drill proves install, start, diagnostics export, checkpoint verification, uninstall, key preservation and reinstall.",
+    "Real SMTP/Webhook delivery latency and human screen-reader review remain external acceptance items."
+  ]
+}

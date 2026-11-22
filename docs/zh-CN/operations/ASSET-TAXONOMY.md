@@ -31,6 +31,6 @@
 ## 兼容规则
 
 - 原来的七类（`account`、`file`、`device`、`domain`、`subscription`、`physical`、`other`）标识与含义不变。
-- 新类型只做加法，旧数据不需要迁移，schema 仍是 v18。
+- 新类型在 0.0.32 只做加法，不需要迁移；当前 0.0.34 因资产深度字段升到 schema v19，原有类型与数据全部保留。
 - 每个 kind 只能属于一个分组；Web 测试 `model.test.ts` 会在漏项或重复时失败。
 - 新增 kind 时，必须同时更新契约 enum、Rust 白名单、Web 联合类型与分组表。

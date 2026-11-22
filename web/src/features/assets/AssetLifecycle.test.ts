@@ -14,7 +14,16 @@ const asset: Asset = {
   platform: "iCloud",
   status: "active",
   value: "2014–2024",
+  valueStatus: "market",
   note: "",
+  identifier: "",
+  ownershipShare: "",
+  beneficiary: "",
+  beneficiaryContact: "",
+  credentialLocation: "",
+  expiresAt: "",
+  quantity: "",
+  unit: "",
   updatedAt: "2026-11-18T09:20:00+08:00",
 };
 
@@ -44,6 +53,7 @@ function router() {
 describe("asset lifecycle", () => {
   beforeEach(() => {
     clearQueryCache();
+    window.sessionStorage.clear();
     vi.useFakeTimers();
   });
 
@@ -88,5 +98,48 @@ describe("asset lifecycle", () => {
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: "archived" }));
     expect(wrapper.text()).toContain("已归档，可随时恢复");
     expect(wrapper.text()).toContain("恢复使用");
+  });
+
+  it("filters the list by asset kind", async () => {
+    const list = vi.spyOn(platformClient, "listAssets").mockResolvedValue(
+      envelope<AssetsPage>({ items: [asset], nextCursor: null, total: 1 }),
+    );
+    const testRouter = router();
+    await testRouter.push("/assets");
+    await testRouter.isReady();
+
+    const wrapper = mount(AssetsView, { global: { plugins: [testRouter] } });
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+
+    await wrapper.findAll("select")[1].setValue("real_estate");
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+
+    expect(list.mock.calls.at(-1)?.[0]).toMatchObject({ kind: "real_estate" });
+  });
+
+  it("permanently deletes an archived asset after confirmation", async () => {
+    const archived = { ...asset, status: "archived" as const };
+    vi.spyOn(platformClient, "getAsset").mockResolvedValue(envelope(archived));
+    const remove = vi
+      .spyOn(platformClient, "deleteAsset")
+      .mockResolvedValue(envelope({ id: archived.id, deleted: true }));
+    const testRouter = router();
+    await testRouter.push("/assets/ast_01");
+    await testRouter.isReady();
+
+    const wrapper = mount(AssetDetailView, { global: { plugins: [testRouter] } });
+    await vi.advanceTimersByTimeAsync(300);
+    await flushPromises();
+
+    await wrapper.findAll("button").find((button) => button.text() === "删除")?.trigger("click");
+    expect(wrapper.find(".delete-confirm").exists()).toBe(true);
+
+    await wrapper.findAll("button").find((button) => button.text() === "确认永久删除")?.trigger("click");
+    await flushPromises();
+
+    expect(remove).toHaveBeenCalledWith("ast_01", true);
+    expect(testRouter.currentRoute.value.path).toBe("/assets");
   });
 });

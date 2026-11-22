@@ -68,7 +68,7 @@ Health check:
 curl -fsS http://127.0.0.1:8787/api/v1/health
 ```
 
-Expected fields include `success: true`, `schemaVersion: 18` and `tables: 32`.
+Expected fields include `success: true`, `schemaVersion: 19` and `tables: 32`.
 A health response proves the process can open the store; it does not prove the
 write token or outbound integrations work.
 

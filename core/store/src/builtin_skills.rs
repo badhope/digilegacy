@@ -1,7 +1,7 @@
-//! Built-in skill pack shipped with schema v18.
+//! Built-in skill pack shipped with schema v19.
 //!
 //! These are reviewable prompt fragments, not executable code. They are inserted
-//! once when the v18 migration runs; users may edit or delete them afterwards and
+//! once when the schema is first created; users may edit or delete them afterwards and
 //! they will not be resurrected on the next launch.
 
 use chrono::Utc;

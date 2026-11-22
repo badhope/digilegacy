@@ -8,7 +8,7 @@ import ErrorState from "@/shared/ui/ErrorState.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import AssetTabs from "./AssetTabs.vue";
 import AssetEditor from "./AssetEditor.vue";
-import { assetKindLabel, formatAssetValue, type AssetDraft } from "./model";
+import { ASSET_KIND_GROUPS, assetGroupLabel, assetKindLabel, assetValueStatusLabel, formatAssetValue, type AssetDraft } from "./model";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
@@ -17,11 +17,13 @@ import { useResource } from "@/platform/useResource";
 import type { Asset } from "@/platform/types";
 import { loadAssets } from "./api";
 import { platformClient } from "@/platform/client";
+import { readAssetDraft, clearAssetDraft } from "./draftStorage";
 
 const router = useRouter();
 const { t, locale } = useI18n();
 const query = ref("");
 const status = ref<"all" | "active" | "archived">("all");
+const kind = ref("");
 const loadingMore = ref(false);
 const createOpen = ref(false);
 const addMenuOpen = ref(false);
@@ -29,25 +31,30 @@ const addMenu = ref<HTMLElement | null>(null);
 const creating = ref(false);
 const createError = ref("");
 const createNotice = ref("");
+const tokenMissing = ref(false);
+const editorRef = ref<{ resetDraft: (previous?: AssetDraft) => void } | null>(null);
 
 const loadPage = () =>
   loadAssets({
     status: status.value,
     limit: 50,
+    ...(kind.value ? { kind: kind.value } : {}),
     ...(query.value.trim() ? { q: query.value.trim() } : {}),
   });
 const { data, loading, error, reload } = useResource(loadPage);
 const items = computed(() => data.value?.items ?? []);
 const total = computed(() => data.value?.total ?? items.value.length);
 const nextCursor = computed(() => data.value?.nextCursor ?? null);
-const hasFilters = computed(() => Boolean(query.value.trim()) || status.value !== "all");
+const hasFilters = computed(
+  () => Boolean(query.value.trim()) || status.value !== "all" || Boolean(kind.value),
+);
 const emptyTitle = computed(() => (hasFilters.value ? t("assets.table.empty") : t("assets.empty")));
 const emptyActionLabel = computed(() =>
   hasFilters.value ? t("assets.filter.clear") : t("assets.add.open"),
 );
 
 let timer: ReturnType<typeof setTimeout> | undefined;
-watch([query, status], () => {
+watch([query, status, kind], () => {
   if (timer) clearTimeout(timer);
   timer = setTimeout(() => reload(), 250);
 });
@@ -58,6 +65,8 @@ async function loadMore() {
   const envelope = await loadAssets({
     status: status.value,
     limit: 50,
+    ...(kind.value ? { kind: kind.value } : {}),
+    ...(query.value.trim() ? { q: query.value.trim() } : {}),
     cursor: nextCursor.value,
   });
   loadingMore.value = false;
@@ -82,6 +91,7 @@ function openCreate() {
 function resetFilters() {
   query.value = "";
   status.value = "all";
+  kind.value = "";
 }
 
 function handleEmptyAction() {
@@ -101,20 +111,31 @@ function closeAddMenu(event: MouseEvent) {
   if (addMenu.value && !addMenu.value.contains(event.target as Node)) addMenuOpen.value = false;
 }
 
-onMounted(() => document.addEventListener("click", closeAddMenu));
+onMounted(() => {
+  document.addEventListener("click", closeAddMenu);
+  if (readAssetDraft()) createOpen.value = true;
+});
 onBeforeUnmount(() => document.removeEventListener("click", closeAddMenu));
 
-async function createAsset(draft: AssetDraft) {
+async function createAsset(draft: AssetDraft, options: { continue: boolean }) {
   createError.value = "";
+  tokenMissing.value = false;
   creating.value = true;
   try {
     const envelope = await platformClient.createAsset(draft);
     if (!envelope.success || !envelope.data) {
-      createError.value = envelope.code === "AUTH_REQUIRED" ? t("assets.create.tokenRequired") : envelope.message || envelope.code;
+      tokenMissing.value = envelope.code === "AUTH_REQUIRED";
+      createError.value = tokenMissing.value ? t("assets.create.tokenRequired") : envelope.message || envelope.code;
       return;
     }
-    createOpen.value = false;
-    createNotice.value = t("assets.create.saved");
+    clearAssetDraft();
+    if (options.continue) {
+      editorRef.value?.resetDraft(draft);
+      createNotice.value = t("assets.create.savedContinue");
+    } else {
+      createOpen.value = false;
+      createNotice.value = t("assets.create.saved");
+    }
     await reload();
   } finally {
     creating.value = false;
@@ -142,10 +163,12 @@ async function createAsset(draft: AssetDraft) {
     <AssetTabs />
 
     <AssetEditor
+      ref="editorRef"
       v-if="createOpen"
       mode="create"
       :saving="creating"
       :error="createError"
+      :token-missing="tokenMissing"
       @submit="createAsset"
       @cancel="createOpen = false"
     />
@@ -187,6 +210,15 @@ async function createAsset(draft: AssetDraft) {
             <option value="archived">{{ t("common.archived") }}</option>
           </select>
         </label>
+        <label class="select-field">
+          <span>{{ t("assets.filter.type") }}</span>
+          <select v-model="kind">
+            <option value="">{{ t("assets.filter.allKinds") }}</option>
+            <optgroup v-for="group in ASSET_KIND_GROUPS" :key="group.label" :label="assetGroupLabel(group.label, locale)">
+              <option v-for="item in group.kinds" :key="item" :value="item">{{ assetKindLabel(item, locale) }}</option>
+            </optgroup>
+          </select>
+        </label>
         <span class="asset-count mono">{{ t("assets.count", { count: total }) }}</span>
       </div>
 
@@ -211,6 +243,9 @@ async function createAsset(draft: AssetDraft) {
                     <strong>{{ asset.name }}</strong>
                     <small class="asset-subline">
                       <span>{{ formatAssetValue(asset.value, locale) || "—" }}</span>
+                      <span v-if="asset.valueStatus && asset.valueStatus !== 'market'" class="asset-subline-status">
+                        {{ assetValueStatusLabel(asset.valueStatus, locale) }}
+                      </span>
                       <span class="asset-subline-kind">{{ assetKindLabel(asset.kind, locale) }}</span>
                     </small>
                   </span>
@@ -296,6 +331,7 @@ async function createAsset(draft: AssetDraft) {
 
 .asset-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;

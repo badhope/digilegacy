@@ -198,6 +198,15 @@ mod tests {
                 value: None,
                 note: None,
                 status: None,
+                value_status: None,
+                identifier: None,
+                ownership_share: None,
+                beneficiary: None,
+                beneficiary_contact: None,
+                credential_location: None,
+                expires_at: None,
+                quantity: None,
+                unit: None,
             },
         )
         .unwrap();

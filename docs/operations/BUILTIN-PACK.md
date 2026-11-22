@@ -57,7 +57,7 @@ Security rules for any MCP server:
 
 ## Built-in skills
 
-Schema v18 seeds eight reviewable skills into `agent_skills` exactly once:
+The schema seeds eight reviewable skills into `agent_skills` exactly once (introduced in v18 and retained in v19):
 
 - 数字资产盘点 (enabled)
 - 执行人交付手册 (enabled)
@@ -70,8 +70,8 @@ Schema v18 seeds eight reviewable skills into `agent_skills` exactly once:
 
 The three core skills are enabled and fit well below the 12,000-character planner
 budget. The other five are visible but disabled to avoid prompt bloat. Users can
-edit, disable or delete any of them; the seed is guarded by the v18 migration
-ledger, so a deleted built-in skill is not resurrected on restart.
+edit, disable or delete any of them; the seed runs only when the schema is first
+created, so a deleted built-in skill is not resurrected on restart.
 
 Content is grounded in common digital-estate practice: an inventory, an executor
 runbook, platform legacy tools, credentials stored outside the will, crypto

@@ -76,6 +76,14 @@ pub const COMMANDS: &[CommandSpec] = &[
         audit: true,
     },
     CommandSpec {
+        name: "assets.delete",
+        domain: "assets",
+        permission: "write",
+        http: "DELETE /api/v1/assets/{id}",
+        requires_unlock: true,
+        audit: true,
+    },
+    CommandSpec {
         name: "plan.get",
         domain: "plan",
         permission: "read",

@@ -201,7 +201,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/assets", get(assets_list).post(assets_create))
         .route("/api/v1/assets/discover", get(assets_discover))
         .route("/api/v1/assets/bulk", post(assets_bulk_create))
-        .route("/api/v1/assets/{id}", get(asset_get).patch(asset_update))
+        .route(
+            "/api/v1/assets/{id}",
+            get(asset_get).patch(asset_update).delete(asset_delete),
+        )
         .route("/api/v1/plan", get(plan_get))
         .route("/api/v1/plan/profile", patch(plan_profile_set))
         .route("/api/v1/plan/heirs", put(plan_heirs_set))
@@ -373,6 +376,16 @@ async fn asset_update(
 ) -> impl IntoResponse {
     args["id"] = json!(id);
     dispatch(&state, "assets.update", args, Some(&headers))
+}
+
+async fn asset_delete(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(mut args): Json<Value>,
+) -> impl IntoResponse {
+    args["id"] = json!(id);
+    dispatch(&state, "assets.delete", args, Some(&headers))
 }
 
 async fn assets_bulk_create(
@@ -1004,7 +1017,7 @@ mod tests {
         assert_eq!(data["requests"]["total"], 1);
         assert_eq!(data["requests"]["status2xx"], 1);
         assert_eq!(data["latencyMs"]["p95"], 25);
-        assert_eq!(data["store"]["schemaVersion"], 18);
+        assert_eq!(data["store"]["schemaVersion"], 19);
         let text = data.to_string().to_lowercase();
         assert!(!text.contains("token"));
         assert!(!text.contains("secret"));
@@ -1132,7 +1145,7 @@ mod tests {
         let id = created["data"]["id"].as_str().unwrap().to_string();
         assert_eq!(created["data"]["status"], "active");
 
-        let update = router(state)
+        let update = router(state.clone())
             .oneshot(
                 Request::builder()
                     .method("PATCH")
@@ -1152,6 +1165,46 @@ mod tests {
             .unwrap();
         let updated: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(updated["data"]["status"], "archived");
+
+        let no_confirm = router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(format!("/api/v1/assets/{id}"))
+                    .header(header::AUTHORIZATION, "Bearer test-token")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"confirm":false}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(no_confirm.status(), StatusCode::BAD_REQUEST);
+
+        let deleted = router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri(format!("/api/v1/assets/{id}"))
+                    .header(header::AUTHORIZATION, "Bearer test-token")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"confirm":true}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(deleted.status(), StatusCode::OK);
+
+        let gone = router(state)
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri(format!("/api/v1/assets/{id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(gone.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]
@@ -1174,7 +1227,7 @@ mod tests {
             .unwrap();
         let body: Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(body["data"]["audit"]["valid"], true);
-        assert_eq!(body["data"]["store"]["schema_version"], 18);
+        assert_eq!(body["data"]["store"]["schema_version"], 19);
     }
 
     #[tokio::test]

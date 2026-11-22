@@ -1,10 +1,10 @@
 # 发布清单
 
-版本：**0.0.19**（Linux x86_64，2026-11-20）
+版本：**0.0.34**（Linux x86_64，2026-11-22）
 
 状态：**工程证据齐全，尚未人工签字。**
 
-归档校验值在 `packages/digilegacy-0.0.19-linux-x86_64.tar.gz.sha256`，归档内也有
+归档校验值在 `packages/digilegacy-0.0.34-linux-x86_64.tar.gz.sha256`，归档内也有
 `SHA256SUMS`。不要从聊天消息里抄校验值，必须以归档同目录文件为准。
 
 ## 自动证据
@@ -12,21 +12,19 @@
 | 门禁 | 结果 | 证据 |
 | --- | --- | --- |
 | 契约 / 架构 / 格式 / clippy | 通过 | `./tools/verify.sh` exit 0 |
-| Rust + Web 测试 | **184 Rust + 79 Web** | `./tools/verify.sh` |
-| 契约 | **44 命令 / 23 工具 / 60 schema / 21 错误码** | `./tools/generate.mjs --check` |
-| Schema | **v18 / 32 表** | health + diagnostics |
-| 体积预算 | 入口 80.75/82 KB；JS 104.95/105.2 KB；CSS 20.22/21.1 KB；总 125.17/125.5 KB gzip | `web-budget` |
-| 真实 Chromium + axe | 14/14 路由通过，axe 0 违规 | `measurements/live-browser-0.0.19-2026-11-20.json` |
-| 视觉基线 | 9/9 在 0.4% 内；最大 overview-mobile 0.173% | `tools/visual/regress.py` |
-| 恢复码 + 失败限速 | 锁定 423；错误 400；解锁 200；再锁定；恢复码 200；资产 200；5 次失败以 429 收尾；限速中正确口令仍 429 | `measurements/security-recovery-0.0.19-2026-11-20.json` |
-| 保险库锁 API + CLI | 423 → 400 → 200 → 200 → 423；CLI 无口令环境变量被拒 | `measurements/security-lock-0.0.18-2026-11-20.json`（0.0.18 基线） |
-| 干净机安装 | 12 步 PASS，重装可读保留库 | `measurements/install-0.0.19-2026-11-20.json` |
-| 归档 | `packages/digilegacy-0.0.19-linux-x86_64.tar.gz`，18,293,344 bytes，SHA256 `53f86e570d59571dccfd27c0df789af665978551f4d413d61c14296cb805e8ee` | `...tar.gz.sha256` |
+| Rust + Web 测试 | **211 Rust + 99 Web** | `./tools/verify.sh` |
+| 契约 | **49 命令 / 23 工具 / 67 schema / 21 错误码** | `./tools/generate.mjs --check` |
+| Schema | **v19 / 32 表** | health + diagnostics |
+| 体积预算 | 入口 87.36/88 KB；vendor 101.41/130 KB；单路由最大 22.48/24 KB；JS 120.97/121 KB；CSS 22.12/23 KB；总 143.09/144 KB gzip | `web-budget` |
+| 真实 Chromium + axe | 18/18 路由通过，axe 0 违规，0 失败 | `measurements/live-browser-0.0.34-2026-11-22.json` |
+| 资产深度录入 | 6 条资产、类型筛选、深字段表单、保存并继续、草稿恢复、归档删除；列表 6→5、GET 404、审计有记录 | `measurements/ux-asset-depth-0.0.34-2026-11-22.json` |
+| 干净机安装 | 12/12 PASS；重装可读保留库 | `measurements/install-0.0.34-2026-11-22.json` |
+| 归档 | `packages/digilegacy-0.0.34-linux-x86_64.tar.gz`；SHA256 见同目录 `.sha256`，归档内也有 `SHA256SUMS` | `...tar.gz.sha256` |
 
-## 继承自 0.0.18 的运行基线
+## 继承的运行基线
 
-这些演练测于 0.0.18 代码线，本补丁未重跑。恢复码与限速改动不触及出站代理、容量、
-恢复、DNS 钉住与政策来源路径；把它们当作基线证据，不要当成新的 0.0.19 测量。
+这些演练测于 2026-11-20 代码线，0.0.34 未重跑。资产 schema 与界面改动不触及出站
+代理、容量、恢复与 DNS 钉住路径；把它们当作基线证据，不要当成新的测量。
 
 | 门禁 | 基线 | 证据 |
 | --- | --- | --- |

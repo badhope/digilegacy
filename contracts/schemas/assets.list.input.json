@@ -27,6 +27,26 @@
     "q": {
       "type": "string",
       "maxLength": 120
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "account",
+        "file",
+        "device",
+        "domain",
+        "subscription",
+        "physical",
+        "financial",
+        "real_estate",
+        "vehicle",
+        "intellectual_property",
+        "business",
+        "virtual_item",
+        "membership",
+        "identity",
+        "other"
+      ]
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"

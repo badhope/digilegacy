@@ -31,6 +31,6 @@ The asset form groups the `kind` field; legacy values remain valid and unchanged
 ## Compatibility rules
 
 - The original seven kinds (`account`, `file`, `device`, `domain`, `subscription`, `physical`, `other`) keep their identifiers and meaning.
-- New kinds are additive. Existing rows need no migration; schema version stays v18.
+- New kinds first shipped in 0.0.32 without a migration. The current 0.0.34 schema is v19 because asset depth fields were added; all legacy kind rows remain valid.
 - A kind belongs to exactly one group. The Web test `model.test.ts` fails if a kind is missing or duplicated.
 - Adding a new kind requires updating the contract enum, the Rust allow-list, the Web union and the group map in the same change.

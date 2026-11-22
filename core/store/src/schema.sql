@@ -1,4 +1,4 @@
--- DigiLegacy schema v18.
+-- DigiLegacy schema v19.
 -- 32 tables. The v8 lineage is preserved; new tables are additive so an old
 -- database can be migrated without recreating it.
 
@@ -89,6 +89,12 @@ CREATE TABLE IF NOT EXISTS digital_assets (
     last_verified_at TEXT DEFAULT '',
     source TEXT DEFAULT 'manual',
     policy_snapshot_hash TEXT DEFAULT '',
+    ownership_share TEXT DEFAULT '',
+    credential_location TEXT DEFAULT '',
+    expires_at TEXT DEFAULT '',
+    quantity TEXT DEFAULT '',
+    unit TEXT DEFAULT '',
+    value_status TEXT NOT NULL DEFAULT 'market',
     FOREIGN KEY (platform_id) REFERENCES platforms(id)
 );
 

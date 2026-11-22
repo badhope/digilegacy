@@ -26,7 +26,7 @@ The installer:
 
 - copies binaries, Web assets, content, docs and the optional operations tools;
 - creates `etc/digilegacy.env` with mode `0600` and a random write token;
-- creates the data directory and initializes schema v16 plus key files;
+- creates the data directory and initializes schema v19 plus key files;
 - never prints the write token.
 
 Read the token when you need it:

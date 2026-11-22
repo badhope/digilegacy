@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "DigiLegacy Platform API",
-    "version": "0.0.33",
+    "version": "0.0.34",
     "description": "Generated from contracts/commands.json. Platform API for web, CLI, MCP and agents."
   },
   "servers": [
@@ -490,6 +490,69 @@
             }
           }
         }
+      },
+      "delete": {
+        "operationId": "assets.delete",
+        "summary": "物理删除已归档资产，必须显式确认",
+        "tags": [
+          "assets"
+        ],
+        "x-command": "assets.delete",
+        "x-permission": "write",
+        "x-requires-unlock": true,
+        "x-audit": true,
+        "responses": {
+          "200": {
+            "description": "DigiLegacy envelope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/schemas/asset.delete.output"
+                    },
+                    "details": {
+                      "type": [
+                        "object",
+                        "null"
+                      ]
+                    },
+                    "traceId": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ]
       }
     },
     "/api/v1/plan": {
@@ -3164,6 +3227,44 @@
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
       },
+      "asset.delete.input": {
+        "title": "AssetDeleteInput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "confirm"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "confirm": {
+            "type": "boolean",
+            "const": true,
+            "description": "物理删除不可撤销，必须显式确认。"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
+      "asset.delete.output": {
+        "title": "AssetDeleteOutput",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "deleted"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "$schema": "https://json-schema.org/draft/2020-12/schema"
+      },
       "asset.mutation.input": {
         "title": "AssetMutation",
         "type": "object",
@@ -3219,6 +3320,48 @@
               "active",
               "archived"
             ]
+          },
+          "valueStatus": {
+            "type": "string",
+            "enum": [
+              "market",
+              "appraised",
+              "insured",
+              "unknown"
+            ],
+            "default": "market"
+          },
+          "identifier": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "ownershipShare": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "beneficiary": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "beneficiaryContact": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "credentialLocation": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "expiresAt": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "quantity": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 20
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -3250,6 +3393,14 @@
               "domain",
               "subscription",
               "physical",
+              "financial",
+              "real_estate",
+              "vehicle",
+              "intellectual_property",
+              "business",
+              "virtual_item",
+              "membership",
+              "identity",
               "other"
             ]
           },
@@ -3272,6 +3423,55 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "valueStatus": {
+            "type": "string",
+            "enum": [
+              "market",
+              "appraised",
+              "insured",
+              "unknown"
+            ]
+          },
+          "identifier": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "登录名、卡号后四位或证照编号；不存放口令。"
+          },
+          "ownershipShare": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "如 100%、50% 或 1/2。"
+          },
+          "beneficiary": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "继承人或指定接收人。"
+          },
+          "beneficiaryContact": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "电话或邮箱。"
+          },
+          "credentialLocation": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "密码管理器条目、保险柜或纸质文件位置。"
+          },
+          "expiresAt": {
+            "type": "string",
+            "maxLength": 10,
+            "description": "YYYY-MM-DD，留空表示无期限。"
+          },
+          "quantity": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "可留空。"
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "份、股、台、件等。"
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"
@@ -3314,6 +3514,48 @@
                 "note": {
                   "type": "string",
                   "maxLength": 2000
+                },
+                "valueStatus": {
+                  "type": "string",
+                  "enum": [
+                    "market",
+                    "appraised",
+                    "insured",
+                    "unknown"
+                  ],
+                  "default": "market"
+                },
+                "identifier": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "ownershipShare": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "beneficiary": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "beneficiaryContact": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "credentialLocation": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "expiresAt": {
+                  "type": "string",
+                  "maxLength": 10
+                },
+                "quantity": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "unit": {
+                  "type": "string",
+                  "maxLength": 20
                 }
               }
             }
@@ -3478,6 +3720,26 @@
           "q": {
             "type": "string",
             "maxLength": 120
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "account",
+              "file",
+              "device",
+              "domain",
+              "subscription",
+              "physical",
+              "financial",
+              "real_estate",
+              "vehicle",
+              "intellectual_property",
+              "business",
+              "virtual_item",
+              "membership",
+              "identity",
+              "other"
+            ]
           }
         },
         "$schema": "https://json-schema.org/draft/2020-12/schema"

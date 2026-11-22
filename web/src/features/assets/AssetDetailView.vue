@@ -12,7 +12,7 @@ import { useI18n } from "@/platform/i18n";
 import { formatDate } from "@/shared/format";
 import { useResource } from "@/platform/useResource";
 import AssetEditor from "./AssetEditor.vue";
-import { assetKindLabel, formatAssetValue, type AssetDraft } from "./model";
+import { assetKindLabel, assetValueStatusLabel, formatAssetValue, type AssetDraft } from "./model";
 import { loadAsset } from "./api";
 import { platformClient } from "@/platform/client";
 
@@ -27,11 +27,34 @@ const saveError = ref("");
 const saveNotice = ref("");
 const statusSaving = ref(false);
 const statusError = ref("");
+const tokenMissing = ref(false);
+const deleteConfirm = ref(false);
+const deleting = ref(false);
+const deleteError = ref("");
+
+const valueSummary = computed(() => {
+  if (!data.value) return "";
+  if (!data.value.value) {
+    return data.value.valueStatus === "unknown"
+      ? assetValueStatusLabel(data.value.valueStatus, locale.value)
+      : t("asset.detail.valueMissing");
+  }
+  return `${formatAssetValue(data.value.value, locale.value)} · ${assetValueStatusLabel(data.value.valueStatus, locale.value)}`;
+});
+
+const quantitySummary = computed(() => {
+  if (!data.value) return "";
+  const quantity = data.value.quantity?.trim() ?? "";
+  const unit = data.value.unit?.trim() ?? "";
+  return [quantity, unit].filter(Boolean).join(" ");
+});
 
 function startEdit() {
   if (!data.value) return;
   saveError.value = "";
   saveNotice.value = "";
+  deleteConfirm.value = false;
+  deleteError.value = "";
   editing.value = true;
 }
 
@@ -43,9 +66,11 @@ async function saveEdit(draft: AssetDraft) {
   try {
     const envelope = await platformClient.updateAsset({ id: data.value.id, ...draft });
     if (!envelope.success || !envelope.data) {
-      saveError.value = envelope.code === "AUTH_REQUIRED" ? t("assets.create.tokenRequired") : envelope.message || envelope.code;
+      tokenMissing.value = envelope.code === "AUTH_REQUIRED";
+      saveError.value = tokenMissing.value ? t("assets.create.tokenRequired") : envelope.message || envelope.code;
       return;
     }
+    tokenMissing.value = false;
     data.value = envelope.data;
     editing.value = false;
     saveNotice.value = t("asset.detail.saved");
@@ -59,6 +84,7 @@ async function toggleStatus() {
   if (!asset || statusSaving.value) return;
   const next = asset.status === "active" ? "archived" : "active";
   statusError.value = "";
+  deleteConfirm.value = false;
   saveNotice.value = "";
   statusSaving.value = true;
   try {
@@ -79,10 +105,31 @@ async function toggleStatus() {
       return;
     }
     data.value = envelope.data;
+    if (next === "active") deleteConfirm.value = false;
     saveNotice.value =
       next === "archived" ? t("asset.detail.archivedNotice") : t("asset.detail.restoredNotice");
   } finally {
     statusSaving.value = false;
+  }
+}
+
+async function removeAsset() {
+  const asset = data.value;
+  if (!asset || deleting.value) return;
+  deleteError.value = "";
+  deleting.value = true;
+  try {
+    const envelope = await platformClient.deleteAsset(asset.id, true);
+    if (!envelope.success) {
+      deleteError.value =
+        envelope.code === "AUTH_REQUIRED"
+          ? t("assets.create.tokenRequired")
+          : envelope.message || envelope.code;
+      return;
+    }
+    router.push("/assets");
+  } finally {
+    deleting.value = false;
   }
 }
 </script>
@@ -112,7 +159,7 @@ async function toggleStatus() {
       <PageHeader
         :eyebrow="`ASSET / ${data.id}`"
         :title="data.name"
-        :description="formatAssetValue(data.value, locale)"
+        :description="valueSummary"
       >
         <template #actions>
           <AppButton v-if="!editing" variant="primary" size="sm" @click="startEdit">{{ t("assets.edit.open") }}</AppButton>
@@ -141,6 +188,7 @@ async function toggleStatus() {
         :initial="data"
         :saving="saving"
         :error="saveError"
+        :token-missing="tokenMissing"
         @submit="saveEdit"
         @cancel="editing = false"
       />
@@ -154,11 +202,27 @@ async function toggleStatus() {
             </div>
             <div>
               <dt>{{ t("assets.table.platform") }}</dt>
-              <dd>{{ data.platform }}</dd>
+              <dd>{{ data.platform || "—" }}</dd>
+            </div>
+            <div>
+              <dt>{{ t("assets.create.identifier") }}</dt>
+              <dd class="mono">{{ data.identifier || "—" }}</dd>
+            </div>
+            <div>
+              <dt>{{ t("assets.create.ownershipShare") }}</dt>
+              <dd>{{ data.ownershipShare || "—" }}</dd>
             </div>
             <div>
               <dt>{{ t("assets.table.status") }}</dt>
               <dd>{{ data.status === "active" ? t("common.active") : t("common.archived") }}</dd>
+            </div>
+            <div>
+              <dt>{{ t("assets.create.expiresAt") }}</dt>
+              <dd class="mono">{{ data.expiresAt || "—" }}</dd>
+            </div>
+            <div>
+              <dt>{{ t("assets.create.quantity") }}</dt>
+              <dd>{{ quantitySummary || "—" }}</dd>
             </div>
             <div>
               <dt>{{ t("assets.table.updated") }}</dt>
@@ -173,25 +237,75 @@ async function toggleStatus() {
                 {{ data.status === "active" ? t("asset.detail.archiveNote") : t("asset.detail.restoreNote") }}
               </p>
             </div>
-            <AppButton
-              variant="secondary"
-              size="sm"
-              :disabled="statusSaving"
-              @click="toggleStatus"
-            >
-              {{
-                statusSaving
-                  ? t("assets.create.saving")
-                  : data.status === "active"
-                    ? t("asset.detail.archive")
-                    : t("asset.detail.restore")
-              }}
-            </AppButton>
+            <div class="lifecycle-actions">
+              <AppButton
+                variant="secondary"
+                size="sm"
+                :disabled="statusSaving"
+                @click="toggleStatus"
+              >
+                {{
+                  statusSaving
+                    ? t("assets.create.saving")
+                    : data.status === "active"
+                      ? t("asset.detail.archive")
+                      : t("asset.detail.restore")
+                }}
+              </AppButton>
+              <AppButton
+                v-if="data.status === 'archived'"
+                variant="danger"
+                size="sm"
+                :disabled="deleting"
+                @click="deleteConfirm = true"
+              >
+                {{ t("asset.detail.delete") }}
+              </AppButton>
+            </div>
+            <div v-if="deleteConfirm" class="delete-confirm" role="alert">
+              <p>{{ t("asset.detail.deleteConfirm") }}</p>
+              <div class="delete-confirm-actions">
+                <AppButton variant="secondary" size="sm" @click="deleteConfirm = false">
+                  {{ t("common.cancel") }}
+                </AppButton>
+                <AppButton variant="danger" size="sm" :disabled="deleting" @click="removeAsset">
+                  {{ deleting ? t("asset.detail.deleting") : t("asset.detail.deleteForever") }}
+                </AppButton>
+              </div>
+              <p v-if="deleteError" class="delete-error">{{ deleteError }}</p>
+            </div>
           </div>
         </SectionCard>
 
         <SectionCard :title="t('asset.detail.value')" :subtitle="t('asset.detail.note')">
+          <dl class="detail-list">
+            <div>
+              <dt>{{ t("assets.create.value") }}</dt>
+              <dd>{{ data.value ? formatAssetValue(data.value, locale) : "—" }}</dd>
+            </div>
+            <div>
+              <dt>{{ t("assets.create.valueStatus") }}</dt>
+              <dd>{{ assetValueStatusLabel(data.valueStatus, locale) }}</dd>
+            </div>
+          </dl>
           <p class="note-body">{{ data.note || "—" }}</p>
+        </SectionCard>
+
+        <SectionCard :title="t('asset.detail.people')" :subtitle="t('asset.detail.peopleNote')">
+          <dl class="detail-list">
+            <div>
+              <dt>{{ t("assets.create.beneficiary") }}</dt>
+              <dd>{{ data.beneficiary || "—" }}</dd>
+            </div>
+            <div>
+              <dt>{{ t("assets.create.beneficiaryContact") }}</dt>
+              <dd>{{ data.beneficiaryContact || "—" }}</dd>
+            </div>
+            <div>
+              <dt>{{ t("assets.create.credentialLocation") }}</dt>
+              <dd>{{ data.credentialLocation || "—" }}</dd>
+            </div>
+          </dl>
         </SectionCard>
       </div>
 
@@ -291,6 +405,7 @@ async function toggleStatus() {
 
 .asset-lifecycle {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -310,6 +425,37 @@ async function toggleStatus() {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.6;
+}
+
+.lifecycle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.delete-confirm {
+  flex: 1 0 100%;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--danger, #b42318) 40%, var(--line));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--danger, #b42318) 6%, var(--surface));
+}
+
+.delete-confirm p {
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.delete-error {
+  margin: 8px 0 0;
+  color: var(--danger, #b42318);
 }
 
 .detail-loading {

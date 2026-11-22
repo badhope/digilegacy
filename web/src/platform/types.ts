@@ -51,6 +51,31 @@ export type AssetKind =
   | "identity"
   | "other";
 export type AssetStatus = "active" | "archived";
+export type AssetValueStatus = "market" | "appraised" | "insured" | "unknown";
+
+export interface AssetDeleteResult {
+  id: string;
+  deleted: boolean;
+}
+
+export interface AssetMutationInput {
+  id?: string;
+  name: string;
+  kind: AssetKind;
+  platform?: string;
+  value?: string;
+  valueStatus?: AssetValueStatus;
+  note?: string;
+  identifier?: string;
+  ownershipShare?: string;
+  beneficiary?: string;
+  beneficiaryContact?: string;
+  credentialLocation?: string;
+  expiresAt?: string;
+  quantity?: string;
+  unit?: string;
+  status?: AssetStatus;
+}
 
 export interface Asset {
   id: string;
@@ -59,7 +84,16 @@ export interface Asset {
   platform: string;
   status: AssetStatus;
   value: string;
+  valueStatus: AssetValueStatus;
   note: string;
+  identifier: string;
+  ownershipShare: string;
+  beneficiary: string;
+  beneficiaryContact: string;
+  credentialLocation: string;
+  expiresAt: string;
+  quantity: string;
+  unit: string;
   updatedAt: string;
 }
 

@@ -48,6 +48,18 @@
 8. Web `npm run build`
 9. `node tools/bench/web-budget.mjs`
 
+## 0.0.34 资产深度录入（2026-11-22）
+
+- Schema v19 给 `digital_assets` 增加 `ownership_share`、`credential_location`、`expires_at`、`quantity`、`unit`、`value_status` 六列，表数仍为 32。单条表单展开八个选填字段；详情页如实展示，不为空值补造内容。
+- 资产清单增加十五类筛选，翻页保留类型与每页条数；新增“保存并继续”，保留类型与估值口径；文本草稿跨路由恢复，只有类型没有文本的表单不再误判为草稿。
+- 已归档资产可用 `confirm: true` 永久删除；使用中返回 `CONFLICT`，无确认返回 `400`，成功写入 `asset.delete` 审计。`assets.delete` 不通过 MCP 暴露。
+- 局部更新省略 `platform`、金额、备注和深字段时保留原值，显式空串才清空；`valueStatus=unknown` 清空金额并拒绝之后的新金额。
+- 隔离库真实 Chromium：6 条资产、类型筛选 1 条、深字段表单、保存并继续保留 `financial`/`insured`、文本草稿恢复、仅类型表单不恢复、归档资产删除后 6→5、GET 404、审计有记录。证据：`docs/operations/measurements/ux-asset-depth-0.0.34-2026-11-22.json`；截图在 `screenshots-0.0.34-ui/`。
+- 门禁：`./tools/verify.sh` exit 0；**211 Rust + 99 Web**；**49 命令 / 23 工具 / 67 schema / 21 错误码**；schema v19 / 32 表；入口 87.36/88 KB，vendor 101.41/130 KB，单路由最大 22.48/24 KB，JS gzip 120.97/121 KB，CSS 22.12/23 KB，总 143.09/144 KB。
+- 真实 Chromium：18/18 路由，axe 0 违规，页面/API 0 错误，无横向溢出。证据：`docs/operations/measurements/live-browser-0.0.34-2026-11-22.json`。
+- 归档：`packages/digilegacy-0.0.34-linux-x86_64.tar.gz`；同目录 `.sha256` 为准，归档内也有 `SHA256SUMS`。干净机演练 12/12 PASS；证据 `docs/operations/measurements/install-0.0.34-2026-11-22.json`。
+- 边界：账号/编号与凭证位置只说明“是什么、放在哪”，不存口令、私钥或恢复码；物理删除仅限已归档资产，不提供批量删除或撤销窗口。
+
 ## 3. M0 已验证结果
 
 ### 契约

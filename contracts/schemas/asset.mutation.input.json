@@ -53,6 +53,48 @@
         "active",
         "archived"
       ]
+    },
+    "valueStatus": {
+      "type": "string",
+      "enum": [
+        "market",
+        "appraised",
+        "insured",
+        "unknown"
+      ],
+      "default": "market"
+    },
+    "identifier": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "ownershipShare": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "beneficiary": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "beneficiaryContact": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "credentialLocation": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "expiresAt": {
+      "type": "string",
+      "maxLength": 10
+    },
+    "quantity": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "unit": {
+      "type": "string",
+      "maxLength": 20
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema"
