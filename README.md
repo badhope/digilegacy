@@ -16,6 +16,21 @@ Self-hosted digital legacy planning for the accounts, files and property you lea
 
 Sensitive fields are encrypted before they reach the database, and exports are blocked while the vault is locked.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-list.png" alt="Asset list with type filters"><br><sub>Asset list, type filters and archived state</sub></td>
+    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-form-depth.png" alt="Asset form with depth fields expanded"><br><sub>Single-record entry with depth fields</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-detail.png" alt="Asset detail with valuation basis and beneficiary"><br><sub>Valuation basis, ownership and beneficiary details</sub></td>
+    <td width="50%"><img src="docs/assets/screenshots/0.0.34/delete-confirm.png" alt="Permanent delete confirmation for an archived asset"><br><sub>Permanent delete after archive, with confirmation</sub></td>
+  </tr>
+</table>
+
+Screens taken from the 0.0.34 browser acceptance run against an isolated demo database.
+
 ## How it works
 
 ```text

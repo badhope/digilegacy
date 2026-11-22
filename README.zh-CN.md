@@ -16,6 +16,21 @@
 
 敏感字段在写入数据库前加密；保险库锁定时，导出文件不会被下载。
 
+## 界面预览
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-list.png" alt="资产列表与类型筛选"><br><sub>资产总览：类型筛选与归档状态</sub></td>
+    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-form-depth.png" alt="展开深字段的单条资产表单"><br><sub>单条录入：基础字段与展开的深字段</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/assets/screenshots/0.0.34/asset-detail.png" alt="资产详情中的估值口径与受益人"><br><sub>资产详情：估值口径、权属与受益人</sub></td>
+    <td width="50%"><img src="docs/assets/screenshots/0.0.34/delete-confirm.png" alt="归档资产永久删除确认"><br><sub>归档后物理删除：二次确认</sub></td>
+  </tr>
+</table>
+
+截图来自 0.0.34 隔离演示库的真实浏览器验收。
+
 ## 工作方式
 
 ```text
