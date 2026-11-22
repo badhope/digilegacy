@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.0.33] - November 2026
+
+### Fixed
+
+- **Human CNY input.** `¥3,200`, `1,200,000`, `1.2万`, `50万`, `120万` and `3200元` are normalized to an integer amount before submit. `待评估` and `保额50万` stop at the form with a plain-language hint instead of waiting for the server's `资产估值必须是数字`. The server still stores an `f64`; the field is now labelled `Value (CNY)` with a format example.
+- **Currency display.** Asset lists and detail headers render `¥3,200` and `¥1,200,000` instead of bare `3200` / `1200000`. Blank valuations show `—`.
+- **Note search.** The UI promised “name, platform or note”, but SQL skipped notes. `q=学费` returned zero before the fix and one after; a Rust regression test now covers note matching.
+- **Non-account labels.** `Platform` became `Institution / platform`, with examples for a bank or a land registry, so real estate, insurance, IP and identity assets no longer read like social accounts.
+- **Duplicate kind on empty value.** The list subline no longer repeats the kind when the value is blank; mobile still shows the kind once because the type column is hidden there.
+
+### Verified
+
+- Five personas (student, illustrator, family, sole trader, retiree), 16 active assets, all 15 kinds. Every kind was also submitted through the real single-entry form and checked by API.
+- Empty name, name-only save, blank platform, blank value, archive/restore, 390 px form and list, and the 36-item batch-add catalog were exercised in Chromium. The full UX report is `docs/zh-CN/operations/UX-ASSET-ENTRY-2026-11-22.md`.
+
+### Changed
+
+- Gate: `./tools/verify.sh` exit 0; **204 Rust + 87 Web**; **48 commands / 23 tools / 65 schemas / 21 errors**; schema v18 / 32 tables; entry 83.07/84 KB, JS gzip 117.29/118 KB, CSS gzip 21.67/22 KB, total 138.96/139 KB.
+- No schema or contract shape change. `value` remains numeric; appraisal/sum-insured prose belongs in the note until a valuation-status field is designed.
+
 ## [0.0.32] - November 2026
 
 ### Added

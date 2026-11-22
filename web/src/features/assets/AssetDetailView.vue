@@ -12,7 +12,7 @@ import { useI18n } from "@/platform/i18n";
 import { formatDate } from "@/shared/format";
 import { useResource } from "@/platform/useResource";
 import AssetEditor from "./AssetEditor.vue";
-import { assetKindLabel, type AssetDraft } from "./model";
+import { assetKindLabel, formatAssetValue, type AssetDraft } from "./model";
 import { loadAsset } from "./api";
 import { platformClient } from "@/platform/client";
 
@@ -109,7 +109,11 @@ async function toggleStatus() {
     />
 
     <template v-else-if="data">
-      <PageHeader :eyebrow="`ASSET / ${data.id}`" :title="data.name" :description="data.value">
+      <PageHeader
+        :eyebrow="`ASSET / ${data.id}`"
+        :title="data.name"
+        :description="formatAssetValue(data.value, locale)"
+      >
         <template #actions>
           <AppButton v-if="!editing" variant="primary" size="sm" @click="startEdit">{{ t("assets.edit.open") }}</AppButton>
           <AppButton

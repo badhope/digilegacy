@@ -8,7 +8,7 @@ import ErrorState from "@/shared/ui/ErrorState.vue";
 import PageHeader from "@/shared/ui/PageHeader.vue";
 import AssetTabs from "./AssetTabs.vue";
 import AssetEditor from "./AssetEditor.vue";
-import { assetKindLabel, type AssetDraft } from "./model";
+import { assetKindLabel, formatAssetValue, type AssetDraft } from "./model";
 import SkeletonBlock from "@/shared/ui/SkeletonBlock.vue";
 import StatusPill from "@/shared/ui/StatusPill.vue";
 import { useI18n } from "@/platform/i18n";
@@ -209,7 +209,10 @@ async function createAsset(draft: AssetDraft) {
                   <span class="asset-glyph"><AppIcon name="assets" :size="15" /></span>
                   <span>
                     <strong>{{ asset.name }}</strong>
-                    <small>{{ asset.value || assetKindLabel(asset.kind, locale) }}</small>
+                    <small class="asset-subline">
+                      <span>{{ formatAssetValue(asset.value, locale) || "—" }}</span>
+                      <span class="asset-subline-kind">{{ assetKindLabel(asset.kind, locale) }}</span>
+                    </small>
                   </span>
                 </div>
               </td>
@@ -427,8 +430,13 @@ async function createAsset(draft: AssetDraft) {
   font-weight: 600;
 }
 
+.asset-subline-kind {
+  display: none;
+}
+
 .asset-name small {
-  display: block;
+  display: flex;
+  gap: 6px;
   max-width: 340px;
   margin-top: 2px;
   overflow: hidden;
@@ -491,6 +499,10 @@ async function createAsset(draft: AssetDraft) {
   .asset-table th:nth-child(5),
   .asset-table td:nth-child(5) {
     display: none;
+  }
+
+  .asset-subline-kind {
+    display: inline;
   }
 }
 .load-more {

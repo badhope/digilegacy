@@ -165,3 +165,13 @@ The detailed Chinese verification record keeps the historical evidence for each 
 - Gate: `./tools/verify.sh` exit 0; **203 Rust + 85 Web**; **48 commands / 23 tools / 65 schemas / 21 errors**; schema v18 / 32 tables; entry 82.70/83 KB, JS gzip 116.74/117 KB, CSS gzip 21.66/22 KB, total 138.39/139 KB.
 - Live Chromium: 18/18 routes, 0 axe violations, no page errors, no 390 px overflow. Evidence: `docs/operations/measurements/live-browser-0.0.32-2026-11-22.json`.
 - Archive: `packages/digilegacy-0.0.32-linux-x86_64.tar.gz`; the sidecar `.sha256` is authoritative. Clean-host drill 12/12 PASS; evidence `docs/operations/measurements/install-0.0.32-2026-11-22.json`.
+
+## 0.0.33 asset entry UX fixes
+
+- Human CNY values are normalized before submit (`¥3,200`, `1,200,000`, `1.2万`, `50万`, `120万`, `3200元`). Non-numeric appraisal prose stops in the form with a specific hint; the API still receives a number. Lists and detail headers render `¥3,200` / `¥1,200,000`, with `—` for a blank value.
+- Asset search now matches notes as the placeholder already promised. Before the fix `q=学费` returned 0 rows; after the fix it returns the student bank asset. A Rust regression test covers the note path.
+- Five personas, 16 active assets and all 15 kinds were exercised on an isolated database. Every kind was additionally submitted through the real single-entry form and verified through `assets.list`; 390 px form/list and the 36-item batch catalog were checked in Chromium. Evidence: `docs/operations/measurements/ux-asset-entry-0.0.33-2026-11-22.json`; report: `docs/zh-CN/operations/UX-ASSET-ENTRY-2026-11-22.md`.
+- Gate: `./tools/verify.sh` exit 0; **204 Rust + 87 Web**; **48 commands / 23 tools / 65 schemas / 21 errors**; schema v18 / 32 tables; entry 83.07/84 KB, JS gzip 117.29/118 KB, CSS gzip 21.67/22 KB, total gzip 138.96/139 KB.
+- Live Chromium: 18/18 routes, 0 axe violations, no page errors, no horizontal overflow. Evidence: `docs/operations/measurements/live-browser-0.0.33-2026-11-22.json`; screenshots in `screenshots-0.0.33/`.
+- Archive: `packages/digilegacy-0.0.33-linux-x86_64.tar.gz`, 18,713,138 bytes, SHA256 `3c388e8a5d731967c1f92dd39bcaf596a03c39a23eb5d47761e1549b5be46f32`; the sidecar `.sha256` is authoritative. Clean-host drill 12/12 PASS; evidence `docs/operations/measurements/install-0.0.33-2026-11-22.json`.
+- Boundary: `value` stays numeric; appraisal and sum-insured prose go to the note. The asset list still lacks a kind filter, the single form still lacks save-and-continue, and deep fields (account identifier, ownership share, beneficiary, credential location, expiry, quantity/unit) are not exposed in this release.

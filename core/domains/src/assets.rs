@@ -206,6 +206,7 @@ pub fn list(store: &Store, input: &ListInput) -> Result<AssetPage, DomainError> 
                  WHERE (?1 = 'all' OR a.status = ?1)
                    AND (?2 = '' OR coalesce(a.account_description,'') LIKE '%' || ?2 || '%'
                         OR coalesce(a.account_identifier,'') LIKE '%' || ?2 || '%'
+                        OR coalesce(a.notes,'') LIKE '%' || ?2 || '%'
                         OR coalesce(p.name,'') LIKE '%' || ?2 || '%')",
                 params![status, q],
                 |r| r.get(0),
@@ -225,6 +226,7 @@ pub fn list(store: &Store, input: &ListInput) -> Result<AssetPage, DomainError> 
                  WHERE (?1 = 'all' OR a.status = ?1)
                    AND (?2 = '' OR coalesce(a.account_description,'') LIKE '%' || ?2 || '%'
                         OR coalesce(a.account_identifier,'') LIKE '%' || ?2 || '%'
+                        OR coalesce(a.notes,'') LIKE '%' || ?2 || '%'
                         OR coalesce(p.name,'') LIKE '%' || ?2 || '%')
                  ORDER BY a.created_at DESC, a.id DESC
                  LIMIT ?3 OFFSET ?4",
@@ -494,6 +496,18 @@ mod tests {
         .unwrap();
         assert_eq!(page.total, 1);
         assert_eq!(page.items[0].platform, "示例邮箱");
+
+        let note_page = list(
+            &store,
+            &ListInput {
+                cursor: None,
+                limit: Some(10),
+                status: None,
+                q: Some("留给家人".to_string()),
+            },
+        )
+        .unwrap();
+        assert_eq!(note_page.total, 1);
 
         let fetched = get(&store, &created.id).unwrap();
         assert_eq!(fetched.note, "留给家人");

@@ -1,0 +1,114 @@
+{
+  "version": "0.0.33",
+  "date": "2026-11-22",
+  "environment": "isolated test database /tmp/dg-ux-test.db; API 127.0.0.1:8787; Chromium 1920x993 and CDP 390x844",
+  "real_database_touched": false,
+  "personas": [
+    {
+      "id": "student",
+      "label": "大三学生",
+      "assets": [
+        "招商银行助学金卡",
+        "校园邮箱与云盘",
+        "Steam 游戏库存"
+      ]
+    },
+    {
+      "id": "illustrator",
+      "label": "自由插画师",
+      "assets": [
+        "原创插画版权包",
+        "凤凰知音里程",
+        "个人作品集域名"
+      ]
+    },
+    {
+      "id": "family",
+      "label": "中年家庭",
+      "assets": [
+        "潮州自住房",
+        "家庭用车",
+        "定期寿险保单",
+        "字画与金条"
+      ]
+    },
+    {
+      "id": "merchant",
+      "label": "个体商户",
+      "assets": [
+        "个体户营业执照",
+        "社保卡与职业资格"
+      ]
+    },
+    {
+      "id": "retiree",
+      "label": "退休老人",
+      "assets": [
+        "家庭照片与证件扫描",
+        "家庭 NAS 与旧笔记本",
+        "云盘与视频会员",
+        "宠物照护安排"
+      ]
+    }
+  ],
+  "active_assets": 16,
+  "kinds_covered": 15,
+  "form_submissions_per_kind": 15,
+  "checks": {
+    "empty_name_inline": "PASS",
+    "name_only_save": "PASS",
+    "blank_platform_becomes_uncategorized": "PASS",
+    "blank_value": "PASS",
+    "human_cny_normalization": "PASS: ¥3,200 / 1.2万 / 50万 / 120万 / 3200元",
+    "non_numeric_value_inline": "PASS: 待评估 and 保额50万 blocked in form",
+    "currency_display": "PASS: ¥3,200 / ¥1,200,000; blank shows —",
+    "note_search": "PASS: q=学费 returned 0 before, 1 after",
+    "grouped_kind_select": "PASS: 11 optgroups / 15 options",
+    "archive_restore": "PASS",
+    "mobile_390": "PASS: single-column form, no horizontal overflow",
+    "batch_add_catalog": "PASS: 36 suggestions in 8 groups"
+  },
+  "fixed": [
+    "valuation_normalization",
+    "currency_display",
+    "note_search_sql",
+    "institution_platform_label",
+    "empty_value_duplicate_kind"
+  ],
+  "remaining_gaps": [
+    "no kind filter on asset list",
+    "no save-and-continue in single-entry form",
+    "closing the form or navigating to settings discards the draft without warning",
+    "only five fields; account identifier, ownership share, beneficiary, credential location, expiry and quantity/unit are not exposed",
+    "no valuation-status field; appraisal and sum-insured prose must go to note",
+    "no hard delete; archive only"
+  ],
+  "gate": {
+    "rust_tests": 204,
+    "web_tests": 87,
+    "commands": 48,
+    "tools": 23,
+    "schemas": 65,
+    "errors": 21,
+    "schema_version": 18,
+    "tables": 32,
+    "js_gzip_kb": 117.29,
+    "js_budget_kb": 118,
+    "css_gzip_kb": 21.67,
+    "css_budget_kb": 22,
+    "total_gzip_kb": 138.96,
+    "total_budget_kb": 139
+  },
+  "report": "docs/zh-CN/operations/UX-ASSET-ENTRY-2026-11-22.md",
+  "archive": {
+    "name": "digilegacy-0.0.33-linux-x86_64.tar.gz",
+    "bytes": 18713138,
+    "sha256": "3c388e8a5d731967c1f92dd39bcaf596a03c39a23eb5d47761e1549b5be46f32"
+  },
+  "live_browser": {
+    "routes": 18,
+    "axe": 0,
+    "failures": 0,
+    "evidence": "docs/operations/measurements/live-browser-0.0.33-2026-11-22.json"
+  }
+}

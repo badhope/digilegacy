@@ -57,6 +57,45 @@ const GROUP_LABELS: Record<string, { zh: string; en: string }> = {
   "asset.group.other": { zh: "其他", en: "Other" },
 };
 
+
+/** Normalize human-typed valuations (CNY, thousands separators and 万/亿 units). */
+export function normalizeValuation(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  let text = trimmed.replace(/[¥￥,，\s]/g, "").replace(/^约/, "").replace(/元$/, "");
+  let factor = 1;
+  if (text.endsWith("万元")) {
+    text = text.slice(0, -2);
+    factor = 10_000;
+  } else if (text.endsWith("万")) {
+    text = text.slice(0, -1);
+    factor = 10_000;
+  } else if (text.endsWith("亿")) {
+    text = text.slice(0, -1);
+    factor = 100_000_000;
+  }
+  const parsed = Number(text);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  const scaled = parsed * factor;
+  if (!Number.isFinite(scaled)) return null;
+  return Number.isInteger(scaled) ? String(scaled) : String(Number(scaled.toFixed(2)));
+}
+
+/** Format a stored CNY value for display without exposing raw floats. */
+export function formatAssetValue(raw: string, locale = "zh-CN"): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return trimmed;
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "CNY",
+    currencyDisplay: "narrowSymbol",
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  }).format(parsed);
+}
+
 export const ASSET_KIND_GROUPS: AssetKindGroup[] = [
   { label: "asset.group.finance", kinds: ["financial"] },
   { label: "asset.group.property", kinds: ["real_estate", "vehicle"] },

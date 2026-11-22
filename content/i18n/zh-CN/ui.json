@@ -75,7 +75,7 @@
   "assets.empty": "还没有资产",
   "assets.table.name": "资产",
   "assets.table.kind": "类型",
-  "assets.table.platform": "平台",
+  "assets.table.platform": "机构/平台",
   "assets.table.status": "状态",
   "assets.table.updated": "最近更新",
   "assets.count": "共 {count} 项",
@@ -238,9 +238,9 @@
   "assets.create.nameRequired": "先填资产名称",
   "assets.create.tokenRequired": "缺少平台写令牌：先到“设置 → 安全与数据”配置 DIGILEGACY_API_TOKEN。",
   "assets.create.namePlaceholder": "例如：支付宝余额",
-  "assets.create.platformPlaceholder": "例如：支付宝",
-  "assets.create.value": "估值",
-  "assets.create.valuePlaceholder": "可选，数字",
+  "assets.create.platformPlaceholder": "例如：招商银行 / 不动产登记中心",
+  "assets.create.value": "估值（元）",
+  "assets.create.valuePlaceholder": "可选，数字，如 3200；50万也可",
   "assets.create.note": "备注",
   "assets.create.notePlaceholder": "可选",
   "assets.create.save": "保存资产",
@@ -464,5 +464,6 @@
   "planning.heirs.email": "邮箱",
   "planning.heirs.phone": "电话",
   "planning.heirs.emailMissing": "未填邮箱，无法接收最终通知",
-  "settings.tab.harness": "Agent Harness"
+  "settings.tab.harness": "Agent Harness",
+  "assets.create.valueInvalid": "估值只填数字（元），可用 3200 或 50万；待评估、保额说明请写备注"
 }

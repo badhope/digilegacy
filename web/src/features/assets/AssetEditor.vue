@@ -3,7 +3,7 @@ import { ref } from "vue";
 import AppButton from "@/shared/ui/AppButton.vue";
 import { useI18n } from "@/platform/i18n";
 import type { Asset } from "@/platform/types";
-import { ASSET_KIND_GROUPS, assetGroupLabel, assetKindLabel, draftFromAsset, type AssetDraft } from "./model";
+import { ASSET_KIND_GROUPS, assetGroupLabel, assetKindLabel, draftFromAsset, normalizeValuation, type AssetDraft } from "./model";
 
 const props = withDefaults(
   defineProps<{
@@ -24,12 +24,17 @@ function submit() {
     localError.value = t("assets.create.nameRequired");
     return;
   }
+  const value = normalizeValuation(draft.value.value);
+  if (value === null) {
+    localError.value = t("assets.create.valueInvalid");
+    return;
+  }
   localError.value = "";
   emit("submit", {
     ...draft.value,
     name: draft.value.name.trim(),
     platform: draft.value.platform.trim(),
-    value: draft.value.value.trim(),
+    value,
     note: draft.value.note.trim(),
   });
 }

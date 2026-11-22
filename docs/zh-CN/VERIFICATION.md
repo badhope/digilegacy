@@ -781,3 +781,13 @@ M0 可以判定“工程壳完成”的条件：
 - 验收：`./tools/verify.sh` exit 0；**203 Rust + 85 Web**；契约 **48 命令 / 23 工具 / 65 schema / 21 错误码**；schema v18 / 32 表；入口 82.70/83 KB，JS gzip 116.74/117 KB，CSS gzip 21.66/22 KB，总 gzip 138.39/139 KB。
 - 真实 Chromium：18/18 路由，axe 0，无页面异常、无 390px 横向溢出；证据 `docs/operations/measurements/live-browser-0.0.32-2026-11-22.json`。
 - 发布包：`packages/digilegacy-0.0.32-linux-x86_64.tar.gz`；校验值以同名 `.sha256` 为准。干净机演练 12/12 PASS，证据 `docs/operations/measurements/install-0.0.32-2026-11-22.json`。
+
+### 0.0.33 资产录入 UX 修复（2026-11-22）
+
+- 常见人民币写法在提交前归一化：`¥3,200`、`1,200,000`、`1.2万`、`50万`、`120万`、`3200元`；`待评估`、`保额50万` 在表单内被挡住并给出明确提示，API 仍只收数字。列表与详情显示 `¥3,200` / `¥1,200,000`，空值显示 `—`。
+- 资产搜索补上备注匹配，和界面 placeholder 一致。修复前 `q=学费` 返回 0 条，修复后命中学生银行卡；Rust 增加回归用例。
+- 隔离库上跑完五位用户、16 条在用资产、15 类资产；15 类另经真实单条表单逐类提交并用 `assets.list` 复核；390px 表单/列表与 36 条批量建议在 Chromium 中走通。证据 `docs/operations/measurements/ux-asset-entry-0.0.33-2026-11-22.json`，报告 `docs/zh-CN/operations/UX-ASSET-ENTRY-2026-11-22.md`。
+- 验收：`./tools/verify.sh` exit 0；**204 Rust + 87 Web**；契约 **48 命令 / 23 工具 / 65 schema / 21 错误码**；schema v18 / 32 表；入口 83.07/84 KB，JS gzip 117.29/118 KB，CSS gzip 21.67/22 KB，总 gzip 138.96/139 KB。
+- 真实 Chromium：18/18 路由，axe 0，无页面异常、无横向溢出；证据 `docs/operations/measurements/live-browser-0.0.33-2026-11-22.json`，截图 `screenshots-0.0.33/`。
+- 发布包：`packages/digilegacy-0.0.33-linux-x86_64.tar.gz`，18,713,138 字节，SHA256 `3c388e8a5d731967c1f92dd39bcaf596a03c39a23eb5d47761e1549b5be46f32`；校验值以同名 `.sha256` 为准。干净机演练 12/12 PASS，证据 `docs/operations/measurements/install-0.0.33-2026-11-22.json`。
+- 边界：`value` 仍是数字，评估价/保额说明继续放备注。资产列表仍无类型筛选，单条表单仍无“保存并继续”，账号标识、权属份额、受益人、凭证位置、到期日、数量/单位等深度字段本版仍未暴露。

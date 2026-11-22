@@ -75,7 +75,7 @@
   "assets.empty": "No assets yet",
   "assets.table.name": "Asset",
   "assets.table.kind": "Kind",
-  "assets.table.platform": "Platform",
+  "assets.table.platform": "Institution / platform",
   "assets.table.status": "Status",
   "assets.table.updated": "Updated",
   "assets.count": "{count} items",
@@ -238,9 +238,9 @@
   "assets.create.nameRequired": "Enter an asset name",
   "assets.create.tokenRequired": "Missing platform write token: configure DIGILEGACY_API_TOKEN in Settings → Security & data.",
   "assets.create.namePlaceholder": "e.g. Alipay balance",
-  "assets.create.platformPlaceholder": "e.g. Alipay",
-  "assets.create.value": "Value",
-  "assets.create.valuePlaceholder": "Optional number",
+  "assets.create.platformPlaceholder": "e.g. bank / land registry",
+  "assets.create.value": "Value (CNY)",
+  "assets.create.valuePlaceholder": "Optional number, e.g. 3200 or 500000",
   "assets.create.note": "Note",
   "assets.create.notePlaceholder": "Optional",
   "assets.create.save": "Save asset",
@@ -464,5 +464,6 @@
   "planning.heirs.email": "Email",
   "planning.heirs.phone": "Phone",
   "planning.heirs.emailMissing": "No email; final notice cannot be delivered",
-  "settings.tab.harness": "Agent Harness"
+  "settings.tab.harness": "Agent Harness",
+  "assets.create.valueInvalid": "Value must be a number in CNY; use 3200 or 500000. Put appraisal or sum-insured notes in Note."
 }
